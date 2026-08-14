@@ -185,8 +185,7 @@ build slices, not tasks.**
 ## The critical-interrupt set — the ONLY things that pause the run
 
 Resolve everything else autonomously. Pause and surface to the owner ONLY when:
-1. A load-bearing premise is **FALSIFIED** by a spike or the tracer (resolver-perf
-   class) — proceeding would waste real effort. *(A spike that PASSES never interrupts.)*
+1. A load-bearing premise is **FALSIFIED** by a spike or the tracer — proceeding would waste real effort. *(A spike that PASSES never interrupts.)*
 2. A **one-way-door** (irreversible) decision arises that Phase 1 did not pre-decide
    (Art. 5 + the door test).
 3. A **product decision** (threshold / acceptance / user-visible behavior) arises that
