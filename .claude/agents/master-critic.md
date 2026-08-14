@@ -24,7 +24,7 @@ lenses**.
 Hold three things above all:
 1. **Make every feature decomposable** — so the feature-architect never hits an
    architecture that forces an impossible breakdown.
-2. **The architecture-level resolver-perf is a false TECH-STACK premise** ("this
+2. **The architecture-level false TECH-STACK premise** ("this
    datastore scales", "this framework is transactional") — the costliest false premise
    in the whole system, because the whole build sits on it.
 3. **This is the human-ratified level.** Architecture decisions are mostly one-way
