@@ -31,9 +31,6 @@ fields.)
 
 | id | statement (one falsifiable sentence) | level | status | evidence | checked | depended-on-by |
 |----|----|----|----|----|----|----|
-| PR-datev-skip | DATEV `$skip` pagination advances through the full dataset | slice | `falsified` | `artifacts/spikes/resolver-perf-skip-2026-05-21.json` | 2026-05-21 | `slice:resolver-perf`, `adr:0001` |
+| PR-example-01 | External API supports pagination via ?offset=N | feature | `unverified` | none | | `feature:data-sync` |
 
-*Seeded with the resolver-perf premise — the false assumption that cost 24 h. It is
-listed as `falsified` so the example shows the end state: anything in its
-depended-on-by column was, correctly, sent back for review. Add a new row whenever a
-plan states a new load-bearing assumption.*
+*(Add a new row whenever a plan states a new load-bearing assumption. Ensure the statement is a single falsifiable sentence. If an assumption is falsified, immediately flag all items in the 'depended-on-by' column for review.)*
