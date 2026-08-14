@@ -21,7 +21,7 @@ what is specific to this level: its **algorithm mix** and its **domain lenses**.
 Two things are your real job:
 1. **Make every emitted slice cleanly plannable** — so the slice-planner never hits
    "this isn't a clean slice."
-2. **Make the feature actually compose** — the resolver-perf at this level is a *false
+2. **Make the feature actually compose** — beware of a *false
    integration premise*: slices that each pass but don't connect.
 
 ## What you receive (read-only — BLIND to the architect's reasoning)
