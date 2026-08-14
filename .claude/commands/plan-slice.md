@@ -69,8 +69,7 @@ captures an output file; the contract's "Premise verified" section references it
 (`CRITIC_PREMISE_PROBE_REQUIRED`) returns HERE — re-run only 1c for the new
 premise, then resume the phase that fired it. Do not re-litigate 1a/1b.
 
-This gate exists because the resolver-perf slice burned 24+ hours on a false
-`$skip` pagination premise a 15-minute spike would have caught.
+This gate exists because unverified external premises often burn hours of effort that a 15-minute spike would have caught.
 
 ---
 
@@ -191,9 +190,7 @@ Use `Write` to create `.claude/overseer/slice/$ARGUMENTS.md` with this structure
 - **Seam 1: [name]** — test approach: [concrete; names the anti-pattern it rules out]
 
 ## Exit criterion
-[specific observable — named test(s) + the scripts/smoke_test_<slug>.py
-real-environment assertion that closes the slice (slice-builder requires a passing
-smoke); threshold owner-ratified if present]
+[specific observable — named test(s) + the real-environment smoke test script that closes the slice (slice-builder requires a passing smoke); threshold owner-ratified if present]
 
 ## Deferred to later slices
 - [item] — why later: [reason] — revisit trigger: [metric/ticket/date]
