@@ -31,6 +31,7 @@
       "Bash(chmod 777 *)",
       "Bash(chmod -R 777 *)",
       "Bash(chown -R *)",
+      "Bash(git commit*)",
       "Bash(git push --force*)",
       "Bash(git push -f *)",
       "Bash(git push --force-with-lease *)",
@@ -112,9 +113,6 @@
     "ask": [
       "Bash(git push:*)",
       "Bash(git push)",
-      "Bash(git commit:*)",
-      "Bash(git commit)",
-      "Bash(git commit --amend:*)",
       "Bash(git rebase:*)",
       "Bash(git merge:*)",
       "Bash(git cherry-pick:*)",
@@ -139,13 +137,13 @@
       "Bash(gh release:*)",
       "Bash(gh repo create:*)",
       "Bash(gh repo delete:*)",
-      "Bash(alembic upgrade:*)",
-      "Bash(alembic downgrade:*)",
-      "Bash(alembic revision:*)",
-      "Bash(python manage.py migrate:*)",
-      "Bash(python manage.py makemigrations:*)",
-      "Bash(uv run python manage.py migrate:*)",
-      "Bash(uv run python manage.py makemigrations:*)"
+      "Bash(cargo add:*)",
+      "Bash(cargo remove:*)",
+      "Bash(go get:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(gem install:*)",
+      "Bash(bundle add:*)",
+      "Bash(bundle remove:*)"
     ],
     "allow": [
       "Bash",
@@ -248,11 +246,10 @@
     ]
   },
   "env": {
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-4-6",
-    "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "30",
-    "PYTHONPYCACHEPREFIX": ".cache/pycache"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5",
+    "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "30"
   }
 }

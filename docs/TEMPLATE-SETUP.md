@@ -103,7 +103,47 @@ CODE_EXTENSIONS="py ts tsx"
 
 ---
 
-## Step 3 — Write your `CLAUDE.md`
+## Step 3 — Tailor `.claude/settings.json` and copy env overrides (optional)
+
+`.claude/settings.json`'s `ask` list ships with a neutral cross-language default:
+git/gh/docker operations, plus the "add/remove a dependency" command for six
+package managers (`uv`, `poetry`, `pip`, `pipx`, `npm`, `yarn`, `pnpm`, `cargo`,
+`go`, `gem`, `bundle`). You don't have to edit this — unused entries are inert,
+they only prompt if you actually run that command. Trim it if you want a
+shorter approval list:
+
+| Your stack | Safe to remove from `ask` |
+|---|---|
+| Python only | `cargo add/remove`, `go get/mod tidy`, `gem install`, `bundle add/remove` |
+| JS/TS only | all `uv/poetry/pip/pipx`, `cargo`, `go`, `gem`, `bundle` entries |
+| Go only | all `uv/poetry/pip/pipx`, `npm/yarn/pnpm`, `cargo`, `gem/bundle` entries |
+| Rust only | all `uv/poetry/pip/pipx`, `npm/yarn/pnpm`, `go`, `gem/bundle` entries |
+
+Also copy the local-machine env override template:
+
+```bash
+cp /path/to/your-project/.claude/settings.local.json.example \
+   /path/to/your-project/.claude/settings.local.json
+```
+
+Open it and keep only the section for your language (e.g. `_python` for
+`PYTHONPYCACHEPREFIX`), moving its `env` block up to a real top-level `"env"`
+key — the `_python`/`_javascript`/`_rust` wrapper keys are inert labels, not
+real settings. Example for a Python project:
+
+```json
+{
+  "env": {
+    "PYTHONPYCACHEPREFIX": ".cache/pycache"
+  }
+}
+```
+
+`settings.local.json` is gitignored — it never leaves this machine.
+
+---
+
+## Step 4 — Write your `CLAUDE.md`
 
 `CLAUDE.md` at the repo root is the standing policy every agent reads. The template
 ships with a generic version. Update it with:
@@ -117,7 +157,7 @@ The format is already established — follow the existing structure.
 
 ---
 
-## Step 4 — Write your `AGENTS.md`
+## Step 5 — Write your `AGENTS.md`
 
 `AGENTS.md` is loaded via `@AGENTS.md` at the start of every conversation. Minimal:
 
@@ -138,7 +178,7 @@ Slice flow: master-architect → slice-builder → overseer.
 
 ---
 
-## Step 5 — Smoke-test the hooks
+## Step 6 — Smoke-test the hooks
 
 Run these in the project root to confirm the hooks are wired correctly:
 
@@ -151,7 +191,9 @@ python3 .claude/hooks/overseer_stop.py --dry-run <<< '{}'
 #    tools aren't installed globally — it means config was read correctly.
 echo '{"stop_hook_active":false}' | bash .claude/hooks/verify-on-stop.sh; echo "exit: $?"
 
-# 3. Block-dangerous — must exit non-zero (or print a block decision) for 'git commit'
+# 3. Block-dangerous — must exit non-zero (or print a block decision) for 'git commit'.
+#    This tests the hook directly; in a live session `git commit` is also
+#    hard-denied in settings.json's permissions.deny before the hook even runs.
 echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m test"}}' \
   | bash .claude/hooks/block-dangerous.sh; echo "exit: $?"
 ```
@@ -162,7 +204,7 @@ files are tracked yet).
 
 ---
 
-## Step 6 — First session orientation
+## Step 7 — First session orientation
 
 Start Claude Code in the project root. In the first message, say:
 
@@ -178,10 +220,11 @@ This forces the agent to load the policy and map before doing anything else.
 | Skipped step | Consequence |
 |---|---|
 | Step 2 (project.env) | File ships with `SOURCE_DIRS="src"` and `CODE_EXTENSIONS="py"` pre-filled — overseer triggers on `src/` edits, verify-on-stop runs Python auto-detect. Non-Python stacks work if their check commands are in the built-in broad set (`npm jest vitest go cargo swift`); verification silently skips if no `pyproject.toml` found |
-| Step 3 (CLAUDE.md) | Agents use the generic template policy — safe but not project-aware |
-| Step 4 (AGENTS.md) | Agents lack project context; slice-planner-critic may misfire on scope |
-| Step 5 (smoke test) | You discover broken hooks in production, not during setup |
-| Step 6 (orientation) | Agent starts with no context; first actions may be off-target |
+| Step 3 (settings.json / settings.local.json) | `ask` list stays broader than necessary (harmless, just extra prompts); no PYTHONPYCACHEPREFIX / CARGO_TARGET_DIR override — build caches may land inside tracked dirs |
+| Step 4 (CLAUDE.md) | Agents use the generic template policy — safe but not project-aware |
+| Step 5 (AGENTS.md) | Agents lack project context; slice-planner-critic may misfire on scope |
+| Step 6 (smoke test) | You discover broken hooks in production, not during setup |
+| Step 7 (orientation) | Agent starts with no context; first actions may be off-target |
 
 ---
 
@@ -204,6 +247,7 @@ This forces the agent to load the policy and map before doing anything else.
   references/     — reference materials for agents (ADR format, C4, etc.)
   README.md       — agentic system map (read this before adding a new agent)
   settings.json   — hook wiring and permissions
+  settings.local.json.example — ← copy to settings.local.json, trim to your stack (Step 3)
   constitution.md — load-bearing rules every agent must follow
 
 CLAUDE.md         — standing policy (every agent reads this)
