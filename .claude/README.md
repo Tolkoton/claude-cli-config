@@ -27,7 +27,7 @@ four cooperating layers:
 | Layer | What it does | Lives in |
 |---|---|---|
 | **Design** | Turns intent into a task/slice plan | `.claude/architecture/`, `.claude/overseer/slice/` |
-| **Build** | Writes code + tests under TDD | `src/`, `tests/`, `scripts/` |
+| **Build** | Writes code + tests under TDD | source dirs, `tests/`, `scripts/` |
 | **Enforce** | Hooks + overseer keep discipline | `.claude/hooks/`, `.claude/overseer/` |
 | **Remember** | Distils lessons across sessions | `PROGRESS.md`, memory files, `.claude/lesson-queue.md` |
 
@@ -119,7 +119,7 @@ flowchart TD
   PS["/plan-slice"] -->|writes| SC[".claude/overseer/slice/&lt;slug&gt;.md"]
   SC --> SB[slice-builder / developer]
   ARCH --> SB
-  SB -->|writes| CODE["src/ + tests/ + scripts/smoke_*"]
+  SB -->|writes| CODE["&lt;source-dirs&gt; + tests/ + scripts/smoke_*"]
   SB -->|appends| PROG[PROGRESS.md]
   CODE --> STOP{{Stop hooks}}
   STOP --> VOS[verify-on-stop.sh]

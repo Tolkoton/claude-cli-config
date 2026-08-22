@@ -19,8 +19,10 @@ Stop fires.
 
 TRIGGER — both signals required:
   1. text sentinel: `=== UNIT N COMPLETE ===` on its own line in the message.
-  2. tool signal:   in the current turn, an Edit/Write/MultiEdit on a `src/`
-                    path AND a Bash command matching pytest|ruff|mypy.
+  2. tool signal:   in the current turn, an Edit/Write/MultiEdit on a code
+                    path (configured via SOURCE_DIRS / CODE_EXTENSIONS in
+                    .claude/project.env) AND a Bash verification command
+                    (configured via CHECK_CMDS, or built-in broad default).
 
 RECURSION GUARDS — per-branch, by design:
   - Audit-request branch    — `.claude/overseer/.last_audit_sha` SHA of last message
@@ -56,6 +58,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import NoReturn
@@ -74,14 +77,135 @@ PASS_MARKER_RE = re.compile(r"OVERSEER_PASS\b")
 OVERSEER_MARKER_RE = re.compile(
     r"OVERSEER_(?:PASS|BLOCK|ESCALATE|ADR_REQUIRED|SLICE_AWAITING_OWNER|SLICE_COMPLETE)"
 )
-# A test / lint / type Bash command — one half of the tool signal.
-CHECK_CMD_RE = re.compile(r"\b(?:pytest|ruff|mypy)\b")
 # File-mutating tools — the other half of the tool signal.
 EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit"})
 
+# Built-in broad default: covers Python, JS/TS, Go, Rust, Swift stacks.
+_DEFAULT_CHECK_CMDS = "pytest ruff mypy npm jest vitest go cargo swift"
+
+
+def _get_project_dir() -> Path:
+    """Resolve the project root: CLAUDE_PROJECT_DIR → git → CWD.
+    Never returns a relative path — always .resolve()d."""
+    env_val = os.environ.get("CLAUDE_PROJECT_DIR", "").strip()
+    if env_val:
+        return Path(env_val).resolve()
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return Path(result.stdout.strip()).resolve()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return Path(".").resolve()
+
+
+def _load_project_env(project_dir: Path) -> dict[str, str]:
+    """Parse .claude/project.env as KEY="value" or KEY=value lines.
+    Prints a stderr warning when the file is absent; returns {} on any error."""
+    env_path = project_dir / ".claude" / "project.env"
+    result: dict[str, str] = {}
+    try:
+        text = env_path.read_text(encoding="utf-8")
+    except OSError:
+        print(
+            f"⚠ overseer_stop: .claude/project.env not found at {env_path} — "
+            "using built-in defaults. See docs/TEMPLATE-SETUP.md.",
+            file=sys.stderr,
+        )
+        return result
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, raw = line.partition("=")
+        key = key.strip()
+        # Strip surrounding quotes (single or double).
+        value = raw.strip().strip('"').strip("'")
+        if key:
+            result[key] = value
+    return result
+
+
+def _build_check_cmd_re(cfg: dict[str, str]) -> re.Pattern[str]:
+    """Build the check-command regex from project config.
+    Falls back to the built-in broad default when CHECK_CMDS is empty."""
+    raw = cfg.get("CHECK_CMDS", "").strip()
+    names = raw.split() if raw else _DEFAULT_CHECK_CMDS.split()
+    pattern = "|".join(re.escape(n) for n in names)
+    return re.compile(rf"\b(?:{pattern})\b")
+
+
+def _build_source_dirs(cfg: dict[str, str]) -> list[str]:
+    """Return the configured source dirs, normalized with trailing slash.
+    Empty list means "match any directory" (use CODE_EXTENSIONS fallback)."""
+    raw = cfg.get("SOURCE_DIRS", "").strip()
+    if not raw:
+        return []
+    dirs = []
+    for d in raw.split():
+        d = d.rstrip("/") + "/"
+        dirs.append(d)
+    return dirs
+
+
+def _build_code_extensions(cfg: dict[str, str]) -> frozenset[str]:
+    """Return the set of code file extensions (without dot).
+    Empty set means "match all files"."""
+    raw = cfg.get("CODE_EXTENSIONS", "").strip()
+    if not raw:
+        return frozenset()
+    return frozenset(ext.lstrip(".").lower() for ext in raw.split())
+
+
+def _is_code_path(
+    file_path: str,
+    source_dirs: list[str],
+    code_extensions: frozenset[str],
+) -> bool:
+    """True if the path counts as a code edit for the overseer trigger.
+
+    Decision tree:
+    1. If source_dirs is configured: path must start with one of them.
+    2. If source_dirs is empty: path must match code_extensions (if configured).
+    3. If both are empty: any edit counts.
+    """
+    normalized = file_path.replace("\\", "/")
+    # Ensure it doesn't start with / for relative comparison
+    rel = normalized.lstrip("/")
+
+    if source_dirs:
+        # Check both absolute (/home/.../src/foo.py) and relative (src/foo.py)
+        for d in source_dirs:
+            if rel.startswith(d) or ("/" + d) in ("/" + normalized):
+                # Match relative form or embedded form (/src/)
+                if rel.startswith(d):
+                    return True
+                # Also match absolute paths containing the dir segment
+                parts = normalized.split("/")
+                dir_name = d.rstrip("/")
+                if dir_name in parts:
+                    idx = len(parts) - 1 - list(reversed(parts)).index(dir_name)
+                    # Ensure it's a directory, not just a substring
+                    if idx < len(parts) - 1:
+                        return True
+        return False
+
+    if code_extensions:
+        suffix = Path(normalized).suffix.lstrip(".").lower()
+        return suffix in code_extensions
+
+    # No constraints configured — any edit counts.
+    return True
+
+
 CONTINUE_REASON = (
     "OVERSEER_PASS recorded. Proceed with the next unit per the active slice plan in .claude/overseer/slice/. "
-    "Do the next pending UNIT's work (src/ edits + pytest/ruff/mypy), then emit `=== UNIT N COMPLETE ===` on its own line. "
+    "Do the next pending UNIT's work (code edits + verification commands), then emit `=== UNIT N COMPLETE ===` on its own line. "
     "If the slice has no more code units (only smoke / G4 owner-driven steps remain), or if you are uncertain what UNIT N is, "
     "emit `OVERSEER_SLICE_AWAITING_OWNER: <reason>` on its own line to halt and request owner input. "
     "If the slice's last code unit is complete and smoke / G4 are next, emit `OVERSEER_SLICE_AWAITING_OWNER: smoke and G4 are owner-driven; awaiting owner walkthrough.`"
@@ -145,16 +269,14 @@ def _is_turn_boundary(record: dict[str, object]) -> bool:
     return isinstance(message.get("content"), str)
 
 
-def _is_src_path(file_path: str) -> bool:
-    """True if the path points inside a `src/` directory — absolute or
-    relative. `/home/x/proj/src/foo.py` and `src/foo.py` both match."""
-    normalized = file_path.replace("\\", "/")
-    return normalized.startswith("src/") or "/src/" in normalized
-
-
-def _has_tool_signal(transcript_path: str) -> bool:
-    """True if the current turn contains BOTH an Edit/Write/MultiEdit on a
-    `src/` path AND a Bash pytest/ruff/mypy command.
+def _has_tool_signal(
+    transcript_path: str,
+    source_dirs: list[str],
+    code_extensions: frozenset[str],
+    check_cmd_re: re.Pattern[str],
+) -> bool:
+    """True if the current turn contains BOTH a code-file Edit/Write/MultiEdit
+    AND a Bash verification command, as configured in .claude/project.env.
 
     The transcript is walked in reverse; the current turn is the run of records
     after the most recent genuine user message. Claude Code writes one content
@@ -170,7 +292,7 @@ def _has_tool_signal(transcript_path: str) -> bool:
     except OSError:
         return False
 
-    saw_src_edit = False
+    saw_code_edit = False
     saw_check_cmd = False
     for raw_line in reversed(lines):
         line = raw_line.strip()
@@ -204,15 +326,17 @@ def _has_tool_signal(transcript_path: str) -> bool:
                 continue
             if name in EDIT_TOOLS:
                 file_path = tool_input.get("file_path")
-                if isinstance(file_path, str) and _is_src_path(file_path):
-                    saw_src_edit = True
+                if isinstance(file_path, str) and _is_code_path(
+                    file_path, source_dirs, code_extensions
+                ):
+                    saw_code_edit = True
             elif name == "Bash":
                 command = tool_input.get("command")
-                if isinstance(command, str) and CHECK_CMD_RE.search(command):
+                if isinstance(command, str) and check_cmd_re.search(command):
                     saw_check_cmd = True
-        if saw_src_edit and saw_check_cmd:
+        if saw_code_edit and saw_check_cmd:
             return True
-    return saw_src_edit and saw_check_cmd
+    return saw_code_edit and saw_check_cmd
 
 
 def _phase_is_plan(project_dir: Path) -> bool:
@@ -273,10 +397,7 @@ def main() -> NoReturn:
     # PASS marker — re-inject "continue to next unit" (taskmaster pattern: keep blocking until slice done)
     if PASS_MARKER_RE.search(message):
         sha_file = (
-            Path(os.environ.get("CLAUDE_PROJECT_DIR", "."))
-            / ".claude"
-            / "overseer"
-            / ".last_continue_sha"
+            _get_project_dir() / ".claude" / "overseer" / ".last_continue_sha"
         )
         digest = _message_digest(message)
         try:
@@ -289,7 +410,7 @@ def main() -> NoReturn:
         print(json.dumps({"decision": "block", "reason": CONTINUE_REASON}))
         sys.exit(0)
 
-    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", ".")).resolve()
+    project_dir = _get_project_dir()
 
     # Phase guard: the developer is planning, not completing units of work.
     if _phase_is_plan(project_dir):
@@ -299,10 +420,26 @@ def main() -> NoReturn:
     if _already_audited(project_dir, message):
         _passthrough()
 
-    # Two-signal trigger — both halves required.
-    sentinel = UNIT_DONE_RE.search(message) is not None
-    tool_signal = _has_tool_signal(_str_field(envelope, "transcript_path"))
-    if not (sentinel and tool_signal):
+    # Sentinel pre-check — short-circuit before loading config (avoids noisy
+    # project.env warning on every turn that has no unit-completion claim).
+    if not UNIT_DONE_RE.search(message):
+        _passthrough()
+
+    # Load project config — only reached when the sentinel is present.
+    # Prints a stderr warning if project.env is absent.
+    cfg = _load_project_env(project_dir)
+    source_dirs = _build_source_dirs(cfg)
+    code_extensions = _build_code_extensions(cfg)
+    check_cmd_re = _build_check_cmd_re(cfg)
+
+    # Two-signal trigger — sentinel already confirmed above; check tool signal.
+    tool_signal = _has_tool_signal(
+        _str_field(envelope, "transcript_path"),
+        source_dirs,
+        code_extensions,
+        check_cmd_re,
+    )
+    if not tool_signal:
         _passthrough()
 
     _record_audit(project_dir, message)

@@ -68,7 +68,8 @@ Rules:
   turn, a RED-only turn, or a turn that merely answers a question — that would
   trigger a spurious audit.
 - The hook also requires structural evidence in the same turn: an
-  `Edit`/`Write`/`MultiEdit` under `src/` AND a `pytest`/`ruff`/`mypy` Bash
+  `Edit`/`Write`/`MultiEdit` on a code path (per `.claude/project.env`) AND a
+  verification Bash
   command. The sentinel without that evidence does nothing; both halves are
   required.
 - Three recursion guards keep the audit from looping: the `stop_hook_active`

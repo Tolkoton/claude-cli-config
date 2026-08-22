@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Skill(slice-builder)"
+      "Skill(slice-builder)",
+      "Bash(cp /home/lao/Projects/claude-cli-config/.claude/project.env /tmp/project.env.backup)",
+      "Bash(touch /tmp/test_bad.py)",
+      "Bash(cd *)"
     ]
   }
 }
