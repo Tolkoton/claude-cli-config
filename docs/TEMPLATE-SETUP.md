@@ -21,7 +21,11 @@ project and follow these steps. The whole setup takes about 15 minutes.
 ```bash
 # From the template repo root:
 cp -r .claude /path/to/your-project/
-cp CLAUDE.md AGENTS.md /path/to/your-project/   # if they don't exist yet
+cp CLAUDE.md AGENTS.md .gitignore /path/to/your-project/   # starting points — edit all three
+
+# Clean up files that should not be carried over:
+find /path/to/your-project/.claude/hooks -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+rm -f /path/to/your-project/.claude/settings.local.json   # local-only, not for other machines
 ```
 
 Do **not** copy `docs/` — it is template documentation, not project documentation.
@@ -142,7 +146,9 @@ Run these in the project root to confirm the hooks are wired correctly:
 # 1. Overseer dry-run — must print a BLOCK (that is expected)
 python3 .claude/hooks/overseer_stop.py --dry-run <<< '{}'
 
-# 2. Verify-on-stop — must exit 0 with no failures (no code changed yet)
+# 2. Verify-on-stop — exit 0 expected. If you have staged code files it will
+#    attempt your LINT_CMD/TEST_CMD; "command not found" is expected when
+#    tools aren't installed globally — it means config was read correctly.
 echo '{"stop_hook_active":false}' | bash .claude/hooks/verify-on-stop.sh; echo "exit: $?"
 
 # 3. Block-dangerous — must exit non-zero (or print a block decision) for 'git commit'
