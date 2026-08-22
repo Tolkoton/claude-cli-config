@@ -42,6 +42,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Normalize CODE_EXTENSIONS: tolerate commas, extra whitespace, leading dots.
+# ".ts,.tsx" / "ts tsx" / ".ts .tsx" must all normalize the same way.
+# ---------------------------------------------------------------------------
+CODE_EXTENSIONS_RAW="$CODE_EXTENSIONS"
+if [ -n "$CODE_EXTENSIONS_RAW" ]; then
+  NORMALIZED=""
+  for tok in $(echo "$CODE_EXTENSIONS_RAW" | tr ',' ' '); do
+    tok="${tok#.}"
+    tok=$(echo "$tok" | tr '[:upper:]' '[:lower:]')
+    [ -n "$tok" ] && NORMALIZED="$NORMALIZED $tok"
+  done
+  CODE_EXTENSIONS="${NORMALIZED# }"
+  if [ -z "$CODE_EXTENSIONS" ]; then
+    echo "⚠ format-on-edit: CODE_EXTENSIONS='$CODE_EXTENSIONS_RAW' did not parse into" >&2
+    echo "  any usable extension. Use space- or comma-separated values, e.g. \"ts tsx\" or \"ts,tsx\"." >&2
+    echo "  FORMAT_CMD will never match — falling back to built-in handlers only." >&2
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Get the file extension (lowercase, no dot)
 # ---------------------------------------------------------------------------
 BASENAME=$(basename "$FILE_PATH")

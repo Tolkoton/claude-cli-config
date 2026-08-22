@@ -63,6 +63,14 @@ your project's language and toolchain. Every hook reads this file at runtime.
 - **`FORMAT_CMD` empty**: built-in Python auto-detect (ruff/black) and generic
   handlers (json/md/yaml via prettier) remain active.
 
+### List format: `SOURCE_DIRS`, `CODE_EXTENSIONS`, `CHECK_CMDS`
+
+These three accept space- **or** comma-separated values, with or without
+leading dots on extensions — `"ts tsx"`, `"ts,tsx"`, and `".ts,.tsx"` all
+parse identically. If a value doesn't parse into anything usable (e.g. it's
+just punctuation), every hook prints an explicit warning and falls back to
+the "unset" behavior for that variable — it never fails silently.
+
 ### Examples by stack
 
 **Python (default, no changes needed if using ruff + mypy + pytest):**

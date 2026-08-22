@@ -131,11 +131,26 @@ def _load_project_env(project_dir: Path) -> dict[str, str]:
     return result
 
 
+def _split_list(raw: str) -> list[str]:
+    """Split a config list value on commas and/or whitespace, so ".ts,.tsx",
+    "ts tsx", and ".ts .tsx" all yield the same tokens. Empty tokens dropped."""
+    return [tok for tok in re.split(r"[,\s]+", raw.strip()) if tok]
+
+
 def _build_check_cmd_re(cfg: dict[str, str]) -> re.Pattern[str]:
     """Build the check-command regex from project config.
-    Falls back to the built-in broad default when CHECK_CMDS is empty."""
+    Falls back to the built-in broad default when CHECK_CMDS is empty or
+    does not parse into any usable name."""
     raw = cfg.get("CHECK_CMDS", "").strip()
-    names = raw.split() if raw else _DEFAULT_CHECK_CMDS.split()
+    names = _split_list(raw) if raw else []
+    if raw and not names:
+        print(
+            f"⚠ overseer_stop: CHECK_CMDS='{raw}' did not parse into any usable "
+            "command name — falling back to built-in defaults.",
+            file=sys.stderr,
+        )
+    if not names:
+        names = _DEFAULT_CHECK_CMDS.split()
     pattern = "|".join(re.escape(n) for n in names)
     return re.compile(rf"\b(?:{pattern})\b")
 
@@ -146,10 +161,13 @@ def _build_source_dirs(cfg: dict[str, str]) -> list[str]:
     raw = cfg.get("SOURCE_DIRS", "").strip()
     if not raw:
         return []
-    dirs = []
-    for d in raw.split():
-        d = d.rstrip("/") + "/"
-        dirs.append(d)
+    dirs = [tok.rstrip("/") + "/" for tok in _split_list(raw) if tok.rstrip("/")]
+    if not dirs:
+        print(
+            f"⚠ overseer_stop: SOURCE_DIRS='{raw}' did not parse into any usable "
+            "directory. Treating as unset — any code-extension match counts.",
+            file=sys.stderr,
+        )
     return dirs
 
 
@@ -159,7 +177,16 @@ def _build_code_extensions(cfg: dict[str, str]) -> frozenset[str]:
     raw = cfg.get("CODE_EXTENSIONS", "").strip()
     if not raw:
         return frozenset()
-    return frozenset(ext.lstrip(".").lower() for ext in raw.split())
+    exts = frozenset(
+        tok.lstrip(".").lower() for tok in _split_list(raw) if tok.lstrip(".")
+    )
+    if not exts:
+        print(
+            f"⚠ overseer_stop: CODE_EXTENSIONS='{raw}' did not parse into any "
+            "usable extension. Treating as unset — all edited files count.",
+            file=sys.stderr,
+        )
+    return exts
 
 
 def _is_code_path(
