@@ -11,7 +11,7 @@ Run before `/clear`, `/bye`, or closing the session. Should take 1–3 minutes i
 - [ ] **Task status**: if the task is complete, mark `Status: completed` in progress.md; otherwise leave as `in-progress` and ensure the next-session instruction is clear.
 - [ ] **decisions.md is current**: any ADR-worthy decisions from this session are committed (not pending in your head).
 - [ ] **CLAUDE.md is current**: any new conventions established this session are added (or queued for periodic-maintenance review).
-- [ ] **Memory commit**: if `.architecture/MEMORY.md` was updated, commit it.
+- [ ] **Memory commit**: if `.claude/architecture/MEMORY.md` was updated, commit it.
 
 ## Quick fail-fast diagnostics
 

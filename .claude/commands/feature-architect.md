@@ -179,8 +179,7 @@ for slice in dag_order_after_tracer:
     on slice done (smoke green): append to PROGRESS.md; continue to next slice
 ```
 
-**This replaces the old `tasks.yaml` / feature-implementer path — features emit AND
-build slices, not tasks.**
+**Features emit AND build slices directly — no intermediate task list.**
 
 ## The critical-interrupt set — the ONLY things that pause the run
 
@@ -233,4 +232,4 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
   circuit-breaker only.
 - **Record premises** in the premise log; **escalate one-way doors** to the owner, route
   architectural gaps up to master-architect (Art. 5, Art. 8).
-- **Do NOT create `tasks.yaml`** or invoke feature-implementer — that path is retired.
+- **Do NOT create `tasks.yaml`** — produce slice contracts directly.

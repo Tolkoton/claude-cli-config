@@ -30,7 +30,7 @@ If yes → **PROJECT-SCOPE**.
 
 Examples:
 - "Our `dunning` service uses raw `text()` SQL because of legacy partner format" → project (it's about *our* dunning service).
-- "DATEV's amount field can be string or number depending on endpoint" → project (it's about *DATEV*, our partner).
+- "Our payment provider's amount field can be string or number depending on endpoint" → project (it's about *our specific vendor contract*).
 - "The `BillingBase` is separate from `UserBase` to avoid coupling" → project (it's about *our* base classes).
 
 ### Q3: Would this same observation bite someone using the same library in a different codebase?
@@ -51,7 +51,7 @@ Example: "We picked PyJWT over authlib because the latter's API surface is unsta
 - Tech: the *authlib API instability* observation is tech-scope (true for anyone).
 
 Split:
-- Project (`.architecture/MEMORY.md`): "We use PyJWT not authlib (see decisions.md 2026-05-20)."
+- Project (`.claude/architecture/MEMORY.md`): "We use PyJWT not authlib (see decisions.md 2026-05-20)."
 - Tech (`~/.claude/memory/authlib/MEMORY.md`): "authlib's API surface changes across minor versions — pin tightly or expect breakage on upgrade."
 
 ### Q5: Is this a CHOICE with alternatives, deserving rationale?
@@ -76,7 +76,7 @@ When a candidate could plausibly be project-scope OR tech-scope, prefer **projec
 - Project-scope memory is bounded; pruning is cheaper.
 - Promotion path goes project → tech, never tech → project. If the lesson recurs in 3+ projects, periodic-maintenance promotes it.
 
-So when in doubt, write to `.architecture/MEMORY.md` and let promotion handle the rest.
+So when in doubt, write to `.claude/architecture/MEMORY.md` and let promotion handle the rest.
 
 ## Tech-scope file naming
 
@@ -93,8 +93,8 @@ So when in doubt, write to `.architecture/MEMORY.md` and let promotion handle th
 | uv (package manager) | `~/.claude/memory/uv/MEMORY.md` |
 | ruff | `~/.claude/memory/ruff/MEMORY.md` |
 | mypy | `~/.claude/memory/mypy/MEMORY.md` |
-| DATEV API (vendor) | `~/.claude/memory/datev/MEMORY.md` |
-| Domain: tax / accounting | `~/.claude/memory/accounting/MEMORY.md` |
+| Vendor API (project-specific) | `~/.claude/memory/<vendor>/MEMORY.md` |
+| Domain (project-specific) | `~/.claude/memory/<domain>/MEMORY.md` |
 
 A lesson can fit multiple files. If it's clearly about ONE library's behavior, pick that. If it's about an interaction between two (e.g., SQLAlchemy + Pydantic), pick the primary one and link from the other. Don't duplicate full entries — link.
 
@@ -109,13 +109,13 @@ A lesson can fit multiple files. If it's clearly about ONE library's behavior, p
 - Q3: Bites in other projects? Yes.
 - → **TECH-SCOPE**: `~/.claude/memory/argon2-cffi/MEMORY.md` (or `~/.claude/memory/auth/MEMORY.md` if you group by concern).
 
-### Example 2: DATEV partner JSON amount field
+### Example 2: vendor API quirk
 
-> "DATEV's amount field returns string sometimes, Decimal other times."
+> "Our payment provider's webhook amount field returns string sometimes, Decimal other times."
 
 - Q1: Common knowledge? No.
-- Q2: Project-specific? Yes — DATEV is our specific partner.
-- → **PROJECT-SCOPE**: `.architecture/MEMORY.md`. Don't put it in tech-scope; another project doesn't use DATEV.
+- Q2: Project-specific? Yes — this vendor is specific to our project.
+- → **PROJECT-SCOPE**: `.claude/architecture/MEMORY.md`. Don't put it in tech-scope; another project won't use the same vendor contract.
 
 ### Example 3: We chose Pydantic for I/O, dataclass internally
 

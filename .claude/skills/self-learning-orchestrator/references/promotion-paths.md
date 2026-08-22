@@ -18,7 +18,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
                                  │ promote (when lesson recurs in ≥3 projects)
                                  │
                     ┌────────────┴────────────┐
-                    │  .architecture/MEMORY.md│ ← project-scope
+                    │ .claude/architecture/MEMORY.md│ ← project-scope
                     └────────────▲────────────┘
                                  │ promote (when lesson is general)
                                  │
@@ -66,14 +66,14 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
 ### project MEMORY.md → tech MEMORY.md
 
 **When**: periodic-maintenance pass 5, OR explicit promotion request.
-**Criterion**: the lesson appears in 2+ projects' `.architecture/MEMORY.md` files, OR the lesson is clearly about a library's behavior rather than the project's domain.
+**Criterion**: the lesson appears in 2+ projects' `.claude/architecture/MEMORY.md` files, OR the lesson is clearly about a library's behavior rather than the project's domain.
 
 **Test**: rewrite the lesson removing all project-specific names. Does it still make sense and still teach a useful thing? If yes, promote.
 
 Example:
-- Project lesson: "In belegmeister, when we call DATEV's invoice endpoint, the amount field returns string."
-- Rewrite: "When calling DATEV's invoice endpoint, the amount field returns string." — still useful for any project using DATEV.
-- → Promote to `~/.claude/memory/datev/MEMORY.md`. Mark a "promoted from belegmeister" footnote.
+- Project lesson: "In our project, when we call the Stripe webhook endpoint, the `amount` field is in cents (integer), not dollars."
+- Rewrite: "Stripe webhook `amount` is always integer cents, not a float." — still useful for any project using Stripe.
+- → Promote to `~/.claude/memory/stripe/MEMORY.md`. Mark a "promoted from <project>" footnote.
 
 ### tech MEMORY.md → new Skill
 
@@ -159,7 +159,7 @@ You can't proactively scan for promotion candidates — that's expensive. Instea
 
 Lightweight tracking: append to `.claude/promotion-candidates.md`:
 ```
-- 2026-05-20 | hit ~/.claude/memory/argon2-cffi/MEMORY.md "verify raises" | project: belegmeister | task: auth
+- 2026-05-20 | hit ~/.claude/memory/argon2-cffi/MEMORY.md "verify raises" | project: <your-project> | task: auth
 ```
 
 At periodic-maintenance, scan this file for entries with ≥ 3 matching hits → those are promotion candidates.

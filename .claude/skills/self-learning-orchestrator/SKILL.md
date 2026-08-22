@@ -15,7 +15,7 @@ A layered memory stack with deliberately different update frequencies:
 |---|---|---|---|
 | `CLAUDE.md` | project | forever | rare, deliberate |
 | `decisions.md` | project | append-only forever | per substantive decision (~weekly) |
-| `.architecture/MEMORY.md` | project | append-only, periodic prune | per session-end |
+| `.claude/architecture/MEMORY.md` | project | append-only, periodic prune | per session-end |
 | `~/.claude/memory/<tech>/MEMORY.md` | global per-tech | append-only forever, periodic consolidate | per session-end |
 | `claude-progress.md` | task | deleted on completion | per commit |
 | `<task>/reflections.md` | task | archived on completion | per failed attempt |
@@ -132,8 +132,8 @@ If a delegated skill is not installed, the trigger file in `triggers/` contains 
 
 ## What this skill does NOT do
 
-- It does NOT replace `master-architect` for architectural design. Master-architect handles Phase 1–4 architectural work and writes its own `.architecture/` artifacts. Self-learning-orchestrator coordinates the *cross-cutting* memory lifecycle around it.
-- It does NOT replace `feature-implementer` for implementation. Feature-implementer has its own per-task reflections.md and session-dreaming step F. Self-learning-orchestrator extends this to non-architectural, non-implementation moments (ad-hoc bug fixes, refactors, exploration sessions).
+- It does NOT replace `master-architect` for architectural design. Master-architect handles Phase 1–4 architectural work and writes its own `.claude/architecture/` artifacts. Self-learning-orchestrator coordinates the *cross-cutting* memory lifecycle around it.
+- It does NOT replace `slice-builder` for implementation. Self-learning-orchestrator handles the memory lifecycle around implementation — ad-hoc bug fixes, refactors, exploration sessions — not the slice itself.
 - It does NOT write code. It coordinates the memory layer that informs all code work.
 
 ## When to skip this skill entirely
@@ -157,5 +157,5 @@ For everything else — every real coding session — run at minimum the session
 
 Designed to compose with the broader project setup:
 - `claude-autonomy` provides PostToolUse / Stop hooks (quality gates) — those are execution feedback, not learning artifacts; this skill is orthogonal.
-- `master-architect`, `feature-architect`, `feature-implementer` own their own task-scoped reflections.md and run their own session-dreaming at task-end (their Phase F). This orchestrator handles the *between-task* and *across-task* memory; it defers to them when they're active.
+- `master-architect` and `feature-architect` own architectural artifacts and may keep their own task-scoped `reflections.md`. This orchestrator handles the *between-task* and *across-task* memory; it defers when they're active.
 - The 12 research-backed skills (decisions-log-adr-lite, progress-file-for-long-tasks, pre-commit-self-review-checklist, plan-mode-and-task-decomposition, execution-feedback-debugging, etc.) are the delegates this orchestrator triggers via cue phrases.

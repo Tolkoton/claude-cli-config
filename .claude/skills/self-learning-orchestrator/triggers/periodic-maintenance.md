@@ -48,7 +48,7 @@ Read decisions.md. For each entry:
 
 Do NOT delete old entries. The supersession chain is the history; deletion is lossy.
 
-### Pass 3 — Project memory (`.architecture/MEMORY.md`)
+### Pass 3 — Project memory (`.claude/architecture/MEMORY.md`)
 
 This file accumulates project-specific lessons. Apply harsher pruning than tech memory because project memory is less likely to bite again once the underlying code has changed:
 
@@ -57,7 +57,7 @@ This file accumulates project-specific lessons. Apply harsher pruning than tech 
 | Is the entry's "Source" commit/code now deleted or heavily refactored? | The lesson likely no longer applies; delete or archive. |
 | Is the same observation made in 2+ entries? | Consolidate into one. |
 | Is the entry generic enough to belong in `~/.claude/memory/<tech>/` instead? | Move it. (Promotion path.) |
-| Is the entry > 1 year old and not referenced since? | Archive to `.architecture/MEMORY-archive-<year>.md`. |
+| Is the entry > 1 year old and not referenced since? | Archive to `.claude/architecture/MEMORY-archive-<year>.md`. |
 
 After pruning, group remaining entries by topic if there are >20 of them. Topic headers improve search.
 
@@ -106,7 +106,7 @@ decisions.md:
   - drafts resolved: <count>
   - added missing code links: <count>
 
-.architecture/MEMORY.md:
+.claude/architecture/MEMORY.md:
   - was <N> entries, now <M> entries
   - consolidated: <count>
   - archived: <count>
