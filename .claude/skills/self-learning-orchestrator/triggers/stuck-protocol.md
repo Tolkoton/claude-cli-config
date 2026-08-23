@@ -17,7 +17,7 @@ Apply the steps in order. Stop at the first one that resolves the stuck state.
 
 ### Tier 0 — Pause and write down what you know
 
-Often the act of articulating the problem reveals the next step. Open or update `claude-progress.md` (or the task's `reflections.md` if working under feature-implementer) and write:
+Often the act of articulating the problem reveals the next step. Open or update `claude-progress.md` (or the task's `reflections.md` if one exists) and write:
 
 ```markdown
 ## Stuck state — <timestamp>
@@ -50,7 +50,7 @@ conversation_search "<symptom keywords from the error>"
 And:
 
 ```
-grep -r "<symptom keywords>" ~/.claude/memory/ .architecture/MEMORY.md CLAUDE.md decisions.md 2>/dev/null
+grep -r "<symptom keywords>" ~/.claude/memory/ .claude/architecture/MEMORY.md CLAUDE.md decisions.md 2>/dev/null
 ```
 
 If you find anything — read it, apply the lesson, re-attempt. If it resolves, **add the symptom keywords to the matched MEMORY entry** so it's more searchable next time.

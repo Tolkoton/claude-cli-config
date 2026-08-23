@@ -1,6 +1,6 @@
 ---
 name: slice-builder
-description: Build ONE isolated testable logical piece (a "thin slice") of a larger system using strict per-test TDD (RED→GREEN→REFACTOR), paranoid-SRP (one method = one responsibility; multi-responsibility logic becomes a flow method orchestrating helpers), seam-first design, and dependency injection. Use this skill WHENEVER the user asks to "implement a small piece", "add a thin slice", "build the upload module", "build piece N of the pipeline", "wrap this API in a clean function", or otherwise wants controlled incremental progress on a known integration without architecture overhead. Output is one production module + integration tests derived from the method's distinct behaviors + one manual smoke script + a PROGRESS.md entry. STOPS at every TDD transition. DO NOT use for greenfield architecture (→ master-architect), tasks.yaml features (→ feature-implementer), splitting oversized tasks (→ feature-architect), unknown-API exploration (→ spike, no skill), or single-file edits (→ user edits directly).
+description: Build ONE isolated testable logical piece (a "thin slice") of a larger system using strict per-test TDD (RED→GREEN→REFACTOR), paranoid-SRP (one method = one responsibility; multi-responsibility logic becomes a flow method orchestrating helpers), seam-first design, and dependency injection. Use this skill WHENEVER the user asks to "implement a small piece", "add a thin slice", "build the upload module", "build piece N of the pipeline", "wrap this API in a clean function", or otherwise wants controlled incremental progress on a known integration without architecture overhead. Output is one production module + integration tests derived from the method's distinct behaviors + one manual smoke script + a PROGRESS.md entry. STOPS at every TDD transition. DO NOT use for greenfield architecture (→ master-architect), splitting oversized multi-file features (→ feature-architect), unknown-API exploration (→ spike, no skill), or single-file edits (→ user edits directly).
 ---
 
 # Slice Builder
@@ -37,7 +37,7 @@ You are extending a known system one isolated logical piece at a time. The user 
        return _map_response(raw)
 
    def _validate_file(p: Path) -> str | None: ...
-   def _do_upload(p: Path, fid: str, c: KlardatenClient) -> RawResponse: ...
+   def _do_upload(p: Path, fid: str, c: RemoteClient) -> RawResponse: ...
    def _map_response(r: RawResponse) -> UploadResult: ...
    ```
    Each helper has one reason to change. The flow has one reason to change (orchestration order).
@@ -51,7 +51,7 @@ You are extending a known system one isolated logical piece at a time. The user 
    - **Flow method (orchestrator)**: success orchestration + one test per step that can short-circuit the flow + one test per branch the flow itself chooses.
    - **Thin wrapper over external API**: success + at least one error path that the wrapper maps (typically 2). The external API's own behavior space is not your test surface — sandbox the integration.
 
-   What is NEVER added at slice level: mutmut / cosmic-ray mutation testing, exhaustive hypothesis property tests, wide-lens enumeration (security/performance/concurrency/encoding lenses) — those belong to `feature-implementer` for full features. Adding them to a slice is scope creep.
+   What is NEVER added at slice level: mutmut / cosmic-ray mutation testing, exhaustive hypothesis property tests, wide-lens enumeration (security/performance/concurrency/encoding lenses) — those belong to a full-feature implementation effort. Adding them to a slice is scope creep.
 
 7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the user runs this and reports OK.
 
@@ -76,7 +76,7 @@ User context typically includes:
 | If the user wants... | Use instead |
 |---|---|
 | "Design the architecture for X from scratch" | `master-architect` |
-| "Take the next task" / "implement t007 from tasks.yaml" | `feature-implementer` |
+| "Implement this large multi-file feature end-to-end" | `master-architect` + `feature-architect` |
 | "Split t007 / this task is too big" | `feature-architect` |
 | "Does API X even work? I have no creds/docs yet" | Spike work — no skill, direct conversation |
 | "Fix this typo / rename this variable / one-line change" | No skill — user edits directly |
@@ -127,8 +127,8 @@ Output format:
 Behaviors of upload_to_folder:
   B1. Returns success=True + document_id when file uploads to valid folder
   B2. Returns success=False + error when file path doesn't exist
-  B3. Returns success=False + error when folder_id is unknown to DATEV
-  B4. Returns success=False + error when file size exceeds klardaten limit
+  B3. Returns success=False + error when folder_id is unknown to the remote service
+  B4. Returns success=False + error when file size exceeds the service limit
 ```
 
 **STOP. User confirms the list, removes/adds behaviors, then approves.** Behavior list is the test plan.
@@ -150,7 +150,7 @@ Write `scripts/smoke_test_<slice>.py`:
 - Sets up real inputs (generate file, build payload, load real creds from `.env`)
 - Calls the slice function with real DI dependencies
 - Prints the result
-- Prints an EXPLICIT human-verifiable instruction (e.g., "Open https://duo.datev.de/folder/X, look for file `belegmeister_smoke_2026-05-13T12:00.txt`. Reply DONE or FAIL.")
+- Prints an EXPLICIT human-verifiable instruction (e.g., "Open the admin panel at /uploads, look for file `smoke_<slice>_<timestamp>.txt`. Reply DONE or FAIL.")
 
 **STOP. Tell user:** "Run `python scripts/smoke_test_<slice>.py` and verify per the printed instruction. Reply DONE or FAIL."
 
@@ -184,7 +184,7 @@ If the user asks for any of the following DURING the slice, push them out of sco
 - Implementing the NEXT slice "since we're here"
 
 Response template:
-> That's beyond the scope of this slice. Want me to (a) defer it to a follow-up slice (I'll note it in `PROGRESS.md` under "Open for next slice"), or (b) escalate to `master-architect` / `feature-implementer` if it's actually architectural?
+> That's beyond the scope of this slice. Want me to (a) defer it to a follow-up slice (I'll note it in `PROGRESS.md` under "Open for next slice"), or (b) escalate to `master-architect` if it's actually architectural?
 
 ## Escalation signals
 
@@ -193,7 +193,7 @@ STOP and BACKTRACK to **`master-architect`** if during the slice you discover:
 - The slice depends on a component that doesn't exist yet and wasn't in scope
 - The external API has fundamentally different semantics than the seam assumes (sync vs async, eventual consistency, transactional contract differences)
 
-STOP and ESCALATE to **`feature-implementer`** if during the slice you discover:
+STOP and ESCALATE to **`master-architect`** (or pause and discuss with the owner) if during the slice you discover:
 - The slice as defined is actually L complexity (5+ production files needed, excluding private helpers in the same module; 3+ domain entities; requires real DDD)
 - Behaviors span multiple concern categories that need different test approaches (functional + performance + security + concurrency invariants) — that's full-feature test discipline, not slice
 - The user is asking for mutation testing / structured logging / observability as part of the slice (those are full-feature concerns)
@@ -202,7 +202,7 @@ In both cases, do NOT continue the slice. Tell the user what you found and which
 
 ## What you DO NOT do
 
-- Write to `.architecture/` (that's `master-architect` / `feature-implementer` territory)
+- Write to `.claude/architecture/` (that's `master-architect` / `feature-architect` territory)
 - Create or modify `tasks.yaml`
 - Run mutmut, cosmic-ray, code-reviewer subagent, security-auditor
 - Generate ADRs

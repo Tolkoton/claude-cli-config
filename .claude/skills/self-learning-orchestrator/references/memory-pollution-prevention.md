@@ -17,7 +17,7 @@ Beyond that line, additional rules don't increase compliance — they just push 
 |---|---|---|---|
 | CLAUDE.md | 100 rules / 200 lines | 150 rules / 300 lines | Split into `CLAUDE.md` (always-loaded steering) and `docs/CONVENTIONS.md` (referenced when needed) |
 | `~/.claude/memory/<tech>/MEMORY.md` | 30 entries | 50 entries | Split by sub-topic into multiple files in `~/.claude/memory/<tech>/` |
-| `.architecture/MEMORY.md` | 30 entries | 50 entries | Aggressive prune in periodic-maintenance; archive old entries |
+| `.claude/architecture/MEMORY.md` | 30 entries | 50 entries | Aggressive prune in periodic-maintenance; archive old entries |
 | `decisions.md` | 50 entries | 100 entries | Add an index section at top; otherwise leave (history is sacred) |
 | `claude-progress.md` | 1 screen of "What's left" | 2 screens | Decompose the task; create a separate file per sub-task |
 | `.claude/lesson-queue.md` | 10 entries between session-ends | 20 entries | Session-ends are happening too rarely or threshold for queueing is too low |

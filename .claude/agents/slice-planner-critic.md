@@ -120,7 +120,7 @@ Reject padding.
 tests (success + one per failure mode / per flow short-circuit / per branch),
 integration-by-default. Mutation testing, exhaustive hypothesis/property suites,
 and wide-lens enumeration (security / performance / concurrency / encoding) are
-EXPLICITLY feature-implementer scope, NOT slice scope. Your job: find the seams
+EXPLICITLY full-feature scope, NOT slice scope. Your job: find the seams
 that fool *naive* tests and name a *proportionate* approach — do NOT pad the slice
 toward feature-level rigor. If the slice genuinely needs wide-lens testing, that
 is a signal it is not a slice → fire `CRITIC_WRONG_SCOPE` (see "Scope & routing").
@@ -144,7 +144,7 @@ is a signal it is not a slice → fire `CRITIC_WRONG_SCOPE` (see "Scope & routin
   systematic boundary enumeration (off-by-one/encoding/timezone/race) OR a STRIDE
   pass (spoof/tamper/DoS/elevation) to be safe, do NOT pad the slice plan with
   them. Either one sharp boundary test covers the real risk, or the concern is
-  feature-implementer scope → fire `CRITIC_WRONG_SCOPE`.
+  full-feature scope → fire `CRITIC_WRONG_SCOPE`.
 - **Reject** "we'll write tests" / "we'll test this" — not a design; demand the
   concrete approach naming the anti-pattern it rules out.
 
@@ -183,10 +183,10 @@ overhead. If the plan reveals the work is not a slice, say so EARLY — at plann
 time it is cheap; the slice-builder would otherwise discover it mid-implementation
 and backtrack. Fire `CRITIC_WRONG_SCOPE` (naming the correct skill) when:
 
-- **→ feature-implementer**: the work needs 5+ production files (excluding private
-  helpers in one module), 3+ domain entities, real DDD, OR behaviors spanning
-  multiple concern categories needing different test approaches (functional +
-  performance + security + concurrency). That is a full feature, not a slice.
+- **→ master-architect + feature-architect**: the work needs 5+ production files
+  (excluding private helpers in one module), 3+ domain entities, real DDD, OR
+  behaviors spanning multiple concern categories needing different test approaches
+  (functional + performance + security + concurrency). That is a full feature, not a slice.
 - **→ master-architect**: the seam cannot be implemented without a missing
   architectural decision, OR it depends on a component that does not exist yet and
   is not in scope, OR an external system has fundamentally different semantics than
@@ -315,7 +315,7 @@ CRITIC_ESCALATE:
 - `CRITIC_PREMISE_PROBE_REQUIRED: <JSON>` — back-edge (above).
 - `CRITIC_ESCALATE: <JSON>` — business/design decision (above).
 - `CRITIC_WRONG_SCOPE: <correct skill> — <one-line why this is not a slice>` — the
-  work belongs to master-architect / feature-implementer / a spike (see "Scope &
+  work belongs to master-architect / feature-architect / a spike (see "Scope &
   routing"). Stops the slice plan.
 - 
 ## Output structure

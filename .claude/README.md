@@ -1,4 +1,4 @@
-# Belegmeister agentic system — map & integration guide
+# Agentic system — map & integration guide
 
 This is the **map** of the agentic system that operates on this repo: which
 agent produces which artifact, who consumes it, and who hands off to whom.
@@ -27,19 +27,15 @@ four cooperating layers:
 | Layer | What it does | Lives in |
 |---|---|---|
 | **Design** | Turns intent into a task/slice plan | `.claude/architecture/`, `.claude/overseer/slice/` |
-| **Build** | Writes code + tests under TDD | `src/`, `tests/`, `scripts/` |
+| **Build** | Writes code + tests under TDD | source dirs, `tests/`, `scripts/` |
 | **Enforce** | Hooks + overseer keep discipline | `.claude/hooks/`, `.claude/overseer/` |
 | **Remember** | Distils lessons across sessions | `PROGRESS.md`, memory files, `.claude/lesson-queue.md` |
 
-Two distinct build pipelines exist (a builder must know which one they extend):
+One build pipeline is active:
 
-1. **Slice flow (active here).** `master-architect` (design) → `slice-builder` /
-   the developer agent (build) → `overseer` (audit). Plans live in
-   `.claude/overseer/slice/<slug>.md`; history in `PROGRESS.md`.
-2. **Controlled-Software-Evolution flow (declared, dormant here).**
-   `updater` → `coder` → `tester`, communicating via JSON in
-   `.artifacts/current/`. Declared in global `~/.claude/CLAUDE.md` but **not yet
-   exercised in this repo** (`.artifacts/` does not exist until first use).
+**Slice flow.** `master-architect` (design) → `slice-builder` / the developer
+agent (build) → `overseer` (audit). Plans live in
+`.claude/overseer/slice/<slug>.md`; history in `PROGRESS.md`.
 
 ---
 
@@ -47,16 +43,12 @@ Two distinct build pipelines exist (a builder must know which one they extend):
 
 | Component | Tag | Kind | One-line role |
 |---|---|---|---|
-| `master-architect` | `[vendored]` | skill | 5-phase design → `tasks.yaml` handoff |
+| `master-architect` | `[vendored]` | skill | 5-phase design → architecture handoff |
 | `feature-architect` | `[vendored]` | skill | Splits an oversized task into a DAG of sub-tasks |
-| `feature-implementer` | `[vendored]` | skill | Implements one `tasks.yaml` task under strict TDD |
 | `slice-builder` | `[vendored]` | skill | Builds one thin vertical slice (seam-first TDD) |
 | `self-learning-orchestrator` | `[vendored]` | skill | Dispatches the memory lifecycle at each dev moment |
 | `documentation` | `[vendored]` | skill | Maintains AGENTS.md / ADRs / `docs/` (this guide's skill) |
 | `claude-autonomy` | `[vendored]` | skill | One-time config of `settings.json` + the 6 hooks |
-| `updater` | `[global]` | subagent | Pre-change ImpactAnalysis + EditPlan allowlist |
-| `coder` | `[global]` | subagent | Implements only EditPlan-allowlisted files |
-| `tester` | `[global]` | subagent | Runs the 4-gate chain; adversarial review |
 | `overseer` | `[project]` | skill | 12-check discipline audit of the last turn |
 | `plan-slice` | `[project]` | command | Writes a slice contract before implementation |
 | `/lesson` `/wrap-up` `/stuck` `/memory-maintenance` | `[global]` | commands | Memory-lifecycle entry points |
@@ -72,8 +64,8 @@ volatile the artifact is.
 | Artifact (this repo) | Producer(s) | Consumer(s) | Lifetime |
 |---|---|---|---|
 | `.claude/architecture/INDEX.md` | `master-architect` | architect, humans | per phase |
-| `.claude/architecture/phase-0-brief.md`, `phase-1-system.md` | `master-architect` | `feature-implementer`, `slice-builder` (context) | append/superseded |
-| `.claude/architecture/phase-2..4*`, `tasks.yaml` | `master-architect`, `feature-architect` | `feature-implementer` | **not yet created** (phases PENDING) |
+| `.claude/architecture/phase-0-brief.md`, `phase-1-system.md` | `master-architect` | `slice-builder` (context) | append/superseded |
+| `.claude/architecture/phase-2..4*` | `master-architect`, `feature-architect` | `slice-builder` | created per phase |
 | `.claude/architecture/PROGRESS.md` | `master-architect` | architect (resume) | per session |
 | `.claude/overseer/slice/<slug>.md` | `plan-slice`, developer | `overseer` (load-bearing), developer | per slice |
 | `.claude/overseer/ledger.md` | `overseer` | `overseer` (counts PASS streak) | append-only |
@@ -90,11 +82,8 @@ volatile the artifact is.
 | `docs/adr/NNNN-*.md` | `documentation`, `master-architect`, developer | every agent, humans | **append-only / supersede** |
 | `.claude/settings.json` + 6 hooks | `claude-autonomy` | Claude Code harness (session start) | rare |
 | `.claude/lesson-queue.md` | `/lesson`, developer | `/wrap-up` (session-end) | drained per session |
-| `~/.claude/memory/<tech>/MEMORY.md` `[global]` | `self-learning-orchestrator`, `feature-implementer` | all (session start) | per session-end |
-| `decisions.md`, `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator`, `feature-implementer` | same | **not present yet** (created on demand) |
-| `.artifacts/current/impact-analysis.json`, `edit-plan.json` | `updater` | `coder` | **dormant** (created on first CSE run) |
-| `.artifacts/current/patch-set.json` | `coder` | `tester` | **dormant** |
-| `.artifacts/code-map.json` | `updater` | `updater` | **dormant** |
+| `~/.claude/memory/<tech>/MEMORY.md` `[global]` | `self-learning-orchestrator` | all (session start) | per session-end |
+| `decisions.md`, `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator` | same | created on demand |
 
 ---
 
@@ -113,26 +102,24 @@ runs inside.
 | `overseer_stop.py` | Stop | Triggers the overseer audit on a unit-completion claim | reads/writes `.claude/overseer/{state,.last_*_sha}` |
 | `auto-approve-web.py` | PreToolUse / PermissionRequest `WebFetch/WebSearch` | Auto-approves read-only web access | — |
 
-The **Fast/Scope/Contract/Security** gate chain (global `~/.claude/CLAUDE.md`)
-is what `tester` enforces in the dormant CSE flow; `verify-on-stop.sh` enforces
-a subset (Fast gate) on every turn in the active flow.
+`verify-on-stop.sh` enforces lint + type-check + tests on every turn where
+Python files changed. See [§5](#5-cooperation--dataflow) for the full flow.
 
 ---
 
 ## 5. Cooperation & dataflow
 
-### Slice flow (active)
+### Slice flow
 
 ```mermaid
 flowchart TD
   user([owner intent]) --> MA[master-architect]
   MA -->|writes| ARCH[".claude/architecture/* (phases, INDEX)"]
-  MA -.handoff.-> FI[feature-implementer]
-  FI <-->|split / overflow| FA[feature-architect]
+  MA <-->|split / overflow| FA[feature-architect]
   PS["/plan-slice"] -->|writes| SC[".claude/overseer/slice/&lt;slug&gt;.md"]
   SC --> SB[slice-builder / developer]
   ARCH --> SB
-  SB -->|writes| CODE["src/ + tests/ + scripts/smoke_*"]
+  SB -->|writes| CODE["&lt;source-dirs&gt; + tests/ + scripts/smoke_*"]
   SB -->|appends| PROG[PROGRESS.md]
   CODE --> STOP{{Stop hooks}}
   STOP --> VOS[verify-on-stop.sh]
@@ -159,18 +146,6 @@ flowchart LR
   MM["/memory-maintenance"] -->|prune / promote| MEM
 ```
 
-### Controlled-Software-Evolution flow (dormant — declared in global policy)
-
-```mermaid
-flowchart LR
-  req([change request]) --> UPD[updater]
-  UPD -->|impact-analysis.json + edit-plan.json| AC[".artifacts/current/"]
-  AC --> COD[coder]
-  COD -->|patch-set.json| AC
-  AC --> TST[tester]
-  TST -->|4-gate chain| verdict([pass / fail])
-```
-
 ---
 
 ## 6. How to add a new agent
@@ -178,8 +153,8 @@ flowchart LR
 A new agent integrates by honouring the **artifact contract** above — not by
 calling other agents directly. Checklist:
 
-1. **Pick the layer** (design / build / enforce / remember) and which pipeline
-   it extends (slice flow vs CSE flow). State it in the agent's own doc.
+1. **Pick the layer** (design / build / enforce / remember). State it in the
+   agent's own doc.
 2. **Declare its artifacts.** List what it **produces** and **consumes** using
    the paths in [§3](#3-artifact-catalog--who-writes-who-reads). Reuse an
    existing artifact where possible; introduce a new one only if no existing
@@ -189,9 +164,7 @@ calling other agents directly. Checklist:
    loop, it must respond to the overseer's `OVERSEER_PASS` → continue cycle and
    emit a halt marker (`OVERSEER_SLICE_AWAITING_OWNER:` etc.) when done.
 4. **Respect the gates.** Anything that edits code passes
-   `verify-on-stop.sh` (ruff + mypy + pytest) at turn end. Anything that joins
-   the CSE flow passes the 4-gate chain via `tester` and stays within the
-   `edit-plan.json` allowlist.
+   `verify-on-stop.sh` (lint + type-check + tests) at turn end.
 5. **Never commit.** `git commit` is hook-blocked; agents stage and report, the
    human commits.
 6. **Register it.** A skill → `~/.claude/skills/<name>/SKILL.md` (or
@@ -208,43 +181,34 @@ calling other agents directly. Checklist:
 
 This map points; it does not restate. For behaviour, read the source:
 
-- Skills: all under `.claude/skills/<name>/SKILL.md` now — `overseer` is
-  repo-native; the other 7 are **vendored** copies whose upstream is
-  `~/.claude/skills/<name>/` (keep them in sync manually — see §8).
-- Subagents: `~/.claude/agents/{coder,tester,updater}.md` (global, not vendored).
-- Commands: `~/.claude/commands/{lesson,wrap-up,stuck,memory-maintenance}.md`,
-  `.claude/commands/plan-slice.md`.
+- Skills: all under `.claude/skills/<name>/SKILL.md` — `overseer` is
+  repo-native; the other 5 are **vendored** copies (keep them in sync manually — see §8).
+- Subagents (critic agents): `.claude/agents/*.md` — repo-native.
+- Commands: `.claude/commands/{plan-slice,master-architect,feature-architect}.md`;
+  memory-lifecycle commands (`/lesson`, `/wrap-up`, `/stuck`, `/memory-maintenance`)
+  are expected in `~/.claude/commands/` (global).
 - Hooks: `.claude/hooks/*` (wired in `.claude/settings.json`).
-- Standing policy: `CLAUDE.md` + `AGENTS.md` (root); global
-  `~/.claude/CLAUDE.md` (Controlled Software Evolution, the CSE flow + gates).
+- Standing policy: `CLAUDE.md` + `AGENTS.md` (root).
 
 ---
 
-## 8. Path reconciliation & vendoring (important)
+## 8. Vendoring & path conventions
 
-**Path reconciliation.** The skill files (now vendored into `.claude/skills/`)
-were written before this repo moved its agent dirs under `.claude/`. Their text
-still says `.architecture/`, `.overseer/`, `artifacts/`, and `.artifacts/current/`
-at the repo root. **In this repo the real locations are:**
+**All paths are under `.claude/`.** Every skill in this repo uses the `.claude/`
+prefix for its artifacts: `.claude/architecture/`, `.claude/overseer/`,
+`.claude/artifacts/`. There is no root-level `.architecture/` or `artifacts/`
+directory. When reading a skill, all paths are taken as written.
 
-| Skill text says | This repo uses |
-|---|---|
-| `.architecture/` | `.claude/architecture/` |
-| `.overseer/` | `.claude/overseer/` |
-| `artifacts/` | `.claude/artifacts/` |
-| `.artifacts/current/` | unchanged (root) — dormant until first CSE run |
+**Note for `references/madr-format.md` and `references/c4-mermaid-syntax.md`.**
+These describe `master-architect`'s default output location as `.architecture/`
+because that skill is designed to be configurable per project. When using it here,
+override to `.claude/architecture/`.
 
-A new agent operating here must write to the **`.claude/` locations**. If a
-skill emits a root-level path, treat it as the `.claude/` equivalent. (Vendoring
-copied the skills verbatim; their internal paths were **not** rewritten.)
+**Vendoring (the 5 `[vendored]` skills).** Copied from upstream into `.claude/skills/`
+to make this template self-contained. No global `~/.claude/skills/` directory exists
+on the machine, so there is no double-discovery issue. Consequences:
 
-**Vendoring (the 7 `[vendored]` skills).** They were copied from
-`~/.claude/skills/` to make this repo self-contained. Consequences:
-
-- **Fork / drift.** The copies do not track upstream. If a global skill is
-  improved, re-copy it into `.claude/skills/` to pick up the change.
-- **Double discovery.** Because the originals still live in `~/.claude/skills/`,
-  each vendored skill is registered **twice** (global + project) when working in
-  this repo. To make the repo the single source, remove the global copy — but
-  that affects every *other* project on this machine, so it is a deliberate,
-  separate decision.
+- **Fork / drift.** Copies do not track upstream automatically. If an upstream skill
+  improves, re-copy it into `.claude/skills/` to pick up the change.
+- **Single source.** The `.claude/skills/` copies are the only copies. Any project
+  using this template gets exactly what is here.

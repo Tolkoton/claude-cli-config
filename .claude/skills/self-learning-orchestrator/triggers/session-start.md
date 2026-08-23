@@ -46,14 +46,14 @@ Typical files to look for (depending on the project):
 - `~/.claude/memory/pydantic/MEMORY.md`
 - `~/.claude/memory/pytest/MEMORY.md`
 - `~/.claude/memory/hypothesis/MEMORY.md`
-- `~/.claude/memory/<domain>/MEMORY.md` (e.g., `datev` for the user's tax-software work)
+- `~/.claude/memory/<domain>/MEMORY.md` (e.g., `payments` for vendor-API work, `auth` for authentication work)
 
 Missing files are fine — silently skip. The point is to load whatever exists.
 
 ### 3. Read project-scoped memory
 
 ```
-Read .architecture/MEMORY.md
+Read .claude/architecture/MEMORY.md
 ```
 
 Or wherever the project keeps project-scoped lessons (some projects use `docs/lessons.md` instead). Check CLAUDE.md for the canonical path.

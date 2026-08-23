@@ -7,7 +7,7 @@ The session or task is ending. This is the trigger where lesson candidates accum
 Strong signals:
 - User says "wrap up", "done for now", "let's end here", "good for today".
 - User types `/clear`, `/bye`, `/wrap-up`.
-- Task status transitions to DONE (in feature-implementer terms, Phase F).
+- Task or slice reaches DONE state.
 - Sustained idle period (>2h) followed by an end-conversation cue.
 
 Weak signals (defer to user confirmation):
@@ -23,13 +23,13 @@ When in doubt: ask the user "Are we wrapping up this task? If so I'd like to do 
 
 ```
 Read claude-progress.md
-Read .architecture/tasks/<active-task>/reflections.md 2>/dev/null
+Read .claude/architecture/tasks/<active-task>/reflections.md 2>/dev/null
 Read .claude/lesson-queue.md 2>/dev/null
 ```
 
 The three input sources, in order:
 - **Lesson queue**: one-liners captured in-flow during the session.
-- **Reflections**: failure notes per task (if feature-implementer was in use).
+- **Reflections**: failure notes per task (if `reflections.md` was kept during the task).
 - **Progress notes**: anything in the progress file that smells like a lesson but wasn't queued.
 
 Compile a candidate list. Each candidate is one observation that *might* be a lesson.
@@ -42,7 +42,7 @@ For each candidate, ask in order:
 
 1. **Is this generic / obvious?** ("Pydantic is great", "tests are important"). → **DISCARD**. Don't pollute memory.
 
-2. **Is this project-specific tactical?** ("the dunning service uses raw text() because of legacy schema"). → **PROJECT-SCOPE** memory: append to `.architecture/MEMORY.md`.
+2. **Is this project-specific tactical?** ("the dunning service uses raw text() because of legacy schema"). → **PROJECT-SCOPE** memory: append to `.claude/architecture/MEMORY.md`.
 
 3. **Is this a tech/library quirk that would bite in any project using the same stack?** ("argon2-cffi's verify raises VerifyMismatchError, not returns False"). → **TECH-SCOPE** memory: append to `~/.claude/memory/<tech>/MEMORY.md`.
 
@@ -72,21 +72,21 @@ Example (tech-scope):
 ```markdown
 ### 2026-05-20 — argon2-cffi: verify() raises on mismatch, never returns False
 
-**Context**: Implementing password auth in belegmeister.
+**Context**: Implementing password auth.
 **Observation**: `ph.verify(hash, password)` raises `VerifyMismatchError` on bad password rather than returning False. We initially wrote `if not ph.verify(...): ...` which never reached the else branch.
 **Action / rule**: Wrap in try/except VerifyMismatchError, or use the lower-level `ph.verify_argon2id_hash()` which returns bool.
-**Source**: belegmeister @a7f3b2c (auth_test fix)
+**Source**: <project> @<sha> (auth_test fix)
 ```
 
 Example (project-scope):
 
 ```markdown
-### 2026-05-20 — DATEV partner JSON: amount field can be string OR Decimal
+### 2026-05-20 — vendor API: amount field can be string OR Decimal
 
-**Context**: belegmeister consumes DATEV invoice exports.
-**Observation**: The 'amount' field is sometimes a string ("123.45") and sometimes a number, depending on DATEV's serializer mood. Pydantic's default coercion handles the string case but logs a warning in strict mode.
-**Action / rule**: Use `Field(..., coerce_numbers_to_str=False)` and accept both via Union[str, Decimal] with a custom validator that normalizes to Decimal. See decisions.md "2026-05-14: Money handling".
-**Source**: belegmeister @c8d4e1f (DATEV import fix)
+**Context**: Project consumes vendor invoice exports.
+**Observation**: The 'amount' field is sometimes a string ("123.45") and sometimes a number, depending on the vendor's serializer. Pydantic's default coercion handles the string case but logs a warning in strict mode.
+**Action / rule**: Accept both via `Union[str, Decimal]` with a custom validator that normalizes to Decimal. See decisions.md "money handling".
+**Source**: <project> @<sha> (import fix)
 ```
 
 ### Phase 4 — Commit and clean up
@@ -96,13 +96,13 @@ After all entries are written:
 1. Show the user the diff for the memory files. **Always confirm before committing.**
 
    ```bash
-   git diff -- '.architecture/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
+   git diff -- '.claude/architecture/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
    ```
 
 2. On confirmation, commit:
 
    ```bash
-   git add .architecture/MEMORY.md CLAUDE.md decisions.md
+   git add .claude/architecture/MEMORY.md CLAUDE.md decisions.md
    git commit -m "chore(memory): distill lessons from <task or session description>"
    ```
 

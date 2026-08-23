@@ -23,7 +23,7 @@ Q3. Is X an OBSERVATION about how a library / framework behaves, that would bite
    NO  → Q4
 
 Q4. Is X an OBSERVATION about this specific project's code / domain / external systems?
-   YES → .architecture/MEMORY.md
+   YES → .claude/architecture/MEMORY.md
          (Project-scope, prune-able when underlying code changes; never promoted globally.)
    NO  → Q5
 
@@ -58,7 +58,7 @@ Possible framings:
 | "All token-checking code should use try/except, not None checks." | CLAUDE.md (rule) |
 | "We chose PyJWT over authlib; this exception behavior was one factor." | decisions.md (decision) |
 | "PyJWT's decode() raises rather than returns None — note for any project." | `~/.claude/memory/pyjwt/MEMORY.md` (tech) |
-| "In our auth.py, the legacy code expected None and we had to refactor." | `.architecture/MEMORY.md` (project) |
+| "In our auth.py, the legacy code expected None and we had to refactor." | `.claude/architecture/MEMORY.md` (project) |
 | "During this task I assumed None and burned an hour." | `<task>/reflections.md` (per-task) |
 | "Adding `try/except ExpiredSignatureError` here because PyJWT raises, not returns." | inline code comment |
 
@@ -79,7 +79,7 @@ Correct response: write the ADR (most detail), the CLAUDE.md line (cross-referen
 
 - CLAUDE.md line: "Money is Decimal. See decisions.md 2026-05-14."
 - ADR Consequences section: "Tech-scope lesson recorded in ~/.claude/memory/python/MEMORY.md."
-- MEMORY.md entry: "Project belegmeister @c8d4 made this decision; see its decisions.md."
+- MEMORY.md entry: "Project <name> @<sha> made this decision; see its decisions.md."
 
 If you ever update one, update the others. If that becomes too much work, you've over-replicated — drop the weakest copy.
 
@@ -90,7 +90,7 @@ If you ever update one, update the others. If that becomes too much work, you've
 | Inline comment | every commit | low (only this line) | when reading this code |
 | reflections.md | per failed attempt | low (task-scope) | by session-end-dreaming |
 | claude-progress.md | per commit | medium (current task) | at session-start (resume) |
-| `.architecture/MEMORY.md` | per session-end | medium (project-wide) | at session-start |
+| `.claude/architecture/MEMORY.md` | per session-end | medium (project-wide) | at session-start |
 | `~/.claude/memory/<tech>/MEMORY.md` | per session-end | medium (cross-project) | at session-start when tech matches |
 | decisions.md | per substantive decision | high (architecture history) | at session-start (recent) + on demand |
 | CLAUDE.md | rare, deliberate | highest (always loaded) | every Claude operation |

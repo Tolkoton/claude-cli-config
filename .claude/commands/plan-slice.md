@@ -102,7 +102,7 @@ loop:
   case verdict:
     CRITIC_WRONG_SCOPE →
         STOP the slice plan. Tell the owner this is not a slice and name the
-        correct skill (master-architect / feature-implementer / spike); emit
+        correct skill (master-architect / feature-architect / spike); emit
         OVERSEER_SLICE_AWAITING_OWNER and do NOT write a slice artifact.
     CRITIC_PREMISE_PROBE_REQUIRED → 
         go to Phase 1 step 1c (back-edge) with the critic's claim+spike;
