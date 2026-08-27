@@ -275,3 +275,69 @@ DAG node carrying `prior_evidence` -- the trace of an autonomous reopening -- ha
 no CLOSED entry naming it. Verified in both directions: passes on the real repo,
 exits 1 against an empty log.
 *Cost to reverse:* trivial.
+
+**D-23. Sessions may repair the harness; they may not touch what limits them.**
+Owner-ratified 2026-08-27. Edit/Write/MultiEdit granted under `.claude/hooks/`,
+`.claude/unattended/` and `.claude/architecture/` in `settings.local.json`
+(machine-local -- `settings.json` ships with the template). `constitution.md`,
+`settings.json` and `settings.local.json` are denied in the permission list AND
+independently by `protect-paths.sh`, because a permission list can be re-widened
+by editing the file that defines it, and an agent that may edit its own
+permissions has none.
+*Paired with D-24, deliberately:* the grant is only safe if a session's patch is
+screened before it lands.
+*Verified:* `test_guardrail_paths.py`, 5 refused / 5 allowed.
+
+**D-24. A patch proposed by a session is screened before it is applied.**
+`hook-checks/lint_patch.py` flags the transformations that are almost always a
+weakening, split into CRITICAL (fails, exit 1) and REVIEW (informational).
+*The evidence it was built from:* the S3 patch contained
+`PROJECT_ROOT=$(git rev-parse --show-toplevel >/dev/null 2>&1)`. In a command
+substitution stdout IS the value, so the "fix" silently emptied the variable and
+the hook fell back to the wrong directory. Every test in the session's own suite
+still passed, because no test covered project-root detection. A human reading the
+diff caught it; unattended it would have landed.
+*Tuned for use, not for coverage:* the first version flagged 20 hunks on that
+patch, 19 of them legitimate. A gate that fires on twenty when one matters trains
+people to ignore it. Now: 1 CRITICAL, 19 informational.
+*Verified both ways:* exit 1 on the real patch, exit 0 on a clean one.
+*Honest limit:* it is a screen, not a proof. It catches a known shape of
+weakening, not wrongness in general.
+
+**D-25. Commits are legal on `unattended/<date>` and nowhere else.**
+Owner-ratified 2026-08-27. The checkpoint is kept where it does work -- nothing
+reaches `main` without a human reading the diff -- and removed where it only
+made work pile up: over a night, every session was building on an unreviewed
+index inherited from the session before it, so one bad change was silently
+inherited by everything after, with no point to roll back to.
+*Fails closed:* an undeterminable branch is refused, not allowed.
+*Uses the S7 command-position pattern on both sides,* so `cd x && git commit` and
+`git -C dir commit` are caught where they must be caught and permitted where
+they are permitted.
+*Stages `-u`, never `-A`:* an unattended run emits logs and scratch patches, and
+sweeping those in makes the review surface unreadable.
+*Verified:* `hook-checks/test_commit_policy.py`, 11/11 against real throwaway
+repos with real branches checked out -- the hook reads the branch with
+`git branch --show-current`, so faking it would only test the test.
+*One step remains and it is not the AI's:* `settings.json` denies
+`Bash(git commit*)`, deny beats allow, and D-23 made that file unwritable by the
+AI. The last enabling edit belongs to the owner by construction.
+
+**D-26. CORRECTION to D-25: hooks guard tool calls, not scripts.**
+D-25 claimed `block-dangerous.sh` enforces the commit rule "independently". For
+a command the agent types, true -- 11/11. For a command inside a script, false.
+PreToolUse hooks and `permissions.deny` evaluate the Bash tool call that is
+issued; a script's internal commands are never re-evaluated.
+*Verified 2026-08-27, deliberately with a non-mutating probe:*
+`git commit --dry-run` is refused by the harness at top level, and executed
+untouched from a two-line script.
+*Scope of the problem, which is wider than commits:* every hook in this repo is
+bypassable this way -- `block-dangerous.sh`, `protect-paths.sh`, the deny list.
+Any script an agent writes is a hole through all of them. This does not make the
+hooks useless: they still catch the direct, ordinary, accidental case, which is
+the common one. It makes "a hook enforces this" a claim that must be qualified.
+*Fixed where it matters now:* `commit_checkpoint.sh` re-checks the branch itself
+immediately before committing and refuses anything outside `unattended/*`,
+rather than trusting the earlier switch or the hook. On that path those lines
+are the only control there is.
+*Recorded in AGENTS.md* so it reaches every session, not just this one.

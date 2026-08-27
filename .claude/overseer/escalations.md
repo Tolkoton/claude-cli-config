@@ -74,3 +74,61 @@ one; do not reopen the old one in conversation.
 - Falsified by: the owner saying they meant a different S3, or that the prior
   evidence was in fact complete.
 - Status: CLOSED
+
+## 2026-08-27T20:05:00Z — CAPABILITY_GRANT — harness self-repair
+- Question: may a supervisor-spawned session write under `.claude/`, so an
+  overnight run can repair the harness instead of only diagnosing it?
+- Evidence that forced the question: session S3 found four real hook defects,
+  proved them against copies, and could apply none of them -- "every write under
+  .claude/ denied by the sensitive-path classifier". It staged a patch and
+  parked. The defects were applied by the attended orchestrator, not by the run.
+- Options offered: (a) grant nothing, accept diagnose-only overnight runs;
+  (b) grant all of `.claude/`; (c) grant three directories, keep the guardrails
+  denied, and pair it with a patch gate.
+- Recommendation: (c) -- the narrow grant. An agent that may edit its own
+  permissions has no permissions.
+- Human chose: (c). "так дозволяю", 2026-08-27.
+- Latency to decision: same session.
+- What was actually granted: Edit/Write/MultiEdit under `.claude/hooks/`,
+  `.claude/unattended/`, `.claude/architecture/`, in `settings.local.json` --
+  machine-local, because `settings.json` ships with the template and must not
+  pre-grant this to every downstream project.
+- What stays denied, in BOTH mechanisms: `constitution.md`, `settings.json`,
+  `settings.local.json`. Deny beats allow in the permission list, and
+  `protect-paths.sh` now refuses them independently -- because a permission list
+  can be re-widened by editing the file that defines it.
+- Verified: `hook-checks/test_guardrail_paths.py`, 5 refused / 5 allowed.
+- Notes: the first version of that test reported every file as writable,
+  including `.env`. protect-paths.sh signals a denial by PRINTING a decision and
+  exiting 0, not by a non-zero exit. The `.env` control is what exposed the bad
+  test. Kept in the suite for that reason.
+
+## 2026-08-27T20:06:00Z — PRODUCT_DECISION — commits during an overnight run — OPEN
+- Question: does `git commit` stay a human-only checkpoint when a run is meant
+  to last a night?
+- Why it matters: work accumulates in the index. Today 41 files accumulated and
+  the owner reviewed them, which worked. Unattended for eight hours, each session
+  builds on top of unreviewed staged work, and one bad change is inherited by
+  everything after it.
+- Recommendation: keep the deny on `main`, and allow commits ONLY onto a
+  dedicated `unattended/<date>` branch. That preserves the checkpoint -- nothing
+  reaches `main` without a human -- while giving each session a verified base.
+  It requires an owner change to the deny list; the AI cannot grant it.
+- Human chose: the recommendation, verbatim -- "дозволяю коміти в гілку
+  unattended/<дата>", 2026-08-27.
+- Implemented: `block-dangerous.sh` now allows a commit ONLY when the current
+  branch matches `unattended/*`, using the S7 command-position pattern so
+  `cd x && git commit` and `git -C dir commit` are covered on both sides. An
+  undeterminable branch falls through to refused -- it fails closed.
+  `.claude/unattended/commit_checkpoint.sh` creates or switches to the branch and
+  commits tracked modifications only (`git add -u`, never `-A`: an unattended run
+  produces logs and scratch patches, and sweeping them in makes the review
+  surface unreadable).
+- Verified: `hook-checks/test_commit_policy.py`, 11/11 against real throwaway
+  repos with real branches checked out.
+- STILL BLOCKED on the owner: `settings.json` carries `Bash(git commit*)` in
+  `permissions.deny`, deny beats allow, so no rule in `settings.local.json` can
+  re-enable it -- and `settings.json` is now unwritable by the AI under D-23.
+  The final enabling step is the owner's BY CONSTRUCTION, which is the design
+  working rather than a defect. See the exact change in PROGRESS.md.
+- Status: IMPLEMENTED — awaiting one owner edit

@@ -76,6 +76,13 @@ session per DAG node, restarts one that dies, and stops on a terminal state.
   secrets file by name. One narrow exception: `.claude/project.env`, the
   template's own committed config, which Step 2 of setup tells you to edit.
   Everything else matching `*.env` is denied, so name new config files `.sh`.
+- **Hooks guard tool calls, not scripts.** `block-dangerous.sh`, `protect-paths.sh`
+  and the `permissions.deny` list all evaluate the Bash call the agent issues.
+  A command run from INSIDE a shell script is seen by none of them — verified
+  2026-08-27: `git commit --dry-run` is refused at top level and executes
+  untouched from a two-line script. So a script the agent writes is a hole
+  through every hook in this repo. Put the check inside the script too, and
+  treat "a hook enforces this" as true only of what is typed directly.
 - **Three legitimate stops only**: a human-only input, a falsified premise
   invalidating committed work, or an empty unblocked queue. Everything else is
   decided, logged, and continued.

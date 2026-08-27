@@ -1,0 +1,2 @@
+[sim] node=S2 action=crash
+[sim] simulating mid-unit crash for S2 (no terminal state written)

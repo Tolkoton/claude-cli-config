@@ -43,6 +43,16 @@ done
 
 # Patterns to deny absolutely. Match against the full path.
 PROTECTED_PATTERNS=(
+  # The guardrails themselves. Added 2026-08-27 alongside the owner-ratified
+  # grant letting spawned sessions write under .claude/hooks, .claude/unattended
+  # and .claude/architecture so an overnight run can repair the harness it runs
+  # on. Widening what an agent may edit is exactly when the things that define
+  # its limits need a second layer: the permission list is one mechanism, and a
+  # settings.local.json edit could quietly re-widen it. These three stay out of
+  # reach in both mechanisms. Propose changes in .claude/overseer/audit.md.
+  '\.claude/constitution\.md$'
+  '\.claude/settings\.json$'
+  '\.claude/settings\.local\.json$'
   '\.env$'
   '\.env\.'
   '/secrets/'

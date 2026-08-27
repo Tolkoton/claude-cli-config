@@ -73,9 +73,37 @@ def bad(msg: str, expected: object, actual: object) -> None:
     print(f"  FAIL {msg}\n         expected: {expected!r}\n         actual:   {actual!r}")
 
 
+def _pinned_main_repo() -> str:
+    """A throwaway repo checked out on `main`.
+
+    block-dangerous.sh's commit rule became branch-aware on 2026-08-27: a commit
+    is legal on unattended/<date> and refused everywhere else. These cases used
+    the live repo, so the suite returned a different verdict depending on which
+    branch the developer happened to be standing on -- it failed 5 commit cases
+    purely because the checkout was an unattended branch, and would have gone
+    green again on main, hiding the branch-dependence entirely. Pin the branch so
+    each assertion means what it claims to mean.
+    """
+    import tempfile
+    root = tempfile.mkdtemp()
+    q = dict(capture_output=True, text=True, cwd=root)
+    subprocess.run(["git", "init", "-q"], **q)
+    subprocess.run(["git", "config", "user.email", "t@t"], **q)
+    subprocess.run(["git", "config", "user.name", "t"], **q)
+    with open(os.path.join(root, "f.txt"), "w") as fh:
+        fh.write("x")
+    subprocess.run(["git", "add", "f.txt"], **q)
+    subprocess.run(["git", "commit", "-qm", "init"], **q)
+    subprocess.run(["git", "branch", "-M", "main"], **q)
+    return root
+
+
+PINNED_MAIN = _pinned_main_repo()
+
+
 def run_block(cmd: str, path_override: str | None = None) -> subprocess.CompletedProcess:
     """block-dangerous.sh: exit 2 = block (reason on stderr), exit 0 = allow."""
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(REPO_ROOT))
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=PINNED_MAIN)
     if path_override:
         env["PATH"] = path_override
     return subprocess.run(

@@ -1,0 +1,2 @@
+[sim] node=S1 action=hang
+[sim] simulating a wedged session for S1 (no heartbeat, no PROGRESS)

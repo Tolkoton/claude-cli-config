@@ -1,0 +1,50 @@
+{
+  "_comment": "Machine-local overrides. Gitignored \u2014 never committed, never inherited by a project copied from this template.",
+  "_comment_supervisor": "Grants this machine the right to launch the unattended supervisor, which spawns claude sessions in a self-restarting loop. Deliberately NOT in .claude/settings.json: that file ships with the template, and a template that pre-grants every downstream project the right to auto-launch an unbounded loop of agents is a bad default. On the dedicated server, add the same two lines to that machine's settings.local.json \u2014 see .claude/unattended/README.md.",
+  "permissions": {
+    "allow": [
+      "Artifact",
+      "Bash(bash .claude/unattended/supervisor.sh:*)",
+      "Bash(.claude/unattended/supervisor.sh:*)",
+      "Edit(./.claude/hooks/**)",
+      "Edit(**/.claude/hooks/**)",
+      "Write(./.claude/hooks/**)",
+      "Write(**/.claude/hooks/**)",
+      "MultiEdit(./.claude/hooks/**)",
+      "MultiEdit(**/.claude/hooks/**)",
+      "Edit(./.claude/unattended/**)",
+      "Edit(**/.claude/unattended/**)",
+      "Write(./.claude/unattended/**)",
+      "Write(**/.claude/unattended/**)",
+      "MultiEdit(./.claude/unattended/**)",
+      "MultiEdit(**/.claude/unattended/**)",
+      "Edit(./.claude/architecture/**)",
+      "Edit(**/.claude/architecture/**)",
+      "Write(./.claude/architecture/**)",
+      "Write(**/.claude/architecture/**)",
+      "MultiEdit(./.claude/architecture/**)",
+      "MultiEdit(**/.claude/architecture/**)"
+    ],
+    "deny": [
+      "Edit(./.claude/constitution.md)",
+      "Edit(**/.claude/constitution.md)",
+      "Write(./.claude/constitution.md)",
+      "Write(**/.claude/constitution.md)",
+      "MultiEdit(./.claude/constitution.md)",
+      "MultiEdit(**/.claude/constitution.md)",
+      "Edit(./.claude/settings.json)",
+      "Edit(**/.claude/settings.json)",
+      "Write(./.claude/settings.json)",
+      "Write(**/.claude/settings.json)",
+      "MultiEdit(./.claude/settings.json)",
+      "MultiEdit(**/.claude/settings.json)",
+      "Edit(./.claude/settings.local.json)",
+      "Edit(**/.claude/settings.local.json)",
+      "Write(./.claude/settings.local.json)",
+      "Write(**/.claude/settings.local.json)",
+      "MultiEdit(./.claude/settings.local.json)",
+      "MultiEdit(**/.claude/settings.local.json)"
+    ]
+  },
+  "_comment_session_writes": "Ratified by the owner 2026-08-27. Grants a supervisor-spawned session the right to repair the harness it runs on. WITHOUT this, an overnight run can diagnose but not fix: session S3 found and proved four real hook defects and could only stage a patch and park. Deliberately NARROW - three directories, not all of .claude/ - and paired with an explicit deny below, because the thing being widened is the agent's access to its own guardrails. Machine-local on purpose: settings.json ships with the template and must not pre-grant this to every downstream project."
+}

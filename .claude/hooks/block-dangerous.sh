@@ -41,7 +41,11 @@ DANGEROUS_PATTERNS=(
   'rm -rf \$\('
   'rm -fr \$\('
   'rm -r \$\('
-  '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*commit([[:space:]]|$)'
+# NOTE: the git-commit pattern is deliberately NOT in this unconditional list.
+# It lives in the branch-aware commit policy near the end of the file, because
+# after 2026-08-27 a commit is legal on an unattended/<date> branch and illegal
+# everywhere else. Putting it here would block it on every branch, including the
+# one where it is now the point.
   'git push --force'
   'git push -f '
   'git push --force-with-lease'
@@ -97,12 +101,32 @@ for protected in "${PROTECTED_BRANCHES[@]}"; do
   fi
 done
 
-# Block `git commit` entirely — commits are a human review checkpoint by policy.
-if echo "$CMD" | grep -qE '^[[:space:]]*git[[:space:]]+commit($|\s)'; then
-  echo "BLOCKED: this project treats commits as a human review checkpoint." >&2
-  echo "Stage with 'git add <files>' if helpful, then let the user review the diff and run 'git commit' themselves." >&2
-  echo "If the user explicitly asked you to commit, explain this hook is blocking and ask them to run the commit manually." >&2
-  exit 2
+# Commit policy — owner-ratified 2026-08-27.
+#
+# Commits are allowed on an `unattended/<date>` branch and NOWHERE else. The
+# checkpoint is preserved in the only place it does work: nothing reaches `main`
+# without a human reading the diff. What it buys is that each session in a long
+# run builds on a committed, verified base instead of on top of an unreviewed
+# index it inherited from the session before it -- where one bad change is
+# silently inherited by everything after.
+#
+# The pattern is the command-position form from S7: a bare `^` let `cd x && git
+# commit` walk straight past the old check, and `git -C dir commit` hid the
+# subcommand behind a global option. Both are covered here.
+if echo "$CMD" | grep -qE '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*commit([[:space:]]|$)'; then
+  case "$BRANCH" in
+    unattended/*)
+      : # allowed — an unattended run's own branch
+      ;;
+    *)
+      echo "BLOCKED: commits are allowed only on an 'unattended/<date>' branch." >&2
+      echo "Current branch: '${BRANCH:-unknown}'." >&2
+      echo "On any other branch a commit is a human review checkpoint: stage with 'git add <files>'," >&2
+      echo "summarise the change, suggest a message, and let the user run the commit themselves." >&2
+      echo "For an unattended run, switch first: git switch -c unattended/\$(date -u +%Y-%m-%d)" >&2
+      exit 2
+      ;;
+  esac
 fi
 
 exit 0
