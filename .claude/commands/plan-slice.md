@@ -20,6 +20,35 @@ Pre-flight:
   down for the whole planning session (the phase guard skips audits while state is
   `plan`). Clear it only at the very end.
 
+## Unattended operation — a hard gate becomes a park
+
+Read `.claude/overseer/mode`. Contents `unattended` → nobody is in the loop;
+absent or anything else → attended, and every gate below behaves exactly as
+written.
+
+Unattended, a gate that would block instead **parks**: append the item to
+`.claude/overseer/parked.md` with what it needs, continue with whatever else can
+move, and surface it at the next legitimate interruption. Concretely:
+
+- **Phase 1 (interactive framing)** — derive the frame from the feature artifact,
+  the domain map, and the existing code. Write it. Do not ask.
+- **Phase 4 threshold ratification** — do not block. Write your best value into
+  the artifact marked `PROVISIONAL — owner ratification pending`, with the
+  cost-to-reverse and the alternative you rejected, and park the ratification.
+  The slice proceeds against the provisional threshold.
+- **`CRITIC_ESCALATE`** — two-way door: take the critic's recommendation, log it
+  to `escalations.md` as decided autonomously with its cost-to-reverse, continue.
+  One-way door or an Art. 5 product decision: park it.
+- **`CRITIC_PREMISE_PROBE_REQUIRED`** — run the probe yourself if it is a
+  ≤15-minute spike (Art. 1). Only park if the probe needs a credential, a real
+  external system, or a human.
+- **4-round oscillation** — still a circuit breaker, still fires. Park the phase
+  with both positions recorded; do not `AskUserQuestion` into an empty room.
+
+**What still parks and waits in both modes:** a genuine one-way door — money, a
+real external system, irreversible data, a published contract. Article 5 is not
+relaxed by the absence of a human.
+
 ## Two modes
 
 - **Standalone** (the owner runs `/plan-slice` directly): Phase 1 is interactive and

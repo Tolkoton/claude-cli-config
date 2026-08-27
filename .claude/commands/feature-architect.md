@@ -20,6 +20,27 @@ Pre-flight:
 
 ---
 
+# Unattended operation — the one human round becomes a written frame
+
+Read `.claude/overseer/mode`. Contents `unattended` → nobody is in the loop;
+absent or anything else → attended, and Phase 1 runs interactively as written.
+
+Unattended, Phase 1 does not ask and does not block. Derive the frame from the
+domain map, the architecture map, and the existing code; write it into the
+feature artifact; mark every item the owner would have ratified as
+`PROVISIONAL — owner ratification pending` with its cost-to-reverse; and start
+the autonomous run. The two HARD GATEs below (1b acceptance criteria, 1e autonomy
+grant) become parks: the feature proceeds on the provisional frame, and the
+ratification sits in `.claude/overseer/parked.md` for the owner's return.
+
+**Except** — a frame item that is a genuine one-way door (a price, a published
+contract, an irreversible data decision, anything spending money or touching a
+real external system) parks and waits in both modes. It does not get a
+provisional value. Article 5 is not relaxed by the absence of a human.
+
+The critical-interrupt set below already encodes this model. Unattended, it is
+the *whole* interrupt set — nothing outside it pauses the run.
+
 # Phase 1 — Feature frame  (INTERACTIVE — this is the ONE human round)
 
 This is the only place the owner is required. Spend as long as here as it takes — the

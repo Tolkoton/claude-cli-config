@@ -1,6 +1,6 @@
 ---
 name: slice-builder
-description: Build ONE isolated testable logical piece (a "thin slice") of a larger system using strict per-test TDD (RED→GREEN→REFACTOR), paranoid-SRP (one method = one responsibility; multi-responsibility logic becomes a flow method orchestrating helpers), seam-first design, and dependency injection. Use this skill WHENEVER the user asks to "implement a small piece", "add a thin slice", "build the upload module", "build piece N of the pipeline", "wrap this API in a clean function", or otherwise wants controlled incremental progress on a known integration without architecture overhead. Output is one production module + integration tests derived from the method's distinct behaviors + one manual smoke script + a PROGRESS.md entry. STOPS at every TDD transition. DO NOT use for greenfield architecture (→ master-architect), splitting oversized multi-file features (→ feature-architect), unknown-API exploration (→ spike, no skill), or single-file edits (→ user edits directly).
+description: Build ONE isolated testable logical piece (a "thin slice") of a larger system using strict per-test TDD (RED→GREEN→REFACTOR), paranoid-SRP (one method = one responsibility; multi-responsibility logic becomes a flow method orchestrating helpers), seam-first design, and dependency injection. Use this skill WHENEVER the user asks to "implement a small piece", "add a thin slice", "build the upload module", "build piece N of the pipeline", "wrap this API in a clean function", or otherwise wants controlled incremental progress on a known integration without architecture overhead. Output is one production module + integration tests derived from the method's distinct behaviors + one manual smoke script + a PROGRESS.md entry. Gates once on the behavior list, then runs every behavior to completion without stopping; evidence goes to the artifact and the ledger, not to chat. DO NOT use for greenfield architecture (→ master-architect), splitting oversized multi-file features (→ feature-architect), unknown-API exploration (→ spike, no skill), or single-file edits (→ user edits directly).
 ---
 
 # Slice Builder
@@ -9,11 +9,11 @@ You are extending a known system one isolated logical piece at a time. The user 
 
 ## Discipline (apply ALL of these)
 
-1. **Seam-first.** Confirm function signature, types, and return shape with the user BEFORE writing any code. State what the component will **NOT** do — this is the boundary of the slice.
+1. **Seam-first.** Fix the function signature, types, and return shape BEFORE writing any code, and write them to the slice artifact. State what the component will **NOT** do — this is the boundary of the slice. Attended, show the seam and let the user amend it; unattended, the written seam plus the critic's pass is the record, and you proceed. The seam being *written down first* is the discipline; a human reading it in real time is not.
 
 2. **Dependency injection always.** External clients, configs, time sources, and randomness are passed as arguments. NEVER import them inside the module under construction. This makes the module testable in isolation and prevents hidden coupling.
 
-3. **Strict TDD per test.** RED → GREEN → REFACTOR per test. Show pytest output at every transition. Write ONE test at a time. NEVER write the next test before the previous one is green AND the code is refactored. Never write impl before its test.
+3. **Strict TDD per test.** RED → GREEN → REFACTOR per test. Capture pytest output at every transition into the ledger. Write ONE test at a time. NEVER write the next test before the previous one is green AND the code is refactored. Never write impl before its test. The ordering is absolute; the turn boundary is not — a transition is recorded, not reported to a human.
 
 4. **Paranoid-SRP.** ONE method = ONE responsibility. No exceptions, no asking. If logic requires multiple responsibilities, it becomes a **flow method** that calls single-responsibility helpers in order — the flow method's responsibility is "orchestrate these steps", each helper's responsibility is one step. Helper functions for SRP are NOT premature abstraction (that's about ABCs/protocols/factories, see rule 5).
 
@@ -44,7 +44,7 @@ You are extending a known system one isolated logical piece at a time. The user 
 
 5. **No premature abstraction.** No ABCs, no protocols, no `*_Factory`, no plugin systems, no `*_Manager`, no generic `*_Service` indirection, no retry policies, no circuit breakers, no structured event emission. If the user asked for a function, write a function.
 
-6. **Tests: derived from method behaviors, not from a quota.** Before writing tests, enumerate the distinct externally observable behaviors the method guarantees, then write one test per behavior. Show the behavior list to the user before the first RED for sanity-check. Heuristics by method type:
+6. **Tests: derived from method behaviors, not from a quota.** Before writing tests, enumerate the distinct externally observable behaviors the method guarantees, then write one test per behavior. **The behavior list is the one gate in this skill** — write it to the slice artifact before the first RED. Attended, the user approves it; unattended, a critic pass on the written list is the approval. Once it is approved, every behavior on it runs to completion without a further gate. Heuristics by method type:
 
    - **Pure transformation / formatter** (no I/O, no branches): 1-2 tests — success + one boundary if a meaningful one exists.
    - **Single-responsibility helper with validation**: success + one test per distinct failure mode it can return.
@@ -53,7 +53,7 @@ You are extending a known system one isolated logical piece at a time. The user 
 
    What is NEVER added at slice level: mutmut / cosmic-ray mutation testing, exhaustive hypothesis property tests, wide-lens enumeration (security/performance/concurrency/encoding lenses) — those belong to a full-feature implementation effort. Adding them to a slice is scope creep.
 
-7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the user runs this and reports OK.
+7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the smoke result is recorded. This is a genuine human-input dependency (reason 1) whenever the verification needs eyes on a real external system — so it **parks**, it does not halt: write the script, append a `PARKED / external-verification` entry to `.claude/overseer/parked.md`, mark the slice `CODE COMPLETE — SMOKE PENDING` in `PROGRESS.md`, and move to the next unblocked item. If the smoke can be asserted programmatically against a sandbox, do that instead and close the slice without parking.
 
 ## When to use this skill
 
@@ -88,13 +88,15 @@ If invoked incorrectly, name the correct skill and ask the user to redirect.
 
 ### Step 0 — Validate scope
 
-Ask the user (concise, all at once):
+Answer these four, in the slice artifact, before anything else:
 - What's the seam? (function signature, input types, return type)
 - What's the external dependency? Where are its docs? (path in repo)
-- What does this slice **NOT** do? (List 3-5 items the user must agree to defer.)
+- What does this slice **NOT** do? (List 3-5 deferred items.)
 - Existing conventions in the repo to follow? (test layout, type strictness, Pydantic vs dataclass for what kinds of objects)
 
-**STOP. Wait for answers.**
+**Sources, in order:** the slice contract at `.claude/overseer/slice/<slug>.md`, then the feature artifact, then the existing code's conventions. Attended, ask all four at once and wait. Unattended, derive each from those sources and write it down; if the *seam itself* is underdetermined and no source settles it, that is a design fork — park it (`one-way-door` only if the signature is a published contract; otherwise decide, record the alternative you rejected, and continue).
+
+**Do not wait.** The artifact write is the checkpoint.
 
 ### Step 1 — Read external docs
 
@@ -104,7 +106,9 @@ Read the vendor docs the user pointed to. Report back:
 - Whether a test/sandbox environment exists, and what its config looks like
 - Any constraints on inputs (file size, MIME, character encoding, etc.)
 
-**STOP. Wait for user to provide test environment details** (folder ID, account ID, sandbox URL, etc.) if not already in `.env`.
+Record all four findings in the slice artifact.
+
+**Missing test-environment details** (folder ID, account ID, sandbox URL) are the textbook human-only input — reason 1. If they are not in `.env`, `.env.example`, the slice contract, or the vendor docs: append a `PARKED / human-input` entry to `.claude/overseer/parked.md` naming the exact values needed and where they should go, then move to the next unblocked item. Do not guess a credential and do not halt the run waiting for one.
 
 ### Step 2 — Skeleton
 
@@ -114,9 +118,9 @@ Write the module skeleton:
 - Type hints, suitable for mypy strict
 - Module-level docstring stating WHAT this module does and what it explicitly DOESN'T (echoes Step 0)
 
-Run `pytest --collect-only` (or equivalent) — import must succeed.
+Run `pytest --collect-only` (or equivalent) — import must succeed. If it does not, fix it; a skeleton that will not import is not a checkpoint, it is a bug.
 
-**STOP.**
+Continue straight to Step 3. No gate here.
 
 ### Step 3 — Enumerate behaviors
 
@@ -131,18 +135,24 @@ Behaviors of upload_to_folder:
   B4. Returns success=False + error when file size exceeds the service limit
 ```
 
-**STOP. User confirms the list, removes/adds behaviors, then approves.** Behavior list is the test plan.
+**This is the gate — the only one in the build phase, and it fires once per seam, not once per behavior.** Write the list to the slice artifact under "Behaviors". Then:
+
+- **Attended:** the user confirms, removes/adds, approves.
+- **Unattended:** the list goes to the critic. A critic pass approves it. A critic block returns here once with the objection folded in; a second block on the same list parks the slice (`one-way-door` only if the disagreement is about a published contract) and you move on.
+
+The behavior list is the test plan. Once approved it is a contract with itself: Step 4 runs the whole list without returning here.
 
 ### Step 4 — TDD per behavior (one cycle per behavior)
 
-For each behavior Bn in order:
-- **RED**: Write ONE test for Bn. Run pytest. Show failing output. **STOP.**
-- **GREEN**: Minimal implementation to make Bn pass without breaking earlier behaviors. Run pytest (full slice suite). Show all green. **STOP.**
-- **REFACTOR**: Clean. If SRP rule 4 says a flow needs splitting into helpers — do it here. Run pytest. Still green. **STOP.**
+Once the behavior list is approved, run **every** behavior on it to completion in one continuous pass. For each behavior Bn in order:
 
-Do NOT advance to Bn+1 until Bn is green AND refactored AND the user has seen the output. Resist chaining.
+- **RED**: Write ONE test for Bn. Run pytest. Capture the failing output to the ledger.
+- **GREEN**: Minimal implementation to make Bn pass without breaking earlier behaviors. Run pytest (full slice suite). Capture all-green to the ledger.
+- **REFACTOR**: Clean. If SRP rule 4 says a flow needs splitting into helpers — do it here. Run pytest. Still green. Capture to the ledger.
 
-If during a cycle you discover a behavior was missing from the list, STOP and ask the user to amend the list — don't sneak it in.
+**The ordering constraint survives; the turn boundary does not.** Do NOT advance to Bn+1 until Bn is green AND refactored. That is a constraint on *your* sequencing within the approved list — never write the next test over a red or unrefactored predecessor — not a checkpoint that needs a human to have seen anything. The RED output in the ledger is what proves the cycle ran in order, and it is better evidence than a human skimming chat, because the overseer can audit it later (check #2).
+
+**Missing behavior discovered mid-cycle.** Do not stop and do not ask. Append it to the behavior list in the slice artifact marked `self-added`, record in the artifact's decision log what you observed that forced it and why it was not visible at Step 3, then continue the pass including the new behavior. This is a reversible local addition inside an approved list, not a contract amendment — the artifact diff is the review surface. It becomes a contract amendment, and therefore a park, only if the new behavior contradicts the seam or the "Out of scope" section.
 
 ### Step 5 — Smoke script
 
@@ -152,11 +162,16 @@ Write `scripts/smoke_test_<slice>.py`:
 - Prints the result
 - Prints an EXPLICIT human-verifiable instruction (e.g., "Open the admin panel at /uploads, look for file `smoke_<slice>_<timestamp>.txt`. Reply DONE or FAIL.")
 
-**STOP. Tell user:** "Run `python scripts/smoke_test_<slice>.py` and verify per the printed instruction. Reply DONE or FAIL."
+Then take the cheapest path that closes the slice:
+
+- **Assertable against a sandbox** — run it, capture the output to the ledger, close the slice. No park.
+- **Needs human eyes on a real external system** — park it. Append `PARKED / external-verification` to `.claude/overseer/parked.md` with the exact command and the printed instruction, mark the slice `CODE COMPLETE — SMOKE PENDING` in `PROGRESS.md`, and move to the next unblocked item. The slice resumes when the smoke result comes back.
+
+Never block the run on a smoke walkthrough, and never mark a slice DONE on an unrun smoke.
 
 ### Step 6 — PROGRESS update
 
-After user reports smoke DONE, append to `PROGRESS.md` at repo root (create if missing):
+Append to `PROGRESS.md` at repo root (create if missing) as soon as the code is complete — do not wait on the smoke result. If the smoke is parked, write the entry with `Smoke: PARKED — see .claude/overseer/parked.md` and update it in place when the result arrives:
 
 ```
 ## Slice N — <name> (DONE YYYY-MM-DD)
@@ -168,7 +183,7 @@ After user reports smoke DONE, append to `PROGRESS.md` at repo root (create if m
 - Open for next slice: <questions / tech debt / "none">
 ```
 
-Hand back to user with a one-line summary. **STOP.** Do NOT commit on the user's behalf — let them review and commit.
+Stage the slice's files with `git add`, print a one-line summary and a suggested conventional-commit message, and continue to the next unblocked item. Do NOT commit on the user's behalf — that block stays exactly as it is, and it is a review checkpoint, not a stopping condition. Staged work accumulates for the human to review whenever they return; it does not gate the next slice.
 
 ## Anti-patterns (refuse politely if user requests these mid-slice)
 
@@ -183,8 +198,10 @@ If the user asks for any of the following DURING the slice, push them out of sco
 - Refactor of existing modules — separate slice or `master-architect` BACKTRACK
 - Implementing the NEXT slice "since we're here"
 
-Response template:
+Response template (attended):
 > That's beyond the scope of this slice. Want me to (a) defer it to a follow-up slice (I'll note it in `PROGRESS.md` under "Open for next slice"), or (b) escalate to `master-architect` if it's actually architectural?
+
+Unattended, do not ask — decide and log. Default to (a): note it in `PROGRESS.md` under "Open for next slice" and continue the current slice. Choose (b) only when it meets one of the Escalation-signal triggers below, in which case park it per that section. Deferring is a two-way door; the note is the record.
 
 ## Escalation signals
 
@@ -198,7 +215,15 @@ STOP and ESCALATE to **`master-architect`** (or pause and discuss with the owner
 - Behaviors span multiple concern categories that need different test approaches (functional + performance + security + concurrency invariants) — that's full-feature test discipline, not slice
 - The user is asking for mutation testing / structured logging / observability as part of the slice (those are full-feature concerns)
 
-In both cases, do NOT continue the slice. Tell the user what you found and which skill to invoke. Leave the partial work as-is (or revert, user's call).
+In both cases, do NOT continue **this slice** — the trigger is real and the level is wrong. But do not halt the run either. Route through park-and-continue:
+
+1. Append a `PARKED` entry to `.claude/overseer/parked.md` with class `one-way-door` for a missing architectural decision or an API semantics mismatch, `human-input` for anything needing the owner, naming which skill should pick it up (`master-architect` / `feature-architect`).
+2. Record what you found in the slice artifact and in `PROGRESS.md`; mark the slice `BLOCKED`.
+3. Leave the partial work as-is — never revert someone else's decision surface on your own.
+4. Move to the next unblocked item.
+5. Surface only per the thresholds in `parked.md`: nothing else can move, a single one-way door, or three parked ratification items.
+
+These triggers stay exactly as written. They are genuine "needs a human or a different level" conditions — reason 1. What changes is that they park the item instead of stopping the world.
 
 ## What you DO NOT do
 
@@ -229,11 +254,15 @@ For thin wrappers (the typical slice), integration-only is correct. Don't introd
 
 If the user's project has a different convention, follow it.
 
-## Stop discipline
+## Cadence discipline
 
-The word **STOP** in this workflow is literal. After each step that says STOP:
-1. Send the user your output for that step (pytest output, draft file, etc.)
-2. Wait for them to respond before doing anything else
-3. Do not "helpfully" continue to the next step
+This skill has **one gate** — the behavior list at Step 3 — and **one park class** — the genuine human-input and wrong-level conditions above. Everything else runs continuously.
 
-Resist the urge to chain steps. Each STOP is a checkpoint where the user can redirect cheaply. Without STOPs, the slice quietly drifts away from the seam.
+What the old per-cycle STOPs were protecting was drift away from the seam. That protection now comes from artifacts rather than from turn boundaries:
+
+1. **Write before you build.** The seam, the out-of-scope list, and the behavior list go to the slice artifact before the first RED. Drift is visible as a diff against them.
+2. **Record every transition.** RED output, GREEN output, refactor result — all to the ledger. This is stronger than a human skimming chat, because the overseer audits it afterwards (checks #1, #2, #4) and a skim leaves no evidence.
+3. **Do not chain past a bad state.** Never start Bn+1 over a red or unrefactored Bn. This is the part of the old rule that was load-bearing, and it is unchanged.
+4. **Park, don't stop.** When something genuinely needs a human, it goes to `.claude/overseer/parked.md` and you move to the next unblocked item.
+
+The run stops for exactly three reasons: something only a human can supply, a falsified premise that invalidates committed work, or an empty unblocked queue. Nothing else. A checkpoint that exists so a watching human *could* redirect is not one of them — unattended, it redirects nobody and costs the whole run.

@@ -270,9 +270,45 @@ missing**.
   fired and is resolvable by the developer.
 - **`OVERSEER_ADR_REQUIRED:`** followed by a draft ADR block.
 - **`OVERSEER_ESCALATE:`** followed by the JSON block below.
+- **`OVERSEER_SLICE_AWAITING_OWNER: <reason>`** — the slice's remaining work
+  is owner-driven (parked smoke, walkthrough, formal report).
+- **`OVERSEER_SLICE_COMPLETE: <slug>`** — the slice is closed: exit criterion
+  met, smoke recorded, `PROGRESS.md` updated. Halts the continue loop because
+  there is no next unit in this slice, not because anything is wrong. Recognized
+  as a halt marker by `.claude/hooks/overseer_stop.py` (HALT_MARKER_RE); defined
+  here so the hook and this skill agree.
 
 Do not chain multiple BLOCKs. One per invocation — the most important
 check that fired.
+
+## Verdict routing — what a verdict actually does
+
+A verdict records a finding. Whether it also stops the run is a separate
+question, and the answer is: almost never. Route by whether the fix needs a
+human, not by the verdict's name.
+
+| Verdict | If you can act on it yourself | If it genuinely needs a human |
+|---|---|---|
+| `OVERSEER_BLOCK` | Fix the specific defect, log the fix in the ledger, continue. A block you can resolve is work, not a stop. | Park the item (`.claude/overseer/parked.md`), continue with the next unblocked one. |
+| `OVERSEER_ADR_REQUIRED` | Write the ADR in `docs/adr/` and continue. A reversible decision does not wait for ratification — the ADR *is* the record, and ADRs are superseded, not edited. | One-way door (datastore, public contract, irreversible migration): draft the ADR marked `PROPOSED — provisional, awaiting ratification`, park, continue elsewhere. |
+| `OVERSEER_ESCALATE` | Two-way door: take your own recommendation. It was already required in the JSON — now you act on it instead of waiting. Log to `escalations.md` with `Decided autonomously (provisional)` and the cost-to-reverse. | One-way door — money, a real external system, irreversible data, a published contract — or a PRODUCT_DECISION the owner must own under Art. 5: park, do not decide. |
+
+**Never block on `AskUserQuestion` in an unattended run.** It waits on a prompt
+nobody will answer, which converts a recoverable finding into a dead run. Attended,
+asking is still correct and still cheap — use it. Unattended, the escalation log
+plus the park queue carry the same information without the deadlock.
+
+**Article 5 is not relaxed by any of this.** Product decisions, acceptance
+criteria, thresholds, and every one-way door still belong to the owner. The change
+is that waiting for them blocks *one item*, not the whole run. Absence of a human
+is never grounds to walk through a one-way door.
+
+**Surface thresholds** — stop and address the owner when any of these is true,
+and not otherwise: nothing in the unblocked queue can move; a single item is
+parked on a one-way door; three or more items are parked awaiting ratification
+(that pattern means the contract is systematically under-specified, which is
+itself worth a human); or a premise flips to `falsified` and committed work
+depends on it (Art. 8).
 
 ## Escalation JSON format
 
@@ -286,9 +322,23 @@ check that fired.
 }
 ```
 
-The developer agent must surface this to the user via `AskUserQuestion`
-(or equivalent prompt), use options + recommendation verbatim, and
-wait for the human's selection before continuing.
+Attended, the developer agent surfaces this via `AskUserQuestion`, using options
+and recommendation verbatim, and waits for the selection.
+
+Unattended, it does **not** wait. Apply the routing table above:
+
+- **Two-way door** — append the block to `.claude/overseer/escalations.md` with
+  `Human chose: — decided autonomously (provisional)`, add a
+  `Cost-to-reverse:` line, act on `your_recommendation` verbatim, and continue.
+  The recommendation was already mandatory; acting on it is strictly more
+  informative than stalling on it, because the outcome becomes reviewable.
+- **One-way door, or any `PRODUCT_DECISION` under Art. 5** — append the same
+  block with `Status: PARKED`, add the item to `.claude/overseer/parked.md`, and
+  continue with the next unblocked item. Do not decide it.
+
+Classify honestly. The classification is made by the same agent that benefits
+from classifying generously, so when the door is ambiguous, treat it as one-way
+and park.
 
 ## Categories for ledger entries
 
@@ -376,13 +426,32 @@ No closing pleasantries.
 
 The Stop hook re-injects a "continue to next unit" message after every `OVERSEER_PASS`. This drives autonomous unit-to-unit progression without owner intervention.
 
-To halt the loop and return control to the owner, emit one of these markers on its own line **instead of** `OVERSEER_PASS`:
+A marker halts the loop. Halt only when the run genuinely cannot continue — not
+merely because a check fired. Resolve what you can, park what you cannot, and
+emit a halt marker on its own line **instead of** `OVERSEER_PASS` only in these
+cases:
 
-- `OVERSEER_BLOCK: #N <reason>` — audit found a real issue. Owner must intervene before continuing.
-- `OVERSEER_ESCALATE: <JSON>` — something automated check can't adjudicate. Owner must rule.
-- `OVERSEER_ADR_REQUIRED: <ADR>` — decision needs ADR before next unit.
-- `OVERSEER_SLICE_AWAITING_OWNER: <reason>` — slice's last code unit complete; remaining work (smoke walkthrough, G4 write-up, hard-gate formal report) is owner-driven. **Emit this after the last code unit's PASS verdict** to hand off to owner cleanly.
+- `OVERSEER_BLOCK: #N <reason>` — a check fired that you cannot resolve yourself
+  **and** parking it leaves nothing else in the queue that can move. If you can
+  fix it, fix it and emit `OVERSEER_PASS`. If you can park it and something else
+  can move, park it and emit `OVERSEER_PASS`.
+- `OVERSEER_ESCALATE: <JSON>` — a one-way door or an Art. 5 product decision,
+  **and** a surface threshold is met. A two-way door is decided and logged, not
+  escalated.
+- `OVERSEER_ADR_REQUIRED: <ADR>` — a one-way-door decision needs owner
+  ratification before the next unit can proceed. A reversible decision gets its
+  ADR written and the loop continues.
+- `OVERSEER_SLICE_AWAITING_OWNER: <reason>` — the slice's remaining work is
+  owner-driven (parked smoke walkthrough, formal report) **and** no other slice
+  is unblocked. If another slice can start, start it.
+- `OVERSEER_SLICE_COMPLETE: <slug>` — the slice is genuinely closed. Move to the
+  next slice in the DAG; halt only if there is no next slice.
 
-The hook treats these as recursion-guard markers — silent pass, no re-injection. Owner sees the marker and takes over.
+The hook treats all of these as recursion-guard markers — silent pass, no
+re-injection. Owner sees the marker and takes over.
+
+**Before emitting any halt marker, check the queue.** A halt is a claim that
+nothing else can move. If something else can move, that claim is false and the
+correct verdict is `OVERSEER_PASS` with the blocked item parked.
 
 `OVERSEER_PASS` alone (any code-unit completion that's not the last one) triggers the next-unit injection automatically.

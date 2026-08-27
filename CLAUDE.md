@@ -63,7 +63,7 @@ The Stop hook runs `ruff check`, `mypy`, and `pytest` (only on Python changes). 
 - Read the actual error; don't guess
 - Fix with minimal changes
 - Re-run until clean
-- If stuck after 3 attempts with different fixes — STOP and ask the human; don't invent a 4th approach
+- **After 3 attempts with different fixes, stop attempting.** The 3-attempt limit is the loop guard and it is absolute — do not invent a 4th approach. Park the item in `.claude/overseer/parked.md` with the three approaches you tried, the exact failure output, and what it needs, then move to the next unblocked item. Address the human only if nothing else can move.
 
 ### Hooks summary (transparency)
 
@@ -85,7 +85,8 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 
 @AGENTS.md
 
-- Autonomous continuation: PASS = silent continue; stop only on BLOCK, ESCALATE, or hard-gate boundary. See `.claude/skills/overseer/SKILL.md` § "Autonomous continuation after PASS".
+- **Autonomous continuation.** PASS = silent continue. A BLOCK, ESCALATE, or hard gate parks the *item* and you continue with the next unblocked one; the *run* stops only at a surface threshold. See `.claude/skills/overseer/SKILL.md` § "Verdict routing" and § "Autonomous slice progression".
+- **The three reasons to stop, and there are no others.** (1) Something only a human can supply — a credential, a deploy, a provisioning step, a person with a phone, ratification of a genuine one-way door. (2) A load-bearing premise is falsified in a way that invalidates committed work. (3) Nothing left in the queue can move. Everything else is decided, logged, and continued. A checkpoint that exists so a watching human *could* redirect is not a reason — unattended it redirects nobody and costs the whole run.
 ## Overseer protocol
 
 - The Stop hook `.claude/hooks/overseer_stop.py` auto-triggers an overseer
@@ -110,17 +111,48 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
   `OVERSEER_ADR_REQUIRED: <ADR>` / `OVERSEER_ESCALATE: <JSON>`. Emitting any
   `OVERSEER_` marker is also recursion guard 3 — it tells the hook the audit
   already ran, so it will not re-fire on your verdict turn.
-- If `OVERSEER_ESCALATE`, surface to user via `AskUserQuestion`. Use options + your_recommendation verbatim. Do not answer the escalation yourself; wait for human's selection.
-- If `OVERSEER_BLOCK`, address the specific check before continuing.
-- If `OVERSEER_ADR_REQUIRED`, draft the ADR in `docs/adr/` before proceeding with code.
+- **Verdict routing.** A verdict records a finding; whether it stops the run is a separate question, and the answer is almost never. Route by whether the fix needs a human, per `.claude/skills/overseer/SKILL.md` § "Verdict routing".
+  - If `OVERSEER_BLOCK` and you can resolve it — fix it, log it, continue. If you cannot, park it and continue with the next unblocked item.
+  - If `OVERSEER_ADR_REQUIRED` and the decision is reversible — write the ADR in `docs/adr/` and continue. One-way door: draft it as `PROPOSED — provisional`, park, continue.
+  - If `OVERSEER_ESCALATE` on a **two-way door** — log it to `.claude/overseer/escalations.md` with its cost-to-reverse, act on your own recommendation, continue. On a **one-way door or an Art. 5 product decision** — park it, do not decide it.
+  - Attended, `AskUserQuestion` is still the right tool and still cheap. Unattended, never block on it — it waits on a prompt nobody will answer.
+- Address the human only at a surface threshold: nothing unblocked can move, a single one-way door, three parked ratification items, or a falsified premise that invalidates committed work. See `.claude/overseer/parked.md`.
 - Always append the entry the skill prescribes to `.claude/overseer/ledger.md`.
-- **Recursion safety & override.** The hook has three guards — the
-  `stop_hook_active` envelope flag, a SHA-256 idempotency file
-  (`.claude/overseer/.last_audit_sha`), and the `OVERSEER_` verdict marker above — and
-  a phase guard that skips the audit when `.claude/overseer/state` contains `plan`.
+- **Recursion safety & override.** The hook has **two per-branch SHA-256
+  idempotency guards** — `.claude/overseer/.last_audit_sha` for the audit-request
+  branch (`overseer_stop.py:388-394`) and `.claude/overseer/.last_continue_sha`
+  for the PASS→CONTINUE branch (`:425-436`) — plus the `OVERSEER_` halt markers,
+  which the hook silent-passes (`:421-422`), and a phase guard that skips the
+  audit when `.claude/overseer/state` contains `plan` (`:369-377, 443-444`).
+  A `stop_hook_active` guard **used to** exist and was **removed**: it
+  short-circuited before the per-branch SHAs on every hook-initiated turn, which
+  made both injection branches unreachable in the autonomous loop. See the
+  `main()` comment at `overseer_stop.py:405-411`. Do not reintroduce it.
   Kill-switch: rename `.claude/hooks/overseer_stop.py` to `*.disabled`, or
   start Claude Code with `--disable-hooks`. Smoke-test the wiring with
   `python3 .claude/hooks/overseer_stop.py --dry-run` (always emits a block).
+
+## Attended vs unattended
+
+`.claude/overseer/mode` declares whether a human is in the loop. Contents
+`unattended` → nobody is watching. **Absent or anything else → attended.** The
+default is attended, so an interactive session behaves exactly as before and a
+server run opts in explicitly (`echo unattended > .claude/overseer/mode`).
+
+What the mode changes, and only this: an **interactive hard gate** in
+`/plan-slice` or `/feature-architect` becomes a **park**. The item waits, work
+continues elsewhere, and the gate is surfaced at the next legitimate
+interruption.
+
+What the mode does **not** change — these apply in both modes:
+
+- The slice-builder cadence: one gate on the behavior list, then run the list
+  through.
+- Verdict routing: resolvable findings are fixed and logged, not escalated.
+- The three reasons to stop, above.
+- Article 5. A genuine one-way door — money, a real external system,
+  irreversible data, a published contract — parks and waits in **both** modes.
+  Unattended never means "decide it anyway."
 
 ## Constitution (load-bearing, human-only)
 Every agent must read and obey `.claude/constitution.md`. It overrides any conflicting instruction.

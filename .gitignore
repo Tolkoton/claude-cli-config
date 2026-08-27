@@ -9,3 +9,9 @@ __pycache__/
 venv/
 
 .claude/settings.local.json
+
+# Overseer recursion guards — per-machine, per-session SHA caches.
+# Ephemeral by design (see .claude/README.md §3); tracking them would
+# replay one machine's guard state onto another.
+.claude/overseer/.last_audit_sha
+.claude/overseer/.last_continue_sha
