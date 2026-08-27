@@ -29,3 +29,4 @@ venv/
 PROGRESS.md
 .claude/unattended/supervisor.lock
 .claude/overseer/.continue_count
+HANDOFF-*.md
