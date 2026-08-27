@@ -341,3 +341,23 @@ immediately before committing and refuses anything outside `unattended/*`,
 rather than trusting the earlier switch or the hook. On that path those lines
 are the only control there is.
 *Recorded in AGENTS.md* so it reaches every session, not just this one.
+
+**D-27. `settings.local.json` was committed since the repository's first commit,
+contradicting its own header.**
+The file states "Machine-local overrides. Gitignored — never committed, never
+inherited by a project copied from this template", and the S4b park note gives
+that as the reason the supervisor permission went there rather than into
+`settings.json`. Both were wrong: `git log --diff-filter=A` puts it in `c9d348e`,
+the initial commit, and no `.gitignore` rule ever matched it.
+*What it actually shipped:* every clone of this template inherited permission to
+auto-launch the supervisor loop, and after D-23 would have inherited write access
+under `.claude/hooks`, `.claude/unattended` and `.claude/architecture` too --
+precisely the "bad default" the earlier decision was written to prevent. The
+reasoning was sound; the mechanism was never checked.
+*Fixed:* added to `.gitignore` and `git rm --cached`. The file stays on disk, so
+this machine keeps its grants; downstream projects now start with none.
+*The general lesson, and it is the same one three times today:* a comment
+asserting a mechanism is not the mechanism. `{NODE}` was never substituted, the
+continue branch was unreachable, escalations.md could not record an autonomous
+decision, and this file was never ignored -- each read as correct and none of
+them was ever exercised.
