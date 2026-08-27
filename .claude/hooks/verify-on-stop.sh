@@ -127,19 +127,19 @@ if [ "$USE_CONFIGURED" = true ]; then
   # --- Configured path: run whatever the project declared ---
 
   if [ -n "$LINT_CMD" ]; then
-    if ! eval "$LINT_CMD" 2>/tmp/claude-lint.log >/tmp/claude-lint.log; then
+    if ! eval "$LINT_CMD" >/tmp/claude-lint.log 2>&1; then
       ERRORS="${ERRORS}LINT FAILED (${LINT_CMD}):\n$(tail -30 /tmp/claude-lint.log)\n\n"
     fi
   fi
 
   if [ -n "$TYPECHECK_CMD" ]; then
-    if ! eval "$TYPECHECK_CMD" 2>/tmp/claude-typecheck.log >/tmp/claude-typecheck.log; then
+    if ! eval "$TYPECHECK_CMD" >/tmp/claude-typecheck.log 2>&1; then
       ERRORS="${ERRORS}TYPECHECK FAILED (${TYPECHECK_CMD}):\n$(tail -30 /tmp/claude-typecheck.log)\n\n"
     fi
   fi
 
   if [ -z "$ERRORS" ] && [ -n "$TEST_CMD" ]; then
-    if ! eval "$TEST_CMD" 2>/tmp/claude-test.log >/tmp/claude-test.log; then
+    if ! eval "$TEST_CMD" >/tmp/claude-test.log 2>&1; then
       ERRORS="${ERRORS}TESTS FAILED (${TEST_CMD}):\n$(tail -40 /tmp/claude-test.log)\n\n"
     fi
   fi
@@ -164,14 +164,14 @@ else
 
   # 1. Ruff lint (fast)
   if [ -f pyproject.toml ] && grep -q '\[tool\.ruff' pyproject.toml 2>/dev/null; then
-    if ! $PREFIX ruff check . 2>/tmp/claude-ruff.log >/tmp/claude-ruff.log; then
+    if ! $PREFIX ruff check . >/tmp/claude-ruff.log 2>&1; then
       ERRORS="${ERRORS}LINT FAILED (ruff check):\n$(tail -30 /tmp/claude-ruff.log)\n\n"
     fi
   fi
 
   # 2. Mypy typecheck
   if [ -f pyproject.toml ] && grep -q '\[tool\.mypy' pyproject.toml 2>/dev/null; then
-    if ! $PREFIX mypy . 2>/tmp/claude-mypy.log >/tmp/claude-mypy.log; then
+    if ! $PREFIX mypy . >/tmp/claude-mypy.log 2>&1; then
       ERRORS="${ERRORS}TYPECHECK FAILED (mypy):\n$(tail -30 /tmp/claude-mypy.log)\n\n"
     fi
   fi
@@ -179,7 +179,7 @@ else
   # 3. Tests (only if previous checks passed)
   if [ -z "$ERRORS" ]; then
     if [ -d tests ] || [ -d test ]; then
-      if ! $PREFIX pytest -x --no-header -q 2>/tmp/claude-pytest.log >/tmp/claude-pytest.log; then
+      if ! $PREFIX pytest -x --no-header -q >/tmp/claude-pytest.log 2>&1; then
         ERRORS="${ERRORS}TESTS FAILED (pytest):\n$(tail -40 /tmp/claude-pytest.log)\n\n"
       fi
     fi

@@ -134,4 +134,17 @@ human reads them and edits SKILL.md manually when ratified.
   would now pass through. (b) could strip a genuine marker an agent formatted as code.
   Both errors run toward *fewer* injections rather than missed halts, since
   `HALT_MARKER_RE` is evaluated first (line 421) and would take the same anchoring.
-- Status: PROPOSED
+- **Status: RATIFIED and APPLIED 2026-08-27.** Ratified by the owner's blanket
+  grant ("anything else you find that stops 24/7 operation, fix it under the same
+  pre-ratification. Log it, don't ask"). Option (a) taken — all three marker
+  regexes now anchor with `^[ \t]*` under `re.MULTILINE`, matching
+  `UNIT_DONE_RE`'s existing discipline. Option (b) rejected: a code-span parser
+  is more machinery than the residual justifies.
+- **Residual, accepted and documented:** a marker at line-start *inside a fenced
+  code block* still fires. Option (b) would close it. Left open because the
+  realistic failure — discussing markers in prose, tables, and inline code — is
+  now covered, and a session that puts a bare marker at column 0 of a fenced
+  block is indistinguishable from one emitting it for real.
+- Verified: 10/10 regression cases green, including the four prose shapes that
+  previously fired (backticked mention, CLAUDE.md bullet, markdown table row,
+  mid-sentence). `--dry-run` still emits a block, so the wiring is intact.

@@ -1,0 +1,32 @@
+--- a/.claude/hooks/block-dangerous.sh
++++ b/.claude/hooks/block-dangerous.sh
+@@ -15,8 +15,8 @@
+ DANGEROUS_PATTERNS=(
+   'rm -rf /[^a-zA-Z0-9_.]'
+   'rm -rf /$'
+-  'rm -rf ~'
+-  'rm -rf \$HOME'
++  'rm -rf ["'"'"']?~'
++  'rm -rf ["'"'"']?\$HOME'
+   'rm -rf \*'
+   'rm -rf \.\s*$'
+   'rm -rf \./\*'
+@@ -37,8 +37,7 @@
+   ':\(\)\{ :\|:& \};:'
+   'curl [^|]+\| (sh|bash|zsh|fish)'
+   'wget [^|]+\| (sh|bash|zsh|fish)'
+-  '^sudo '
+-  ' sudo '
++  '(^|[;&|(`]|&&|\|\|)[[:space:]]*sudo[[:space:]]'
+   'mkfs\.'
+   'dd if=.*of=/dev/(sd|disk|nvme|hd)'
+   '> /dev/(sda|sdb|disk|nvme|hd)'
+@@ -80,7 +79,7 @@
+ done
+ 
+ # Block `git commit` entirely — commits are a human review checkpoint by policy.
+-if echo "$CMD" | grep -qE '^[[:space:]]*git[[:space:]]+commit($|\s)'; then
++if echo "$CMD" | grep -qE '(^|[;&|(`]|&&|\|\|)[[:space:]]*git[[:space:]]+([^[:space:]]+[[:space:]]+)*commit($|[[:space:]])'; then
+   echo "BLOCKED: this project treats commits as a human review checkpoint." >&2
+   echo "Stage with 'git add <files>' if helpful, then let the user review the diff and run 'git commit' themselves." >&2
+   echo "If the user explicitly asked you to commit, explain this hook is blocking and ask them to run the commit manually." >&2

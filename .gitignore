@@ -15,3 +15,17 @@ venv/
 # replay one machine's guard state onto another.
 .claude/overseer/.last_audit_sha
 .claude/overseer/.last_continue_sha
+
+# Unattended-run machine-local state. Regenerated every run; committing it
+# would replay one machine's cost counter and restart history onto another.
+.claude/unattended/state.json
+.claude/unattended/cost.json
+.claude/unattended/heartbeat
+.claude/unattended/restarts.log
+.claude/unattended/sim-plan.txt
+.claude/unattended/logs/
+.claude/unattended/archive/
+.claude/overseer/mode
+PROGRESS.md
+.claude/unattended/supervisor.lock
+.claude/overseer/.continue_count

@@ -16,7 +16,7 @@ This project is configured for autonomous Claude Code operation. Follow these ru
 1. Stage relevant files with `git add <files>` (not `git add -A` unless the diff truly is one unit)
 2. Run validation: `ruff check`, `mypy`, relevant `pytest` paths
 3. Print a one-line summary of what changed and a suggested conventional-commit message
-4. STOP and wait for the human to review the diff and run `git commit` themselves
+4. **Continue with the next item.** Staged work accumulates for whenever the human returns; the commit checkpoint is a review surface, NOT a stopping condition. Do not end the turn here.
 
 This is enforced by a hook (`block-dangerous.sh`) as defense-in-depth. If you find yourself wanting to commit, you've understood the workflow incorrectly — stage and report instead.
 
@@ -30,6 +30,8 @@ Do not run these without the human explicitly requesting them in the current tur
 - `docker push`, `docker run`, `docker compose up`
 
 The settings.json `ask` list will prompt for these — that prompt is the human's signal to think before approving. Don't try to bypass it.
+
+**Unattended, do not invoke an ask-gated command at all.** The prompt is answered by nobody, so attempting one hangs the whole run instead of parking one item. Park it: append a `PARKED` entry to `.claude/overseer/parked.md` with `Class: ask-gated`, the exact command under `Blocked on`, and `Unblocks when: a human runs it or the session becomes attended` — then continue with the next unblocked item. `.claude/hooks/park-ask-gated.sh` enforces this as defense-in-depth and hands you the same instruction if you forget. This does not weaken the ask list: the command still does not run. It converts a hang into a park.
 
 ### Operations that are hard-denied
 
@@ -72,10 +74,33 @@ The Stop hook runs `ruff check`, `mypy`, and `pytest` (only on Python changes). 
 | `block-dangerous.sh` | Before any Bash | Hard-blocks destructive patterns AND `git commit` |
 | `protect-paths.sh` | Before Edit/Write/MultiEdit | Hard-blocks edits to secrets, migrations, `.git/`, workflows |
 | `format-on-edit.sh` | After Edit/Write/MultiEdit | Runs `ruff format` + `ruff check --fix --select I` on `.py` files |
+| `park-ask-gated.py` | Before any Bash | Unattended only: denies an ask-listed command with a park instruction instead of letting it hang on a prompt nobody answers. No-op when attended. Python, not bash — see the `jq` warning below. |
 | `verify-on-stop.sh` | On turn end | Runs lint/typecheck/tests on changed Python; blocks turn if any fail |
 | `overseer_stop.py` | On turn end | On a unit-completion claim (sentinel + `src/` edit + test/lint/type run), injects an `OVERSEER_REQUEST` 12-check audit prompt. See "Overseer protocol" below. |
 
 To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to `<name>.disabled` or pass `claude --disable-hooks` flag.
+
+> **⚠ `jq` dependency — verify before trusting the bash hooks.** `block-dangerous.sh`,
+> `protect-paths.sh`, `format-on-edit.sh`, and `verify-on-stop.sh` parse their stdin
+> with `jq`. All four use the idiom `jq ... 2>/dev/null || echo ""` followed by an
+> empty-value early exit, so **on a machine without `jq` they exit 0 and enforce
+> nothing, silently.** This was observed for real on 2026-08-27, before `jq` was
+> installed: `git commit`, `rm -rf /`, and a write to `.env` all returned exit 0
+> from their hooks. The `permissions.deny` and `permissions.ask` lists in
+> `settings.json` are harness-level and unaffected — they are what actually holds
+> the line in that state — but the defense-in-depth layer is not.
+>
+> **Status on this machine: `jq` 1.8.2 is INSTALLED** at `/usr/local/bin/jq`
+> (Homebrew, 2026-08-27). The four bash hooks enforce. Re-confirmed by
+> `hook-checks/test_format_on_edit.py` case NEG-5, which runs `format-on-edit.sh`
+> against a PATH with no `jq` and asserts the silent no-op still happens — so the
+> failure mode stays pinned by a test rather than by this paragraph.
+>
+> The degradation is not equally bad in all four. For `format-on-edit.sh` it is
+> benign: no `jq` means no formatting, and a formatter never blocks anything. For
+> the two deny hooks it is a hole. Check `command -v jq` on any new machine before
+> relying on hook enforcement; install `jq`, or port the hook to Python as
+> `park-ask-gated.py` and the two existing Python hooks already are.
 
 <!-- ============================================== -->
 <!-- End of autonomy policy. Your implementation skill -->
@@ -87,6 +112,7 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 
 - **Autonomous continuation.** PASS = silent continue. A BLOCK, ESCALATE, or hard gate parks the *item* and you continue with the next unblocked one; the *run* stops only at a surface threshold. See `.claude/skills/overseer/SKILL.md` § "Verdict routing" and § "Autonomous slice progression".
 - **The three reasons to stop, and there are no others.** (1) Something only a human can supply — a credential, a deploy, a provisioning step, a person with a phone, ratification of a genuine one-way door. (2) A load-bearing premise is falsified in a way that invalidates committed work. (3) Nothing left in the queue can move. Everything else is decided, logged, and continued. A checkpoint that exists so a watching human *could* redirect is not a reason — unattended it redirects nobody and costs the whole run.
+  **Nor are any of these:** waiting on a background task or a spawned session (do non-racing work instead — the notification will reach you); having something worth reporting (report *while* continuing, never instead of); asking the owner to ratify a two-way door you have already decided (log it and move on); or reaching a natural-feeling pause. This is enforced, not merely advised: the unattended-continue branch in `overseer_stop.py` blocks the turn from ending while the run is live. To stop for real, emit an `OVERSEER_` halt marker naming which of the three reasons applies.
 ## Overseer protocol
 
 - The Stop hook `.claude/hooks/overseer_stop.py` auto-triggers an overseer
@@ -114,7 +140,9 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 - **Verdict routing.** A verdict records a finding; whether it stops the run is a separate question, and the answer is almost never. Route by whether the fix needs a human, per `.claude/skills/overseer/SKILL.md` § "Verdict routing".
   - If `OVERSEER_BLOCK` and you can resolve it — fix it, log it, continue. If you cannot, park it and continue with the next unblocked item.
   - If `OVERSEER_ADR_REQUIRED` and the decision is reversible — write the ADR in `docs/adr/` and continue. One-way door: draft it as `PROPOSED — provisional`, park, continue.
-  - If `OVERSEER_ESCALATE` on a **two-way door** — log it to `.claude/overseer/escalations.md` with its cost-to-reverse, act on your own recommendation, continue. On a **one-way door or an Art. 5 product decision** — park it, do not decide it.
+  - If `OVERSEER_ESCALATE` on a **two-way door** — log it to `.claude/overseer/escalations.md` with its cost-to-reverse, act on your own recommendation, continue. Use that file's **AUTONOMOUS** entry format; the original format's `Human chose` / `Latency to decision` fields presume a human answered and cannot represent a decision you made yourself.
+  - **Logging is what closes a decision, and CLOSED means closed.** Deciding and continuing without writing the entry leaves the decision open in working memory, and an open decision gets re-raised with the owner turn after turn — a stop wearing a question mark. Once the entry exists, do not re-surface it: asking the owner to ratify a two-way door is asking them to do a job Article 5 assigns to you. If new evidence genuinely falsifies it, append a superseding entry.
+  - **A deviation from an explicit owner instruction is classified by reversibility like anything else.** If the instruction rests on a premise you can show is false, say so once, state what you did instead and why, log it, and continue. Departing from an instruction does not by itself make a decision one-way, and "the owner said X" is not a reason to escalate a cheap, reversible call. On a **one-way door or an Art. 5 product decision** — park it, do not decide it.
   - Attended, `AskUserQuestion` is still the right tool and still cheap. Unattended, never block on it — it waits on a prompt nobody will answer.
 - Address the human only at a surface threshold: nothing unblocked can move, a single one-way door, three parked ratification items, or a falsified premise that invalidates committed work. See `.claude/overseer/parked.md`.
 - Always append the entry the skill prescribes to `.claude/overseer/ledger.md`.
@@ -153,6 +181,28 @@ What the mode does **not** change — these apply in both modes:
 - Article 5. A genuine one-way door — money, a real external system,
   irreversible data, a published contract — parks and waits in **both** modes.
   Unattended never means "decide it anyway."
+
+## Session contract (unattended runs)
+
+When a supervisor is driving this session (`.claude/unattended/supervisor.sh`),
+you have four obligations. Full detail in `.claude/unattended/README.md`.
+
+1. **Tick the heartbeat** while working: `python3 .claude/unattended/runstate.py heartbeat`.
+   Together with `PROGRESS.md` mtime this is the liveness signal. A session that
+   updates neither for `STALL_TIMEOUT_SEC` is killed as wedged.
+2. **Write a terminal status before you exit:**
+   `runstate.py set finished|parked|halted "<reason>" "<what would unblock it>"`,
+   or `set unit-done` when a unit is complete and work remains.
+3. **Record cost:** `runstate.py add-cost <usd>`.
+4. **Never invent `finished`.** If you stop without writing a status, leave it
+   at `working` — the supervisor reads that as a death and retries, which is
+   recoverable. A false `finished` is a silent overnight halt, which is not.
+   This is the single worst bug available in the harness; bias every ambiguous
+   case toward the recoverable error.
+
+Mapping to the three legitimate stops: `parked` = something only a human can
+supply, or a falsified premise; `finished` = nothing left in the queue;
+`halted` = a cap fired and a human must look.
 
 ## Constitution (load-bearing, human-only)
 Every agent must read and obey `.claude/constitution.md`. It overrides any conflicting instruction.

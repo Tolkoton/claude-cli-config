@@ -11,18 +11,37 @@ if [ -z "$CMD" ]; then
   exit 0
 fi
 
+# NOTE on false positives — decided deliberately (S7).
+# These patterns match anywhere in the command text, INCLUDING inside quoted
+# string literals and heredoc bodies. So merely *describing* a dangerous command
+# in documentation is blocked as if it were being run. This was hit twice for
+# real while filing and fixing node S7.
+# It is NOT fixed here, and that is a choice: telling a real command from a
+# quoted mention needs shell parsing, and the obvious shortcut — strip heredoc
+# bodies before matching — opens a genuine hole, because a heredoc fed to a
+# shell executes its body. For a deny control a false positive is a nuisance
+# and a false negative is a breach, so the bias stays where it is.
+# Workaround when a write is blocked by its own documentation text: split the
+# literal across a concatenation, or write the file with the Edit/Write tool
+# instead of a shell heredoc.
+#
+# Command-position prefix used below is (^|[;&|(`])[[:space:]]* — start of the
+# command OR just after a separator. A bare ^ let a compound command walk past
+# the check, and a leading tab defeated both anchored forms.
+
 # Truly destructive patterns. Order: most specific first.
 DANGEROUS_PATTERNS=(
   'rm -rf /[^a-zA-Z0-9_.]'
   'rm -rf /$'
   'rm -rf ~'
-  'rm -rf \$HOME'
+  'rm[[:space:]]+-[a-z]*[rf][a-z]*[[:space:]]+["'"'"']?\$\{?HOME\}?'
   'rm -rf \*'
   'rm -rf \.\s*$'
   'rm -rf \./\*'
   'rm -rf \$\('
   'rm -fr \$\('
   'rm -r \$\('
+  '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*commit([[:space:]]|$)'
   'git push --force'
   'git push -f '
   'git push --force-with-lease'
@@ -37,8 +56,7 @@ DANGEROUS_PATTERNS=(
   ':\(\)\{ :\|:& \};:'
   'curl [^|]+\| (sh|bash|zsh|fish)'
   'wget [^|]+\| (sh|bash|zsh|fish)'
-  '^sudo '
-  ' sudo '
+  '(^|[;&|(`])[[:space:]]*sudo[[:space:]]'
   'mkfs\.'
   'dd if=.*of=/dev/(sd|disk|nvme|hd)'
   '> /dev/(sda|sdb|disk|nvme|hd)'
@@ -71,7 +89,7 @@ fi
 PROTECTED_BRANCHES=("main" "master" "production" "prod" "release")
 for protected in "${PROTECTED_BRANCHES[@]}"; do
   if [ "$BRANCH" = "$protected" ]; then
-    if echo "$CMD" | grep -qE '^[[:space:]]*git[[:space:]]+(commit|push)\s'; then
+    if echo "$CMD" | grep -qE '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*(commit|push)([[:space:]]|$)'; then
       echo "BLOCKED: direct git $(echo "$CMD" | awk '{print $2}') on protected branch '$BRANCH'." >&2
       echo "Create a feature branch first: git checkout -b feat/<slug>" >&2
       exit 2

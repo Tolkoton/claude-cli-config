@@ -82,7 +82,7 @@ User context typically includes:
 | "Fix this typo / rename this variable / one-line change" | No skill — user edits directly |
 | Cross-module refactor of an existing feature | No skill — user-led, possibly with `master-architect` BACKTRACK |
 
-If invoked incorrectly, name the correct skill and ask the user to redirect.
+If invoked incorrectly, hand off directly: name the correct skill and invoke it. Skill routing is mechanical — the "DO NOT use for" list above already determines the answer, so there is nothing here only a human can supply. Do not stop to ask for a redirect. Note the handoff in one line so the switch is visible, and continue.
 
 ## Workflow
 
