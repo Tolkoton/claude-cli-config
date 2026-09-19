@@ -1,0 +1,4 @@
+# Hooks and scripts run on Linux (cloud sessions, CI) and macOS, and may be cloned on Windows.
+# A CRLF ending on a shebang line breaks bash and python alike, so these stay LF everywhere.
+*.sh text eol=lf
+*.py text eol=lf
