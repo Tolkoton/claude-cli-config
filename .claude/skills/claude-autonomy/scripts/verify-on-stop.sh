@@ -75,7 +75,10 @@ CHANGED=""
 # and with `[ -d .git ]` nothing ever counted as changed — the whole gate was skipped
 # (evals: vs-type-error-in-worktree).
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  CHANGED=$( { git diff --name-only HEAD 2>/dev/null; git diff --name-only --cached 2>/dev/null; } | sort -u )
+  # Untracked files count as changes too (ignored ones do not). `git diff` alone never
+  # sees a file nobody has staged yet, so a brand-new module with a type error ended the
+  # turn unverified (evals: vs-untracked-file-with-type-error).
+  CHANGED=$( { git diff --name-only HEAD 2>/dev/null; git diff --name-only --cached 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u )
 fi
 
 # If nothing changed, no need to verify

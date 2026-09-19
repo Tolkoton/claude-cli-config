@@ -165,7 +165,7 @@
     },
     {
       "id": "vs-untracked-file-with-type-error",
-      "why": "KNOWN GAP, recorded on purpose: the hook reads `git diff`, so a new file nobody staged is invisible to it.",
+      "why": "A brand-new file nobody has staged yet. Up to package 2a the hook read only `git diff`, so the file was invisible and its type error ended the turn (recorded as `allow` in the older baselines). Untracked, non-ignored files now count as changes.",
       "setup": [
         {
           "write": {
@@ -178,7 +178,8 @@
         "hook_event_name": "Stop",
         "stop_hook_active": false
       },
-      "expect": "allow"
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED"
     },
     {
       "id": "vs-type-error-in-worktree",

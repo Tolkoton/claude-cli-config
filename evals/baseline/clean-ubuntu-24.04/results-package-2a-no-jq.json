@@ -1,13 +1,13 @@
 {
   "label": "package 2a, clean Ubuntu 24.04, NO jq (python3 fallback)",
-  "recorded_utc": "2026-09-19T20:22:33Z",
+  "recorded_utc": "2026-09-19T20:23:32Z",
   "sandbox": {
     "engine_ref": "package-2a",
-    "engine_commit": "2be521c7d741146bef989a25d280f4c7790e45ee",
+    "engine_commit": "dd6097883fdba76a9a017518e9d91c410d32fb75",
     "shipped_supervision_mode": "absent",
     "installed_by": "evals/make_sandbox.sh (git archive, TEMPLATE-SETUP step 1)",
     "audit_fixtures": false,
-    "created_utc": "2026-09-19T20:22:16Z"
+    "created_utc": "2026-09-19T20:22:50Z"
   },
   "hooks_dir": "<SANDBOX>/.claude/hooks",
   "environment": {
@@ -486,11 +486,12 @@
     {
       "id": "vs-untracked-file-with-type-error",
       "hook": "verify-on-stop.sh",
-      "expect": "allow",
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED",
       "outcomes": [
-        "allow"
+        "block"
       ],
-      "detail": "",
+      "detail": "TYPECHECK FAILED (mypy):",
       "pass": true
     },
     {

@@ -51,8 +51,9 @@ parse, and the deny was silently lost. A scenario that blocks must block **for t
 planted** (`expect_detail_contains`); a gate that objects to something unrelated has not passed.
 
 Some scenarios record a known defect on purpose, so that fixing it shows up as a diff
-against the older baselines: `vs-untracked-file-with-type-error` still does;
-`vs-engine-files-in-lint-scope` and the two `*-in-worktree` scenarios did until package 2a.
+against the older baselines. None is open at the moment: `vs-engine-files-in-lint-scope`,
+the two `*-in-worktree` scenarios and `vs-untracked-file-with-type-error` were all closed in
+package 2a and show up as differences against `results-v0.9.0.json`.
 
 ## The audit scenarios (manual)
 
