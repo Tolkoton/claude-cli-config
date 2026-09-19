@@ -1,9 +1,0 @@
-{
-  "status": "finished",
-  "reason": "all DAG nodes complete: S1-S7 done",
-  "unblocks_when": "nothing - the harness-hardening feature is built",
-  "node": "S3",
-  "updated_at": 1787859595,
-  "updated_at_iso": "2026-08-27T19:39:55Z",
-  "sessions": 1
-}
