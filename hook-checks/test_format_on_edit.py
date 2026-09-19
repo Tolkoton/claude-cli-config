@@ -234,14 +234,14 @@ target = r / "mod.py"
 target.write_text("import sys\nx=1\n")
 run_hook(target, r, extra_path=shims)
 logtext = log.read_text()
-if f"ruff format {target}" in logtext:
+if f"ruff format --force-exclude {target}" in logtext:
     ok("invoked: ruff format <file>")
 else:
-    bad("ruff format must run on the edited file", f"ruff format {target}", logtext or "<empty>")
-if f"ruff check --fix --select I {target}" in logtext:
+    bad("ruff format must run on the edited file", f"ruff format --force-exclude {target}", logtext or "<empty>")
+if f"ruff check --force-exclude --fix --select I {target}" in logtext:
     ok("invoked: ruff check --fix --select I <file>  (import sort)")
 else:
-    bad("ruff import-sort must run", f"ruff check --fix --select I {target}", logtext or "<empty>")
+    bad("ruff import-sort must run", f"ruff check --force-exclude --fix --select I {target}", logtext or "<empty>")
 marks = target.read_text().count("touched-by-ruff")
 if marks == 2:
     ok("formatter writes reached the file (2 marks = both invocations)")
@@ -263,10 +263,10 @@ make_shim(shims, "ruff", ruff_log)
 target = r / "mod.py"
 target.write_text("x=1\n")
 run_hook(target, r, extra_path=shims)
-if f"uv run ruff format {target}" in uv_log.read_text():
+if f"uv run ruff format --force-exclude {target}" in uv_log.read_text():
     ok("invoked: uv run ruff format <file>")
 else:
-    bad("uv.lock must route through 'uv run'", f"uv run ruff format {target}", uv_log.read_text())
+    bad("uv.lock must route through 'uv run'", f"uv run ruff format --force-exclude {target}", uv_log.read_text())
 if ruff_log.read_text() == "":
     ok("bare ruff NOT invoked (branch precedence is exclusive)")
 else:

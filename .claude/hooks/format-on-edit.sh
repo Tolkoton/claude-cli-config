@@ -141,17 +141,21 @@ fi
 # ---------------------------------------------------------------------------
 case "$FILE_PATH" in
   *.py)
+    # --force-exclude: honour exclude rules even for a file passed explicitly. Without it
+    # ruff formats whatever it is handed — including the engine's own files under .claude/
+    # (excluded by .claude/ruff.toml) and anything the project itself excludes, such as
+    # generated code.
     # If we reached here, FORMAT_CMD either wasn't set or didn't match this
     # extension — use Python built-in auto-detect regardless.
     if [ -f uv.lock ] && command -v uv >/dev/null 2>&1; then
-      uv run ruff format "$FILE_PATH" >/dev/null 2>&1 || true
-      uv run ruff check --fix --select I "$FILE_PATH" >/dev/null 2>&1 || true
+      uv run ruff format --force-exclude "$FILE_PATH" >/dev/null 2>&1 || true
+      uv run ruff check --force-exclude --fix --select I "$FILE_PATH" >/dev/null 2>&1 || true
     elif [ -f poetry.lock ] && command -v poetry >/dev/null 2>&1; then
-      poetry run ruff format "$FILE_PATH" >/dev/null 2>&1 || true
-      poetry run ruff check --fix --select I "$FILE_PATH" >/dev/null 2>&1 || true
+      poetry run ruff format --force-exclude "$FILE_PATH" >/dev/null 2>&1 || true
+      poetry run ruff check --force-exclude --fix --select I "$FILE_PATH" >/dev/null 2>&1 || true
     elif command -v ruff >/dev/null 2>&1; then
-      ruff format "$FILE_PATH" >/dev/null 2>&1 || true
-      ruff check --fix --select I "$FILE_PATH" >/dev/null 2>&1 || true
+      ruff format --force-exclude "$FILE_PATH" >/dev/null 2>&1 || true
+      ruff check --force-exclude --fix --select I "$FILE_PATH" >/dev/null 2>&1 || true
     elif command -v black >/dev/null 2>&1; then
       black --quiet "$FILE_PATH" >/dev/null 2>&1 || true
     fi

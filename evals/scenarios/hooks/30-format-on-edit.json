@@ -101,6 +101,20 @@
         }
       },
       "expect": "allow"
+    },
+    {
+      "id": "fe-engine-file-is-left-alone",
+      "why": "The formatter must not rewrite the engine's own files inside a project. Up to v0.9.0 an edit to a hook under .claude/ was reformatted to the PROJECT's style, silently changing the engine copy.",
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/hooks/overseer_stop.py"
+        }
+      },
+      "check_file": ".claude/hooks/overseer_stop.py",
+      "expect": "allow",
+      "expect_file_changed": false
     }
   ]
 }

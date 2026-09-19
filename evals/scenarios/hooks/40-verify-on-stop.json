@@ -30,7 +30,7 @@
     },
     {
       "id": "vs-engine-files-in-lint-scope",
-      "why": "KNOWN DEFECT, recorded on purpose: the hook runs `ruff check .` from the project root, so the engine's own files under .claude/ are judged by the PROJECT's lint rules. Without an exclude, a perfectly green change cannot end the turn. Expected to flip to `allow` once the engine keeps itself out of the project's lint scope.",
+      "why": "The hook runs `ruff check .` from the project root. Up to v0.9.0 the engine's own files under .claude/ were judged by the PROJECT's lint rules, so without an exclude in the project's config a perfectly green change could not end the turn (recorded as `block` in the v0.8.0 and v0.9.0 baselines). The engine now ships .claude/ruff.toml and keeps itself out of scope.",
       "setup": [
         {
           "write": {
@@ -49,8 +49,7 @@
         "hook_event_name": "Stop",
         "stop_hook_active": false
       },
-      "expect": "block",
-      "expect_detail_contains": "LINT FAILED"
+      "expect": "allow"
     },
     {
       "id": "vs-type-error",

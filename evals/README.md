@@ -50,8 +50,9 @@ python3 evals/run_hook_scenarios.py --sandbox ~/engine-sandboxes/v0.9.0 \
 parse, and the deny was silently lost. A scenario that blocks must block **for the reason it
 planted** (`expect_detail_contains`); a gate that objects to something unrelated has not passed.
 
-Two scenarios record known defects on purpose, so that fixing them shows up as a diff:
-`vs-engine-files-in-lint-scope` and `vs-untracked-file-with-type-error`.
+Some scenarios record a known defect on purpose, so that fixing it shows up as a diff
+against the older baselines: `vs-untracked-file-with-type-error` still does;
+`vs-engine-files-in-lint-scope` and the two `*-in-worktree` scenarios did until package 2a.
 
 ## The audit scenarios (manual)
 
