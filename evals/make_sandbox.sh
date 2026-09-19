@@ -73,8 +73,19 @@ find "$TARGET/.claude" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/d
 rm -f "$TARGET/.claude/settings.local.json"
 
 # Fixtures go in AFTER the engine so they win over any file the ref shipped at the same path.
+# PROGRESS.md is stored as PROGRESS.fixture.md: the engine's own .gitignore ignores every
+# PROGRESS.md, so under its real name the fixture would never reach a commit of this repo.
+FIXTURE_FILES=()
 if [ "$AUDIT" -eq 1 ]; then
-  cp -R "$REPO_ROOT/evals/scenarios/audit/fixtures/." "$TARGET/"
+  FIXTURES="$REPO_ROOT/evals/scenarios/audit/fixtures"
+  [ -f "$FIXTURES/PROGRESS.fixture.md" ] || die "audit fixture missing: $FIXTURES/PROGRESS.fixture.md"
+  cp -R "$FIXTURES/." "$TARGET/"
+  mv "$TARGET/PROGRESS.fixture.md" "$TARGET/PROGRESS.md"
+  while IFS= read -r -d '' f; do
+    rel="${f#"$FIXTURES"/}"
+    [ "$rel" = "PROGRESS.fixture.md" ] && rel="PROGRESS.md"
+    FIXTURE_FILES+=("$rel")
+  done < <(find "$FIXTURES" -type f -print0)
 fi
 
 # 3. Record what the ref SHIPPED, then normalise the supervision state.
@@ -101,8 +112,19 @@ JSON
 git -C "$TARGET" init -q -b main
 git -C "$TARGET" add -A -f .claude/overseer/mode 2>/dev/null || true
 git -C "$TARGET" add -A
+# Fixtures are FORCE-added: the engine's ignore rules (appended above) ignore PROGRESS.md,
+# and an untracked, ignored file is deleted by the runner's reset (`git clean -fdx`).
+for rel in "${FIXTURE_FILES[@]:-}"; do
+  [ -n "$rel" ] && git -C "$TARGET" add -f -- "$rel"
+done
 git -C "$TARGET" -c user.name="engine-sandbox" -c user.email="sandbox@example.invalid" \
   commit -q -m "sandbox: reference project + engine $REF"
+
+# Every fixture must be tracked, or the first reset silently removes it.
+for rel in "${FIXTURE_FILES[@]:-}"; do
+  [ -z "$rel" ] || git -C "$TARGET" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 \
+    || die "fixture '$rel' is not tracked in the sandbox — a reset would delete it"
+done
 
 # 5. Toolchain for the verify/format scenarios.
 if [ "$SYNC" -eq 1 ]; then
