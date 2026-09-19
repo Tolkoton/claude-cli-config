@@ -79,6 +79,7 @@ The Stop hook runs `ruff check`, `mypy`, and `pytest` (only on Python changes). 
 | `park-ask-gated.py` | Before any Bash | Unattended only: denies an ask-listed command with a park instruction instead of letting it hang on a prompt nobody answers. No-op when attended. Python, standard library only. |
 | `verify-on-stop.sh` | On turn end | Runs lint/typecheck/tests on changed Python; blocks turn if any fail |
 | `overseer_stop.py` | On turn end | On a unit-completion claim (sentinel + `src/` edit + test/lint/type run), injects an `OVERSEER_REQUEST` 12-check audit prompt. See "Overseer protocol" below. |
+| `env-check.sh` | On session start | Lists the tools this machine lacks for the hooks to enforce anything (git, python3, jq, the project's lint runner). Silent when nothing is missing. |
 
 To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to `<name>.disabled` or pass `claude --disable-hooks` flag.
 
