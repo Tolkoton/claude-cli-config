@@ -3,7 +3,10 @@
 import json, os, subprocess, sys, tempfile
 from pathlib import Path
 
-HOOK = "/Users/lao/Documents/GitHub/claude-cli-config/.claude/hooks/overseer_stop.py"
+# Resolved from this file, not hard-coded: on any machine but the author's the old absolute
+# path did not exist, the two MUST-BLOCK cases failed, and the six must-pass cases passed
+# vacuously — a hook that is never found never blocks.
+HOOK = str(Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "overseer_stop.py")
 
 def run(mode, status, msg="ordinary turn, no sentinel", env=None, count=None):
     root = Path(tempfile.mkdtemp())
