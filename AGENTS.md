@@ -69,9 +69,8 @@ session per DAG node, restarts one that dies, and stops on a terminal state.
 - **Never `git commit`.** Denied in `settings.json` and blocked by
   `block-dangerous.sh`. Stage, summarise, suggest a message, stop.
 - **Never edit `.claude/constitution.md`.** Propose in `audit.md` instead.
-- **`jq` is required.** Four hooks parse stdin with it and degrade to silent
-  no-ops without it. Installed on this machine (1.8.2, `/usr/local/bin/jq`,
-  2026-08-27) — check `command -v jq` on any other before trusting enforcement.
+- **Hooks need `jq` or `python3`.** The bash hooks parse stdin with `jq`, falling back
+  to `python3`; with neither, the two deny hooks refuse every call rather than allow it.
 - **`*.env` is unwritable** — `protect-paths.sh` cannot tell a config file from a
   secrets file by name. One narrow exception: `.claude/project.env`, the
   template's own committed config, which Step 2 of setup tells you to edit.
@@ -93,7 +92,7 @@ There is no application test suite. Exercise the thing you changed and show the
 negative case:
 
 ```bash
-command -v jq                                        # enforcement precondition
+command -v jq || command -v python3                  # one of them must exist
 python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
 python3 hook-checks/test_format_on_edit.py           # 22 cases, exits 1 on any fail
 python3 hook-checks/test_deny_gaps.py               # 10 blocked / 9 allowed

@@ -291,25 +291,57 @@ for path, why in MUST_ALLOW_PATHS:
         bad(f"MUST allow ({why}): {path}", "no decision", verdict)
 
 # ===========================================================================
-# The failure mode that matters: no jq -> both hooks fail OPEN
+# No jq: the hooks fall back to python3; with NEITHER parser they REFUSE
 # ===========================================================================
-print("NOJQ-*   with jq absent, BOTH deny hooks enforce nothing (pinned, not fixed)")
+# Until package 2a this section pinned the opposite: without jq both deny hooks
+# exited 0 and enforced nothing ("pinned, not fixed"). evals/ measured the cost:
+# all 22 block scenarios of the two hooks turned into allows. The fix keeps the
+# same two probes and adds the fallback case.
+print("NOJQ-*   without jq the deny hooks still enforce (python3), or refuse (no parser)")
+nojq_nopy = minimal_path_without("jq")            # the helper never links python3
+
+res = run_block("git commit -m x", path_override=nojq_nopy)
+if res.returncode == 2 and "could not be read" in res.stderr:
+    ok("block-dangerous.sh: no jq, no python3 -> REFUSES the call (exit 2), says why")
+else:
+    bad("block-dangerous.sh must refuse when it has no parser",
+        "exit 2 + 'could not be read'", f"exit {res.returncode}: {res.stderr[:80]}")
+
+res = run_paths(".env", path_override=nojq_nopy)
+if res.returncode == 2 and "could not be read" in res.stderr:
+    ok("protect-paths.sh: no jq, no python3 -> REFUSES the call (exit 2), says why")
+else:
+    bad("protect-paths.sh must refuse when it has no parser",
+        "exit 2 + 'could not be read'", f"exit {res.returncode}: {res.stderr[:80]}")
+
 nojq = minimal_path_without("jq")
-
-res = run_block("git commit -m x", path_override=nojq)
-if res.returncode == 0:
-    ok("block-dangerous.sh: `git commit` NOT blocked without jq — fails open, as documented")
+py = shutil.which("python3")
+if py:
+    os.symlink(py, Path(nojq) / "python3")
+    res = run_block("git commit -m x", path_override=nojq)
+    if res.returncode == 2 and "could not be read" not in res.stderr:
+        ok("block-dangerous.sh: no jq, python3 present -> `git commit` BLOCKED as usual")
+    else:
+        bad("block-dangerous.sh must enforce through the python3 fallback",
+            "exit 2 from the commit policy", f"exit {res.returncode}: {res.stderr[:80]}")
+    res = run_block("ls -la", path_override=nojq)
+    if res.returncode == 0:
+        ok("block-dangerous.sh: no jq, python3 present -> ordinary command allowed")
+    else:
+        bad("python3 fallback must not block ordinary commands", "exit 0", f"exit {res.returncode}")
+    res = run_paths(".env", path_override=nojq)
+    if res.returncode == 2 and "protected pattern" in res.stderr:
+        ok("protect-paths.sh: no jq, python3 present -> `.env` DENIED (exit 2, reason on stderr)")
+    else:
+        bad("protect-paths.sh must deny through the python3 fallback",
+            "exit 2 + 'protected pattern'", f"exit {res.returncode}: {res.stderr[:80]}")
+    res = run_paths("src/app.py", path_override=nojq)
+    if res.returncode == 0 and not res.stdout.strip():
+        ok("protect-paths.sh: no jq, python3 present -> ordinary path allowed")
+    else:
+        bad("python3 fallback must not deny ordinary paths", "exit 0, no output", f"exit {res.returncode}")
 else:
-    bad("no-jq behaviour changed for block-dangerous.sh",
-        "exit 0 (fails open — update CLAUDE.md if this was fixed)", f"exit {res.returncode}")
-
-res = run_paths(".env", path_override=nojq)
-verdict, _ = decision(res)
-if verdict is None:
-    ok("protect-paths.sh: `.env` NOT denied without jq — fails open, as documented")
-else:
-    bad("no-jq behaviour changed for protect-paths.sh",
-        "no decision (fails open — update CLAUDE.md if this was fixed)", verdict)
+    print("  skip: python3 not on PATH, fallback cases not run")
 
 # ===========================================================================
 # Malformed / empty input must not crash either hook

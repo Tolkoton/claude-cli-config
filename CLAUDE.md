@@ -76,33 +76,19 @@ The Stop hook runs `ruff check`, `mypy`, and `pytest` (only on Python changes). 
 | `block-dangerous.sh` | Before any Bash | Hard-blocks destructive patterns AND `git commit` |
 | `protect-paths.sh` | Before Edit/Write/MultiEdit | Hard-blocks edits to secrets, migrations, `.git/`, workflows |
 | `format-on-edit.sh` | After Edit/Write/MultiEdit | Runs `ruff format` + `ruff check --fix --select I` on `.py` files |
-| `park-ask-gated.py` | Before any Bash | Unattended only: denies an ask-listed command with a park instruction instead of letting it hang on a prompt nobody answers. No-op when attended. Python, not bash — see the `jq` warning below. |
+| `park-ask-gated.py` | Before any Bash | Unattended only: denies an ask-listed command with a park instruction instead of letting it hang on a prompt nobody answers. No-op when attended. Python, standard library only. |
 | `verify-on-stop.sh` | On turn end | Runs lint/typecheck/tests on changed Python; blocks turn if any fail |
 | `overseer_stop.py` | On turn end | On a unit-completion claim (sentinel + `src/` edit + test/lint/type run), injects an `OVERSEER_REQUEST` 12-check audit prompt. See "Overseer protocol" below. |
 
 To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to `<name>.disabled` or pass `claude --disable-hooks` flag.
 
-> **⚠ `jq` dependency — verify before trusting the bash hooks.** `block-dangerous.sh`,
-> `protect-paths.sh`, `format-on-edit.sh`, and `verify-on-stop.sh` parse their stdin
-> with `jq`. All four use the idiom `jq ... 2>/dev/null || echo ""` followed by an
-> empty-value early exit, so **on a machine without `jq` they exit 0 and enforce
-> nothing, silently.** This was observed for real on 2026-08-27, before `jq` was
-> installed: `git commit`, `rm -rf /`, and a write to `.env` all returned exit 0
-> from their hooks. The `permissions.deny` and `permissions.ask` lists in
-> `settings.json` are harness-level and unaffected — they are what actually holds
-> the line in that state — but the defense-in-depth layer is not.
->
-> **Status on this machine: `jq` 1.8.2 is INSTALLED** at `/usr/local/bin/jq`
-> (Homebrew, 2026-08-27). The four bash hooks enforce. Re-confirmed by
-> `hook-checks/test_format_on_edit.py` case NEG-5, which runs `format-on-edit.sh`
-> against a PATH with no `jq` and asserts the silent no-op still happens — so the
-> failure mode stays pinned by a test rather than by this paragraph.
->
-> The degradation is not equally bad in all four. For `format-on-edit.sh` it is
-> benign: no `jq` means no formatting, and a formatter never blocks anything. For
-> the two deny hooks it is a hole. Check `command -v jq` on any new machine before
-> relying on hook enforcement; install `jq`, or port the hook to Python as
-> `park-ask-gated.py` and the two existing Python hooks already are.
+> **Hook input parsing.** The four bash hooks (`block-dangerous.sh`, `protect-paths.sh`,
+> `format-on-edit.sh`, `verify-on-stop.sh`) read their input with `jq` and fall back to
+> `python3`. With neither on the machine the two deny hooks **refuse the call** (exit 2,
+> reason on stderr) instead of allowing it, `format-on-edit.sh` does nothing and says so,
+> and `verify-on-stop.sh` still blocks a failing check (exit 2). Pinned by
+> `hook-checks/test_deny_hooks.py` (NOJQ-*) and by the no-`jq` run in `evals/`.
+> Until 2026-09 these hooks exited 0 and enforced nothing without `jq`.
 
 <!-- ============================================== -->
 <!-- End of autonomy policy. Your implementation skill -->

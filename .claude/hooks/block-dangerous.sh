@@ -5,7 +5,46 @@
 set -euo pipefail
 
 INPUT=$(cat)
-CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
+
+# Read one string field from the hook envelope: jq when present, python3 otherwise.
+# Exit status 0 = read (the value may be empty, and input that is not JSON reads as empty —
+# pinned by hook-checks ROBUST-*); 97 = no parser on this machine at all.
+# WHY: the old idiom `jq ... 2>/dev/null || echo ""` turned "jq is not installed" into "the
+# field is empty", and the hook then allowed everything. Measured with evals/: without jq
+# every block of this hook became an allow. A deny control that
+# cannot read its input must refuse, not wave the call through.
+read_field() {
+  if command -v jq >/dev/null 2>&1; then
+    local expr="" path
+    for path in "$@"; do expr="${expr:+$expr // }.${path}"; done
+    printf '%s' "$INPUT" | jq -r "(${expr}) // \"\"" 2>/dev/null || true
+  elif command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$INPUT" | python3 -c '
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+except ValueError:
+    sys.exit(0)
+for path in sys.argv[1:]:
+    node = data
+    for key in path.split("."):
+        node = node.get(key) if isinstance(node, dict) else None
+    if isinstance(node, str) and node:
+        sys.stdout.write(node)
+        break
+' "$@"
+  else
+    return 97
+  fi
+}
+
+if ! CMD=$(read_field tool_input.command 2>/dev/null); then
+  echo "BLOCKED by claude-autonomy safety hook: the tool call could not be read." >&2
+  echo "Neither jq nor python3 parsed the hook input, so this command cannot be checked." >&2
+  echo "Install jq (or python3) and retry. Until then Bash calls are refused on purpose:" >&2
+  echo "an unchecked command is a breach, a refused one is a nuisance." >&2
+  exit 2
+fi
 
 if [ -z "$CMD" ]; then
   exit 0

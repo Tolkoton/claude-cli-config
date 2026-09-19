@@ -10,7 +10,10 @@ set -euo pipefail
 INPUT=$(cat)
 
 # Prevent infinite loop on cascading stop hooks
-if echo "$INPUT" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; then
+# Plain grep, not jq: this guard must work on a machine without jq. It used to be
+# `jq -e ... >/dev/null 2>&1`, which without jq was simply false — harmless here, but the
+# hook then died with exit 127 at its next jq call and the turn ended unverified.
+if printf '%s' "$INPUT" | grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
   exit 0
 fi
 
@@ -190,6 +193,12 @@ fi
 # Report
 # ---------------------------------------------------------------------------
 if [ -n "$ERRORS" ]; then
+  if ! command -v jq >/dev/null 2>&1; then
+    # No jq to encode the JSON decision. A Stop hook may equally block with exit code 2
+    # and the reason on stderr.
+    printf '%b' "$ERRORS" >&2
+    exit 2
+  fi
   REASON=$(printf '%b' "$ERRORS" | jq -Rs .)
   cat <<EOF
 {"decision":"block","reason":${REASON}}

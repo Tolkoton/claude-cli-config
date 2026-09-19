@@ -8,7 +8,42 @@
 set -euo pipefail
 
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // ""' 2>/dev/null || echo "")
+# Read one string field from the hook envelope: jq when present, python3 otherwise.
+# Exit status 0 = read (the value may be empty, and input that is not JSON reads as empty —
+# pinned by hook-checks ROBUST-*); 97 = no parser on this machine at all.
+# WHY: the old idiom `jq ... 2>/dev/null || echo ""` turned "jq is not installed" into "the
+# field is empty", and the hook then allowed everything. Measured with evals/: without jq
+# every block of this hook became an allow. Here the
+# consequence was milder — nothing got formatted — but just as silent.
+read_field() {
+  if command -v jq >/dev/null 2>&1; then
+    local expr="" path
+    for path in "$@"; do expr="${expr:+$expr // }.${path}"; done
+    printf '%s' "$INPUT" | jq -r "(${expr}) // \"\"" 2>/dev/null || true
+  elif command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$INPUT" | python3 -c '
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+except ValueError:
+    sys.exit(0)
+for path in sys.argv[1:]:
+    node = data
+    for key in path.split("."):
+        node = node.get(key) if isinstance(node, dict) else None
+    if isinstance(node, str) and node:
+        sys.stdout.write(node)
+        break
+' "$@"
+  else
+    return 97
+  fi
+}
+
+if ! FILE_PATH=$(read_field tool_input.file_path tool_input.path 2>/dev/null); then
+  echo "⚠ format-on-edit: could not read the hook input (no jq and no python3) — nothing formatted." >&2
+  exit 0
+fi
 
 if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
   exit 0
