@@ -125,7 +125,10 @@ done
 
 # Block direct git commit/push on protected branches (defense-in-depth)
 BRANCH=""
-if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR/.git" ]; then
+# Ask git, do not look for a .git DIRECTORY: in a `git worktree` checkout .git is a FILE.
+# With the old `[ -d .../.git ]` the branch stayed unknown there and a push from a
+# protected branch was allowed (evals: bd-push-on-protected-branch-in-worktree).
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   BRANCH=$(git -C "$CLAUDE_PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 fi
 

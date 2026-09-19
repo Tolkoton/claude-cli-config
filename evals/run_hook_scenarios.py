@@ -64,10 +64,13 @@ def reset_sandbox(sandbox: Path) -> None:
     try:
         git(sandbox, "switch", "-q", "-f", "main")
         git(sandbox, "reset", "-q", "--hard")
-        clean = ["clean", "-q", "-fdx"]
+        # -ff: a scenario may have created a `git worktree` inside the sandbox; a single -f
+        # refuses to delete a directory that contains its own .git.
+        clean = ["clean", "-q", "-ffdx"]
         for keep in KEEP_ON_CLEAN:
             clean += ["-e", keep]
         git(sandbox, *clean)
+        git(sandbox, "worktree", "prune")
         heads = git(sandbox, "for-each-ref", "--format=%(refname:short)", "refs/heads").stdout
         for branch in heads.split():
             if branch != "main":
@@ -181,8 +184,13 @@ def run_scenario(
         watched = sandbox / scenario["check_file"] if "check_file" in scenario else None
         before = file_digest(watched) if watched else None
 
+        # `project_dir`: run the hook as if Claude Code had been started in a subdirectory
+        # of the sandbox — used for `git worktree` checkouts, where .git is a file.
+        project_dir = (sandbox / scenario.get("project_dir", ".")).resolve()
+        if project_dir != sandbox.resolve() and sandbox.resolve() not in project_dir.parents:
+            raise SandboxError(f"project_dir escapes the sandbox: {project_dir}")
         env = dict(os.environ)
-        env["CLAUDE_PROJECT_DIR"] = str(sandbox)
+        env["CLAUDE_PROJECT_DIR"] = str(project_dir)
         env.pop("CLAUDE_UNATTENDED_SESSION", None)
         env.update(substitute(scenario.get("env", {}), mapping))
         interpreter = [sys.executable] if hook.endswith(".py") else ["bash"]
@@ -195,7 +203,7 @@ def run_scenario(
                 proc = subprocess.run(
                     [*interpreter, str(hook_path)],
                     input=envelope, capture_output=True, text=True,
-                    cwd=sandbox, env=env, timeout=timeout_s,
+                    cwd=project_dir, env=env, timeout=timeout_s,
                 )
             except subprocess.TimeoutExpired:
                 outcomes.append("timeout")

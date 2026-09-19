@@ -71,7 +71,10 @@ fi
 # Detect which files changed
 # ---------------------------------------------------------------------------
 CHANGED=""
-if [ -d .git ]; then
+# Ask git, do not look for a .git DIRECTORY: in a `git worktree` checkout .git is a FILE,
+# and with `[ -d .git ]` nothing ever counted as changed — the whole gate was skipped
+# (evals: vs-type-error-in-worktree).
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   CHANGED=$( { git diff --name-only HEAD 2>/dev/null; git diff --name-only --cached 2>/dev/null; } | sort -u )
 fi
 

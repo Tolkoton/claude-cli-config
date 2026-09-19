@@ -253,6 +253,31 @@
         }
       },
       "expect": "block"
+    },
+    {
+      "id": "bd-push-on-protected-branch-in-worktree",
+      "why": "In a `git worktree` checkout .git is a file. The hook must still know the branch: a push from a protected branch is blocked there too.",
+      "setup": [
+        {
+          "git": [
+            "worktree",
+            "add",
+            "-q",
+            "wt",
+            "-b",
+            "release"
+          ]
+        }
+      ],
+      "project_dir": "wt",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin release"
+        }
+      },
+      "expect": "block"
     }
   ]
 }
