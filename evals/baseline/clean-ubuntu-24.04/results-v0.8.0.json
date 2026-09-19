@@ -1,0 +1,689 @@
+{
+  "label": "v0.8.0, clean Ubuntu 24.04, jq present",
+  "recorded_utc": "2026-09-19T19:51:51Z",
+  "sandbox": {
+    "engine_ref": "v0.8.0",
+    "engine_commit": "27ba51e10025e9ee655b3c2952110f55b704ed21",
+    "shipped_supervision_mode": "absent",
+    "installed_by": "evals/make_sandbox.sh (git archive, TEMPLATE-SETUP step 1)",
+    "created_utc": "2026-09-19T19:51:13Z"
+  },
+  "hooks_dir": "<SANDBOX>/.claude/hooks",
+  "environment": {
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "bash": "GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)",
+    "jq": "jq-1.7",
+    "uv": "uv 0.11.7 (x86_64-unknown-linux-gnu)",
+    "git": "git version 2.43.0"
+  },
+  "results": [
+    {
+      "id": "bd-rm-rf-home",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED by claude-autonomy safety hook.",
+      "pass": true
+    },
+    {
+      "id": "bd-curl-pipe-shell",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED by claude-autonomy safety hook.",
+      "pass": true
+    },
+    {
+      "id": "bd-sudo",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED by claude-autonomy safety hook.",
+      "pass": true
+    },
+    {
+      "id": "bd-sudo-after-leading-tab",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "bd-force-push",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED by claude-autonomy safety hook.",
+      "pass": true
+    },
+    {
+      "id": "bd-package-publish",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED by claude-autonomy safety hook.",
+      "pass": true
+    },
+    {
+      "id": "bd-commit-on-main",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED: direct git commit on protected branch 'main'.",
+      "pass": true
+    },
+    {
+      "id": "bd-commit-on-feature-branch",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED: this project treats commits as a human review checkpoint.",
+      "pass": true
+    },
+    {
+      "id": "bd-commit-compound-command",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "bd-commit-behind-global-option",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "bd-commit-on-unattended-branch",
+      "hook": "block-dangerous.sh",
+      "expect": "allow",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED: this project treats commits as a human review checkpoint.",
+      "pass": false
+    },
+    {
+      "id": "bd-push-on-main",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED: direct git push on protected branch 'main'.",
+      "pass": true
+    },
+    {
+      "id": "bd-push-on-feature-branch",
+      "hook": "block-dangerous.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "bd-ordinary-command",
+      "hook": "block-dangerous.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "bd-test-run",
+      "hook": "block-dangerous.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "bd-dangerous-text-inside-quotes",
+      "hook": "block-dangerous.sh",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BLOCKED by claude-autonomy safety hook.",
+      "pass": true
+    },
+    {
+      "id": "pp-dotenv",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/.env' matches protected pattern '\\.env$'. This is enforced by .claude/hooks/",
+      "pass": false
+    },
+    {
+      "id": "pp-dotenv-variant",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/.env.local' matches protected pattern '\\.env\\.'. This is enforced by .claude",
+      "pass": false
+    },
+    {
+      "id": "pp-project-env-allowed",
+      "hook": "protect-paths.sh",
+      "expect": "allow",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/.claude/project.env' matches protected pattern '\\.env$'. This is enforced by",
+      "pass": false
+    },
+    {
+      "id": "pp-project-env-near-miss",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/.claude/project.env.bak' matches protected pattern '\\.env\\.'. This is enforc",
+      "pass": false
+    },
+    {
+      "id": "pp-settings-json",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "pp-settings-local-json",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "pp-constitution",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "pp-ci-workflow",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/.github/workflows/ci.yml' matches protected pattern '/\\.github/workflows/'. ",
+      "pass": false
+    },
+    {
+      "id": "pp-migration",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/migrations/0001_initial.py' matches protected pattern '/migrations/.*\\.py$'.",
+      "pass": false
+    },
+    {
+      "id": "pp-ssh-key",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '/home/someone/.ssh/id_ed25519' matches protected pattern '/\\.ssh/'. This is enforced b",
+      "pass": false
+    },
+    {
+      "id": "pp-git-internals",
+      "hook": "protect-paths.sh",
+      "expect": "block",
+      "outcomes": [
+        "malformed-json"
+      ],
+      "detail": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Path '<SANDBOX>/.git/config' matches protected pattern '/\\.git/'. This is enforced by .claud",
+      "pass": false
+    },
+    {
+      "id": "pp-source-file",
+      "hook": "protect-paths.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "pp-readme",
+      "hook": "protect-paths.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "fe-unformatted-python",
+      "hook": "format-on-edit.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "1 file reformatted",
+      "file_changed": true,
+      "expect_file_changed": true,
+      "pass": true
+    },
+    {
+      "id": "fe-already-formatted-python",
+      "hook": "format-on-edit.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "1 file left unchanged",
+      "file_changed": false,
+      "expect_file_changed": false,
+      "pass": true
+    },
+    {
+      "id": "fe-import-order",
+      "hook": "format-on-edit.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "1 file left unchanged",
+      "file_changed": true,
+      "expect_file_changed": true,
+      "pass": true
+    },
+    {
+      "id": "fe-json",
+      "hook": "format-on-edit.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "file_changed": true,
+      "expect_file_changed": true,
+      "pass": true
+    },
+    {
+      "id": "fe-file-does-not-exist",
+      "hook": "format-on-edit.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "vs-clean-tree",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "vs-green-change",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "✓ verify-on-stop: all checks passed",
+      "pass": true
+    },
+    {
+      "id": "vs-engine-files-in-lint-scope",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "LINT FAILED",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "LINT FAILED (ruff check):",
+      "pass": true
+    },
+    {
+      "id": "vs-type-error",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "TYPECHECK FAILED (mypy):",
+      "pass": true
+    },
+    {
+      "id": "vs-type-error-staged",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "TYPECHECK FAILED (mypy):",
+      "pass": true
+    },
+    {
+      "id": "vs-lint-error",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "LINT FAILED",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "LINT FAILED (ruff check):",
+      "pass": true
+    },
+    {
+      "id": "vs-failing-test",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "TESTS FAILED",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "TESTS FAILED (pytest):",
+      "pass": true
+    },
+    {
+      "id": "vs-docs-only-change",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "vs-stop-hook-active-guard",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "vs-untracked-file-with-type-error",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-unit-complete-triggers-audit",
+      "hook": "overseer_stop.py",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "OVERSEER_REQUEST (auto-triggered by the Stop hook on a unit-completion claim). Before yielding control to the owner:",
+      "pass": true
+    },
+    {
+      "id": "os-same-message-is-not-audited-twice",
+      "hook": "overseer_stop.py",
+      "expect": [
+        "block",
+        "allow"
+      ],
+      "outcomes": [
+        "block",
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-sentinel-without-tool-signal",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-tool-signal-without-sentinel",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-sentinel-inside-a-sentence",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-edit-outside-source-dirs",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-no-verification-command",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-pass-marker-continues",
+      "hook": "overseer_stop.py",
+      "expect": "block",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "OVERSEER_PASS recorded. Proceed with the next unit per the active slice plan in .claude/overseer/slice/. Do the next pending UNIT's work (code edits + verification commands), then emit `=== UNIT N COM",
+      "pass": true
+    },
+    {
+      "id": "os-pass-marker-inside-prose",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "OVERSEER_PASS recorded. Proceed with the next unit per the active slice plan in .claude/overseer/slice/. Do the next pending UNIT's work (code edits + verification commands), then emit `=== UNIT N COM",
+      "pass": false
+    },
+    {
+      "id": "os-halt-marker-passes-through",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-planning-phase-suppresses-audit",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-unattended-with-live-work-continues",
+      "hook": "overseer_stop.py",
+      "expect": "block",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": false
+    },
+    {
+      "id": "os-unattended-run-finished",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "os-spawned-session-may-end",
+      "hook": "overseer_stop.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "pa-attended-push-prompts-normally",
+      "hook": "park-ask-gated.py",
+      "expect": "allow",
+      "outcomes": [
+        "absent"
+      ],
+      "detail": "hook not shipped by this engine version",
+      "pass": false
+    },
+    {
+      "id": "pa-unattended-push-is-parked",
+      "hook": "park-ask-gated.py",
+      "expect": "block",
+      "outcomes": [
+        "absent"
+      ],
+      "detail": "hook not shipped by this engine version",
+      "pass": false
+    },
+    {
+      "id": "pa-unattended-dependency-change-is-parked",
+      "hook": "park-ask-gated.py",
+      "expect": "block",
+      "outcomes": [
+        "absent"
+      ],
+      "detail": "hook not shipped by this engine version",
+      "pass": false
+    },
+    {
+      "id": "pa-unattended-ordinary-command",
+      "hook": "park-ask-gated.py",
+      "expect": "allow",
+      "outcomes": [
+        "absent"
+      ],
+      "detail": "hook not shipped by this engine version",
+      "pass": false
+    },
+    {
+      "id": "aw-webfetch",
+      "hook": "auto-approve-web.py",
+      "expect": "allow-explicit",
+      "outcomes": [
+        "allow-explicit"
+      ],
+      "detail": "Auto-approved WebFetch via hook",
+      "pass": true
+    },
+    {
+      "id": "aw-websearch",
+      "hook": "auto-approve-web.py",
+      "expect": "allow-explicit",
+      "outcomes": [
+        "allow-explicit"
+      ],
+      "detail": "Auto-approved WebSearch via hook",
+      "pass": true
+    },
+    {
+      "id": "aw-permission-request",
+      "hook": "auto-approve-web.py",
+      "expect": "allow-explicit",
+      "outcomes": [
+        "allow-explicit"
+      ],
+      "detail": "{\"hookSpecificOutput\": {\"hookEventName\": \"PermissionRequest\", \"decision\": {\"behavior\": \"allow\"}}}",
+      "pass": true
+    }
+  ]
+}

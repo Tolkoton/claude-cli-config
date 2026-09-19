@@ -1,0 +1,162 @@
+{
+  "hook": "protect-paths.sh",
+  "event": "PreToolUse (Edit|Write|MultiEdit)",
+  "scenarios": [
+    {
+      "id": "pp-dotenv",
+      "why": "Secrets file. Before 2026-08-27 this deny was emitted as malformed JSON and lost.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.env"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-dotenv-variant",
+      "why": ".env.local and friends.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.env.local"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-project-env-allowed",
+      "why": "S5: the engine's own committed, secret-free config must stay writable.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/project.env"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "pp-project-env-near-miss",
+      "why": "The allowlist is $-anchored; a lookalike is still denied.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/project.env.bak"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-settings-json",
+      "why": "An agent must not widen its own permissions.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/settings.json"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-settings-local-json",
+      "why": "The quiet way to re-widen permissions.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/settings.local.json"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-constitution",
+      "why": "Human-only file (Article VII).",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/constitution.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-ci-workflow",
+      "why": "CI definitions are the owner's.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.github/workflows/ci.yml"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-migration",
+      "why": "Migrations are append-only history.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/migrations/0001_initial.py"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-ssh-key",
+      "why": "Key material anywhere on disk.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "/home/someone/.ssh/id_ed25519"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-git-internals",
+      "why": "The object store is not a file to edit.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.git/config"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-source-file",
+      "why": "Ordinary code must stay writable.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/pricing.py"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "pp-readme",
+      "why": "Ordinary docs must stay writable.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/README.md"
+        }
+      },
+      "expect": "allow"
+    }
+  ]
+}

@@ -1,0 +1,1097 @@
+{
+  "hook": "overseer_stop.py",
+  "event": "Stop",
+  "scenarios": [
+    {
+      "id": "os-unit-complete-triggers-audit",
+      "why": "Sentinel + code edit + verification command: the audit is requested.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block"
+    },
+    {
+      "id": "os-same-message-is-not-audited-twice",
+      "why": "Recursion guard: the SHA of an audited message silences the re-fire.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "runs": 2,
+      "expect": [
+        "block",
+        "allow"
+      ]
+    },
+    {
+      "id": "os-sentinel-without-tool-signal",
+      "why": "A claim with no edit and no check behind it does not trigger.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-tool-signal-without-sentinel",
+      "why": "Work without a completion claim is just work.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax; 8 tests pass. Continuing with the next behaviour.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-sentinel-inside-a-sentence",
+      "why": "The sentinel counts only alone on its line.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "I will print === UNIT 3 COMPLETE === once the smoke script passes.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-edit-outside-source-dirs",
+      "why": "A docs edit is not a unit of code work.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/README.md",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-no-verification-command",
+      "why": "An edit nobody verified is not evidence.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "ls -la"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-pass-marker-continues",
+      "why": "A verdict of PASS re-injects 'continue to the next unit'.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block"
+    },
+    {
+      "id": "os-pass-marker-inside-prose",
+      "why": "S1: a turn that only DESCRIBES the marker must not enter the continue loop.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "The Stop hook re-injects a continue instruction when it sees OVERSEER_PASS in the final message.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-halt-marker-passes-through",
+      "why": "BLOCK / ESCALATE / ADR_REQUIRED hand the turn to the owner.",
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "OVERSEER_BLOCK: #1 false-DONE — name the specific test and show its output.\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-planning-phase-suppresses-audit",
+      "why": "Phase guard: while planning there are no units to audit.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/state",
+            "content": "plan\n"
+          }
+        }
+      ],
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-unattended-with-live-work-continues",
+      "why": "Nobody is watching and the supervisor says work is live: ending the turn is not a legitimate stop.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/mode",
+            "content": "unattended\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/unattended/state.json",
+            "content": "{\"status\": \"working\", \"node\": \"S3\"}\n"
+          }
+        }
+      ],
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Pausing here.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block"
+    },
+    {
+      "id": "os-unattended-run-finished",
+      "why": "Unattended but finished: the turn may end.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/mode",
+            "content": "unattended\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/unattended/state.json",
+            "content": "{\"status\": \"finished\", \"node\": \"S3\"}\n"
+          }
+        }
+      ],
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Pausing here.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "os-spawned-session-may-end",
+      "why": "A session the supervisor spawned must be able to exit so a fresh one can start.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/mode",
+            "content": "unattended\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/unattended/state.json",
+            "content": "{\"status\": \"working\", \"node\": \"S3\"}\n"
+          }
+        }
+      ],
+      "env": {
+        "CLAUDE_UNATTENDED_SESSION": "1"
+      },
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Pausing here.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    }
+  ]
+}

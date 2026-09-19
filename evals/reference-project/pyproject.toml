@@ -1,0 +1,33 @@
+[project]
+name = "refproj"
+version = "0.1.0"
+description = "Tiny reference project used to exercise the engine's hooks. Not a real product."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["mypy>=1.11", "pytest>=8.0", "ruff>=0.6"]
+
+# Not a package: nothing to build, so `uv sync` only installs the dev tools.
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# The engine ships its own Python under .claude/. It is not this project's code and is
+# not written to this project's rules, so it stays out of the lint scope. Scenario
+# `vs-engine-files-in-lint-scope` records what happens without this line.
+extend-exclude = [".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

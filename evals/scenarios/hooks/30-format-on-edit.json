@@ -1,0 +1,106 @@
+{
+  "hook": "format-on-edit.sh",
+  "event": "PostToolUse (Edit|Write|MultiEdit)",
+  "scenarios": [
+    {
+      "id": "fe-unformatted-python",
+      "why": "The formatter must actually rewrite the file.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/scratch.py",
+            "content": "def  add( a:int,b:int )->int:\n    return a+b\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/scratch.py"
+        }
+      },
+      "check_file": "src/refproj/scratch.py",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "fe-already-formatted-python",
+      "why": "A clean file is left byte-identical.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/scratch.py",
+            "content": "def add(a: int, b: int) -> int:\n    return a + b\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/scratch.py"
+        }
+      },
+      "check_file": "src/refproj/scratch.py",
+      "expect": "allow",
+      "expect_file_changed": false
+    },
+    {
+      "id": "fe-import-order",
+      "why": "S3: the import sort has to land, not only the layout.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/scratch.py",
+            "content": "import sys\nimport os\nfrom decimal import Decimal\n\n\ndef where() -> str:\n    return os.sep + sys.platform + str(Decimal(1))\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/scratch.py"
+        }
+      },
+      "check_file": "src/refproj/scratch.py",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "fe-json",
+      "why": "JSON goes through jq when jq exists.",
+      "setup": [
+        {
+          "write": {
+            "path": "data/sample.json",
+            "content": "{\"b\":1,   \"a\":[1,2]}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/data/sample.json"
+        }
+      },
+      "check_file": "data/sample.json",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "fe-file-does-not-exist",
+      "why": "A path that vanished must not crash the turn.",
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/gone.py"
+        }
+      },
+      "expect": "allow"
+    }
+  ]
+}

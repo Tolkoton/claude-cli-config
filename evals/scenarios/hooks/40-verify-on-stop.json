@@ -1,0 +1,185 @@
+{
+  "hook": "verify-on-stop.sh",
+  "event": "Stop",
+  "scenarios": [
+    {
+      "id": "vs-clean-tree",
+      "why": "Nothing changed, nothing to verify.",
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "vs-green-change",
+      "why": "A correct, typed, tested change ends the turn.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "vs-engine-files-in-lint-scope",
+      "why": "KNOWN DEFECT, recorded on purpose: the hook runs `ruff check .` from the project root, so the engine's own files under .claude/ are judged by the PROJECT's lint rules. Without an exclude, a perfectly green change cannot end the turn. Expected to flip to `allow` once the engine keeps itself out of the project's lint scope.",
+      "setup": [
+        {
+          "write": {
+            "path": "pyproject.toml",
+            "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "LINT FAILED"
+    },
+    {
+      "id": "vs-type-error",
+      "why": "The turn cannot end on a type error.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED"
+    },
+    {
+      "id": "vs-type-error-staged",
+      "why": "Staging the change must not hide it (the --cached half of the diff).",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+          }
+        },
+        {
+          "git": [
+            "add",
+            "src/refproj/pricing.py"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED"
+    },
+    {
+      "id": "vs-lint-error",
+      "why": "An unused import is a lint failure.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nimport os\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "LINT FAILED"
+    },
+    {
+      "id": "vs-failing-test",
+      "why": "Lint and types are clean, the behaviour is wrong.",
+      "setup": [
+        {
+          "write": {
+            "path": "tests/test_pricing.py",
+            "content": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import apply_discount, total\n\n\ndef test_discount_rounds_half_up_to_cents() -> None:\n    assert apply_discount(Decimal(\"19.99\"), 15) == Decimal(\"17.00\")\n\n\ndef test_discount_of_zero_and_hundred_are_the_bounds() -> None:\n    assert apply_discount(Decimal(\"10.00\"), 0) == Decimal(\"10.00\")\n    assert apply_discount(Decimal(\"10.00\"), 100) == Decimal(\"0.00\")\n\n\ndef test_discount_outside_bounds_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"0..100\"):\n        apply_discount(Decimal(\"10.00\"), 101)\n\n\ndef test_total_of_empty_basket_is_zero() -> None:\n    assert total([]) == Decimal(\"0.00\")\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "TESTS FAILED"
+    },
+    {
+      "id": "vs-docs-only-change",
+      "why": "A docs edit must not run the Python gates.",
+      "setup": [
+        {
+          "write": {
+            "path": "README.md",
+            "content": "# refproj\n\nEdited.\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "vs-stop-hook-active-guard",
+      "why": "The loop guard: a hook-initiated turn is not verified again.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": true
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "vs-untracked-file-with-type-error",
+      "why": "KNOWN GAP, recorded on purpose: the hook reads `git diff`, so a new file nobody staged is invisible to it.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/newmod.py",
+            "content": "\"\"\"A brand-new module nobody has staged yet.\"\"\"\n\n\ndef count() -> int:\n    return \"three\"\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    }
+  ]
+}

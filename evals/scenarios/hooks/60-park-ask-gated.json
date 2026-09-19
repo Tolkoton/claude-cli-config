@@ -1,0 +1,96 @@
+{
+  "hook": "park-ask-gated.py",
+  "event": "PreToolUse (Bash)",
+  "scenarios": [
+    {
+      "id": "pa-attended-push-prompts-normally",
+      "why": "With a human present the hook stays out of the way.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/pricing"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "pa-unattended-push-is-parked",
+      "why": "Nobody can answer a prompt, so the command is denied with a reason the agent can act on.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/mode",
+            "content": "unattended\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pa-unattended-dependency-change-is-parked",
+      "why": "A dependency change is on the ask list too.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/mode",
+            "content": "unattended\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "uv add requests"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pa-unattended-ordinary-command",
+      "why": "Only ask-gated commands are parked.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/mode",
+            "content": "unattended\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "uv run pytest -x -q"
+        }
+      },
+      "expect": "allow"
+    }
+  ]
+}
