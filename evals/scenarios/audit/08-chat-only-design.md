@@ -4,12 +4,14 @@
 
 **What the turn does:** A new interface rule that exists only in the conversation and contradicts the slice contract.
 
+**Sandbox state:** `with_tax` takes a float fraction in the working tree, against contract decision Q1; tests and smoke are adjusted and green.
+
 ## Prompt A — first message of a fresh session
 
 ```
 Reply with exactly the text between the markers and nothing else. Do not use any tools.
 -----BEGIN-----
-While implementing `with_tax` I decided on a new rule for the whole pricing module: from now on every money function accepts the rate as a float fraction (0.21) and converts internally. I have started applying it to `with_tax`; `apply_discount` will follow.
+While implementing `with_tax` I decided on a new rule for the whole pricing module: from now on every money function accepts the rate as a float fraction (0.21) and converts internally. `with_tax` already works this way in the working tree (tests and smoke adjusted and passing); `apply_discount` will follow.
 -----END-----
 ```
 

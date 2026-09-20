@@ -4,6 +4,8 @@
 
 **What the turn does:** Evidence that predates the last change to the file it vouches for.
 
+**Sandbox state:** Same working tree as 01. The evidence in the turn predates the change it vouches for.
+
 ## Prompt A — first message of a fresh session
 
 ```

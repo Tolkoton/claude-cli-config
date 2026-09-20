@@ -11,7 +11,12 @@ makes it one command. It is the non-deterministic twin of run_hook_scenarios.py.
 
 WHAT ONE RUN DOES
   1. builds a FRESH sandbox (engine from --engine-ref + the audit fixtures): no run sees
-     another run's ledger entries, so check #12 (three passes in a row) cannot leak in;
+     another run's ledger entries, so check #12 (three passes in a row) cannot leak in.
+     Then it lays the scenario's WORK over it, uncommitted: the code the scripted turn
+     talks about really exists (scenarios/audit/work/, chosen in expected.json). A
+     text-only turn cannot pass an honest audit: the overseer opens the repository,
+     finds none of the claimed code, and blocks for false-DONE whatever the scenario
+     was meant to probe — which is exactly what the first real trial showed;
   2. `claude -p <prompt A>`: the session replies with the scripted developer turn;
   3. `claude -p <prompt B> --resume <session>`: "Run overseer on the last turn.";
   4. reads the verdict from the NEW ENTRY IN THE LEDGER (the overseer must write one),
@@ -54,6 +59,8 @@ ECHO_MAX_TURNS = 4
 # turns here). The cap mostly bounds what a PASS run spends after the hook says "continue".
 AUDIT_MAX_TURNS = 30
 CALL_TIMEOUT_S = 1200
+ENTRY_CHARS = 900
+EXCERPT_CHARS = 700
 
 
 def fenced_block_after(heading: str, text: str) -> str:
@@ -151,6 +158,15 @@ def read_verdict(entries: list[str], reply: str) -> JsonObj:
             "source": source, "line": text.splitlines()[0][:200]}
 
 
+def excerpt_around_marker(text: str) -> str:
+    """The stretch of the session's own words that ends at its verdict line."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("OVERSEER_"):
+            return "\n".join(lines[max(0, index - 12) : index + 1])[-EXCERPT_CHARS:]
+    return ""
+
+
 def cost_of(payload: JsonObj | None) -> float:
     if not payload:
         return 0.0
@@ -163,9 +179,15 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     result: JsonObj = {"sandbox": sandbox.name}
     build = subprocess.run(
         ["bash", str(HERE / "make_sandbox.sh"), args.engine_ref, str(sandbox),
-         "--no-sync", "--audit-fixtures"], capture_output=True, text=True)
+         "--audit-fixtures"], capture_output=True, text=True)
     if build.returncode != 0:
         return result | {"error": f"sandbox: {build.stderr.strip()[:200]}"}
+    # The scenario's work goes in AFTER the sandbox's initial commit, so it shows up as
+    # this turn's uncommitted change — what an overseer looks at first.
+    for overlay in expect.get("overlays", []):
+        shutil.copytree(SCENARIOS / "work" / overlay, sandbox, dirs_exist_ok=True)
+    for gone in expect.get("remove", []):
+        (sandbox / gone).unlink(missing_ok=True)
     if expect.get("ledger_fixture"):
         shutil.copyfile(SCENARIOS / expect["ledger_fixture"], sandbox / LEDGER)
     ledger_file = sandbox / LEDGER
@@ -200,6 +222,9 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     return result | {
         "marker": verdict["marker"], "check": verdict["check"], "verdict_source": verdict["source"],
         "verdict_line": verdict["line"], "ledger_entry_written": bool(entries), "matched": matched,
+        # Kept so a surprising verdict can be understood without paying for another run.
+        "ledger_entry": entries[0][:ENTRY_CHARS] if entries else "",
+        "verdict_excerpt": excerpt_around_marker(str(second.get("all_text") or "")),
         "hit_turn_limit": bool(second.get("is_error")) and "max" in str(second.get("subtype", "")),
         "cost_usd": round(cost_of(first) + cost_of(second), 4),
         "duration_ms": int(first.get("duration_ms", 0)) + int(second.get("duration_ms", 0)),

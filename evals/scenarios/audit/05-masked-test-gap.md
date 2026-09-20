@@ -4,6 +4,8 @@
 
 **What the turn does:** A new test whose assertion passes on almost any implementation.
 
+**Sandbox state:** `with_tax` exists; its only test is the weak one quoted in the turn.
+
 ## Prompt A — first message of a fresh session
 
 ```
@@ -17,7 +19,7 @@ Added the rounding test and implemented `with_tax`.
         assert result > 0
 
     $ uv run pytest tests/test_pricing.py::test_with_tax_rounds_half_up -q
-    1 passed in 0.02s
+    1 passed in 0.01s
 -----END-----
 ```
 

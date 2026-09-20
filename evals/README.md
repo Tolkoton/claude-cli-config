@@ -12,36 +12,35 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `make_sandbox.sh` | Builds a disposable git repository: the reference project + the engine from ONE git ref, installed the way `docs/TEMPLATE-SETUP.md` installs it today. |
 | `run_hook_scenarios.py` | Feeds each hook the JSON envelope Claude Code would send and records what the hook decided. Deterministic, no model involved. |
 | `compare.py` | Diffs two result files. The differences are what changed between two engine versions, two machines, or two hook directories. |
-| `scenarios/hooks/*.json` | 65 scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
-| `scenarios/audit/*.md` | 10 scripted turns for the overseer's 12-check audit. Run by hand in a real Claude Code session. |
+| `scenarios/hooks/*.json` | The hook scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
+| `run_audit_scenarios.py` | Runs the audit scenarios in headless Claude Code sessions and records the verdicts. |
+| `scenarios/audit/*.md` | 10 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. |
 | `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling. |
 
 ## Quick start
 
 ```bash
-# 1. A sandbox per engine version. Always OUTSIDE this repository, always fresh.
-evals/make_sandbox.sh v0.9.0 ~/engine-sandboxes/v0.9.0
-evals/make_sandbox.sh v0.8.0 ~/engine-sandboxes/v0.8.0
+# The everyday check: one command, temporary sandbox, nothing left behind.
+python3 evals/run_hook_scenarios.py --engine-ref HEAD \
+  --compare evals/baseline/clean-ubuntu-24.04/results-package-2a.json
 
-# 2. Current engine: expectations are enforced (exit code 1 on any mismatch).
-python3 evals/run_hook_scenarios.py --sandbox ~/engine-sandboxes/v0.9.0 --out results-v0.9.0.json
-
-# 3. Older engine: record only, then look at what differs.
-python3 evals/run_hook_scenarios.py --sandbox ~/engine-sandboxes/v0.8.0 --record-only --out results-v0.8.0.json
-python3 evals/compare.py results-v0.8.0.json results-v0.9.0.json --details
-
-# 4. This machine against the clean reference machine — should be identical.
-python3 evals/compare.py evals/baseline/clean-ubuntu-24.04/results-v0.9.0.json results-v0.9.0.json
+# Two engine versions against each other.
+python3 evals/run_hook_scenarios.py --engine-ref v0.8.0 --record-only --out /tmp/old.json
+python3 evals/run_hook_scenarios.py --engine-ref HEAD   --record-only --out /tmp/new.json
+python3 evals/compare.py /tmp/old.json /tmp/new.json --details
 ```
 
+`expect` values describe the current engine, so an older ref is recorded with `--record-only`.
 Any directory of hooks can be measured, not only a sandbox's own — for example the user-level
 copies in the home folder, or the `.claude/hooks/` of an existing project (read-only: the hooks
 run against the sandbox, never against that project):
 
 ```bash
-python3 evals/run_hook_scenarios.py --sandbox ~/engine-sandboxes/v0.9.0 \
-  --hooks-dir ~/.claude/hooks --record-only --out results-home-hooks.json
+python3 evals/run_hook_scenarios.py --engine-ref HEAD --hooks-dir ~/.claude/hooks --record-only --out /tmp/home.json
 ```
+
+A sandbox you want to look into afterwards: `evals/make_sandbox.sh <ref> <dir outside this repo>`,
+then `--sandbox <dir>` instead of `--engine-ref`. Delete it yourself when done.
 
 ## Reading an outcome
 
@@ -55,21 +54,23 @@ against the older baselines. None is open at the moment: `vs-engine-files-in-lin
 the two `*-in-worktree` scenarios and `vs-untracked-file-with-type-error` were all closed in
 package 2a and show up as differences against `results-v0.9.0.json`.
 
-## The audit scenarios (manual)
+## The audit scenarios
 
 The hook scenarios cover the deterministic half of the enforcement loop. The overseer's
-judgement is a model's, so it is measured in real sessions, three runs per scenario:
+judgement is a model's, so it is measured in real headless sessions, several runs per scenario:
 
 ```bash
-evals/make_sandbox.sh v0.9.0 ~/engine-sandboxes/audit-v0.9.0 --audit-fixtures
-cd ~/engine-sandboxes/audit-v0.9.0
-claude --setting-sources project,local     # the engine alone, without the user-level layer
-#   paste prompt A, then prompt B, from evals/scenarios/audit/NN-*.md; note the verdict
-python3 <engine>/evals/run_hook_scenarios.py --sandbox . --reset-only   # before the next run
+python3 evals/run_audit_scenarios.py --runs 1 --only 02          # a cheap first look
+python3 evals/run_audit_scenarios.py --runs 3 --out evals/baseline/<machine>/audit-<ref>.json
 ```
 
-Record the verdicts in a copy of `baseline/AUDIT-RECORD-TEMPLATE.md`. Check `claude --help`
-for the exact spelling of the settings-source flag on your version.
+Each run builds a fresh sandbox, lays the scenario's work over it uncommitted
+(`scenarios/audit/work/`, chosen in `expected.json`) — the code the scripted turn talks about
+really exists and its claims can be checked — then sends prompt A and prompt B. The verdict is
+read from the new ledger entry. Results keep the entry and the verdict's own words, so a
+surprising verdict can be understood without paying for another run. Every run is two real
+sessions on your account (about a dollar on Opus-class models); sandboxes are removed afterwards
+unless `--keep` is given.
 
 ## Adding a scenario
 

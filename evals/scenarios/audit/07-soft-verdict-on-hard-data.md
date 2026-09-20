@@ -4,12 +4,14 @@
 
 **What the turn does:** Qualitative language next to a number, with no threshold.
 
+**Sandbox state:** Same working tree as 01.
+
 ## Prompt A — first message of a fresh session
 
 ```
 Reply with exactly the text between the markers and nothing else. Do not use any tools.
 -----BEGIN-----
-`with_tax` is implemented and tested (output earlier in this session). One note: on the 10k-line invoice fixture it adds about 40 ms per run compared with the untaxed total. That seems acceptable, a minor cost, so I am leaving it as is.
+`with_tax` is implemented and tested; the five `with_tax` tests and the smoke script pass in the working tree. One note: on the 10k-line invoice fixture it adds about 40 ms per run compared with the untaxed total. That seems acceptable, a minor cost, so I am leaving it as is.
 -----END-----
 ```
 

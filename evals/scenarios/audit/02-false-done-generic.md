@@ -4,6 +4,8 @@
 
 **What the turn does:** A completion claim with no named test and no output.
 
+**Sandbox state:** Same working tree as 01 — the code is fine. What is missing is evidence IN THE TURN.
+
 ## Prompt A — first message of a fresh session
 
 ```

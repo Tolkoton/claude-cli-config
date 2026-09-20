@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Run the deterministic hook scenarios against a sandbox and record the outcomes.
 
+    python3 evals/run_hook_scenarios.py --engine-ref REF [--compare FILE] [options]
     python3 evals/run_hook_scenarios.py --sandbox DIR [--out FILE] [options]
+
+With --engine-ref the script builds its own sandbox in a temporary directory and removes
+it when done: one command, nothing left behind. --sandbox keeps working for a sandbox you
+built yourself and want to look into afterwards.
 
 A scenario feeds one hook the JSON envelope Claude Code would send it, inside a
 sandbox built by `evals/make_sandbox.sh`, and records what the hook DECIDED:
@@ -253,7 +258,11 @@ def tool_version(*cmd: str) -> str:
 def main() -> int:
     here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--sandbox", required=True, type=Path)
+    parser.add_argument("--sandbox", type=Path, help="an existing sandbox (kept afterwards)")
+    parser.add_argument("--engine-ref", help="build a temporary sandbox from this tag, branch "
+                                             "or commit, and delete it afterwards")
+    parser.add_argument("--compare", type=Path, help="diff the outcome against this results "
+                                                     "file (evals/compare.py)")
     parser.add_argument("--hooks-dir", type=Path, help="default: <sandbox>/.claude/hooks")
     parser.add_argument("--scenarios", type=Path, default=here / "scenarios" / "hooks")
     parser.add_argument("--out", type=Path, help="write machine-readable results here")
@@ -266,7 +275,27 @@ def main() -> int:
                         help="return the sandbox to its initial commit and exit "
                              "(use between manual audit runs)")
     args = parser.parse_args()
+    if bool(args.sandbox) == bool(args.engine_ref):
+        parser.error("give exactly one of --sandbox and --engine-ref")
 
+    temp_root: Path | None = None
+    if args.engine_ref:
+        temp_root = Path(tempfile.mkdtemp(prefix="engine-hooks-"))
+        args.sandbox = temp_root / "sandbox"
+        build = subprocess.run(["bash", str(here / "make_sandbox.sh"), args.engine_ref,
+                                str(args.sandbox)], capture_output=True, text=True)
+        if build.returncode != 0:
+            shutil.rmtree(temp_root, ignore_errors=True)
+            print(build.stderr.strip() or "make_sandbox.sh failed", file=sys.stderr)
+            return 2
+    try:
+        return run_all(args, here)
+    finally:
+        if temp_root:
+            shutil.rmtree(temp_root, ignore_errors=True)
+
+
+def run_all(args: argparse.Namespace, here: Path) -> int:
     sandbox = args.sandbox.resolve()
     info_file = sandbox / "SANDBOX-INFO.json"
     if not info_file.is_file():
@@ -319,7 +348,10 @@ def main() -> int:
         print(f"sandbox error: {exc}", file=sys.stderr)
         return 2
 
-    if args.out:
+    out_file = args.out
+    if args.compare and not out_file:
+        out_file = Path(tempfile.mkdtemp(prefix="engine-hooks-out-")) / "results.json"
+    if out_file:
         report = {
             "label": args.label,
             "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -335,11 +367,22 @@ def main() -> int:
             },
             "results": results,
         }
-        args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+        out_file.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n",
                             encoding="utf-8")
-        print(f"\nresults written to {args.out}")
+        if args.out:
+            print(f"\nresults written to {args.out}")
 
     total = len(results)
+    if args.compare and out_file:
+        print()
+        diff = subprocess.run([sys.executable, str(here / "compare.py"), str(args.compare),
+                               str(out_file)], capture_output=True, text=True)
+        print(diff.stdout.rstrip())
+        if not args.out:
+            shutil.rmtree(out_file.parent, ignore_errors=True)
+        if diff.returncode == 2:
+            return 2
+        failed += diff.returncode            # differences count as a failed check
     if args.record_only:
         print(f"\nRECORDED {total} scenarios (expectations not enforced)")
         return 0
