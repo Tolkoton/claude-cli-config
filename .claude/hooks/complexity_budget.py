@@ -1,0 +1,606 @@
+#!/usr/bin/env python3
+"""Complexity budget — the deterministic layer of the simplifier.
+
+    python3 .claude/hooks/complexity_budget.py hook                 # Stop hook (stdin JSON)
+    python3 .claude/hooks/complexity_budget.py check                # same measurement, as a report
+    python3 .claude/hooks/complexity_budget.py validate <contract>  # at slice-contract approval
+
+WHY THIS EXISTS. Code written by language models grows faster than the behaviour it adds,
+and the growth ACCUMULATES across checkpoints: an instruction to "keep it simple" lowers the
+starting point by about a third and leaves the slope untouched, and green tests do not see
+structural decay at all (research part E2). So the limit is agreed BEFORE the code exists —
+in the slice contract — and measured by something that cannot be talked round.
+
+WHAT IT MEASURES: everything that changed since the slice began (`base_commit` in the
+contract) up to the working tree, untracked files included. Cumulative per slice, not per
+turn: ten small turns may not add up to what one turn would have been refused.
+
+    max_new_files, max_net_new_lines   production code only; tests are counted and
+                                       reported separately and never limited — a test
+                                       adds lines and removes risk
+    max_new_public_symbols             new top-level names without a leading underscore
+    max_new_abstractions               new ABC / Protocol / abstract-method classes
+    max_new_dependencies               new names in pyproject.toml, any group
+    max_cyclomatic_per_function, max_nesting_depth
+                                       only functions that are NEW or got WORSE than at
+                                       base_commit: old complexity in a file you touch is
+                                       not this slice's debt
+
+Standard library only (ast, tomllib, git): the gate has to work in cloud sessions and on
+a colleague's machine with no linter installed. Python 3.11+.
+
+THE SWITCH is COMPLEXITY_GATE in .claude/project.env: off (default) | warn | block.
+  warn   never blocks; writes .claude/overseer/complexity-report.md and says so
+  block  refuses to end the turn while a limit is exceeded
+No active slice, or a contract without a budget section: nothing to enforce, silent.
+
+RAISING THE BUDGET is the owner's call. The limits seen FIRST for a slice are remembered
+(.claude/overseer/.budget-<slug>.json); if the contract later shows higher numbers, the
+original ones stay in force and the report says so. The owner re-baselines by deleting
+that file — a visible act, not a quiet edit.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
+
+import tomllib
+
+LIMIT_KEYS = (
+    "max_new_files",
+    "max_net_new_lines",
+    "max_new_public_symbols",
+    "max_new_abstractions",
+    "max_new_dependencies",
+    "max_cyclomatic_per_function",
+    "max_nesting_depth",
+)
+KNOWN_KEYS = (*LIMIT_KEYS, "base_commit", "justification")
+SECTION_RE = re.compile(r"^##\s+Complexity budget\s*$", re.IGNORECASE | re.MULTILINE)
+ACTIVE_RE = re.compile(r"IN PROGRESS", re.IGNORECASE)
+CONTRACT_PATH_RE = re.compile(r"\.claude/overseer/slice/[\w.-]+\.md")
+SLUG_RE = re.compile(r"[Ss]lice\s+`?([\w.-]+)`?")
+REPORT_FILE = Path(".claude/overseer/complexity-report.md")
+NESTING_NODES = (
+    ast.If,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.Try,
+    ast.With,
+    ast.AsyncWith,
+    ast.Match,
+) + ((ast.TryStar,) if hasattr(ast, "TryStar") else ())
+ABSTRACT_BASES = {"ABC", "ABCMeta", "Protocol"}
+
+
+class BudgetError(Exception):
+    """The contract's budget section cannot be used as written."""
+
+
+@dataclass
+class Budget:
+    slug: str
+    base_commit: str
+    limits: dict[str, int]
+    justification: str = "none"
+
+
+@dataclass
+class Usage:
+    new_files: list[str] = field(default_factory=list)
+    net_new_lines: int = 0
+    test_lines: int = 0
+    new_public_symbols: list[str] = field(default_factory=list)
+    new_abstractions: list[str] = field(default_factory=list)
+    new_dependencies: list[str] = field(default_factory=list)
+    worst_cyclomatic: list[tuple[int, str]] = field(default_factory=list)
+    worst_nesting: list[tuple[int, str]] = field(default_factory=list)
+    unparseable: list[str] = field(default_factory=list)
+
+
+# ------------------------------------------------------------------ configuration
+
+
+def project_env(root: Path) -> dict[str, str]:
+    """KEY="value" lines of .claude/project.env; a missing file is an empty config."""
+    values: dict[str, str] = {}
+    try:
+        text = (root / ".claude" / "project.env").read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for line in text.splitlines():
+        match = re.match(r"^\s*([A-Z_]+)\s*=\s*(.*?)\s*$", line)
+        if match and not line.lstrip().startswith("#"):
+            values[match.group(1)] = match.group(2).strip("\"'")
+    return values
+
+
+def git(root: Path, *args: str) -> str:
+    proc = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    return proc.stdout if proc.returncode == 0 else ""
+
+
+def active_contract(root: Path) -> Path | None:
+    """The slice PROGRESS.md marks IN PROGRESS — the engine's own convention."""
+    try:
+        text = (root / "PROGRESS.md").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    blocks = re.split(r"(?m)^(?=#{1,3} )", text)
+    for block in blocks:
+        if not ACTIVE_RE.search(block):
+            continue
+        named = CONTRACT_PATH_RE.search(block)
+        slug = SLUG_RE.search(block)
+        candidate = (
+            Path(named.group(0))
+            if named
+            else (Path(".claude/overseer/slice") / f"{slug.group(1)}.md" if slug else None)
+        )
+        if candidate and (root / candidate).is_file():
+            return root / candidate
+    return None
+
+
+def parse_budget(contract: Path) -> Budget | None:
+    """The `## Complexity budget` section as `key: value` lines. None = no such section."""
+    text = contract.read_text(encoding="utf-8")
+    start = SECTION_RE.search(text)
+    if not start:
+        return None
+    rest = text[start.end() :]
+    end = re.search(r"(?m)^## ", rest)
+    limits: dict[str, int] = {}
+    meta = {"base_commit": "", "justification": "none"}
+    for raw in (rest[: end.start()] if end else rest).splitlines():
+        line = raw.split("#", 1)[0].strip().lstrip("-* ").strip("`")
+        if not line or ":" not in line or line.startswith("```"):
+            continue
+        key, value = (part.strip().strip("`") for part in line.split(":", 1))
+        if key not in KNOWN_KEYS:
+            # A typo must not silently switch a limit off.
+            raise BudgetError(f"unknown budget field '{key}' (known: {', '.join(KNOWN_KEYS)})")
+        if key in LIMIT_KEYS:
+            if not re.fullmatch(r"\d+", value):
+                raise BudgetError(f"{key} must be a whole number, got '{value}'")
+            limits[key] = int(value)
+        else:
+            meta[key] = value
+    if not meta["base_commit"]:
+        raise BudgetError("base_commit is missing: the budget is measured from that commit")
+    return Budget(contract.stem, meta["base_commit"], limits, meta["justification"] or "none")
+
+
+# ------------------------------------------------------------------ measurement
+
+
+def is_test(path: str) -> bool:
+    p = PurePosixPath(path)
+    return (
+        "tests" in p.parts
+        or "test" in p.parts
+        or p.name.startswith("test_")
+        or p.name.endswith("_test.py")
+        or p.name == "conftest.py"
+    )
+
+
+def in_source(path: str, source_dirs: list[str]) -> bool:
+    if not source_dirs:
+        return path.endswith(".py")
+    return any(path == d or path.startswith(d.rstrip("/") + "/") for d in source_dirs)
+
+
+def function_metrics(tree: ast.AST) -> dict[str, tuple[int, int]]:
+    """qualified name -> (cyclomatic complexity, nesting depth) for every function.
+
+    Cyclomatic: 1 + one per if / for / while / except / conditional expression /
+    comprehension loop and its conditions / match case, plus one per extra operand of
+    and/or. Nested functions are measured on their own, not added to their parent."""
+    found: dict[str, tuple[int, int]] = {}
+
+    def measure(func: ast.AST) -> tuple[int, int]:
+        complexity, deepest = 1, 0
+
+        def walk(node: ast.AST, depth: int) -> None:
+            nonlocal complexity, deepest
+            for child in ast.iter_child_nodes(node):
+                if isinstance(
+                    child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+                ):
+                    continue
+                if isinstance(
+                    child,
+                    (
+                        ast.If,
+                        ast.For,
+                        ast.AsyncFor,
+                        ast.While,
+                        ast.ExceptHandler,
+                        ast.IfExp,
+                        ast.match_case,
+                    ),
+                ):
+                    complexity += 1
+                elif isinstance(child, ast.BoolOp):
+                    complexity += len(child.values) - 1
+                elif isinstance(child, ast.comprehension):
+                    complexity += 1 + len(child.ifs)
+                nested = depth + 1 if isinstance(child, NESTING_NODES) else depth
+                deepest = max(deepest, nested)
+                walk(child, nested)
+
+        walk(func, 0)
+        return complexity, deepest
+
+    def visit(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                name = f"{prefix}{child.name}"
+                found[name] = measure(child)
+                visit(child, name + ".")
+            elif isinstance(child, ast.ClassDef):
+                visit(child, f"{prefix}{child.name}.")
+            else:
+                visit(child, prefix)
+
+    visit(tree, "")
+    return found
+
+
+def public_names(tree: ast.Module) -> set[str]:
+    return {
+        n.name
+        for n in tree.body
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and not n.name.startswith("_")
+    }
+
+
+def abstractions(tree: ast.Module) -> set[str]:
+    names: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        bases = {ast.unparse(b).split(".")[-1].split("[")[0] for b in node.bases}
+        bases |= {
+            ast.unparse(k.value).split(".")[-1] for k in node.keywords if k.arg == "metaclass"
+        }
+        abstract_method = any(
+            "abstractmethod" in ast.unparse(d)
+            for item in node.body
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+            for d in item.decorator_list
+        )
+        if bases & ABSTRACT_BASES or abstract_method:
+            names.add(node.name)
+    return names
+
+
+def dependency_names(pyproject_text: str) -> set[str]:
+    try:
+        data = tomllib.loads(pyproject_text)
+    except tomllib.TOMLDecodeError:
+        return set()
+    project = data.get("project", {})
+    specs: list[object] = list(project.get("dependencies", []))
+    for group in (project.get("optional-dependencies", {}), data.get("dependency-groups", {})):
+        for entries in group.values():
+            specs.extend(entries)
+    names = set()
+    for spec in specs:
+        if isinstance(spec, str):  # {include-group = "..."} tables add no package
+            names.add(
+                re.split(r"[\s<>=!~;\[@(]", spec.strip(), maxsplit=1)[0].lower().replace("_", "-")
+            )
+    return names - {""}
+
+
+def parse_py(source: str) -> ast.Module | None:
+    try:
+        return ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+
+
+def measure(root: Path, base: str, source_dirs: list[str]) -> Usage:
+    usage = Usage()
+    status: dict[str, str] = {}
+    for line in git(root, "diff", "--name-status", "--no-renames", base).splitlines():
+        parts = line.split("\t")
+        if len(parts) == 2:
+            status[parts[1]] = parts[0]
+    for path in git(root, "ls-files", "--others", "--exclude-standard").splitlines():
+        status.setdefault(path, "A")
+
+    counted = {}
+    for line in git(root, "diff", "--numstat", "--no-renames", base).splitlines():
+        added, deleted, path = (line.split("\t") + ["", ""])[:3]
+        if added.isdigit() and deleted.isdigit():
+            counted[path] = int(added) - int(deleted)
+
+    for path, state in sorted(status.items()):
+        if not (in_source(path, source_dirs) or is_test(path)):
+            continue
+        file = root / path
+        net = counted.get(path)
+        if state == "D":  # a deletion pays lines back
+            if is_test(path):
+                usage.test_lines += net or 0
+            else:
+                usage.net_new_lines += net or 0
+            continue
+        if net is None:  # untracked: every line is new
+            try:
+                net = len(file.read_text(encoding="utf-8", errors="replace").splitlines())
+            except OSError:
+                net = 0
+        if is_test(path):
+            usage.test_lines += net
+            continue
+        usage.net_new_lines += net
+        if state == "A":
+            usage.new_files.append(path)
+        if not path.endswith(".py"):
+            continue
+        now = (
+            parse_py(file.read_text(encoding="utf-8", errors="replace")) if file.is_file() else None
+        )
+        if now is None:
+            usage.unparseable.append(path)
+            continue
+        before = parse_py(git(root, "show", f"{base}:{path}")) if state != "A" else None
+        old_public = public_names(before) if before else set()
+        old_abstract = abstractions(before) if before else set()
+        old_metrics = function_metrics(before) if before else {}
+        usage.new_public_symbols += [f"{path}:{n}" for n in sorted(public_names(now) - old_public)]
+        usage.new_abstractions += [f"{path}:{n}" for n in sorted(abstractions(now) - old_abstract)]
+        for name, (cyclomatic, nesting) in function_metrics(now).items():
+            was_c, was_n = old_metrics.get(name, (0, 0))
+            if cyclomatic > was_c:  # new, or worse than at base_commit
+                usage.worst_cyclomatic.append((cyclomatic, f"{path}:{name}"))
+            if nesting > was_n:
+                usage.worst_nesting.append((nesting, f"{path}:{name}"))
+
+    for path in (p for p in status if PurePosixPath(p).name == "pyproject.toml"):
+        try:
+            current = dependency_names((root / path).read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        usage.new_dependencies += sorted(
+            current - dependency_names(git(root, "show", f"{base}:{path}"))
+        )
+    usage.worst_cyclomatic.sort(reverse=True)
+    usage.worst_nesting.sort(reverse=True)
+    return usage
+
+
+# ------------------------------------------------------------------ verdict
+
+
+def first_seen_limits(root: Path, budget: Budget) -> tuple[dict[str, int], list[str]]:
+    """Limits in force, plus a note for every limit the contract has raised since."""
+    memo = root / ".claude" / "overseer" / f".budget-{budget.slug}.json"
+    try:
+        remembered = json.loads(memo.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        remembered = None
+    if not isinstance(remembered, dict) or remembered.get("base_commit") != budget.base_commit:
+        try:
+            memo.parent.mkdir(parents=True, exist_ok=True)
+            memo.write_text(
+                json.dumps({"base_commit": budget.base_commit, "limits": budget.limits}, indent=2)
+                + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        return dict(budget.limits), []
+    original = {k: int(v) for k, v in remembered.get("limits", {}).items() if k in LIMIT_KEYS}
+    in_force, raised = dict(budget.limits), []
+    for key, first in original.items():
+        if budget.limits.get(key, first) > first:
+            in_force[key] = first
+            raised.append(
+                f"{key}: the contract now says {budget.limits[key]}, the slice began "
+                f"with {first} — {first} stays in force"
+            )
+    return in_force, raised
+
+
+def verdict(usage: Usage, limits: dict[str, int]) -> list[str]:
+    """One line per exceeded limit: field, used / allowed, and what counted."""
+
+    def names(items: list[str]) -> str:
+        return ", ".join(items[:6]) + (f" and {len(items) - 6} more" if len(items) > 6 else "")
+
+    used: dict[str, tuple[int, str]] = {
+        "max_new_files": (len(usage.new_files), names(usage.new_files)),
+        "max_net_new_lines": (usage.net_new_lines, "production code, net of deletions"),
+        "max_new_public_symbols": (len(usage.new_public_symbols), names(usage.new_public_symbols)),
+        "max_new_abstractions": (len(usage.new_abstractions), names(usage.new_abstractions)),
+        "max_new_dependencies": (len(usage.new_dependencies), names(usage.new_dependencies)),
+    }
+    over = [
+        f"{key}: {used[key][0]} used, {limit} allowed ({used[key][1]})"
+        for key, limit in limits.items()
+        if key in used and used[key][0] > limit
+    ]
+    for key, worst in (
+        ("max_cyclomatic_per_function", usage.worst_cyclomatic),
+        ("max_nesting_depth", usage.worst_nesting),
+    ):
+        limit = limits.get(key)
+        bad = [
+            f"{where} = {value}" for value, where in worst if limit is not None and value > limit
+        ]
+        if bad:
+            over.append(f"{key}: {limit} allowed, exceeded by {names(bad)}")
+    return over
+
+
+def report(
+    budget: Budget, usage: Usage, limits: dict[str, int], over: list[str], raised: list[str]
+) -> str:
+    # The first line carries the verdict and the fields: it is what a log, a test and a
+    # hurried reader see.
+    fields = ", ".join(line.split(":", 1)[0] for line in over)
+    lines = [
+        f"COMPLEXITY BUDGET EXCEEDED: {fields}" if over else "Complexity budget: within budget"
+    ]
+    lines += [
+        f"slice {budget.slug}, measured from {budget.base_commit[:10]} to the working tree",
+        f"  production: {len(usage.new_files)} new files, {usage.net_new_lines:+d} lines, "
+        f"{len(usage.new_public_symbols)} new public symbols, "
+        f"{len(usage.new_abstractions)} new abstractions, "
+        f"{len(usage.new_dependencies)} new dependencies",
+        f"  tests: {usage.test_lines:+d} lines (reported, never limited)",
+    ]
+    lines += [f"  could not parse: {path}" for path in usage.unparseable]
+    lines += [f"  - {line}" for line in over]
+    if raised:
+        lines += ["BUDGET RAISED DURING THE SLICE:"] + [f"  - {line}" for line in raised]
+    return "\n".join(lines)
+
+
+BLOCK_ADVICE = (
+    "\n\nMake the change smaller: delete what the slice contract does not require, inline an "
+    "abstraction that has a single user, drop the new dependency, split the function only if "
+    "that removes branches rather than hides them. If the budget itself is wrong for this "
+    "slice, stop and tell the owner which limit and why. Do not edit the budget: the limits "
+    "the slice began with stay in force."
+)
+
+
+def evaluate(root: Path) -> tuple[str, bool] | None:
+    """(report text, exceeded?) for the active slice; None when there is nothing to enforce."""
+    contract = active_contract(root)
+    if contract is None:
+        return None
+    try:
+        budget = parse_budget(contract)
+    except BudgetError as exc:
+        return f"Complexity budget of {contract.name} cannot be read: {exc}", True
+    if budget is None:
+        return None
+    if not git(root, "rev-parse", "--verify", "--quiet", f"{budget.base_commit}^{{commit}}"):
+        return (
+            f"Complexity budget of {contract.name}: base_commit '{budget.base_commit}' is "
+            "not a commit in this repository",
+            True,
+        )
+    env = project_env(root)
+    source_dirs = [d for d in re.split(r"[\s,]+", env.get("SOURCE_DIRS", "")) if d]
+    usage = measure(root, budget.base_commit, source_dirs)
+    limits, raised = first_seen_limits(root, budget)
+    over = verdict(usage, limits)
+    return report(budget, usage, limits, over, raised), bool(over)
+
+
+# ------------------------------------------------------------------ entry points
+
+
+def project_root() -> Path:
+    given = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if given and Path(given).is_dir():
+        return Path(given)
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    return Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else Path.cwd()
+
+
+def run_hook() -> int:
+    raw = sys.stdin.read()
+    # Same loop guard as verify-on-stop.sh: a turn the hook itself started is not re-judged.
+    if re.search(r'"stop_hook_active"\s*:\s*true', raw):
+        return 0
+    root = project_root()
+    gate = project_env(root).get("COMPLEXITY_GATE", "off").lower()
+    if gate not in ("warn", "block"):
+        return 0
+    outcome = evaluate(root)
+    if outcome is None:
+        return 0
+    text, exceeded = outcome
+    try:
+        (root / REPORT_FILE).parent.mkdir(parents=True, exist_ok=True)
+        (root / REPORT_FILE).write_text(text + "\n", encoding="utf-8")
+    except OSError:
+        pass
+    if not exceeded:
+        return 0
+    if gate == "block":
+        print(json.dumps({"decision": "block", "reason": text + BLOCK_ADVICE}))
+    else:
+        print(
+            json.dumps(
+                {
+                    "systemMessage": "Complexity budget exceeded (warn mode, not blocking) "
+                    f"— see {REPORT_FILE}"
+                }
+            )
+        )
+    return 0
+
+
+def run_validate(contract: Path) -> int:
+    try:
+        budget = parse_budget(contract)
+    except (OSError, BudgetError) as exc:
+        print(f"INVALID: {exc}")
+        return 1
+    if budget is None:
+        print("INVALID: the contract has no '## Complexity budget' section")
+        return 1
+    problems = []
+    root = project_root()
+    if not git(root, "rev-parse", "--verify", "--quiet", f"{budget.base_commit}^{{commit}}"):
+        problems.append(f"base_commit '{budget.base_commit}' is not a commit in this repository")
+    for key in ("max_new_files", "max_new_dependencies", "max_cyclomatic_per_function"):
+        if key not in budget.limits:
+            problems.append(f"{key} is missing — the three core limits are required")
+    if budget.limits.get("max_new_dependencies", 0) > 0 and budget.justification.lower() in (
+        "",
+        "none",
+    ):
+        problems.append(
+            "max_new_dependencies above 0 needs a justification (a goal id or a reason)"
+        )
+    if budget.limits.get("max_new_abstractions", 0) > 0 and budget.justification.lower() in (
+        "",
+        "none",
+    ):
+        problems.append(
+            "max_new_abstractions above 0 needs a justification naming the two "
+            "existing users of each abstraction"
+        )
+    for problem in problems:
+        print(f"INVALID: {problem}")
+    if not problems:
+        print(f"OK: {len(budget.limits)} limits, measured from {budget.base_commit[:10]}")
+    return 1 if problems else 0
+
+
+def main() -> int:
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    if command == "hook":
+        return run_hook()
+    if command == "check":
+        outcome = evaluate(project_root())
+        print(outcome[0] if outcome else "no active slice with a complexity budget")
+        return 1 if outcome and outcome[1] else 0
+    if command == "validate" and len(sys.argv) == 3:
+        return run_validate(Path(sys.argv[2]))
+    print((__doc__ or "").split("\n\n")[0], file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
