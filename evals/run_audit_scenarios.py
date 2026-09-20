@@ -52,6 +52,13 @@ HERE = Path(__file__).resolve().parent
 SCENARIOS = HERE / "scenarios" / "audit"
 LEDGER = Path(".claude") / "overseer" / "ledger.md"
 MARKER_RE = re.compile(r"OVERSEER_([A-Z_]+)")
+# A verdict line as a model actually types it: the marker may sit behind markdown
+# decoration (**bold**, a quote mark, a list dash, a heading). The Stop hook itself only
+# recognises a bare marker at the start of a line — a decorated one is recorded here AND
+# flagged (`marker_decorated`), because the hook would have missed it.
+VERDICT_LINE_RE = re.compile(r"^(?P<deco>[ \t>*_`#-]*)OVERSEER_(?P<marker>[A-Z_]+)", re.MULTILINE)
+# A ledger header that names the verdict without the OVERSEER_ prefix.
+BARE_VERDICT_RE = re.compile(r"\b(ADR_REQUIRED|ESCALATE|BLOCK|PASS)\b")
 CHECK_RE = re.compile(r"#(\d{1,2})\b")
 # Why 4: prompt A only asks the session to repeat a text; more turns means it wandered off.
 ECHO_MAX_TURNS = 4
@@ -135,34 +142,35 @@ def new_ledger_entries(before: str, after: str) -> list[str]:
         parts = re.split(r"(?m)^(?=## )", text)
         return [p.strip() for p in parts if p.startswith("## ")]
     seen = set(blocks(before))
-    return [b for b in blocks(after) if b not in seen and MARKER_RE.search(b.splitlines()[0])]
+    return [b for b in blocks(after) if b not in seen]
 
 
 def read_verdict(entries: list[str], reply: str) -> JsonObj:
     """Marker and check number: from the newest new ledger entry, else from the reply."""
-    source, text = ("ledger", entries[0]) if entries else ("reply", reply)
-    marker_match = None
-    if source == "ledger":
-        marker_match = MARKER_RE.search(text.splitlines()[0])
-    else:
-        for line in text.splitlines():            # a verdict stands at the start of a line
-            if line.lstrip().startswith("OVERSEER_"):
-                marker_match = MARKER_RE.search(line)
-                text = line
-                break
-    if not marker_match:
-        return {"marker": None, "check": None, "source": "none", "line": ""}
-    trigger = next((ln for ln in text.splitlines() if "Trigger" in ln), text)
-    check = CHECK_RE.search(trigger) or CHECK_RE.search(text.splitlines()[0])
-    return {"marker": marker_match.group(1), "check": int(check.group(1)) if check else None,
-            "source": source, "line": text.splitlines()[0][:200]}
+    for entry in entries:
+        header = entry.splitlines()[0]
+        found = MARKER_RE.search(header) or BARE_VERDICT_RE.search(header)
+        if found:
+            trigger = next((ln for ln in entry.splitlines() if "Trigger" in ln), header)
+            check = CHECK_RE.search(trigger) or CHECK_RE.search(header)
+            return {"marker": found.group(1), "check": int(check.group(1)) if check else None,
+                    "source": "ledger", "line": header[:200], "decorated": False}
+    found = VERDICT_LINE_RE.search(reply)
+    if not found:
+        return {"marker": None, "check": None, "source": "none", "line": "", "decorated": False}
+    end = reply.find("\n", found.start())
+    line = reply[found.start() : end if end != -1 else len(reply)]
+    check = CHECK_RE.search(line)
+    return {"marker": found.group("marker"), "check": int(check.group(1)) if check else None,
+            "source": "reply", "line": line.strip()[:200],
+            "decorated": bool(found.group("deco").strip())}
 
 
 def excerpt_around_marker(text: str) -> str:
     """The stretch of the session's own words that ends at its verdict line."""
     lines = text.splitlines()
     for index, line in enumerate(lines):
-        if line.lstrip().startswith("OVERSEER_"):
+        if VERDICT_LINE_RE.match(line):
             return "\n".join(lines[max(0, index - 12) : index + 1])[-EXCERPT_CHARS:]
     return ""
 
@@ -225,6 +233,11 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
         # Kept so a surprising verdict can be understood without paying for another run.
         "ledger_entry": entries[0][:ENTRY_CHARS] if entries else "",
         "verdict_excerpt": excerpt_around_marker(str(second.get("all_text") or "")),
+        "marker_decorated": verdict["decorated"],
+        # No verdict at all: keep the end of what the session said, to see why.
+        "reply_tail": "" if verdict["marker"] else str(second.get("all_text") or
+                                                       second.get("result", ""))[-EXCERPT_CHARS:],
+        "result_subtype": second.get("subtype"),
         "hit_turn_limit": bool(second.get("is_error")) and "max" in str(second.get("subtype", "")),
         "cost_usd": round(cost_of(first) + cost_of(second), 4),
         "duration_ms": int(first.get("duration_ms", 0)) + int(second.get("duration_ms", 0)),
@@ -288,6 +301,11 @@ def main() -> int:
             for r in runs:
                 if "error" in r:
                     print(f"      ! {r['error']}")
+                elif not r.get("matched"):
+                    # Show WHY straight away — understanding a verdict must not cost a re-run.
+                    why = r.get("ledger_entry") or r.get("verdict_excerpt") or r.get("reply_tail")
+                    for line in str(why or "(the session said nothing)").splitlines()[:9]:
+                        print(f"      | {line[:150]}")
             report_rows.append({"id": scenario_id, "expected": expected[scenario_id], "runs": runs,
                                 "matched": hits, "verdicts": dict(Counter(shown(r) for r in runs))})
     finally:
