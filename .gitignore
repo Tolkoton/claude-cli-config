@@ -29,4 +29,7 @@ venv/
 PROGRESS.md
 .claude/unattended/supervisor.lock
 .claude/overseer/.continue_count
+# Complexity gate: the limits a slice began with, and the last report. Machine state.
+.claude/overseer/.budget-*.json
+.claude/overseer/complexity-report.md
 HANDOFF-*.md
