@@ -235,6 +235,14 @@ Use `Write` to create `.claude/overseer/slice/$ARGUMENTS.md` with this structure
 
 # After writing
 
+**Complexity budget — only when `.claude/project.env` sets `COMPLEXITY_GATE` to `warn` or
+`block`; with `off` (the default) skip this paragraph entirely.** Add a `## Complexity budget`
+section to the artifact as `.claude/references/complexity-budget.md` describes: the smallest
+shape of change that can meet the exit criterion, with `base_commit` set to the current
+`git rev-parse HEAD`. Then run
+`python3 .claude/hooks/complexity_budget.py validate .claude/overseer/slice/$ARGUMENTS.md`
+and fix what it reports. Include the budget in the owner summary below.
+
 1. `Edit` a ledger entry into `.claude/overseer/ledger.md` (top of entries):
    ```
    ## <ISO timestamp UTC> — $ARGUMENTS — PLANNING_COMPLETE
