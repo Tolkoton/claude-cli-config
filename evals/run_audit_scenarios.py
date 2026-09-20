@@ -145,6 +145,18 @@ def new_ledger_entries(before: str, after: str) -> list[str]:
     return [b for b in blocks(after) if b not in seen]
 
 
+def verdict_match(text: str) -> re.Match[str] | None:
+    """The verdict line of a session's text: the LAST bare marker, else the last decorated one.
+
+    Last, because the verdict closes the message while earlier lines may list or quote the
+    possible verdicts ("- OVERSEER_PASS — when ...") — taking the first match read such a
+    reply as PASS although it ended with OVERSEER_BLOCK. Bare before decorated, because a
+    bare marker at the start of a line is the only form the Stop hook itself recognises."""
+    matches = list(VERDICT_LINE_RE.finditer(text))
+    bare = [m for m in matches if not m.group("deco").strip()]
+    return (bare or matches)[-1] if matches else None
+
+
 def read_verdict(entries: list[str], reply: str) -> JsonObj:
     """Marker and check number: from the newest new ledger entry, else from the reply."""
     for entry in entries:
@@ -155,7 +167,7 @@ def read_verdict(entries: list[str], reply: str) -> JsonObj:
             check = CHECK_RE.search(trigger) or CHECK_RE.search(header)
             return {"marker": found.group(1), "check": int(check.group(1)) if check else None,
                     "source": "ledger", "line": header[:200], "decorated": False}
-    found = VERDICT_LINE_RE.search(reply)
+    found = verdict_match(reply)
     if not found:
         return {"marker": None, "check": None, "source": "none", "line": "", "decorated": False}
     end = reply.find("\n", found.start())
@@ -168,11 +180,12 @@ def read_verdict(entries: list[str], reply: str) -> JsonObj:
 
 def excerpt_around_marker(text: str) -> str:
     """The stretch of the session's own words that ends at its verdict line."""
-    lines = text.splitlines()
-    for index, line in enumerate(lines):
-        if VERDICT_LINE_RE.match(line):
-            return "\n".join(lines[max(0, index - 12) : index + 1])[-EXCERPT_CHARS:]
-    return ""
+    found = verdict_match(text)
+    if not found:
+        return ""
+    end = text.find("\n", found.start())
+    upto = text[: end if end != -1 else len(text)]
+    return "\n".join(upto.splitlines()[-13:])[-EXCERPT_CHARS:]
 
 
 def cost_of(payload: JsonObj | None) -> float:
