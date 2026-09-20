@@ -1,0 +1,374 @@
+{
+  "hook": "complexity_budget.py",
+  "args": [
+    "hook"
+  ],
+  "event": "Stop",
+  "scenarios": [
+    {
+      "id": "cb-gate-off-ignores-everything",
+      "why": "COMPLEXITY_GATE is off by default: with the switch off the engine behaves exactly as it did before the gate existed, whatever the working tree looks like.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "check_file": ".claude/overseer/complexity-report.md",
+      "expect": "allow",
+      "expect_file_changed": false
+    },
+    {
+      "id": "cb-within-budget",
+      "why": "The honest minimal change — one function in an existing file — ends the turn.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "cb-too-many-new-files",
+      "why": "Seeded redundancy: three new modules where the contract allowed one. Untracked files count.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "max_new_files"
+    },
+    {
+      "id": "cb-new-dependency",
+      "why": "Seeded redundancy: a dependency nobody approved. The default allowance is zero.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "pyproject.toml",
+            "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = [\"requests>=2.32\"]\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\nextend-exclude = [\".claude\"]\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "max_new_dependencies"
+    },
+    {
+      "id": "cb-premature-abstraction",
+      "why": "Seeded redundancy: an abstract base class with a single implementation — the shape language models reach for first.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom abc import ABC, abstractmethod\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\nclass RoundingPolicy(ABC):\n    \"\"\"One implementation exists. The second is imagined.\"\"\"\n\n    @abstractmethod\n    def apply(self, value: Decimal) -> Decimal: ...\n\n\nclass HalfUp(RoundingPolicy):\n    def apply(self, value: Decimal) -> Decimal:\n        return value.quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "max_new_abstractions"
+    },
+    {
+      "id": "cb-branchy-function",
+      "why": "Seeded redundancy: a new function with cyclomatic complexity 12 against a limit of 10.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef _tax_band(rate: int) -> int:\n    if rate == 0:\n        return 0\n    if rate == 1:\n        return 2\n    if rate == 2:\n        return 4\n    if rate == 3:\n        return 6\n    if rate == 4:\n        return 8\n    if rate == 5:\n        return 10\n    if rate == 6:\n        return 12\n    if rate == 7:\n        return 14\n    if rate == 8:\n        return 16\n    if rate == 9:\n        return 18\n    if rate == 10:\n        return 20\n    return 0\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "max_cyclomatic_per_function"
+    },
+    {
+      "id": "cb-trap-tests-are-never-charged",
+      "why": "TRAP: a slice that adds two test files and a hundred test lines must not be blocked. Tests add lines and remove risk.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "tests/test_tax_table.py",
+            "content": "def test_case_0() -> None:\n    assert 0 == 0\n\n\ndef test_case_1() -> None:\n    assert 1 == 1\n\n\ndef test_case_2() -> None:\n    assert 2 == 2\n\n\ndef test_case_3() -> None:\n    assert 3 == 3\n\n\ndef test_case_4() -> None:\n    assert 4 == 4\n\n\ndef test_case_5() -> None:\n    assert 5 == 5\n\n\ndef test_case_6() -> None:\n    assert 6 == 6\n\n\ndef test_case_7() -> None:\n    assert 7 == 7\n\n\ndef test_case_8() -> None:\n    assert 8 == 8\n\n\ndef test_case_9() -> None:\n    assert 9 == 9\n\n\ndef test_case_10() -> None:\n    assert 10 == 10\n\n\ndef test_case_11() -> None:\n    assert 11 == 11\n\n\ndef test_case_12() -> None:\n    assert 12 == 12\n\n\ndef test_case_13() -> None:\n    assert 13 == 13\n\n\ndef test_case_14() -> None:\n    assert 14 == 14\n\n\ndef test_case_15() -> None:\n    assert 15 == 15\n\n\ndef test_case_16() -> None:\n    assert 16 == 16\n\n\ndef test_case_17() -> None:\n    assert 17 == 17\n\n\ndef test_case_18() -> None:\n    assert 18 == 18\n\n\ndef test_case_19() -> None:\n    assert 19 == 19\n\n\ndef test_case_20() -> None:\n    assert 20 == 20\n\n\ndef test_case_21() -> None:\n    assert 21 == 21\n\n\ndef test_case_22() -> None:\n    assert 22 == 22\n\n\ndef test_case_23() -> None:\n    assert 23 == 23\n\n\ndef test_case_24() -> None:\n    assert 24 == 24\n\n\ndef test_case_25() -> None:\n    assert 25 == 25\n\n\ndef test_case_26() -> None:\n    assert 26 == 26\n\n\ndef test_case_27() -> None:\n    assert 27 == 27\n\n\ndef test_case_28() -> None:\n    assert 28 == 28\n\n\ndef test_case_29() -> None:\n    assert 29 == 29\n\n\n"
+          }
+        },
+        {
+          "write": {
+            "path": "tests/test_tax_edges.py",
+            "content": "def test_edge() -> None:\n    assert True\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "cb-trap-no-active-slice",
+      "why": "TRAP: without a slice marked IN PROGRESS there is no agreed budget, so there is nothing to enforce — exploratory work is not blocked.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"block\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "cb-warn-mode-reports-without-blocking",
+      "why": "Calibration mode: the same excess is written to the report file and the turn ends.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"warn\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/overseer/slice/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "check_file": ".claude/overseer/complexity-report.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    }
+  ]
+}

@@ -178,7 +178,8 @@ def run_scenario(
     workdir = Path(tempfile.mkdtemp(prefix="hook-scenario-"))
     try:
         transcript = workdir / "transcript.jsonl"
-        mapping = {"SANDBOX": str(sandbox), "TRANSCRIPT": str(transcript)}
+        head = git(sandbox, "rev-parse", "HEAD").stdout.strip()
+        mapping = {"SANDBOX": str(sandbox), "TRANSCRIPT": str(transcript), "HEAD": head}
         if "transcript" in scenario:
             records = substitute(scenario["transcript"], mapping)
             transcript.write_text(
@@ -206,7 +207,7 @@ def run_scenario(
         for _ in range(int(scenario.get("runs", 1))):
             try:
                 proc = subprocess.run(
-                    [*interpreter, str(hook_path)],
+                    [*interpreter, str(hook_path), *scenario.get("_hook_args", [])],
                     input=envelope, capture_output=True, text=True,
                     cwd=project_dir, env=env, timeout=timeout_s,
                 )
@@ -325,6 +326,7 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
             for scenario in group["scenarios"]:
                 if args.only and args.only not in scenario["id"]:
                     continue
+                scenario["_hook_args"] = group.get("args", [])
                 result = run_scenario(sandbox, hooks_dir, group["hook"], scenario, args.timeout)
                 verdict = meets_expectation(result)
                 result["pass"] = verdict

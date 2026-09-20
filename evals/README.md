@@ -76,7 +76,8 @@ unless `--keep` is given.
 
 Add an object to the matching file in `scenarios/hooks/`. Setup is declarative on purpose
 (`write`, `remove`, `git`) — a scenario file cannot run arbitrary shell or touch anything
-outside the sandbox. Placeholders: `{{SANDBOX}}`, `{{TRANSCRIPT}}`. State the `why`: a
+outside the sandbox. Placeholders: `{{SANDBOX}}`, `{{TRANSCRIPT}}`, `{{HEAD}}` (the sandbox's
+initial commit). A group may give its hook command-line arguments with `"args"`. State the `why`: a
 scenario nobody can explain gets deleted the first time it is inconvenient.
 
 ## Limits
