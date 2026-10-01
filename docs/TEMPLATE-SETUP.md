@@ -1,7 +1,8 @@
 # Template setup guide
 
-This repo is a reusable Claude Code configuration template. Copy `.claude/` into any
-project and follow these steps. The whole setup takes about 15 minutes.
+This repo is a reusable Claude Code configuration template. `engine.py` installs it into
+any project with one command; the steps after that tailor it. The whole setup takes about
+15 minutes.
 
 ---
 
@@ -16,19 +17,32 @@ project and follow these steps. The whole setup takes about 15 minutes.
 
 ---
 
-## Step 1 — Copy the template
+## Step 1 — Install the engine
 
 ```bash
-# From the template repo root:
-cp -r .claude /path/to/your-project/
-cp CLAUDE.md AGENTS.md .gitignore /path/to/your-project/   # starting points — edit all three
-
-# Clean up files that should not be carried over:
-find /path/to/your-project/.claude/hooks -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-rm -f /path/to/your-project/.claude/settings.local.json   # local-only, not for other machines
+python3 /path/to/claude-cli-config/engine.py install /path/to/your-project
 ```
 
-Do **not** copy `docs/` — it is template documentation, not project documentation.
+That is the whole installation. Everything is read from one git tag of this repository
+(the newest `v*`; `--ref <tag, branch or commit>` picks another), never from its working
+tree, so the same command gives the same result on any machine. `.claude/ownership.txt`
+decides what happens to each path:
+
+- **engine** files are copied in, with their executable bits;
+- **project** files are created once from a clean seed when the project lacks them —
+  `CLAUDE.md`, `AGENTS.md`, `.claude/project.env`, the overseer's ledger, audit,
+  escalations, parked queue and memory, the premise log — and never overwritten after;
+- **machine** state is never copied; its patterns go into a marked block of the
+  project's `.gitignore`.
+
+The project gets `.claude/engine-lock.json`: the installed ref, its commit and the git blob
+id of every engine file. Commit it with the rest — it is how a later update tells an
+untouched engine file from one you changed. `engine.py` never commits; review the result
+with `git status`.
+
+`--dry-run` prints the plan and writes nothing. A project that already holds a copy made
+by hand (`cp -r .claude`) is adopted by the same command: untouched engine files are
+recognised against the engine's history and updated, edited ones are kept and reported.
 
 ---
 
@@ -126,6 +140,9 @@ shorter approval list:
 | JS/TS only | all `uv/poetry/pip/pipx`, `cargo`, `go`, `gem`, `bundle` entries |
 | Go only | all `uv/poetry/pip/pipx`, `npm/yarn/pnpm`, `cargo`, `gem/bundle` entries |
 | Rust only | all `uv/poetry/pip/pipx`, `npm/yarn/pnpm`, `go`, `gem/bundle` entries |
+
+Trimming makes `settings.json` a file the project changed: from then on `engine.py update`
+reports it instead of updating it (see *Keeping the engine up to date*).
 
 Also copy the local-machine env override template:
 
@@ -257,6 +274,8 @@ This forces the agent to load the policy and map before doing anything else.
   settings.json   — hook wiring and permissions
   settings.local.json.example — ← copy to settings.local.json, trim to your stack (Step 3)
   constitution.md — load-bearing rules every agent must follow
+  ownership.txt   — who owns each path: engine, project, machine (read by engine.py)
+  engine-lock.json — installed ref, commit and checksums (written by engine.py; commit it)
 
 CLAUDE.md         — standing policy (every agent reads this)
 AGENTS.md         — agent roster and project context (loaded via @AGENTS.md)
@@ -265,20 +284,24 @@ PROGRESS.md       — slice completion history (created by slice-builder)
 
 ---
 
-## Keeping the template up to date
-
-The skills in `.claude/skills/` are vendored copies — they do not auto-update.
-To pick up improvements from the template repo:
+## Keeping the engine up to date
 
 ```bash
-# Pull the latest template into a temp location
-git clone <template-repo-url> /tmp/claude-template
-
-# Diff and selectively copy updated skills
-diff -r /tmp/claude-template/.claude/skills .claude/skills
-
-# Copy specific files you want to update
-cp /tmp/claude-template/.claude/skills/<name>/SKILL.md .claude/skills/<name>/SKILL.md
+git -C /path/to/claude-cli-config pull --tags                     # the new versions
+python3 /path/to/claude-cli-config/engine.py status /path/to/your-project
+python3 /path/to/claude-cli-config/engine.py update /path/to/your-project --dry-run
+python3 /path/to/claude-cli-config/engine.py update /path/to/your-project
+python3 /path/to/claude-cli-config/engine.py update --all         # every project `install` listed
 ```
 
-Treat updates as deliberate decisions — inspect the diff, don't blindly overwrite.
+An update replaces an engine file only while the project has not changed it, adds what is
+new and removes what the engine retired. A file the project edited is **kept** and reported
+(exit status 1); once you have merged what you need, `--take <path>` applies the engine's
+version. Project files are never touched. `--reseed-pristine` replaces project files that
+are still unedited copies of an older engine version with their clean seed — in a copy made
+with `cp -r`, the overseer's ledger, audit, escalations and memory hold this repository's
+own records, not the project's. The list for `--all` is
+`~/.config/claude-engine/projects.txt`.
+
+Machine-local tweaks belong in `.claude/settings.local.json`, which never ships and never
+blocks an update.
