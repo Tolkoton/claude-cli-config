@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a throwaway sandbox project: the reference project + the engine taken
-# from ONE git ref, installed the way docs/TEMPLATE-SETUP.md installs it today.
+# from ONE git ref, installed the way a real project gets it (engine.py install).
 #
 #   evals/make_sandbox.sh <engine-ref> <target-dir> [--no-sync] [--audit-fixtures]
 #
@@ -53,24 +53,33 @@ esac
 ( cd "$REFPROJ" && git ls-files -co --exclude-standard -z . ) \
   | ( cd "$REFPROJ" && tar --null -T - -cf - ) | tar -xf - -C "$TARGET"
 
-# 2. Engine from the ref — TEMPLATE-SETUP step 1: .claude/ wholesale, plus the
-#    CLAUDE.md and AGENTS.md starting points. Paths a ref does not have are skipped.
-PATHS=()
-for p in .claude CLAUDE.md AGENTS.md; do
-  git -C "$REPO_ROOT" cat-file -e "$COMMIT:$p" 2>/dev/null && PATHS+=("$p")
-done
-[ ${#PATHS[@]} -gt 0 ] || die "ref '$REF' has no .claude/ to install"
-git -C "$REPO_ROOT" archive "$COMMIT" "${PATHS[@]}" | tar -xf - -C "$TARGET"
+# 2. Engine from the ref. A ref with .claude/ownership.txt is installed by engine.py, the one
+#    path real projects take. An older ref predates engine.py and is installed the way its own
+#    docs/TEMPLATE-SETUP.md said (.claude/ wholesale, CLAUDE.md, AGENTS.md, .gitignore appended),
+#    so engine versions on both sides of the change stay comparable.
+if git -C "$REPO_ROOT" cat-file -e "$COMMIT:.claude/ownership.txt" 2>/dev/null; then
+  INSTALLED_BY="engine.py install --ref $COMMIT"
+  python3 "$REPO_ROOT/engine.py" install "$TARGET" --ref "$COMMIT" --no-register >/dev/null \
+    || die "engine.py install of '$REF' failed (see above)"
+else
+  INSTALLED_BY="git archive (TEMPLATE-SETUP step 1 of a ref that predates engine.py)"
+  PATHS=()
+  for p in .claude CLAUDE.md AGENTS.md; do
+    git -C "$REPO_ROOT" cat-file -e "$COMMIT:$p" 2>/dev/null && PATHS+=("$p")
+  done
+  [ ${#PATHS[@]} -gt 0 ] || die "ref '$REF' has no .claude/ to install"
+  git -C "$REPO_ROOT" archive "$COMMIT" "${PATHS[@]}" | tar -xf - -C "$TARGET"
 
-# The engine's ignore rules travel with it (TEMPLATE-SETUP copies .gitignore too).
-if git -C "$REPO_ROOT" cat-file -e "$COMMIT:.gitignore" 2>/dev/null; then
-  { printf '\n# --- engine ignore rules (from %s) ---\n' "$REF"
-    git -C "$REPO_ROOT" show "$COMMIT:.gitignore"; } >> "$TARGET/.gitignore"
+  # The engine's ignore rules travel with it (that TEMPLATE-SETUP copied .gitignore too).
+  if git -C "$REPO_ROOT" cat-file -e "$COMMIT:.gitignore" 2>/dev/null; then
+    { printf '\n# --- engine ignore rules (from %s) ---\n' "$REF"
+      git -C "$REPO_ROOT" show "$COMMIT:.gitignore"; } >> "$TARGET/.gitignore"
+  fi
+
+  # That TEMPLATE-SETUP's cleanup: nothing compiled, nothing machine-local.
+  find "$TARGET/.claude" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+  rm -f "$TARGET/.claude/settings.local.json"
 fi
-
-# TEMPLATE-SETUP cleanup: nothing compiled, nothing machine-local.
-find "$TARGET/.claude" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
-rm -f "$TARGET/.claude/settings.local.json"
 
 # Fixtures go in AFTER the engine so they win over any file the ref shipped at the same path.
 # PROGRESS.md is stored as PROGRESS.fixture.md: the engine's own .gitignore ignores every
@@ -102,7 +111,7 @@ cat > "$TARGET/SANDBOX-INFO.json" <<JSON
   "engine_ref": "$REF",
   "engine_commit": "$COMMIT",
   "shipped_supervision_mode": "$SHIPPED_MODE",
-  "installed_by": "evals/make_sandbox.sh (git archive, TEMPLATE-SETUP step 1)",
+  "installed_by": "evals/make_sandbox.sh: $INSTALLED_BY",
   "audit_fixtures": $([ "$AUDIT" -eq 1 ] && echo true || echo false),
   "created_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
@@ -112,8 +121,8 @@ JSON
 git -C "$TARGET" init -q -b main
 git -C "$TARGET" add -A -f .claude/overseer/mode 2>/dev/null || true
 git -C "$TARGET" add -A
-# Fixtures are FORCE-added: the engine's ignore rules (appended above) ignore PROGRESS.md,
-# and an untracked, ignored file is deleted by the runner's reset (`git clean -fdx`).
+# Fixtures are FORCE-added: an older ref's appended ignore rules ignore PROGRESS.md, and an
+# untracked, ignored file is deleted by the runner's reset (`git clean -fdx`).
 for rel in "${FIXTURE_FILES[@]:-}"; do
   [ -n "$rel" ] && git -C "$TARGET" add -f -- "$rel"
 done

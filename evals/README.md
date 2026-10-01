@@ -9,7 +9,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | Path | What it is |
 |---|---|
 | `reference-project/` | A tiny, fully typed Python project (uv, ruff, mypy, pytest). Real code for the hooks to act on. |
-| `make_sandbox.sh` | Builds a disposable git repository: the reference project + the engine from ONE git ref, installed the way `docs/TEMPLATE-SETUP.md` installs it today. |
+| `make_sandbox.sh` | Builds a disposable git repository: the reference project + the engine from ONE git ref, installed by `engine.py install` — the path a real project takes. A ref older than `engine.py` is installed the way its own `docs/TEMPLATE-SETUP.md` said, so both sides of the change stay comparable. |
 | `run_hook_scenarios.py` | Feeds each hook the JSON envelope Claude Code would send and records what the hook decided. Deterministic, no model involved. |
 | `compare.py` | Diffs two result files. The differences are what changed between two engine versions, two machines, or two hook directories. |
 | `scenarios/hooks/*.json` | The hook scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
@@ -22,7 +22,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 ```bash
 # The everyday check: one command, temporary sandbox, nothing left behind.
 python3 evals/run_hook_scenarios.py --engine-ref HEAD \
-  --compare evals/baseline/clean-ubuntu-24.04/results-package-2a.json
+  --compare evals/baseline/clean-ubuntu-24.04/results-package-3a.json
 
 # Two engine versions against each other.
 python3 evals/run_hook_scenarios.py --engine-ref v0.8.0 --record-only --out /tmp/old.json
