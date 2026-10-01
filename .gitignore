@@ -33,3 +33,5 @@ PROGRESS.md
 .claude/overseer/.budget-*.json
 .claude/overseer/complexity-report.md
 HANDOFF-*.md
+# Claude Code's own parallel-session checkouts (claude --worktree).
+.claude/worktrees/

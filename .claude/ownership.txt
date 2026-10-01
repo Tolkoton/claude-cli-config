@@ -1,0 +1,68 @@
+# Who owns every path. Read by engine.py (install, update, status) and by people.
+#
+# Format:  <owner>  <pattern>  [seed=<file in this repository>]
+#
+# The FIRST rule that matches a path decides its owner, so rules go from the specific
+# to the general. Patterns are anchored at the repository root: `*` stays inside one
+# directory, `**` crosses directories, a trailing `/` means "this directory and
+# everything under it".
+#
+# engine   Ships into every project. `engine.py update` replaces it there only while the
+#          project has not changed it; an edited file is reported, never overwritten.
+# project  Belongs to the project; the engine never overwrites it. With `seed=`, the first
+#          install creates the file from that seed if the project lacks it — once.
+#          In THIS repository the word also covers the engine's own records, tests and
+#          evals: they are this repository's project data and never ship.
+# machine  State of one machine and one run. Never committed, never shipped. Every install
+#          writes these patterns into the project's .gitignore, and this repository's own
+#          .gitignore must list them too (hook-checks/test_ownership.py checks it).
+# user     The owner's personal skills. install.sh links them into ~/.claude. Never shipped.
+
+# --- machine state --------------------------------------------------------------------
+machine  .claude/settings.local.json
+machine  .claude/worktrees/
+machine  .claude/**/__pycache__/
+machine  .claude/overseer/.last_audit_sha
+machine  .claude/overseer/.last_continue_sha
+machine  .claude/overseer/.continue_count
+machine  .claude/overseer/mode
+machine  .claude/overseer/.budget-*.json
+machine  .claude/overseer/complexity-report.md
+machine  .claude/unattended/state.json
+machine  .claude/unattended/cost.json
+machine  .claude/unattended/heartbeat
+machine  .claude/unattended/restarts.log
+machine  .claude/unattended/sim-plan.txt
+machine  .claude/unattended/supervisor.lock
+machine  .claude/unattended/logs/
+machine  .claude/unattended/archive/
+
+# --- written by engine.py into every project; never present in this repository ------------
+engine   .claude/engine-lock.json
+
+# --- project data inside .claude/ (in this repository: the engine's own records) ----------
+project  .claude/project.env              seed=templates/project/.claude/project.env
+project  .claude/overseer/ledger.md       seed=templates/project/.claude/overseer/ledger.md
+project  .claude/overseer/audit.md        seed=templates/project/.claude/overseer/audit.md
+project  .claude/overseer/escalations.md  seed=templates/project/.claude/overseer/escalations.md
+project  .claude/overseer/parked.md       seed=templates/project/.claude/overseer/parked.md
+project  .claude/overseer/MEMORY.md       seed=templates/project/.claude/overseer/MEMORY.md
+project  .claude/premises/premise-log.md  seed=templates/project/.claude/premises/premise-log.md
+project  .claude/overseer/slice/
+project  .claude/premises/
+project  .claude/architecture/
+project  .claude/artifacts/
+
+# --- everything else under .claude/ is the engine ------------------------------------------
+engine   .claude/**
+
+# --- root files a project starts from. CLAUDE.md still mixes engine rules with this ------
+# --- repository's own text, so it is a project file until package 2b splits the rules out --
+project  CLAUDE.md  seed=CLAUDE.md
+project  AGENTS.md  seed=AGENTS.md
+
+# --- the owner's personal skills ----------------------------------------------------------
+user     user/**
+
+# --- everything else is this repository's own material: installer, evals, tests, docs, seeds
+project  **
