@@ -34,7 +34,8 @@
       "id": "P3",
       "title": "existing-projects: engine.py marked-block maintenance, pristine -> reseed, changed -> exact report; tests; decana --dry-run read-only",
       "deps": [
-        "P2"
+        "P2",
+        "P0"
       ],
       "status": "pending"
     },
@@ -48,8 +49,10 @@
     },
     {
       "id": "P5a",
-      "title": "overseer-text-08: SKILL.md #8 returns ADR_REQUIRED with the divergence recorded; no SCOPE_AMENDMENT routing for a contract conflict",
-      "deps": [],
+      "title": "overseer-text-08: after the clean before-run; fix only what it confirms (owner correction 1)",
+      "deps": [
+        "P0"
+      ],
       "status": "pending"
     },
     {
@@ -69,6 +72,14 @@
       "status": "pending"
     },
     {
+      "id": "P9",
+      "title": "phase-script: .claude/hooks/overseer_phase.py set|clear|show, named in the rules and used by the two commands; test; AUTONOMOUS entry (owner correction 2)",
+      "deps": [
+        "P1"
+      ],
+      "status": "pending"
+    },
+    {
       "id": "P7",
       "title": "audit-after: --engine-ref HEAD -> audit-post-2b.json (cap $35); evals/compare_audits.py; noise from the two 3c before-runs",
       "deps": [
@@ -80,7 +91,8 @@
         "P4",
         "P5a",
         "P5b",
-        "P6"
+        "P6",
+        "P9"
       ],
       "status": "pending"
     },

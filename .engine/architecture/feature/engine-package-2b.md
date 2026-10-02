@@ -107,8 +107,12 @@ before (v0.11.0) and after (HEAD).
 - **P0 audit-before** (item 0) — `run_audit_scenarios.py --engine-ref v0.11.0 --runs 3` →
   `audit-v0.11.0.json` on the fixed instrument; `--resume` on a break; cap $35 for the whole
   item including the stopped run; sessions lost to usage limits listed separately. The
-  runner builds sandboxes from the ref, so engine edits in the working tree cannot leak in —
-  only `evals/` must stay untouched while it runs. · depends on: P0a.
+  runner takes the ENGINE from the ref but runs `engine.py`, `make_sandbox.sh` and the
+  fixtures from the working tree for every sandbox — so `engine.py` and `evals/` stay
+  untouched until the result file says `complete` (hence P3 depends on P0); the same freeze
+  holds during P7. Transcripts of the sessions live under `~/.claude/projects/<sandbox
+  path>/` keyed by the recorded `sandbox` name; the result file keeps the ledger entry and
+  the verdict excerpt. · depends on: P0a.
 - **P1 rules-file** (items 1, 2) — `.claude/engine-rules.md` from CLAUDE.md's engine text,
   condensed; `.claude/references/{hooks,unattended}.md`; this repository's CLAUDE.md = the
   marked block + `@AGENTS.md` + a few project lines; AGENTS.md shortened; `tests/test_context_budget.py`.
@@ -135,16 +139,23 @@ before (v0.11.0) and after (HEAD).
   idempotent), a copy with the new block whose block text was changed by the ref — all on a
   temporary engine repository committed from the working tree; decana
   `--dry-run` read-only, its note quoted in the report and checked by hand against the
-  file. · depends on: P2.
+  file. · depends on: P2, P0 (engine.py is frozen while the before-run builds sandboxes).
 - **P4 hygiene** (item 5) — the four phantom commands out of every file under `.claude/`,
   `AGENTS.md`, `templates/`, `docs/` (the test greps the whole tree; 9 files of the
   self-learning skill, `AGENTS.md`, `.claude/README.md` today); jq paragraphs (D7); `templates/project/.engine/overseer/{parked,escalations}.md`
   without this repository's dates/nodes; `tests/test_text_hygiene.py`. · depends on: P1.
-- **P5a overseer-text-08** (item 6, second defect) — `.claude/skills/overseer/SKILL.md`: #8
-  returns `OVERSEER_ADR_REQUIRED` with a draft ADR recording the divergence; the
-  "What you do NOT do" bullet no longer routes a contract conflict to SCOPE_AMENDMENT. Cause
-  evidenced by six 08 sessions (pre-3c ×3, v0.11.0 ×3: 0 denials, contract readable, ESCALATE
-  SCOPE_AMENDMENT each time). · depends on: — (verified by P7).
+- **P5a overseer-text-08** (item 6, second defect) — AFTER P0, by the owner's correction of
+  2026-10-02T17:50Z: every earlier audit, the pre-3c baseline included, ran without
+  `--settings`, i.e. without the engine's settings, so 08's ESCALATE may be an artefact of the
+  instrument too. Fix only what the clean before-run confirms; if 08 matches on the fixed
+  instrument, record "08's cause was the instrument" and change no text. Otherwise the fix
+  is the one D8 names (#8 returns `OVERSEER_ADR_REQUIRED` recording the divergence; no
+  SCOPE_AMENDMENT routing for a contract conflict), as narrowly as the transcripts justify.
+  **Exit criterion (critic round 4, premise probe):** after the checkpoint commit, one session
+  `run_audit_scenarios.py --engine-ref <that commit> --only 08 --runs 1 --out <scratchpad>/probe-08.json`
+  (about a dollar; its own mkdtemp workdir) parses as `ADR_REQUIRED`; a failure is fixed in
+  a follow-up commit BEFORE P7, never after it — a re-run of item 7 would cost the cap.
+  · depends on: P0.
 - **P5b overseer-text-01** (item 6, first defect) — the cause of 01 is re-derived from P0's
   transcripts on the fixed instrument, because every 01 session so far (pre-3c ×3, v0.11.0 ×3)
   records `permission_denials` ≥ 1: the overseer DID try to run the tests and the instrument
@@ -152,7 +163,18 @@ before (v0.11.0) and after (HEAD).
   the record says "01's cause was the instrument (D10), fixed by P0a" and SKILL.md gets no
   evidence relaxation (the #1/#2/#5 wording that 02/04/05 measure stays as it is). If 01 still
   blocks, the fix is derived from what those transcripts say and stays as narrow as that.
-  · depends on: P0.
+  **Exit criterion** when SKILL.md is edited: the same one-session probe with `--only 01`
+  parses as `PASS`. · depends on: P0.
+- **P9 phase-script** (owner correction 2) — the agent never writes `.claude/state/` with its
+  tools: that is hook-and-script state, and the classifier's refusal of `printf plan >
+  .claude/state/overseer/state` was correct. Sanctioned path: `.claude/hooks/overseer_phase.py
+  set plan | clear | show` (standard library, mkdir -p, the same file the Stop hook reads),
+  named in `.claude/engine-rules.md` and used by `/plan-slice` and `/feature-architect`
+  instead of a direct write; `tests/test_overseer_phase.py` (set → the Stop hook stands down
+  in `--dry-run`-free form: `_phase_is_plan` true; clear → false; show). A hook that sets
+  the phase by event (UserPromptSubmit on `/plan-slice`) would need a `settings.json` change
+  — owner-only — and is named as the alternative in the AUTONOMOUS entry, not built.
+  · depends on: P1.
 - **P6 fast-gate** (item 8) — D9; `run_all.sh` today treats `$1` as a substring filter, so
   `--fast` becomes a flag and the budget test asserts `--fast` runs ≥ 1 suite; the flag and
   `TEST_CMD` land in one commit; both times measured. · depends on: P1 (AGENTS.md text).
@@ -195,6 +217,13 @@ before (v0.11.0) and after (HEAD).
   both have valid sessions (01, 07, 08); where only one has, noise is undefined and the
   comparison reports it as such.
 
+## Owner corrections (2026-10-02T17:50Z, applied)
+
+1. 08 is not fixed before the clean before-run either (P5a depends on P0). 2. The phase guard
+gets a sanctioned script (P9), decision logged AUTONOMOUS. 3. The critic round is repeated
+before building (round 4 ran after round 3's fixes). 4. After the report: the night program
+in `~/engine-night/night-1.md`, by its own rules.
+
 ## Order of events (recorded honestly)
 
 P0a's fixture move, the runner's `--settings` and pre-flight, and `evals/compare_audits.py`
@@ -203,6 +232,24 @@ sealed, because round 1's finding was an instrument defect that every later step
 and the stopped run was burning money. All of it is committed as P0a: the comparison script is part of the instrument.
 
 ## Critic
+
+Round 4 (the circuit-breaker round; also the owner's correction 3): PREMISE_PROBE_REQUIRED —
+P5a/P5b were verified only by P7, and a wording that fails there forces a second paid run past
+the cap. Applied as the exit criteria above (one session per edited scenario, cents, before
+P7). Notes: the per-file budgets sum to exactly 200 (the test asserts the total; today 181);
+the 0.00 noise bound must be stated in P7's report (it is, in the table); P3's tests compare
+the marked block against the SEED, not this repository's CLAUDE.md; P1 was under
+construction in the working tree during the round (P0 is unaffected: the sandbox takes only
+engine.py, the reference project and the fixtures from the tree). Convergence accepted at
+this round: the probe is scheduled, no BLOCKING objection survives — logged AUTONOMOUS
+(`2b-critic-convergence`).
+
+Round 3: REVISE — `make_sandbox.sh` runs `engine.py` from the working tree for every P0
+sandbox, so P3's TDD edits could change the "before" instrument mid-run. Applied: P3 depends
+on P0, the P0 sentence corrected, the same freeze named for P7. Notes applied: where the
+transcripts live (no runner change — the instrument stays as committed in P0a); the noise
+fallback rule stated in PR-2b-03; PR-2b-04 added to the premise log; D8's 01 quote is from
+the reply, not the ledger (the Edit was denied).
 
 Round 2: REVISE — the 01 cause is confounded by the instrument (every 01 session records
 denials of the overseer's own test runs), and a fix that relaxes #1/#2/#5 risks 02/04/05.

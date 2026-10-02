@@ -21,7 +21,7 @@
 #   --staged   commit exactly what is already in the index; do not `git add -u`.
 #              For a run that creates NEW files: `-u` never stages an untracked file,
 #              so a checkpoint of "the slice I just wrote" has to be staged by hand
-#              (`git add <files>`, as CLAUDE.md's unit-of-work steps say) and then
+#              (`git add <files>`, as the engine rules' unit-of-work steps say) and then
 #              committed as staged. Without the flag the behaviour is unchanged.
 # Exit 0 when it committed AND when there was nothing to commit -- both are
 # normal. Non-zero only on a real failure.

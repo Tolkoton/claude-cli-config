@@ -25,7 +25,7 @@ absent on the authoring machine 2026-08-27. Every hook that parses its stdin
 with `jq` degrades to a silent no-op there, because the idiom in use is
 `jq ... 2>/dev/null || echo ""` followed by an empty-value early exit. A
 security hook that silently does nothing is worse than no hook, so this one
-uses the standard library only. See the note in CLAUDE.md's hook table.
+uses the standard library only. See .claude/references/hooks.md.
 
 Exit codes: 0 with JSON on stdout = decision; 0 with no stdout = allow.
 """
