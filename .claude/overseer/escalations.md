@@ -256,3 +256,22 @@ one; do not reopen the old one in conversation.
 - Falsified by: a project that wants `rm -rf ./<anything>` refused by the list rather than
   by the hook — it adds the rule back in its own settings.json.
 - Status: CLOSED
+
+## 2026-10-02T13:20:00Z — AUTONOMOUS — 3b-S5-collision-scope
+- Decision: install.sh compares personal skill names against engine SKILLS and engine
+  COMMANDS (both are /<name>), not against agents; the prefix for new personal skills is
+  `my-`; a collision refuses the whole deployment before anything is linked.
+- Door: two-way
+- Cost to reverse: one list in install.sh, one word in the docs.
+- Why not escalated: the owner asked for the check and for "a documented prefix"; which
+  prefix and whether commands count are implementation choices with no external contract.
+  Commands count because they share the slash namespace with skills; agents do not, they
+  are addressed by the Task tool. Refuse-everything rather than skip-one because a
+  half-deployed set of personal skills is harder to notice than none.
+- Evidence: hook-checks/test_install_collision.py 12/12, including the real install.sh
+  against this repository into a temporary home (no collision today; live-build deploys).
+  Writing it found a bug in the first version: `engine_names | grep -q` under pipefail
+  reported failure on every hit but the last name.
+- Falsified by: Claude Code documenting that user skills and project commands live in
+  separate namespaces — then the command half of the check is noise and comes out.
+- Status: CLOSED

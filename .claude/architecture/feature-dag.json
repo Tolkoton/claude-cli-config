@@ -38,7 +38,8 @@
       "id": "S5",
       "title": "install-name-collision: install.sh refuses a user skill named like an engine skill; the prefix for new personal skills",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "install.sh refuses, before linking anything, when a user/skills name equals an engine skill or command name, with the reason and the my- prefix for new personal skills; existing live-build untouched. test_install_collision.py 12/12 (skill clash, command clash, clean deploy, idempotent re-run, real directory never destroyed, the real repository into a temp home)."
     },
     {
       "id": "S6",

@@ -28,11 +28,56 @@
 #
 # Idempotent: safe to re-run. Replaces its own symlinks, refuses to clobber
 # anything it did not create.
+#
+# NAMES. A personal skill is invoked as /<name>, in the same namespace as the engine's
+# skills (.claude/skills/) and commands (.claude/commands/). A personal skill that shares
+# a name with one of them would shadow it in every project the engine is installed in,
+# or be shadowed by it — which one wins is not something to find out in a live session.
+# So this script REFUSES to deploy when any user/skills/<name> equals an engine skill or
+# command name, before it links anything. Convention for NEW personal skills: prefix the
+# directory with `my-` (user/skills/my-<name>), which no engine skill will ever carry.
+# Existing personal skills keep their names; the check is what protects them.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+PERSONAL_PREFIX="my-"
+
+engine_names() {
+    # Every name the engine already answers to: skills by directory, commands by file stem.
+    local d f
+    for d in "$REPO_ROOT"/.claude/skills/*/; do [ -d "$d" ] && basename "${d%/}"; done
+    for f in "$REPO_ROOT"/.claude/commands/*.md; do [ -f "$f" ] && basename "${f%.md}"; done
+}
+
+is_engine_name() {
+    # A loop, not `engine_names | grep -q`: under `set -o pipefail` grep's early exit on a
+    # match sends SIGPIPE to the producer and the pipeline reports FAILURE for a hit on any
+    # name but the last — the check passed a colliding `overseer` and caught `plan-slice`.
+    local n
+    while IFS= read -r n; do
+        [ "$n" = "$1" ] && return 0
+    done <<<"$ENGINE_NAMES"
+    return 1
+}
+
+check_collisions() {
+    local collisions=0 skill name
+    ENGINE_NAMES="$(engine_names)"
+    for skill in "$REPO_ROOT"/user/skills/*/; do
+        [ -d "$skill" ] || continue
+        name="$(basename "${skill%/}")"
+        if is_engine_name "$name"; then
+            printf '  COLLISION %s: user/skills/%s has the same name as an engine skill or command.\n' "$name" "$name" >&2
+            printf '            Deployed, it would shadow the engine'"'"'s %s (or be shadowed by it) in every\n' "$name" >&2
+            printf '            project the engine is installed in. Rename the personal skill — new ones\n' >&2
+            printf '            take the prefix %s (user/skills/%s%s) — and re-run. Nothing was linked.\n' "$PERSONAL_PREFIX" "$PERSONAL_PREFIX" "$name" >&2
+            collisions=1
+        fi
+    done
+    return $collisions
+}
 
 link_one() {
     local source="$1" target="$2"
@@ -63,6 +108,12 @@ main() {
 
     if [ ! -d "$REPO_ROOT/user" ]; then
         printf 'Nothing to deploy: %s does not exist.\n' "$REPO_ROOT/user" >&2
+        exit 1
+    fi
+
+    # Refuse BEFORE linking anything: a half-deployed set is worse than none.
+    if ! check_collisions; then
+        printf '\nRefused: a personal skill collides with an engine name (see above).\n' >&2
         exit 1
     fi
 
