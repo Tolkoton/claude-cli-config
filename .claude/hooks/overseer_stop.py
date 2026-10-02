@@ -215,30 +215,21 @@ def _is_code_path(
     """True if the path counts as a code edit for the overseer trigger.
 
     Decision tree:
-    1. If source_dirs is configured: path must start with one of them.
+    1. If source_dirs is configured: the path must lie under one of them.
     2. If source_dirs is empty: path must match code_extensions (if configured).
     3. If both are empty: any edit counts.
+
+    A source dir (normalized to a trailing slash by _build_source_dirs) matches when
+    "/<dir>/" occurs in "/<path>": that covers the relative form (src/foo.py), the absolute
+    form Claude Code actually sends (/work/proj/src/foo.py) and a multi-segment entry
+    (backend/src, .claude/hooks) alike, and never a look-alike prefix (src2/, srcfoo/).
+    Until package 3c's fix round the multi-segment case matched relative paths only, so the
+    documented monorepo example was inert in a real session.
     """
-    normalized = file_path.replace("\\", "/")
-    # Ensure it doesn't start with / for relative comparison
-    rel = normalized.lstrip("/")
+    normalized = "/" + file_path.replace("\\", "/").lstrip("/")
 
     if source_dirs:
-        # Check both absolute (/home/.../src/foo.py) and relative (src/foo.py)
-        for d in source_dirs:
-            if rel.startswith(d) or ("/" + d) in ("/" + normalized):
-                # Match relative form or embedded form (/src/)
-                if rel.startswith(d):
-                    return True
-                # Also match absolute paths containing the dir segment
-                parts = normalized.split("/")
-                dir_name = d.rstrip("/")
-                if dir_name in parts:
-                    idx = len(parts) - 1 - list(reversed(parts)).index(dir_name)
-                    # Ensure it's a directory, not just a substring
-                    if idx < len(parts) - 1:
-                        return True
-        return False
+        return any(("/" + d) in normalized for d in source_dirs)
 
     if code_extensions:
         suffix = Path(normalized).suffix.lstrip(".").lower()
