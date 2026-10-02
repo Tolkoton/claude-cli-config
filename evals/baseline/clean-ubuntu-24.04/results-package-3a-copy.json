@@ -1,5 +1,5 @@
 {
-  "label": "engine/push-policy == engine/package-3a (9249b82): this file is results-package-3a.json under the name docs/plan/package-3b.md step 6 compares against. Recorded on clean Ubuntu 24.04; the engine_commit below is the 3a run's HEAD in the clone it was recorded from.",
+  "label": "A copy of results-package-3a.json, made 2026-10-02 so docs/plan/package-3b.md step 6 had a file to compare against under the name it used (results-push-policy.json); renamed to say what it is (docs/plan/package-3b-finish.md, item 2). engine/push-policy == engine/package-3a (9249b82). Recorded on clean Ubuntu 24.04; the engine_commit below is the 3a run's HEAD in the clone it was recorded from.",
   "recorded_utc": "2026-10-01T16:47:07Z",
   "sandbox": {
     "engine_ref": "HEAD",

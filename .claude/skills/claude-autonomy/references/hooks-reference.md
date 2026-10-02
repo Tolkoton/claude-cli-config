@@ -14,7 +14,8 @@ Four hooks ship with this skill. Each lives in `.claude/hooks/<name>.sh`. They'r
 - Wildcard `rm -rf` shapes that could destroy data outside the project
 - Force-push, hard-reset to origin, filter-branch, `git clean -fdx`
 - Direct `git commit` (defense-in-depth for manual-commit policy)
-- Direct `git commit/push` on `main`/`master`/`production`/`release` branches
+- Direct `git commit` on `main`/`master`/`production`/`release` branches (push is governed by
+  the settings file: `Bash(git push:*)` in `ask`, the force forms in `deny`)
 - `sudo`, `mkfs`, raw `dd` to disk devices, `shred`, `wipefs`
 - `chmod 777` (open-to-everyone permissions)
 - Piping `curl | sh` (network code execution)

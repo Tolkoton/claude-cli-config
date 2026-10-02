@@ -70,7 +70,15 @@ fix the small things the last report listed.
   proposal; scenarios `bd-push-on-main` and `bd-push-on-protected-branch-in-worktree`
   expect `allow`, new `bd-commit-on-unattended-branch-in-worktree` expects `allow`;
   `results-push-policy.json` renamed to what it is — `results-package-3a-copy.json` (agent
-  decision on the name) — with every reference updated. · depends on: —.
+  decision on the name) — with its LIVE references updated: the `label` inside the file
+  itself, `evals/README.md` and `docs/tasks/README.md` if they name it (today neither
+  does), and the finish-round report. Closed records that name the old file as a fact of
+  what happened then are NOT rewritten (the critic's #1): `.claude/overseer/ledger.md`,
+  `.claude/overseer/escalations.md`, `docs/plan/package-3b-report.md`,
+  `.claude/architecture/feature/engine-package-3b.md`, the frozen
+  `results-package-3b.json` label, and the owner's verbatim `docs/plan/package-3b.md`.
+  The rename is recorded as a new escalation entry superseding `3b-baseline-alias`. ·
+  depends on: —.
 - **F3 explicit-permission-mode** (owner item 3) — delivers: `session-claude.sh` passes
   `--permission-mode acceptEdits`; `test_session_launch.py` runs the launcher with a shim
   `claude` on PATH that records its argv (the repository's own rule for absent tools) and

@@ -6,13 +6,15 @@
       "id": "F1",
       "title": "remove-stand-down: engine_stand_down() and ENGINE_HOOK_ALWAYS_RUN out of every hook and copy; claude-autonomy user scope installs no hooks; test_no_home_hook_copies.py",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "engine_stand_down() and ENGINE_HOOK_ALWAYS_RUN removed from 9 hooks, 4 skill copies, runner, probe; claude-autonomy user scope installs settings.user.json.template (no hooks, no scripts); test_no_home_hook_copies.py 25/25 replaces test_hooks_fire_once.py; docs rewritten around the closed source. Scenarios 86/86 identical to the 3b baseline."
     },
     {
       "id": "F2",
       "title": "push-leaves-the-hook: protected-branch block names commit only, message names the subcommand; ask/deny asserted in test_commit_policy; scenarios flipped; results-push-policy.json renamed",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "block-dangerous.sh protected block names commit only, message names the subcommand; test_commit_policy.py 28/28 incl. ask/deny rules pinned on the live and proposed settings; bd-push-on-main and bd-push-on-protected-branch-in-worktree expect allow, bd-commit-on-unattended-branch-in-worktree added (27 bd scenarios, 87 total); results-push-policy.json -> results-package-3a-copy.json with live refs updated."
     },
     {
       "id": "F3",

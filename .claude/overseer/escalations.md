@@ -298,3 +298,21 @@ one; do not reopen the old one in conversation.
   5 rm-root/-fr) listed as the intended differences in the final report.
 - Falsified by: nothing — a renamed directory is still the same data.
 - Status: CLOSED
+
+## 2026-10-02T09:54:03Z — AUTONOMOUS — 3b-finish-F1-user-scope-template
+- Decision: the claude-autonomy skill's user scope installs a SEPARATE template (assets/settings.user.json.template, the project template without its hooks block) rather than prose telling the model to drop the hooks key from the shared template.
+- Door: two-way
+- Cost to reverse: delete one JSON file and point step 3 back at the shared template.
+- Why not escalated: the owner decided that user scope installs no hooks; how the skill achieves it is an implementation choice. A file the test can parse beats an instruction a model may or may not follow — test_no_home_hook_copies.py asserts the template has no hooks block and agrees with the project template on everything else.
+- Evidence: hook-checks/test_no_home_hook_copies.py 25/25.
+- Falsified by: the two templates drifting apart on a non-hooks key — the test fails the moment they do.
+- Status: CLOSED
+
+## 2026-10-02T09:54:03Z — AUTONOMOUS — 3b-finish-F2-baseline-name
+- Decision: results-push-policy.json is renamed results-package-3a-copy.json (supersedes 3b-baseline-alias on the name, not on the content); only its own label and the finish-round report are updated. The closed records that name the old file as a fact (ledger, escalations, the 3b report, the 3b contract, the frozen results-package-3b.json label, the owner's verbatim docs/plan/package-3b.md) are not rewritten.
+- Door: two-way
+- Cost to reverse: `git mv` back.
+- Why not escalated: the owner asked for a name that says what the file is; it is a copy of results-package-3a.json. Rewriting closed records would corrupt the audit trail this repository keeps append-only (the feature-critic's #1 in this round). No script or live document consumed the old name.
+- Evidence: repo-wide grep for the old name: hits only in closed records and the plan files; test_commit_policy.py 28/28.
+- Falsified by: a live document found to point at the old name — then it is updated, not the records.
+- Status: CLOSED

@@ -139,11 +139,18 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse --
   BRANCH=$(git -C "$CLAUDE_PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 fi
 
+# Commit only. Push left this block on 2026-10-01 (owner decision, docs/plan/package-3b-finish.md):
+# what stands between the agent and a push is the settings file — `Bash(git push:*)` in
+# permissions.ask prompts (unattended, park-ask-gated.py parks it) and the force forms are
+# denied there and in DANGEROUS_PATTERNS above. A hook that also refused every push on main
+# second-guessed a decision the ask rule already puts in front of a human.
 PROTECTED_BRANCHES=("main" "master" "production" "prod" "release")
 for protected in "${PROTECTED_BRANCHES[@]}"; do
   if [ "$BRANCH" = "$protected" ]; then
-    if echo "$CMD" | grep -qE '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*(commit|push)([[:space:]]|$)'; then
-      echo "BLOCKED: direct git $(echo "$CMD" | awk '{print $2}') on protected branch '$BRANCH'." >&2
+    if echo "$CMD" | grep -qE '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*commit([[:space:]]|$)'; then
+      # Name the subcommand that matched, not the command's second word: for
+      # `git -C dir commit` the second word is `-C`.
+      echo "BLOCKED: direct git commit on protected branch '$BRANCH'." >&2
       echo "Create a feature branch first: git checkout -b feat/<slug>" >&2
       exit 2
     fi

@@ -186,7 +186,7 @@
     },
     {
       "id": "bd-push-on-main",
-      "why": "Defense in depth: nothing is pushed from a protected branch.",
+      "why": "Push is not the hook's business (owner decision 2026-10-01): the settings file governs it — `Bash(git push:*)` in ask prompts (parked when unattended), the force forms are denied. The hook lets it through.",
       "input": {
         "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
@@ -194,7 +194,7 @@
           "command": "git push origin main"
         }
       },
-      "expect": "block"
+      "expect": "allow"
     },
     {
       "id": "bd-push-on-feature-branch",
@@ -256,7 +256,7 @@
     },
     {
       "id": "bd-push-on-protected-branch-in-worktree",
-      "why": "In a `git worktree` checkout .git is a file. The hook must still know the branch: a push from a protected branch is blocked there too.",
+      "why": "Push left the protected-branch block on 2026-10-01; the ask rule prompts instead. Kept as a scenario so the worktree checkout (where .git is a file) stays measured for push too.",
       "setup": [
         {
           "git": [
@@ -277,7 +277,7 @@
           "command": "git push origin release"
         }
       },
-      "expect": "block"
+      "expect": "allow"
     },
     {
       "id": "bd-commit-cloud-switch-off",
@@ -436,6 +436,31 @@
         "tool_name": "Bash",
         "tool_input": {
           "command": "rm -fr ./build"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-commit-on-unattended-branch-in-worktree",
+      "why": "In a `git worktree` checkout .git is a file. The hook must still read the branch there: a commit on the run's own unattended/* branch is allowed, which it can only be if the branch was determined at all.",
+      "setup": [
+        {
+          "git": [
+            "worktree",
+            "add",
+            "-q",
+            "wt",
+            "-b",
+            "unattended/2026-01-01"
+          ]
+        }
+      ],
+      "project_dir": "wt",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m \"checkpoint\""
         }
       },
       "expect": "allow"
