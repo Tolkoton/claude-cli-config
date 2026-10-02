@@ -38,7 +38,12 @@ PERSONAL_ENV = (
 )
 
 # Differences against the frozen "before" that are intended. Path -> why.
-INTENDED: dict[str, str] = {}
+INTENDED: dict[str, str] = {
+    "permissions.deny": (
+        "S4: the root rule `rm -rf /` + `*` matched any text and refused a delete under /tmp; now the exact root, "
+        "with -fr given the same shape as -rf (hook-checks/test_root_delete_deny.py)"
+    ),
+}
 
 
 def load_module(name: str, path: Path) -> Any:

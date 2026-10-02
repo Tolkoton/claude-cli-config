@@ -39,3 +39,22 @@ next to the file before it changes, and a second run changes nothing):
 python3 engine.py install --personal --ref <this branch or tag> --dry-run
 python3 engine.py install --personal --ref <this branch or tag>
 ```
+
+### The deny list after S4 — what changed and why
+
+Claude Code's `*` in a Bash rule matches any text (code.claude.com/docs/en/permissions), so
+`rm -rf /` followed by `*` also refused `rm -rf /tmp/claude/scratch`, and `./` followed by
+`*` refused `rm -rf ./build`. `block-dangerous.sh` already refuses the catastrophic forms
+with patterns that tell `/` from `/tmp/...` and `./*` from `./build`, so the list now says:
+
+| was | is | the catastrophic literal is refused by |
+|---|---|---|
+| `Bash(rm -rf /` + `*)` | `Bash(rm -rf /)` (exact) | the hook, for `rm -rf /*` |
+| `Bash(rm -r /` + `*)` | `Bash(rm -r /)` (exact) | the list (exact) |
+| `Bash(rm -rf ./` + `*)` | removed | the hook, for `rm -rf ./*` |
+| `Bash(rm -fr *)` (every `rm -fr`) | the same rules as `-rf`, spelled `-fr` | both, symmetrically |
+
+`hook-checks/test_root_delete_deny.py` shows the result with the deny list and the hook
+together: `rm -rf /`, `rm -rf /*`, `rm -rf ~`, `rm -rf $HOME` and their `-fr` twins
+refused; a temporary directory by its absolute path, `./build`, `.venv` let through. The
+reference matcher is `evals/permission_rules.py`.

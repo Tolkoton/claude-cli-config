@@ -384,6 +384,61 @@
       },
       "expect": "block",
       "expect_detail_contains": "unattended/<date>"
+    },
+    {
+      "id": "bd-rm-rf-root",
+      "why": "Deleting the root is refused by the hook with a pattern that tells `/` from `/tmp/...`; this is what lets the deny list drop its root rule whose `*` matched any text.",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf /"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rm-rf-root-star",
+      "why": "`rm -rf /*` is the root too: `/` followed by a character that cannot start a path component.",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf /*"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rm-fr-root",
+      "why": "`-fr` is `-rf`; until package 3b the hook knew only one spelling.",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -fr /"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rm-rf-tmp-absolute-allowed",
+      "why": "A temporary directory by its absolute path is ordinary work (sandboxes, scratch); it was refused only by the deny list's over-wide root rule, never by the hook.",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf /tmp/claude/scratch-123"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-rm-fr-build-allowed",
+      "why": "`rm -fr ./build` is as ordinary as `rm -rf ./build`; the old deny list refused every `rm -fr`.",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -fr ./build"
+        }
+      },
+      "expect": "allow"
     }
   ]
 }

@@ -94,16 +94,22 @@ fi
 # the check, and a leading tab defeated both anchored forms.
 
 # Truly destructive patterns. Order: most specific first.
+# `-rf` and `-fr` are the same flags in either order, so every rm pattern accepts both:
+# until package 3b the hook knew only `-rf` while the deny list refused `rm -fr <anything>`,
+# and the two disagreed about which spelling was dangerous. The ROOT patterns are what let
+# the deny list drop its `rm -rf /` + `*` rule — whose `*` matched any text, so a delete
+# under /tmp was refused too — in favour of the exact root rule: here `/` followed by
+# end-of-line or by a character that cannot start a path component (`*`, `;`, a space) is
+# the root, and `/tmp/...` is not (hook-checks/test_root_delete_deny.py).
 DANGEROUS_PATTERNS=(
-  'rm -rf /[^a-zA-Z0-9_.]'
-  'rm -rf /$'
-  'rm -rf ~'
+  'rm -(rf|fr) /[^a-zA-Z0-9_.]'
+  'rm -(rf|fr) /$'
+  'rm -(rf|fr) ~'
   'rm[[:space:]]+-[a-z]*[rf][a-z]*[[:space:]]+["'"'"']?\$\{?HOME\}?'
-  'rm -rf \*'
-  'rm -rf \.\s*$'
-  'rm -rf \./\*'
-  'rm -rf \$\('
-  'rm -fr \$\('
+  'rm -(rf|fr) \*'
+  'rm -(rf|fr) \.\s*$'
+  'rm -(rf|fr) \./\*'
+  'rm -(rf|fr) \$\('
   'rm -r \$\('
 # NOTE: the git-commit pattern is deliberately NOT in this unconditional list.
 # It lives in the branch-aware commit policy near the end of the file, because

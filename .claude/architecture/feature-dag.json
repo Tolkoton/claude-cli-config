@@ -31,7 +31,8 @@
       "deps": [
         "S1"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "block-dangerous.sh: every rm pattern accepts -rf and -fr; proposal deny list: exact root rules, -fr mirrors -rf, ./* rules dropped (same defect); evals/permission_rules.py implements the documented Bash-rule semantics; test_root_delete_deny.py 37/37 (13 refused, 8 allowed, division of labour, live-file defect shown); test_settings_proposal.py: permissions.deny is the one intended difference; 5 new scenarios (86)."
     },
     {
       "id": "S5",

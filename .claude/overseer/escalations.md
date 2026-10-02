@@ -236,3 +236,23 @@ one; do not reopen the old one in conversation.
 - Falsified by: the probe showing a cloud session checks out a protected branch name, or
   that CLAUDE_CODE_REMOTE is not set as documented — then the rule changes on evidence.
 - Status: CLOSED
+
+## 2026-10-02T12:50:00Z — AUTONOMOUS — 3b-S4-dot-slash-rule
+- Decision: besides the root rule the plan names, the `./` + `*` deny rules (both
+  spellings) are removed from the proposal; `Bash(rm --recursive *)`, `~/*` and `$HOME*`
+  stay as they are.
+- Door: two-way
+- Cost to reverse: two lines in docs/tasks/settings.json and one list in the test.
+- Why not escalated: the plan's reason for narrowing the root rule — "the star also
+  catches rm -rf /tmp/something" — applies verbatim to `./*`, which refused
+  `rm -rf ./build`, the most ordinary delete an agent issues; test_deny_gaps.py even lists
+  `rm -rf ./build` as a must-allow, where only the hook was measured. The hook refuses the
+  literal `./*`. `~/*` and `$HOME*` are left alone because the hook refuses every
+  `rm -rf ~…` and `rm -rf $HOME…` anyway, so narrowing them would change nothing
+  observable; `--recursive *` is a long form agents do not type.
+- Evidence: hook-checks/test_root_delete_deny.py — before the change `rm -rf ./build` and
+  `rm -fr ./build` were `list=deny`; after it 37/37, with the live file shown to carry both
+  defects.
+- Falsified by: a project that wants `rm -rf ./<anything>` refused by the list rather than
+  by the hook — it adds the rule back in its own settings.json.
+- Status: CLOSED
