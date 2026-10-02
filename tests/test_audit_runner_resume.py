@@ -61,8 +61,15 @@ if not stream:  # prompt A
     kill_at = int(os.environ.get("SHIM_KILL_AT_A", "0"))
     if kill_at and a_calls + 1 == kill_at:
         record("kill"); os.kill(os.getppid(), signal.SIGKILL); sys.exit(1)
+    refuse_at = int(os.environ.get("SHIM_REFUSE_AT_A", "0"))
+    if refuse_at and a_calls + 1 == refuse_at:
+        echoed = "I can't send that text as written: I haven't run the tests in this session."
+    else:
+        import re as _re
+        block = _re.search(r"-----BEGIN-----\n(.*?)\n-----END-----", prompt, _re.S)
+        echoed = block.group(1) if block else "echoed"
     print(json.dumps({"type": "result", "subtype": "success", "session_id": "shim-%d" % (a_calls + 1),
-                      "result": "echoed", "total_cost_usd": @COST_A@, "duration_ms": 10, "num_turns": 1}))
+                      "result": echoed, "total_cost_usd": @COST_A@, "duration_ms": 10, "num_turns": 1}))
     sys.exit(0)
 record("prompt-b")
 with open(log, encoding="utf-8") as fh:
@@ -104,11 +111,11 @@ class Harness:
         self.tmp.mkdir()
         self.out = work / "results" / "audit.json"
 
-    def run(self, *extra: str, kill_at_a: int = 0, limit_at_b: int = 0, engine_ref: str = "HEAD", runs: int = 1,
-            only: str = ONLY) -> subprocess.CompletedProcess[str]:
+    def run(self, *extra: str, kill_at_a: int = 0, limit_at_b: int = 0, refuse_at_a: int = 0, engine_ref: str = "HEAD",
+            runs: int = 1, only: str = ONLY) -> subprocess.CompletedProcess[str]:
         self.log.write_text("", encoding="utf-8")
         env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_KILL_AT_A=str(kill_at_a),
-                   SHIM_LIMIT_AT_B=str(limit_at_b), TMPDIR=str(self.tmp))
+                   SHIM_LIMIT_AT_B=str(limit_at_b), SHIM_REFUSE_AT_A=str(refuse_at_a), TMPDIR=str(self.tmp))
         return subprocess.run(
             [sys.executable, str(RUNNER), "--engine-ref", engine_ref, "--runs", str(runs), "--only", only,
              "--claude", str(self.shim), "--out", str(self.out), *extra],
@@ -183,6 +190,21 @@ def main() -> int:
         print("resume into a file recorded before --resume existed:")
         legacy = h.out.with_name("legacy.json")
         legacy.write_text(json.dumps({"label": "old", "engine_ref": "HEAD", "scenarios": []}), encoding="utf-8")
+        print("a refused echo: the shim answers prompt A of run 2 with a refusal instead of the scripted turn:")
+        h.out.unlink()
+        r = h.run(refuse_at_a=2)
+        check("the runner finishes (exit 0): a refusal is recorded, not fatal", r.returncode == 0, f"rc={r.returncode} {r.stderr[-300:]}")
+        check("prompt B was not sent for the refused run (2 prompt-B calls for 3 runs)", h.calls("prompt-b") == 2, h.log.read_text())
+        res = h.results()
+        rows = {row["id"]: row for row in res["scenarios"]}
+        lost = rows[IDS[1]]["runs"][0]
+        check("the refused run carries echo=refused and an 'echo refused' error, no verdict",
+              lost.get("echo") == "refused" and str(lost.get("error", "")).startswith("echo refused") and "marker" not in lost, str(lost))
+        check("a relayed run carries echo=relayed", rows[IDS[0]]["runs"][0].get("echo") == "relayed", str(rows[IDS[0]]["runs"][0]))
+        check("the file is complete (a refusal is not pending)", res["status"] == "complete", str(res.get("status")))
+        r = h.run("--resume")
+        check("--resume does not redo a refused run (no session call)", r.returncode == 0 and h.calls("prompt-a") == 0, h.log.read_text())
+
         print("the account usage limit: the shim answers the limit notice at prompt B of run 2:")
         h.out.unlink()
         r = h.run(limit_at_b=2)
