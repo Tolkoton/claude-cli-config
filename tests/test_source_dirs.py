@@ -91,6 +91,18 @@ def main() -> int:
     check("SOURCE_DIRS set: a .md under it counts (dirs win over extensions)",
           is_code("/work/proj/src/notes.md", "src"))
 
+    print("this repository's own project.env, through the hook's reader:")
+    cfg = hook._load_project_env(ROOT)
+    own = hook._build_source_dirs(cfg)
+    exts = hook._build_code_extensions(cfg)
+    check("SOURCE_DIRS names the engine's code dirs", {".claude/hooks/", ".claude/unattended/", "evals/", "tests/"} <= set(own), str(own))
+    check("CODE_EXTENSIONS covers shell and Python", {"py", "sh"} <= exts, str(sorted(exts)))
+    check("an absolute edit of a hook counts as a code edit here",
+          hook._is_code_path(str(ROOT / ".claude/hooks/overseer_stop.py"), own, exts))
+    check("an absolute edit of a skill does not",
+          not hook._is_code_path(str(ROOT / ".claude/skills/overseer/SKILL.md"), own, exts))
+    check("TEST_CMD runs the suite", cfg.get("TEST_CMD") == "bash tests/run_all.sh", repr(cfg.get("TEST_CMD")))
+
     print(f"\nPASS {PASS}   FAIL {FAIL}")
     return 1 if FAIL else 0
 

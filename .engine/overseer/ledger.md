@@ -142,3 +142,9 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Action: STATE_MIGRATIONS with the live-supervisor guard; 15 legacy machine rules + transitional ignore lines; the tests; the proposal without the 12 inert Write rules.
 - Still parked for the owner: C8b (post-move audit re-run, money), C9 (apply the settings proposal — now also drops the Write rules), S8, S9.
 - Category: recovery
+
+## 2026-10-02T14:30:33Z — engine-package-3c-fix X7 — OWN_PROJECT_ENV
+- Trigger: fix-round item 7. SOURCE_DIRS=".claude/hooks .claude/unattended evals tests", CODE_EXTENSIONS="py sh", TEST_CMD="bash tests/run_all.sh".
+- Evidence: verify-on-stop.sh run by hand with CLAUDE_PROJECT_DIR set, dirty tree — "all checks passed" in 102 s; with an untracked failing suite present — decision block, "TESTS FAILED (bash tests/run_all.sh)". Golden hook set with the working-tree hooks: 87/87 identical to results-package-3c.json. First gate run also exposed tests/test_deny_gaps.py reading this repository's branch through the inherited CLAUDE_PROJECT_DIR (red under the gate, green by hand) — pinned to a throwaway main like test_deny_hooks.
+- Timing: bash tests/run_all.sh 100.4 s wall by hand (29 suites, before X7); the gate run 102 s (30 suites). Provisional — X10 re-measures after X8 adds a suite.
+- Category: config

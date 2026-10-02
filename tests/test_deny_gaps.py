@@ -7,11 +7,39 @@ the whole command text, so a heredoc containing these literals is blocked by the
 very hook under test. See the NOTE at the top of block-dangerous.sh.
 """
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parent.parent / ".claude/hooks/block-dangerous.sh"
+
+
+def _pinned_main_repo() -> str:
+    """A throwaway repository on `main` for CLAUDE_PROJECT_DIR.
+
+    The hook's commit rule reads the branch of CLAUDE_PROJECT_DIR. By hand the variable is
+    unset and the rule refuses every commit; under the Stop gate Claude Code sets it to this
+    repository, and on an unattended/<date> branch the same cases came back ALLOWED. The
+    suite was green by hand and red from the gate the first time TEST_CMD ran it there
+    (package 3c fix round). Pin the branch, as test_deny_hooks.py does."""
+    root = tempfile.mkdtemp(prefix="deny-gaps-main-")
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
+
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    Path(root, "f.txt").write_text("x", encoding="utf-8")
+    git("add", "f.txt")
+    git("commit", "-qm", "init")
+    git("branch", "-M", "main")
+    return root
+
+
+ENV = dict(os.environ, CLAUDE_PROJECT_DIR=_pinned_main_repo())
 
 
 def blocked(cmd: str) -> bool:
@@ -19,7 +47,7 @@ def blocked(cmd: str) -> bool:
         ["bash", str(HOOK)],
         input=json.dumps({"tool_input": {"command": cmd}}),
         capture_output=True,
-        text=True, check=False)
+        text=True, check=False, env=ENV)
     return r.returncode == 2
 
 

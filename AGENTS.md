@@ -17,9 +17,11 @@ It is the template, not a consumer of the template. There is no application
 source: no `src/`, no `tests/`, no `pyproject.toml`. The "code" is the skills,
 hooks, and supervisor under `.claude/`. Two consequences that surprise people:
 
-- `.claude/project.env` declares `SOURCE_DIRS="src"` and `CODE_EXTENSIONS="py"`.
-  Those are the right defaults for a *target* project, so verification and the
-  overseer's code-edit signal do not fire on edits to this repo's own files.
+- `.claude/project.env` here describes the engine itself: `SOURCE_DIRS` names the
+  hook, harness, evals and suite directories, `CODE_EXTENSIONS="py sh"`, and
+  `TEST_CMD` runs the whole suite — so the Stop gate verifies the engine's own code
+  (about 100 s per gated turn end). The seed a target project receives
+  (`templates/project/.claude/project.env`) still says `src` and `py`.
 - Work here is config and infrastructure. The backlog lives in
   `.engine/architecture/feature-dag.json`, not in a issue tracker.
 
@@ -115,7 +117,7 @@ that records its argv**: that shows the hook issuing the right command without
 pretending the tool is installed. See `.engine/overseer/MEMORY.md`.
 
 `tests/` holds every check of this repository — hooks, harness, installer, evals
-instruments — and `bash tests/run_all.sh` runs the whole set. `verify-on-stop.sh` would run
-`pytest -x` here on every Python change because a `tests/` directory exists, and pytest is
-not installed; this repository's `.claude/project.env` therefore sets `TEST_CMD="true"`
-— the Stop gate is not the measuring instrument of the engine, the suite is (package 3c).
+instruments — and `bash tests/run_all.sh` runs the whole set, by hand after a slice and
+from the Stop gate whenever a `.py` or `.sh` file changed (`TEST_CMD` in this repository's
+`.claude/project.env`). Left empty, `verify-on-stop.sh` would run `pytest -x` here because
+a `tests/` directory exists, and pytest is not installed.

@@ -94,3 +94,16 @@ and the new .gitignore block no longer ignores the old paths.
 ## Critic
 
 Round 1: REVISE — X1 must depend on X2 (the guard-skip branch leaves old-path state in place, which only the legacy machine rules protect). Applied: dependency added, the lock case asserts no `remove` for state and that the only `keep` lines are the guard's own.
+
+Round 2 (addendum X7–X10): REVISE — (blocking) X8 must compare a RESOLVED commit, not the
+`--engine-ref` string: a partial file saying `HEAD`, new commits, then `--resume` would mix
+two engines. Also: write-to-temp + `os.replace` and "valid JSON after the kill" in the test;
+the shim's kill pinned to a run boundary (the prompt-A call of run N); the authoritative
+run_all.sh timing moves to X10 (X8 adds a suite); the matcher suite gains suffix look-alikes
+(`other-src/`, `x.claude/hooks/`) and the final-segment case; the matcher fix and the
+project.env edit ship as separate commits; README notes the refusal of an unflagged `--out`.
+All applied. Found while applying, outside the critic's view: run from the Stop hook the suite
+inherits `CLAUDE_PROJECT_DIR`, and `tests/test_deny_gaps.py` let the hook read this
+repository's branch from it — green by hand, red under the gate (X7 pins it like
+test_deny_hooks does); and `tests/test_no_machine_paths.py` rejects `/home/<name>/` even in
+a docstring example.

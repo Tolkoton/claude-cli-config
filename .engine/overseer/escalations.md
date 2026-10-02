@@ -412,3 +412,15 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T14:05:12Z — FINDING — decana dry run exits 1 for a reason outside this round
 - `engine.py update ~/Documents/GitHub/decana --ref HEAD --dry-run` (read-only): 3 state moves (.claude/overseer/state, .last_audit_sha, .continue_count → .claude/state/overseer/), no keep and no remove for any state file — item 5's substance holds. The exit code is 1, not 0, because decana edited three engine files (commands/plan-slice.md, settings.json, skills/slice-builder/SKILL.md) and the engine holds them back as it always did; exit 0 there would need `--take` or a merge by the owner.
+
+## 2026-10-02T14:21:07Z — AUTONOMOUS — 3c-fix-X7-own-project-env (supersedes 3c-C7-test-cmd)
+- Decision: this repository's .claude/project.env now describes the engine: SOURCE_DIRS=".claude/hooks .claude/unattended evals tests", CODE_EXTENSIONS="py sh", TEST_CMD="bash tests/run_all.sh". The owner asked for SOURCE_DIRS and TEST_CMD; "sh" in CODE_EXTENSIONS is the agent's addition, because the hooks are shell and a hook edit that does not run the suite would be the one edit the gate exists for.
+- Door: two-way
+- Cost to reverse: three lines in project.env.
+- Why not escalated: the owner's instruction (item 7) falsifies 3c-C7-test-cmd's premise that the Stop gate should not run the suite here; CODE_EXTENSIONS follows from it. engine.py and install.sh at the root are files, so SOURCE_DIRS cannot name them; they still trigger verification by extension, only not the overseer's code signal.
+- Evidence: bash tests/run_all.sh — 100.4 s wall before the change; tests/test_source_dirs.py; a live run of verify-on-stop.sh against a dirty tree (see the ledger).
+- Falsified by: the suite growing past what a turn end can bear — then TEST_CMD should name a fast subset and run_all.sh stays the slice-end check.
+- Status: CLOSED
+
+## 2026-10-02T14:21:07Z — FINDING — SOURCE_DIRS with a multi-segment entry was inert on absolute paths
+- overseer_stop._is_code_path matched an entry such as backend/src (the documented monorepo example) or .claude/hooks against a RELATIVE path only; Claude Code sends absolute ones. Every sandbox and scenario uses the single-segment "src", which took a different branch, so nothing caught it. Fixed in X7 (one containment test replaces the segment walk); pinned by tests/test_source_dirs.py.
