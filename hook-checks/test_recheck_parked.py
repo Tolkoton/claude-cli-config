@@ -63,14 +63,14 @@ def main() -> int:
         # find how the script locates parked.md: it reads PARKED relative to the repo; run a copy next to a fake tree
         fake = tmp_path / "repo"
         (fake / ".claude/unattended").mkdir(parents=True)
-        (fake / ".claude/overseer").mkdir(parents=True)
+        (fake / ".engine/overseer").mkdir(parents=True)
         (fake / ".claude/unattended/recheck_parked.py").write_text(src, encoding="utf-8")
-        (fake / ".claude/overseer/parked.md").write_text(parked.read_text(encoding="utf-8"), encoding="utf-8")
-        (fake / ".claude/architecture").mkdir()
-        (fake / ".claude/architecture/feature-dag.json").write_text('{"feature": "x", "nodes": []}', encoding="utf-8")
+        (fake / ".engine/overseer/parked.md").write_text(parked.read_text(encoding="utf-8"), encoding="utf-8")
+        (fake / ".engine/architecture").mkdir()
+        (fake / ".engine/architecture/feature-dag.json").write_text('{"feature": "x", "nodes": []}', encoding="utf-8")
         r = subprocess.run([sys.executable, str(fake / ".claude/unattended/recheck_parked.py")], capture_output=True, text=True, check=False, env={**os.environ}, cwd=fake)
         out = r.stdout
-        after = (fake / ".claude/overseer/parked.md").read_text(encoding="utf-8")
+        after = (fake / ".engine/overseer/parked.md").read_text(encoding="utf-8")
         t.check("exit 0", r.returncode == 0, r.stderr)
         t.check("a token mentioned in Evidence does NOT resume the item", "— mention-only — PARKED" in after, out)
         t.check("a token on another line does NOT resume the item", "— token-in-wrong-line — PARKED" in after, out)

@@ -21,8 +21,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DAG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / ".claude/architecture/feature-dag.json"
-ESC = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / ".claude/overseer/escalations.md"
+DAG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / ".engine/architecture/feature-dag.json"
+ESC = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / ".engine/overseer/escalations.md"
 
 
 def closed_autonomous_ids(text: str) -> set[str]:
@@ -59,7 +59,7 @@ def main() -> int:
     if fails:
         print(f"FAIL: {len(fails)} unlogged deviation(s): {', '.join(fails)}")
         print("An unlogged decision is an open decision. Add an AUTONOMOUS entry")
-        print("to .claude/overseer/escalations.md with Status: CLOSED.")
+        print("to .engine/overseer/escalations.md with Status: CLOSED.")
         return 1
     print(f"PASS: {len(deviations)}/{len(deviations)} deviations logged and closed")
     return 0

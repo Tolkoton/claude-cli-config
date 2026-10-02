@@ -50,7 +50,7 @@ conversation_search "<symptom keywords from the error>"
 And:
 
 ```
-grep -r "<symptom keywords>" ~/.claude/memory/ .claude/architecture/MEMORY.md CLAUDE.md decisions.md 2>/dev/null
+grep -r "<symptom keywords>" ~/.claude/memory/ .engine/architecture/MEMORY.md CLAUDE.md decisions.md 2>/dev/null
 ```
 
 If you find anything — read it, apply the lesson, re-attempt. If it resolves, **add the symptom keywords to the matched MEMORY entry** so it's more searchable next time.

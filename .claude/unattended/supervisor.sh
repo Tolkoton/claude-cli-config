@@ -37,12 +37,13 @@ cd "$PROJECT_ROOT" || exit 1
 [ -f "$HERE/config.sh" ] && source "$HERE/config.sh"
 
 RUNSTATE="python3 $HERE/runstate.py"
-LOG_DIR="$HERE/logs"
+STATE_DIR="$PROJECT_ROOT/.claude/state/unattended"   # machine state (package 3c)
+LOG_DIR="$STATE_DIR/logs"
 SUP_LOG="$LOG_DIR/supervisor.log"
-RESTART_LOG="$HERE/restarts.log"
-HEARTBEAT="$HERE/heartbeat"
+RESTART_LOG="$STATE_DIR/restarts.log"
+HEARTBEAT="$STATE_DIR/heartbeat"
 PROGRESS="$PROJECT_ROOT/PROGRESS.md"
-mkdir -p "$LOG_DIR" "$HERE/archive"
+mkdir -p "$LOG_DIR" "$STATE_DIR/archive"
 
 log() {
   local line
@@ -57,9 +58,9 @@ log() {
 now() { date +%s; }
 
 # ---------------------------------------------------------------------------
-# Liveness (D-4): newest of PROGRESS.md and the heartbeat.
+# Liveness (D-4): newest of .engine/PROGRESS.md and the heartbeat.
 # A stall is declared only when BOTH are stale, so a long unit that does not
-# touch PROGRESS.md is not mistaken for a hang.
+# touch .engine/PROGRESS.md is not mistaken for a hang.
 # ---------------------------------------------------------------------------
 mtime() {
   [ -e "$1" ] || { echo 0; return; }
@@ -133,7 +134,7 @@ check_restart_cap() {
 
 check_session_cap() {
   local s
-  s=$(python3 -c "import json;print(json.load(open('$HERE/state.json')).get('sessions',0))" 2>/dev/null || echo 0)
+  s=$(python3 -c "import json;print(json.load(open('$STATE_DIR/state.json')).get('sessions',0))" 2>/dev/null || echo 0)
   if [ "$s" -ge "${MAX_SESSIONS:-200}" ]; then
     log "SESSION CAP reached: $s sessions (max ${MAX_SESSIONS}). Halting."
     $RUNSTATE set halted \
@@ -184,7 +185,7 @@ run_session() {
     sleep "${POLL_INTERVAL_SEC:-15}"
     waited=$(( $(now) - $(last_life) ))
     if [ "$waited" -ge "${STALL_TIMEOUT_SEC:-900}" ]; then
-      log "STALL: no PROGRESS.md or heartbeat movement for ${waited}s (limit ${STALL_TIMEOUT_SEC}s). Killing pid $pid (D-5)."
+      log "STALL: no .engine/PROGRESS.md or heartbeat movement for ${waited}s (limit ${STALL_TIMEOUT_SEC}s). Killing pid $pid (D-5)."
       kill -TERM "$pid" 2>/dev/null
       local g=0
       while kill -0 "$pid" 2>/dev/null && [ "$g" -lt "${KILL_GRACE_SEC:-20}" ]; do
@@ -221,7 +222,7 @@ case "${1:-}" in
     exit 0
     ;;
   --reset)
-    rm -f "$HERE/state.json" "$RESTART_LOG" "$HEARTBEAT"
+    rm -f "$STATE_DIR/state.json" "$RESTART_LOG" "$HEARTBEAT"
     log "state reset (cost.json deliberately preserved — spend is cumulative)"
     exit 0
     ;;
@@ -252,7 +253,7 @@ esac
 # The lock holds the owning PID; a lock whose PID is gone is stale and reclaimed,
 # so a crashed supervisor does not wedge the repo forever.
 # ---------------------------------------------------------------------------
-LOCKFILE="$HERE/supervisor.lock"
+LOCKFILE="$STATE_DIR/supervisor.lock"
 if [ -f "$LOCKFILE" ]; then
   HOLDER=$(cat "$LOCKFILE" 2>/dev/null)
   if [ -n "$HOLDER" ] && kill -0 "$HOLDER" 2>/dev/null; then
@@ -323,7 +324,7 @@ while true; do
     parked)
       log "every remaining node is blocked. Parking (legitimate stop 1 or 2)."
       $RUNSTATE set parked "nodes remain but all are blocked or parked" \
-        "the owner resolves an item in .claude/overseer/parked.md"
+        "the owner resolves an item in .engine/overseer/parked.md"
       continue
       ;;
     *)

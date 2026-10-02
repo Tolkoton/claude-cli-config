@@ -17,8 +17,9 @@ PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$HERE/../.." && pwd)}"
 # shellcheck disable=SC1091
 [ -f "$HERE/config.sh" ] && source "$HERE/config.sh"
 
-ARCHIVE="$HERE/archive"
-LOG_DIR="$HERE/logs"
+STATE_DIR="$PROJECT_ROOT/.claude/state/unattended"
+ARCHIVE="$STATE_DIR/archive"
+LOG_DIR="$STATE_DIR/logs"
 MAX_KB="${ROTATE_MAX_KB:-2048}"
 KEEP="${ROTATE_KEEP:-7}"
 MAX_AGE="${ARCHIVE_MAX_AGE_DAYS:-30}"
@@ -52,7 +53,7 @@ rotate_one() {
 
 # Managed files.
 rotate_one "$LOG_DIR/supervisor.log"
-rotate_one "$PROJECT_ROOT/.claude/overseer/ledger.md"
+rotate_one "$PROJECT_ROOT/.engine/overseer/ledger.md"
 for f in "$LOG_DIR"/session-*.log; do rotate_one "$f"; done
 
 # Session logs are per-session, so they accumulate by COUNT, not size.

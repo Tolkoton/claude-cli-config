@@ -72,6 +72,6 @@
     "overlays": [
       "common"
     ],
-    "ledger_fixture": "fixtures-three-passes/.claude/overseer/ledger.md"
+    "ledger_fixture": "fixtures-three-passes/.engine/overseer/ledger.md"
   }
 }

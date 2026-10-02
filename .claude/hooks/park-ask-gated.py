@@ -69,8 +69,8 @@ ASK_GATED_RE = [re.compile(p) for p in ASK_GATED]
 REASON_TEMPLATE = (
     "Ask-gated command in an unattended run: {cmd!r}. This needs a human — it "
     "spends money or changes shared state — and no human is in the loop "
-    "(.claude/overseer/mode says unattended). Do NOT retry and do NOT work "
-    "around it. Append a PARKED entry to .claude/overseer/parked.md with "
+    "(.claude/state/overseer/mode says unattended). Do NOT retry and do NOT work "
+    "around it. Append a PARKED entry to .engine/overseer/parked.md with "
     "Class: ask-gated, the exact command above under 'Blocked on', and "
     "'Unblocks when: a human runs it or the session becomes attended', then "
     "continue with the next unblocked item. Blocked by "
@@ -96,11 +96,11 @@ def project_dir() -> Path:
 
 
 def is_unattended(root: Path) -> bool:
-    """True only when .claude/overseer/mode names the unattended mode.
+    """True only when .claude/state/overseer/mode names the unattended mode.
     Absent or unreadable -> attended, which is the safe default: the normal
     permission prompt fires and a human decides."""
     try:
-        return "unattended" in (root / ".claude" / "overseer" / "mode").read_text(
+        return "unattended" in (root / ".claude" / "state" / "overseer" / "mode").read_text(
             encoding="utf-8"
         ).lower()
     except OSError:

@@ -30,7 +30,7 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/mode",
+            "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
         },
@@ -58,7 +58,7 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/mode",
+            "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
         }
@@ -78,7 +78,7 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/mode",
+            "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
         }

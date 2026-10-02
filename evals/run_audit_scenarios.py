@@ -50,7 +50,7 @@ JsonObj = dict[str, Any]
 
 HERE = Path(__file__).resolve().parent
 SCENARIOS = HERE / "scenarios" / "audit"
-LEDGER = Path(".claude") / "overseer" / "ledger.md"
+LEDGER = Path(".engine") / "overseer" / "ledger.md"
 MARKER_RE = re.compile(r"OVERSEER_([A-Z_]+)")
 # A verdict line as a model actually types it: the marker may sit behind markdown
 # decoration (**bold**, a quote mark, a list dash, a heading). The Stop hook itself only
@@ -124,7 +124,7 @@ def call_claude(binary: str, prompt: str, cwd: Path, extra: list[str],
     fmt = ["--output-format", "stream-json", "--verbose"] if stream else ["--output-format", "json"]
     cmd = [binary, "-p", prompt, *fmt, *extra]
     try:
-        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=CALL_TIMEOUT_S)
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=CALL_TIMEOUT_S, check=False)
     except FileNotFoundError:
         return None, f"'{binary}' not found on PATH"
     except subprocess.TimeoutExpired:
@@ -200,7 +200,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     result: JsonObj = {"sandbox": sandbox.name}
     build = subprocess.run(
         ["bash", str(HERE / "make_sandbox.sh"), args.engine_ref, str(sandbox),
-         "--audit-fixtures"], capture_output=True, text=True)
+         "--audit-fixtures"], capture_output=True, text=True, check=False)
     if build.returncode != 0:
         return result | {"error": f"sandbox: {build.stderr.strip()[:200]}"}
     # The scenario's work goes in AFTER the sandbox's initial commit, so it shows up as
@@ -290,7 +290,7 @@ def main() -> int:
         return 2
     version = ""
     if shutil.which(args.claude) or Path(args.claude).is_file():
-        probe = subprocess.run([args.claude, "--version"], capture_output=True, text=True)
+        probe = subprocess.run([args.claude, "--version"], capture_output=True, text=True, check=False)
         version = probe.stdout.strip()
     if not version:
         print(f"'{args.claude}' is not runnable — is Claude Code installed and on PATH?",

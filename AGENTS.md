@@ -21,7 +21,7 @@ hooks, and supervisor under `.claude/`. Two consequences that surprise people:
   Those are the right defaults for a *target* project, so verification and the
   overseer's code-edit signal do not fire on edits to this repo's own files.
 - Work here is config and infrastructure. The backlog lives in
-  `.claude/architecture/feature-dag.json`, not in a issue tracker.
+  `.engine/architecture/feature-dag.json`, not in a issue tracker.
 
 ## Active agents
 
@@ -57,14 +57,16 @@ session per DAG node, restarts one that dies, and stops on a terminal state.
 | `CLAUDE.md` | Standing policy: permissions, verdict routing, session contract |
 | `.claude/skills/`, `.claude/commands/` | Agent definitions |
 | `.claude/agents/` | The five critics |
-| `.claude/hooks/` | 10 enforcement hooks, wired in the project's `settings.json` only — nothing the engine ships puts a hook under `~/.claude/` |
+| `.claude/hooks/` | 9 enforcement hooks, wired in the project's `settings.json` only — nothing the engine ships puts a hook under `~/.claude/` |
+| `.engine/` | What the agent produces while working: records, slice contracts, architecture, premises, spikes, PROGRESS. Not protected by Claude Code — that is the point (`docs/engine-limits.md`) |
+| `.claude/state/` | Machine state, written by hooks and scripts only; one line in `.gitignore` |
 | `user/` | The owner's own: personal skills (`install.sh`) and `user/settings.json`, the personal settings layer (`engine.py install --personal`). Never ships. |
 | `docs/tasks/` | Proposals the engine may not apply itself (`.claude/settings.json`), each with its test and one apply command |
 | `docs/engine-limits.md` | What the guarantees assume: one session, one repository; hooks guard tool calls, not scripts |
 | `.claude/unattended/` | Supervisor, state machine, rotation, park re-check |
-| `.claude/overseer/` | `ledger.md`, `parked.md`, `audit.md`, `escalations.md`, `MEMORY.md` |
-| `.claude/architecture/feature-dag.json` | The work queue |
-| `.claude/premises/premise-log.md` | Load-bearing assumptions and what depends on them |
+| `.engine/overseer/` | `ledger.md`, `parked.md`, `audit.md`, `escalations.md`, `MEMORY.md` |
+| `.engine/architecture/feature-dag.json` | The work queue |
+| `.engine/premises/premise-log.md` | Load-bearing assumptions and what depends on them |
 | `.claude/references/` | System-design and software-architecture playbooks |
 
 ## Rules that bite
@@ -111,7 +113,7 @@ A hook change is not verified until you have seen it **block** something it
 should block — a passing allow-case proves nothing, because a dead hook also
 allows. Where the hook's tool is absent from the machine, put a **shim on PATH
 that records its argv**: that shows the hook issuing the right command without
-pretending the tool is installed. See `.claude/overseer/MEMORY.md`.
+pretending the tool is installed. See `.engine/overseer/MEMORY.md`.
 
 `hook-checks/` is deliberately **not** named `tests/`. `verify-on-stop.sh` runs
 `pytest -x` whenever a `tests/` or `test/` directory exists and a `.py` file

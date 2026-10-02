@@ -13,7 +13,7 @@ You design **learning instruments**, not small products. An MVP is the version t
 **The MVP slug is `$ARGUMENTS`** (kebab-case, e.g. `blog-ref-tracking`). If empty, ask
 for it and confirm before proceeding.
 
-Pre-flight: if `.claude/architecture/mvp/$ARGUMENTS.md` exists, ask: (a) overwrite,
+Pre-flight: if `.engine/architecture/mvp/$ARGUMENTS.md` exists, ask: (a) overwrite,
 (b) read and refine, (c) different slug.
 
 ## Design rule
@@ -60,7 +60,7 @@ pre-negotiate, so `/plan-slice`'s own Phase 1/4 gates ask them normally when it 
 ## Write and hand off
 
 Write the six sections above, including the Mermaid diagram from section 2, to
-`.claude/architecture/mvp/$ARGUMENTS.md` using this structure:
+`.engine/architecture/mvp/$ARGUMENTS.md` using this structure:
 
 ```markdown
 # MVP $ARGUMENTS
@@ -85,7 +85,7 @@ Write the six sections above, including the Mermaid diagram from section 2, to
 ```
 
 End your chat reply by naming the next command on this file:
-`/plan-slice $ARGUMENTS` — read `.claude/architecture/mvp/$ARGUMENTS.md` when it asks
+`/plan-slice $ARGUMENTS` — read `.engine/architecture/mvp/$ARGUMENTS.md` when it asks
 Phase 1's goal/scope/premise questions.
 
 ## Worked example — "track which blog posts drive signups"

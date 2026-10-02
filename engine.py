@@ -480,7 +480,7 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
             else:
                 what = (
                     "holds only the engine's own records from an old copy, nothing of this project"
-                    if target_path.startswith(".claude/overseer/")
+                    if target_path.startswith(".engine/overseer/")
                     else "is an unedited copy of an older engine version"
                 )
                 plan.notes.append(f"{target_path} {what}; --reseed-pristine replaces it with the seed")

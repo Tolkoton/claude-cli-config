@@ -53,7 +53,7 @@ Missing files are fine — silently skip. The point is to load whatever exists.
 ### 3. Read project-scoped memory
 
 ```
-Read .claude/architecture/MEMORY.md
+Read .engine/architecture/MEMORY.md
 ```
 
 Or wherever the project keeps project-scoped lessons (some projects use `docs/lessons.md` instead). Check CLAUDE.md for the canonical path.

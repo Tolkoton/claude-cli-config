@@ -10,13 +10,15 @@ any project with one command; the steps after that tailor it. The whole setup ta
 
 - **Slice flow**: design (master-architect) → build (slice-builder) → audit (overseer).
 - **Memory lifecycle**: self-learning-orchestrator distils lessons across sessions.
-- **10 hooks**: block dangerous commands (with the commit policy by environment), protect
+- **9 hooks**: block dangerous commands (with the commit policy by environment), protect
   sensitive paths, format on edit, verify on stop, auto-approve web fetches, trigger the
   overseer audit on unit completion, park ask-gated commands when unattended, the
-  complexity budget, a session-start check of what the machine lacks, and — once the owner
-  wires it (`docs/tasks/README.md`) — a PermissionRequest hook that approves writes to the
-  project's own data under `.claude/`. They are wired by the project's `settings.json` only
-  — never from `~/.claude/` (`docs/engine-limits.md`).
+  complexity budget, and a session-start check of what the machine lacks. They are wired by
+  the project's `settings.json` only — never from `~/.claude/` (`docs/engine-limits.md`).
+- **Two directories**: `.claude/` holds what defines and constrains the agent and is
+  protected by Claude Code; `.engine/` holds what the agent produces while working (the
+  overseer's records, slice contracts, architecture, premises, spikes, `PROGRESS.md`) and
+  is not. Machine state lives under `.claude/state/`, written by hooks and scripts only.
 - **Critic agents**: slice-planner-critic, feature-critic, master-critic — adversarial
   review before implementation begins.
 
@@ -303,8 +305,7 @@ This forces the agent to load the policy and map before doing anything else.
 ```
 .claude/
   project.env     — ← fill this in (Step 2)
-  hooks/          — 10 enforcement hooks (wired in settings.json; approve-project-data.py
-                    is a proposal in docs/tasks/ until the owner wires it)
+  hooks/          — 9 enforcement hooks (wired in settings.json)
   skills/         — vendored skills: overseer, slice-builder, master-architect,
                     feature-architect, self-learning-orchestrator, documentation,
                     claude-autonomy
@@ -325,7 +326,7 @@ This forces the agent to load the policy and map before doing anything else.
 
 CLAUDE.md         — standing policy (every agent reads this)
 AGENTS.md         — agent roster and project context (loaded via @AGENTS.md)
-PROGRESS.md       — slice completion history (created by slice-builder)
+.engine/PROGRESS.md       — slice completion history (created by slice-builder)
 ```
 
 ---

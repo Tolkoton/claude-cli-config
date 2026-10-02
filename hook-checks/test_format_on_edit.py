@@ -27,7 +27,7 @@ provably unchanged. Negative cases are first class (NEG-*), because for a hook
 case that pins the *difference* is evidence.
 
 WHY IT LIVES HERE AND NOT UNDER .claude/
-    The intended home was .claude/artifacts/spikes/. Every Write under .claude/
+    The intended home was .engine/artifacts/spikes/. Every Write under .claude/
     is refused by the harness sensitive-path classifier in an unattended
     session. Moving it back is a one-line git mv once a human can approve.
 WHY THE DIRECTORY IS NOT CALLED tests/
@@ -113,7 +113,7 @@ def run_hook(
     root: Path,
     extra_path: Path | None = None,
     path_override: str | None = None,
-) -> subprocess.CompletedProcess:
+) -> subprocess.CompletedProcess[str]:
     """Feed the hook a PostToolUse payload and return the finished process."""
     payload = json.dumps({"tool_input": {"file_path": str(file_path)}})
     env = dict(os.environ)
@@ -123,8 +123,7 @@ def run_hook(
     elif extra_path is not None:
         env["PATH"] = f"{extra_path}:{env['PATH']}"
     return subprocess.run(
-        ["bash", str(HOOK)], input=payload, capture_output=True, text=True, env=env
-    )
+        ["bash", str(HOOK)], input=payload, capture_output=True, text=True, env=env, check=False)
 
 
 def make_shim(shim_dir: Path, name: str, log: Path) -> None:
@@ -176,8 +175,7 @@ def real_ruff_dir(root: Path) -> Path | None:
     if not shutil.which("uvx"):
         return None
     probe = subprocess.run(
-        ["uvx", "--quiet", "ruff", "--version"], capture_output=True, text=True
-    )
+        ["uvx", "--quiet", "ruff", "--version"], capture_output=True, text=True, check=False)
     if probe.returncode != 0:
         return None
     d = root / "realruff"
@@ -380,8 +378,7 @@ print("NEG-4  malformed stdin never blocks an edit")
 r = new_root()
 env = dict(os.environ, CLAUDE_PROJECT_DIR=str(r))
 res = subprocess.run(
-    ["bash", str(HOOK)], input="not json at all", capture_output=True, text=True, env=env
-)
+    ["bash", str(HOOK)], input="not json at all", capture_output=True, text=True, env=env, check=False)
 if res.returncode == 0:
     ok("exit 0 on garbage stdin")
 else:

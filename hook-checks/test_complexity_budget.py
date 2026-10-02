@@ -73,22 +73,23 @@ def make_repo(gate: str = "block", budget: str = BUDGET, active: bool = True) ->
     repo = Path(tempfile.mkdtemp(prefix="budget-"))
     (repo / "src" / "demo").mkdir(parents=True)
     (repo / "tests").mkdir()
-    (repo / ".claude" / "overseer" / "slice").mkdir(parents=True)
+    (repo / ".engine" / "slices").mkdir(parents=True)
+    (repo / ".claude" / "state" / "overseer").mkdir(parents=True)
     (repo / "src" / "demo" / "pricing.py").write_text(PRICING)
     (repo / "tests" / "test_pricing.py").write_text("def test_total() -> None:\n    assert True\n")
     (repo / "pyproject.toml").write_text(PYPROJECT)
     (repo / ".claude" / "project.env").write_text(f'SOURCE_DIRS="src"\nCOMPLEXITY_GATE="{gate}"\n')
-    (repo / ".gitignore").write_text("PROGRESS.md\n.claude/overseer/.budget-*\n"
-                                     ".claude/overseer/complexity-report.md\n")
+    (repo / ".gitignore").write_text(".engine/PROGRESS.md\n.claude/state/overseer/.budget-*\n"
+                                     ".claude/state/overseer/complexity-report.md\n")
     sh(repo, "init", "-q", "-b", "main")
     sh(repo, "add", "-A")
     sh(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base")
     base = sh(repo, "rev-parse", "HEAD")
-    (repo / ".claude" / "overseer" / "slice" / "tax.md").write_text(
+    (repo / ".engine" / "slices" / "tax.md").write_text(
         "# Slice tax\n\n## Goal\nAdd tax.\n\n" + budget.format(base=base) + "\n## Exit criterion\nTests.\n")
     if active:
-        (repo / "PROGRESS.md").write_text(
-            "# PROGRESS\n\n## Slice tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/tax.md`.\n")
+        (repo / ".engine/PROGRESS.md").write_text(
+            "# PROGRESS\n\n## Slice tax — IN PROGRESS\nPlanning artifact: `.engine/slices/tax.md`.\n")
     return repo
 
 
@@ -97,7 +98,7 @@ def run_hook(repo: Path, stop_hook_active: bool = False) -> tuple[str, str]:
     proc = subprocess.run(
         [sys.executable, str(HOOK), "hook"], capture_output=True, text=True, cwd=repo,
         input=json.dumps({"hook_event_name": "Stop", "stop_hook_active": stop_hook_active}),
-        env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)})
+        env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)}, check=False)
     if proc.returncode != 0:
         return f"exit {proc.returncode}", proc.stderr
     if not proc.stdout.strip():
@@ -127,7 +128,7 @@ append(repo, "src/demo/pricing.py", SMALL)
 decision, text = run_hook(repo)
 check("one small public function -> allow", decision == "allow", text)
 check("report file says 'within budget'",
-      "within budget" in (repo / ".claude/overseer/complexity-report.md").read_text())
+      "within budget" in (repo / ".claude/state/overseer/complexity-report.md").read_text())
 
 print("LIMIT-*   each limit blocks, names its field and what counted")
 repo = make_repo()
@@ -188,7 +189,7 @@ add(repo, "tests/test_a.py", "\n".join(f"def test_{i}() -> None:\n    assert Tru
 add(repo, "tests/test_b.py", "def test_b() -> None:\n    assert True\n")
 decision, text = run_hook(repo)
 check("two new test files and 120 test lines -> allow (tests are never limited)", decision == "allow", text)
-check("...but they are reported", "tests: +" in (repo / ".claude/overseer/complexity-report.md").read_text())
+check("...but they are reported", "tests: +" in (repo / ".claude/state/overseer/complexity-report.md").read_text())
 
 repo = make_repo()
 append(repo, "src/demo/pricing.py", "\n\nY = 1\n")
@@ -225,7 +226,7 @@ for gate in ("off", ""):
     add(repo, "src/demo/b.py", "B = 1\n")
     decision, text = run_hook(repo)
     check(f"COMPLEXITY_GATE='{gate}' -> allow, no report file",
-          decision == "allow" and not (repo / ".claude/overseer/complexity-report.md").exists(), text)
+          decision == "allow" and not (repo / ".claude/state/overseer/complexity-report.md").exists(), text)
 
 repo = make_repo(gate="warn")
 add(repo, "src/demo/a.py", "A = 1\n")
@@ -233,7 +234,7 @@ add(repo, "src/demo/b.py", "B = 1\n")
 decision, text = run_hook(repo)
 check("warn: never blocks, tells the user, writes the report",
       decision == "warn" and "complexity-report.md" in text
-      and "EXCEEDED" in (repo / ".claude/overseer/complexity-report.md").read_text(), text)
+      and "EXCEEDED" in (repo / ".claude/state/overseer/complexity-report.md").read_text(), text)
 
 repo = make_repo(active=False)
 add(repo, "src/demo/a.py", "A = 1\n")
@@ -260,12 +261,12 @@ repo = make_repo()
 add(repo, "src/demo/a.py", "A = 1\n")
 check("first look, within budget -> allow", run_hook(repo)[0] == "allow")
 add(repo, "src/demo/b.py", "B = 1\n")
-contract = repo / ".claude/overseer/slice/tax.md"
+contract = repo / ".engine/slices/tax.md"
 contract.write_text(contract.read_text().replace("max_new_files: 1", "max_new_files: 5"))
 decision, text = run_hook(repo)
 check("budget edited 1 -> 5 mid-slice: still blocked at 1, and the raise is reported",
       decision == "block" and "1 allowed" in text and "BUDGET RAISED" in text, text)
-for memo in (repo / ".claude/overseer").glob(".budget-*.json"):
+for memo in (repo / ".claude/state/overseer").glob(".budget-*.json"):
     memo.unlink()
 check("owner deletes the memo file (re-baseline) -> the new limit applies", run_hook(repo)[0] == "allow")
 
@@ -273,9 +274,9 @@ print("VALIDATE-* the contract check run at slice approval")
 
 
 def validate(repo: Path) -> tuple[int, str]:
-    proc = subprocess.run([sys.executable, str(HOOK), "validate", ".claude/overseer/slice/tax.md"],
+    proc = subprocess.run([sys.executable, str(HOOK), "validate", ".engine/slices/tax.md"],
                           capture_output=True, text=True, cwd=repo,
-                          env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)})
+                          env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)}, check=False)
     return proc.returncode, proc.stdout
 
 

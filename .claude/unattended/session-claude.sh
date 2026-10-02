@@ -24,8 +24,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$HERE/../.." && pwd)}"
 cd "$PROJECT_ROOT" || exit 1
 RUNSTATE="python3 $HERE/runstate.py"
+STATE_DIR="$PROJECT_ROOT/.claude/state/unattended"
+mkdir -p "$STATE_DIR/logs"
+STATE_DIR="$PROJECT_ROOT/.claude/state/unattended"
+mkdir -p "$STATE_DIR/logs"
 
-# Heartbeat ticker: the fast half of the liveness signal (D-4). PROGRESS.md is
+# Heartbeat ticker: the fast half of the liveness signal (D-4). .engine/PROGRESS.md is
 # the slow half and only moves at unit boundaries.
 ( while true; do $RUNSTATE heartbeat; sleep 30; done ) &
 TICKER=$!
@@ -68,7 +72,7 @@ export CLAUDE_UNATTENDED_SESSION=1
 claude -p "$PROMPT" \
   --permission-mode acceptEdits \
   --output-format json \
-  > "$HERE/logs/last-session.json" 2> "$HERE/logs/last-session.err" &
+  > "$STATE_DIR/logs/last-session.json" 2> "$STATE_DIR/logs/last-session.err" &
 CLAUDE_PID=$!
 wait "$CLAUDE_PID"
 RC=$?
@@ -77,7 +81,7 @@ RC=$?
 COST=$(python3 -c "
 import json,sys
 try:
-    d=json.load(open('$HERE/logs/last-session.json'))
+    d=json.load(open('$STATE_DIR/logs/last-session.json'))
     print(d.get('total_cost_usd') or d.get('cost_usd') or 0)
 except Exception:
     print(0)

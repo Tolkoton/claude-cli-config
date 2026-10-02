@@ -16,7 +16,7 @@ Checkable conditions, matched from the entry text:
     env:VAR            -> that variable is now set in the environment
     file:PATH          -> that path now exists
     node:ID            -> that DAG node is now status 'done'
-    mode:attended      -> .claude/overseer/mode no longer says unattended
+    mode:attended      -> .claude/state/overseer/mode no longer says unattended
     premise:ID         -> that premise row is now 'verified' in the premise log
 
 Anything else -> left parked, counted, and reported.
@@ -31,9 +31,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-PARKED = ROOT / ".claude" / "overseer" / "parked.md"
-MODE = ROOT / ".claude" / "overseer" / "mode"
-PREMISES = ROOT / ".claude" / "premises" / "premise-log.md"
+PARKED = ROOT / ".engine" / "overseer" / "parked.md"
+MODE = ROOT / ".claude" / "state" / "overseer" / "mode"
+PREMISES = ROOT / ".engine" / "premises" / "premise-log.md"
 
 ENTRY_RE = re.compile(r"^## (\S+) — (.+?) — (PARKED|RESUMED|SURFACED)\s*$", re.MULTILINE)
 COND_RE = re.compile(r"\b(env|file|node|mode|premise):([^\s,;]+)")
@@ -42,7 +42,7 @@ UNBLOCKS_RE = re.compile(r"^-\s*Unblocks when:\s*(.*)$", re.MULTILINE)
 
 def dag_path() -> Path:
     cfg = HERE / "config.sh"
-    default = ROOT / ".claude" / "architecture" / "feature-dag.json"
+    default = ROOT / ".engine" / "architecture" / "feature-dag.json"
     try:
         for line in cfg.read_text(encoding="utf-8").splitlines():
             if line.strip().startswith("DAG_FILE="):

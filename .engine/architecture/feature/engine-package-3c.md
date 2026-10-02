@@ -30,14 +30,14 @@ working: the overseer's records, slice contracts, architecture, premises, spikes
 
 | was | becomes | owner |
 |---|---|---|
-| `.claude/overseer/{ledger,audit,escalations,parked,MEMORY}.md` | `.engine/overseer/<same>` | project (seeded) |
-| `.claude/overseer/slice/` | `.engine/slices/` | project |
-| `.claude/architecture/` | `.engine/architecture/` | project |
-| `.claude/premises/` | `.engine/premises/` | project (premise-log seeded) |
-| `.claude/artifacts/` | `.engine/artifacts/` | project |
-| `PROGRESS.md` | `.engine/PROGRESS.md` | project |
-| `.claude/overseer/_template.md` | `.claude/templates/slice-contract.md` | engine |
-| `.claude/overseer/{.last_audit_sha,.last_continue_sha,.continue_count,mode,state,.budget-*.json,complexity-report.md}` | `.claude/state/overseer/<same>` | machine |
+| `.engine/overseer/{ledger,audit,escalations,parked,MEMORY}.md` | `.engine/overseer/<same>` | project (seeded) |
+| `.engine/slices/` | `.engine/slices/` | project |
+| `.engine/architecture/` | `.engine/architecture/` | project |
+| `.engine/premises/` | `.engine/premises/` | project (premise-log seeded) |
+| `.engine/artifacts/` | `.engine/artifacts/` | project |
+| `.engine/PROGRESS.md` | `.engine/PROGRESS.md` | project |
+| `.claude/templates/slice-contract.md` | `.claude/templates/slice-contract.md` | engine |
+| `.engine/overseer/{.last_audit_sha,.last_continue_sha,.continue_count,mode,state,.budget-*.json,complexity-report.md}` | `.claude/state/overseer/<same>` | machine |
 | `.claude/unattended/{state.json,cost.json,heartbeat,restarts.log,sim-plan.txt,supervisor.lock,logs/,archive/}` | `.claude/state/unattended/<same>` | machine |
 | (new) contract fingerprints | `.claude/state/contracts/<slug>.sha256` | machine |
 
@@ -60,7 +60,13 @@ a project's un-migrated record can never be swept up by the engine-retirement st
   `.engine/PROGRESS.md`; `run_audit_scenarios.py` reads `.engine/overseer/ledger.md`.
   Closed records are moved, never rewritten. **Tracer bullet**: the hook scenarios and the
   hook-checks must stay green with only the path changes — that is the one chain crossing
-  hooks, harness, evals and tests. · depends on: —.
+  hooks, harness, evals and tests. **Premise probe (the critic's round 1):** a PRISTINE
+  project installed from v0.10.1 — every seeded record byte-identical to its seed, never
+  appended to — updated to the C2 commit must keep every legacy record at its old path
+  with unchanged content; the plan may say nothing about them, never `remove`. That is the
+  one input where blob-match retirement would fire if the legacy `project` rules were
+  mis-ordered, and decana cannot exercise it (its records are long diverged). Built as a
+  test in C2, re-run in C3 where the same files are then MOVED, not removed. · depends on: —.
 - **C3 migration** (item 3) — `engine.py` carries an explicit old→new table; `update`, and
   `install` on a copy without a lock, move each old path that exists to its new place
   (file by file for directories), report and touch nothing when the file exists in both

@@ -11,18 +11,18 @@ at `.claude/agents/feature-critic.md`.
 **The feature slug is `$ARGUMENTS`** (kebab-case). If empty, ask and confirm.
 
 Pre-flight:
-- If `.claude/architecture/feature/$ARGUMENTS.md` exists, ask: (a) overwrite,
+- If `.engine/architecture/feature/$ARGUMENTS.md` exists, ask: (a) overwrite,
   (b) refine, (c) different slug.
-- Write `plan` into `.claude/overseer/state` so the implementation overseer stands
+- Write `plan` into `.claude/state/overseer/state` so the implementation overseer stands
   down during planning. Clear it at the end.
-- Read the **domain map** and **architecture map** (`.claude/architecture/*`) to place
+- Read the **domain map** and **architecture map** (`.engine/architecture/*`) to place
   this feature in the existing system.
 
 ---
 
 # Unattended operation — the one human round becomes a written frame
 
-Read `.claude/overseer/mode`. Contents `unattended` → nobody is in the loop;
+Read `.claude/state/overseer/mode`. Contents `unattended` → nobody is in the loop;
 absent or anything else → attended, and Phase 1 runs interactively as written.
 
 Unattended, Phase 1 does not ask and does not block. Derive the frame from the
@@ -31,7 +31,7 @@ feature artifact; mark every item the owner would have ratified as
 `PROVISIONAL — owner ratification pending` with its cost-to-reverse; and start
 the autonomous run. The two HARD GATEs below (1b acceptance criteria, 1e autonomy
 grant) become parks: the feature proceeds on the provisional frame, and the
-ratification sits in `.claude/overseer/parked.md` for the owner's return.
+ratification sits in `.engine/overseer/parked.md` for the owner's return.
 
 **Except** — a frame item that is a genuine one-way door (a price, a published
 contract, an irreversible data decision, anything spending money or touching a
@@ -58,7 +58,7 @@ not invent thresholds. **HARD GATE: do not proceed until ratified.**
 **1d — Load-bearing premises.** Enumerate the feature's assumptions about external
 systems, existing components, and especially **integration** ("slice X's output can
 feed slice Y", "component Z exists and behaves like W"). Record each in
-`.claude/premises/premise-log.md` with status `unverified`, linked to `feature:$ARGUMENTS`.
+`.engine/premises/premise-log.md` with status `unverified`, linked to `feature:$ARGUMENTS`.
 Architecture-level premises not yet decided → escalate up to master-architect (Art. 8).
 This step is **re-entrant** — the tracer-bullet back-edge returns here.
 
@@ -137,7 +137,7 @@ slice-builder), before committing the rest of the DAG.
 
 # Write the feature artifact
 
-`Write` `.claude/architecture/feature/$ARGUMENTS.md`:
+`Write` `.engine/architecture/feature/$ARGUMENTS.md`:
 
 ```markdown
 # Feature $ARGUMENTS — decomposition
@@ -190,14 +190,14 @@ its thresholds). For each remaining slice:
 
 ```
 for slice in dag_order_after_tracer:
-    set .claude/overseer/state = "plan"
+    set .claude/state/overseer/state = "plan"
     plan  = /plan-slice <slice>  IN DRIVEN MODE
             — frame SUPPLIED from the feature artifact (NOT asked of the human)
             — its gates route to THIS orchestrator's interrupt filter, not to the human
-    clear .claude/overseer/state
+    clear .claude/state/overseer/state
     build = slice-builder implements <slice> under TDD; overseer audits each unit
             — OVERSEER_PASS → continue; any OVERSEER_* halt marker → interrupt filter
-    on slice done (smoke green): append to PROGRESS.md; continue to next slice
+    on slice done (smoke green): append to .engine/PROGRESS.md; continue to next slice
 ```
 
 **Features emit AND build slices directly — no intermediate task list.**
@@ -222,15 +222,15 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
 
 ## When the feature is built
 
-1. `Edit` a ledger entry into `.claude/overseer/ledger.md`:
+1. `Edit` a ledger entry into `.engine/overseer/ledger.md`:
    ```
    ## <ISO timestamp UTC> — feature:$ARGUMENTS — FEATURE_COMPLETE
    - Trigger: /feature-architect
-   - Evidence: .claude/architecture/feature/$ARGUMENTS.md ; all N slices smoke-green
+   - Evidence: .engine/architecture/feature/$ARGUMENTS.md ; all N slices smoke-green
    - Action: N slices planned+built, tracer verified, K critic rounds, J interrupts
    - Category: strategy
    ```
-2. Clear the phase guard (remove `plan` from `.claude/overseer/state`).
+2. Clear the phase guard (remove `plan` from `.claude/state/overseer/state`).
 3. Summarize for the owner: capability delivered, slices built, how acceptance is met,
    any accepted risks / open items. *"Feature $ARGUMENTS is built and its acceptance
    criteria are met."*

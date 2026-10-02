@@ -46,7 +46,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
   out session_kind cloud
 elif [ -n "${CLAUDE_UNATTENDED_SESSION:-}" ]; then
   out session_kind unattended-supervised
-elif [ -f "$PROJECT/.claude/overseer/mode" ] && grep -qx 'unattended' "$PROJECT/.claude/overseer/mode" 2>/dev/null; then
+elif [ -f "$PROJECT/.claude/state/overseer/mode" ] && grep -qx 'unattended' "$PROJECT/.claude/state/overseer/mode" 2>/dev/null; then
   out session_kind unattended-mode-file
 else
   out session_kind attended-local
@@ -81,7 +81,7 @@ out settings_project "$([ -f "$PROJECT/.claude/settings.json" ] && echo present 
 out settings_local "$([ -f "$PROJECT/.claude/settings.local.json" ] && echo present || echo absent)"
 out hooks_dir "$([ -d "$PROJECT/.claude/hooks" ] && (cd "$PROJECT/.claude/hooks" && pwd -P) || echo '<absent>')"
 out hooks_count "$(ls "$PROJECT/.claude/hooks" 2>/dev/null | wc -l | tr -d ' ')"
-out mode_file "$(cat "$PROJECT/.claude/overseer/mode" 2>/dev/null || echo '<absent>')"
+out mode_file "$(cat "$PROJECT/.claude/state/overseer/mode" 2>/dev/null || echo '<absent>')"
 policy=$(sed -nE 's/^[[:space:]]*CLOUD_COMMIT_POLICY=["'"'"']?([A-Za-z-]*)["'"'"']?.*$/\1/p' "$PROJECT/.claude/project.env" 2>/dev/null | tail -1)
 out cloud_commit_policy "${policy:-<unset: off>}"
 

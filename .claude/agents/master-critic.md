@@ -35,7 +35,7 @@ Hold three things above all:
 ## What you receive (read-only — BLIND to the architect's reasoning)
 
 `phase`: `domain` | `decision` | `decomposition` · `draft` · `product_frame` · the
-existing **domain map** and **architecture map** (`.claude/architecture/*`). You MAY
+existing **domain map** and **architecture map** (`.engine/architecture/*`). You MAY
 read the maps, ADRs (`docs/adr/`), and the codebase to check fit. You do NOT see the
 architect's chain-of-thought.
 

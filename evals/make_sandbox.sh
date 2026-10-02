@@ -8,7 +8,7 @@
 #   <target-dir>       new directory OUTSIDE this repository (must not exist)
 #   --no-sync          skip `uv sync` (no .venv; verify/format scenarios will not
 #                      find ruff, mypy or pytest)
-#   --audit-fixtures   also install the slice contract and PROGRESS.md the manual
+#   --audit-fixtures   also install the slice contract and .engine/PROGRESS.md the manual
 #                      audit scenarios rely on (evals/scenarios/audit/fixtures/)
 #
 # WHY A SEPARATE REPOSITORY. A project nested inside the engine repository would
@@ -82,26 +82,27 @@ else
 fi
 
 # Fixtures go in AFTER the engine so they win over any file the ref shipped at the same path.
-# PROGRESS.md is stored as PROGRESS.fixture.md: the engine's own .gitignore ignores every
-# PROGRESS.md, so under its real name the fixture would never reach a commit of this repo.
+# .engine/PROGRESS.md is stored as PROGRESS.fixture.md: the engine's own .gitignore ignores every
+# .engine/PROGRESS.md, so under its real name the fixture would never reach a commit of this repo.
 FIXTURE_FILES=()
 if [ "$AUDIT" -eq 1 ]; then
   FIXTURES="$REPO_ROOT/evals/scenarios/audit/fixtures"
   [ -f "$FIXTURES/PROGRESS.fixture.md" ] || die "audit fixture missing: $FIXTURES/PROGRESS.fixture.md"
   cp -R "$FIXTURES/." "$TARGET/"
-  mv "$TARGET/PROGRESS.fixture.md" "$TARGET/PROGRESS.md"
+  mkdir -p "$TARGET/.engine"
+  mv "$TARGET/PROGRESS.fixture.md" "$TARGET/.engine/PROGRESS.md"
   while IFS= read -r -d '' f; do
     rel="${f#"$FIXTURES"/}"
-    [ "$rel" = "PROGRESS.fixture.md" ] && rel="PROGRESS.md"
+    [ "$rel" = "PROGRESS.fixture.md" ] && rel=".engine/PROGRESS.md"
     FIXTURE_FILES+=("$rel")
   done < <(find "$FIXTURES" -type f -print0)
 fi
 
 # 3. Record what the ref SHIPPED, then normalise the supervision state.
-#    A ref may ship .claude/overseer/mode = "unattended"; scenarios need the
+#    A ref may ship .claude/state/overseer/mode = "unattended"; scenarios need the
 #    documented default (attended) and set anything else explicitly.
 SHIPPED_MODE="absent"
-MODE_FILE="$TARGET/.claude/overseer/mode"
+MODE_FILE="$TARGET/.claude/state/overseer/mode"
 if [ -f "$MODE_FILE" ]; then
   SHIPPED_MODE="$(tr -d '[:space:]' < "$MODE_FILE")"
   printf 'attended\n' > "$MODE_FILE"
@@ -119,9 +120,9 @@ JSON
 
 # 4. A real repository: hooks read the branch, the diff and the index.
 git -C "$TARGET" init -q -b main
-git -C "$TARGET" add -A -f .claude/overseer/mode 2>/dev/null || true
+git -C "$TARGET" add -A -f .claude/state/overseer/mode 2>/dev/null || true
 git -C "$TARGET" add -A
-# Fixtures are FORCE-added: an older ref's appended ignore rules ignore PROGRESS.md, and an
+# Fixtures are FORCE-added: an older ref's appended ignore rules ignore .engine/PROGRESS.md, and an
 # untracked, ignored file is deleted by the runner's reset (`git clean -fdx`).
 for rel in "${FIXTURE_FILES[@]:-}"; do
   [ -n "$rel" ] && git -C "$TARGET" add -f -- "$rel"

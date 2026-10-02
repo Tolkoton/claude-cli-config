@@ -23,7 +23,7 @@ When in doubt: ask the user "Are we wrapping up this task? If so I'd like to do 
 
 ```
 Read claude-progress.md
-Read .claude/architecture/tasks/<active-task>/reflections.md 2>/dev/null
+Read .engine/architecture/tasks/<active-task>/reflections.md 2>/dev/null
 Read .claude/lesson-queue.md 2>/dev/null
 ```
 
@@ -42,7 +42,7 @@ For each candidate, ask in order:
 
 1. **Is this generic / obvious?** ("Pydantic is great", "tests are important"). → **DISCARD**. Don't pollute memory.
 
-2. **Is this project-specific tactical?** ("the dunning service uses raw text() because of legacy schema"). → **PROJECT-SCOPE** memory: append to `.claude/architecture/MEMORY.md`.
+2. **Is this project-specific tactical?** ("the dunning service uses raw text() because of legacy schema"). → **PROJECT-SCOPE** memory: append to `.engine/architecture/MEMORY.md`.
 
 3. **Is this a tech/library quirk that would bite in any project using the same stack?** ("argon2-cffi's verify raises VerifyMismatchError, not returns False"). → **TECH-SCOPE** memory: append to `~/.claude/memory/<tech>/MEMORY.md`.
 
@@ -96,13 +96,13 @@ After all entries are written:
 1. Show the user the diff for the memory files. **Always confirm before committing.**
 
    ```bash
-   git diff -- '.claude/architecture/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
+   git diff -- '.engine/architecture/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
    ```
 
 2. On confirmation, commit:
 
    ```bash
-   git add .claude/architecture/MEMORY.md CLAUDE.md decisions.md
+   git add .engine/architecture/MEMORY.md CLAUDE.md decisions.md
    git commit -m "chore(memory): distill lessons from <task or session description>"
    ```
 

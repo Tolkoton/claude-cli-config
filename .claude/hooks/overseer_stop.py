@@ -12,7 +12,7 @@ writer and read a stale or empty turn (anthropics/claude-code#15813).
 
 Claude Code now ships the finished turn's text directly on the Stop envelope as
 `last_assistant_message` (field probe PASS, 2026-05-22 — see
-.claude/artifacts/spikes/auto-overseer-redesign-2026-05-22.md). This hook reads that
+.engine/artifacts/spikes/auto-overseer-redesign-2026-05-22.md). This hook reads that
 field for the *completion text* and consults the transcript only for the
 *structural tool-use signal*, which is a stable historical record by the time
 Stop fires.
@@ -25,10 +25,10 @@ TRIGGER — both signals required:
                     (configured via CHECK_CMDS, or built-in broad default).
 
 RECURSION GUARDS — per-branch, by design:
-  - Audit-request branch    — `.claude/overseer/.last_audit_sha` SHA of last message
+  - Audit-request branch    — `.claude/state/overseer/.last_audit_sha` SHA of last message
                               that requested an audit; same-message re-fire
                               is silent.
-  - PASS / CONTINUE branch  — `.claude/overseer/.last_continue_sha` SHA of last
+  - PASS / CONTINUE branch  — `.claude/state/overseer/.last_continue_sha` SHA of last
                               OVERSEER_PASS message that produced a CONTINUE
                               injection; same-message re-fire is silent.
   - Halt markers (BLOCK / ESCALATE / ADR_REQUIRED / SLICE_AWAITING_OWNER /
@@ -41,7 +41,7 @@ RECURSION GUARDS — per-branch, by design:
   the autonomous loop. The per-branch SHAs handle recursion safety for the
   branches they cover.
 
-PHASE GUARD: `.claude/overseer/state` containing `plan` suppresses the audit — the
+PHASE GUARD: `.claude/state/overseer/state` containing `plan` suppresses the audit — the
 developer is designing, not completing units of work.
 
 Output: `{"decision":"block","reason":...}` on stdout (exit 0) injects the audit
@@ -249,7 +249,7 @@ def _is_code_path(
 
 
 CONTINUE_REASON = (
-    "OVERSEER_PASS recorded. Proceed with the next unit per the active slice plan in .claude/overseer/slice/. "
+    "OVERSEER_PASS recorded. Proceed with the next unit per the active slice plan in .engine/slices/. "
     "Do the next pending UNIT's work (code edits + verification commands), then emit `=== UNIT N COMPLETE ===` on its own line. "
     "If the slice has no more code units (only smoke / G4 owner-driven steps remain), or if you are uncertain what UNIT N is, "
     "emit `OVERSEER_SLICE_AWAITING_OWNER: <reason>` on its own line to halt and request owner input. "
@@ -261,7 +261,7 @@ AUDIT_REASON = (
     "claim). Before yielding control to the owner:\n"
     "1. Read .claude/skills/overseer/SKILL.md and apply the full 12-check "
     "checklist to the work since your last audit.\n"
-    "2. Append the prescribed entry to .claude/overseer/ledger.md before replying.\n"
+    "2. Append the prescribed entry to .engine/overseer/ledger.md before replying.\n"
     "3. Output a verdict on its own line, exactly one of: OVERSEER_PASS | "
     "OVERSEER_BLOCK: #N <reason> | OVERSEER_ESCALATE: <JSON> | "
     "OVERSEER_ADR_REQUIRED: <ADR>. Emitting any OVERSEER_ verdict marker is "
@@ -279,7 +279,7 @@ UNATTENDED_CONTINUE_REASON = (
     "Continue now: take the next unblocked item. If the only thing in flight is "
     "a supervisor session editing the repo, do work that does not race it — "
     "verify a hook's negative case, extend hook-checks/, re-check "
-    ".claude/overseer/parked.md, or update PROGRESS.md.\n"
+    ".engine/overseer/parked.md, or update .engine/PROGRESS.md.\n"
     "To stop for real, emit an OVERSEER_ halt marker naming which of the three "
     "reasons applies."
 )
@@ -303,7 +303,7 @@ def _run_has_work(project_dir: Path) -> str | None:
     if os.environ.get("CLAUDE_UNATTENDED_SESSION"):
         return None
     try:
-        mode = (project_dir / ".claude" / "overseer" / "mode").read_text(
+        mode = (project_dir / ".claude" / "state" / "overseer" / "mode").read_text(
             encoding="utf-8"
         )
     except OSError:
@@ -311,7 +311,7 @@ def _run_has_work(project_dir: Path) -> str | None:
     if "unattended" not in mode.lower():
         return None
 
-    state_path = project_dir / ".claude" / "unattended" / "state.json"
+    state_path = project_dir / ".claude" / "state" / "unattended" / "state.json"
     try:
         state = json.loads(state_path.read_text(encoding="utf-8"))
         status = str(state.get("status", ""))
@@ -321,7 +321,7 @@ def _run_has_work(project_dir: Path) -> str | None:
     except (OSError, json.JSONDecodeError, ValueError, AttributeError):
         pass
 
-    dag_path = project_dir / ".claude" / "architecture" / "feature-dag.json"
+    dag_path = project_dir / ".engine" / "architecture" / "feature-dag.json"
     try:
         nodes = json.loads(dag_path.read_text(encoding="utf-8")).get("nodes", [])
         done = {n["id"] for n in nodes if n.get("status") == "done"}
@@ -336,7 +336,7 @@ def _run_has_work(project_dir: Path) -> str | None:
 
 
 def _continue_count_file(project_dir: Path) -> Path:
-    return project_dir / ".claude" / "overseer" / ".continue_count"
+    return project_dir / ".claude" / "state" / "overseer" / ".continue_count"
 
 
 def _read_continue_count(project_dir: Path) -> int:
@@ -349,6 +349,7 @@ def _read_continue_count(project_dir: Path) -> int:
 def _write_continue_count(project_dir: Path, value: int) -> None:
     path = _continue_count_file(project_dir)
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"{value}\n", encoding="utf-8")
     except OSError:
@@ -486,9 +487,9 @@ def _has_tool_signal(
 
 
 def _phase_is_plan(project_dir: Path) -> bool:
-    """True if `.claude/overseer/state` exists and names the planning phase."""
+    """True if `.claude/state/overseer/state` exists and names the planning phase."""
     try:
-        content = (project_dir / ".claude" / "overseer" / "state").read_text(
+        content = (project_dir / ".claude" / "state" / "overseer" / "state").read_text(
             encoding="utf-8"
         )
     except OSError:
@@ -497,7 +498,7 @@ def _phase_is_plan(project_dir: Path) -> bool:
 
 
 def _audit_sha_file(project_dir: Path) -> Path:
-    return project_dir / ".claude" / "overseer" / ".last_audit_sha"
+    return project_dir / ".claude" / "state" / "overseer" / ".last_audit_sha"
 
 
 def _message_digest(message: str) -> str:
@@ -517,6 +518,7 @@ def _record_audit(project_dir: Path, message: str) -> None:
     """Persist this message's digest so the SHA guard suppresses a re-fire."""
     sha_file = _audit_sha_file(project_dir)
     sha_file.parent.mkdir(parents=True, exist_ok=True)
+    sha_file.parent.mkdir(parents=True, exist_ok=True)
     sha_file.write_text(_message_digest(message) + "\n", encoding="utf-8")
 
 
@@ -525,8 +527,8 @@ def main() -> NoReturn:
     # docstring "RECURSION GUARDS"). It preempted the per-branch SHA
     # idempotency on every hook-initiated turn — making both injection
     # branches (audit-request, PASS→CONTINUE) unreachable in the
-    # autonomous loop. Per-branch SHAs at `.claude/overseer/.last_audit_sha`
-    # and `.claude/overseer/.last_continue_sha` are the design's intended
+    # autonomous loop. Per-branch SHAs at `.claude/state/overseer/.last_audit_sha`
+    # and `.claude/state/overseer/.last_continue_sha` are the design's intended
     # recursion guards and are sufficient.
     dry_run = "--dry-run" in sys.argv[1:]
     envelope = _read_envelope()
@@ -543,7 +545,7 @@ def main() -> NoReturn:
     # PASS marker — re-inject "continue to next unit" (taskmaster pattern: keep blocking until slice done)
     if PASS_MARKER_RE.search(message):
         sha_file = (
-            _get_project_dir() / ".claude" / "overseer" / ".last_continue_sha"
+            _get_project_dir() / ".claude" / "state" / "overseer" / ".last_continue_sha"
         )
         digest = _message_digest(message)
         try:
@@ -551,6 +553,7 @@ def main() -> NoReturn:
                 _passthrough()
         except OSError:
             pass
+        sha_file.parent.mkdir(parents=True, exist_ok=True)
         sha_file.parent.mkdir(parents=True, exist_ok=True)
         sha_file.write_text(digest + "\n", encoding="utf-8")
         print(json.dumps({"decision": "block", "reason": CONTINUE_REASON}))

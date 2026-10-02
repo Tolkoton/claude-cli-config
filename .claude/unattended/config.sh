@@ -30,7 +30,7 @@ SESSION_CMD="${SESSION_CMD:-.claude/unattended/session-claude.sh}"
 # the D-16 boundary run) exported SESSION_PROMPT explicitly and so never
 # exercised this default — the production path was the one path untested.
 if [ -z "${SESSION_PROMPT:-}" ]; then
-  SESSION_PROMPT="Continue the unattended run. Next DAG node: {NODE}. Follow CLAUDE.md: decide and log, park and route around, three legitimate stops only. Write .claude/unattended/state.json before exiting."
+  SESSION_PROMPT="Continue the unattended run. Next DAG node: {NODE}. Follow CLAUDE.md: decide and log, park and route around, three legitimate stops only. Write .claude/state/unattended/state.json before exiting."
 fi
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ MAX_SESSIONS="${MAX_SESSIONS:-200}"
 # ---------------------------------------------------------------------------
 # Liveness
 # ---------------------------------------------------------------------------
-# Seconds with NO update to either PROGRESS.md or the heartbeat before a
+# Seconds with NO update to either .engine/PROGRESS.md or the heartbeat before a
 # session is declared stalled and killed (D-4, D-5).
 STALL_TIMEOUT_SEC="${STALL_TIMEOUT_SEC:-900}"
 
@@ -72,7 +72,7 @@ RESPAWN_DELAY_SEC="${RESPAWN_DELAY_SEC:-10}"
 # ---------------------------------------------------------------------------
 # Work source
 # ---------------------------------------------------------------------------
-DAG_FILE="${DAG_FILE:-.claude/architecture/feature-dag.json}"
+DAG_FILE="${DAG_FILE:-.engine/architecture/feature-dag.json}"
 
 # ---------------------------------------------------------------------------
 # Rotation (D-13)

@@ -15,7 +15,7 @@ A layered memory stack with deliberately different update frequencies:
 |---|---|---|---|
 | `CLAUDE.md` | project | forever | rare, deliberate |
 | `decisions.md` | project | append-only forever | per substantive decision (~weekly) |
-| `.claude/architecture/MEMORY.md` | project | append-only, periodic prune | per session-end |
+| `.engine/architecture/MEMORY.md` | project | append-only, periodic prune | per session-end |
 | `~/.claude/memory/<tech>/MEMORY.md` | global per-tech | append-only forever, periodic consolidate | per session-end |
 | `claude-progress.md` | task | deleted on completion | per commit |
 | `<task>/reflections.md` | task | archived on completion | per failed attempt |
@@ -132,7 +132,7 @@ If a delegated skill is not installed, the trigger file in `triggers/` contains 
 
 ## What this skill does NOT do
 
-- It does NOT replace `master-architect` for architectural design. Master-architect handles Phase 1–4 architectural work and writes its own `.claude/architecture/` artifacts. Self-learning-orchestrator coordinates the *cross-cutting* memory lifecycle around it.
+- It does NOT replace `master-architect` for architectural design. Master-architect handles Phase 1–4 architectural work and writes its own `.engine/architecture/` artifacts. Self-learning-orchestrator coordinates the *cross-cutting* memory lifecycle around it.
 - It does NOT replace `slice-builder` for implementation. Self-learning-orchestrator handles the memory lifecycle around implementation — ad-hoc bug fixes, refactors, exploration sessions — not the slice itself.
 - It does NOT write code. It coordinates the memory layer that informs all code work.
 

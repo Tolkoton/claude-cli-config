@@ -51,7 +51,7 @@ Example: "We picked PyJWT over authlib because the latter's API surface is unsta
 - Tech: the *authlib API instability* observation is tech-scope (true for anyone).
 
 Split:
-- Project (`.claude/architecture/MEMORY.md`): "We use PyJWT not authlib (see decisions.md 2026-05-20)."
+- Project (`.engine/architecture/MEMORY.md`): "We use PyJWT not authlib (see decisions.md 2026-05-20)."
 - Tech (`~/.claude/memory/authlib/MEMORY.md`): "authlib's API surface changes across minor versions — pin tightly or expect breakage on upgrade."
 
 ### Q5: Is this a CHOICE with alternatives, deserving rationale?
@@ -76,7 +76,7 @@ When a candidate could plausibly be project-scope OR tech-scope, prefer **projec
 - Project-scope memory is bounded; pruning is cheaper.
 - Promotion path goes project → tech, never tech → project. If the lesson recurs in 3+ projects, periodic-maintenance promotes it.
 
-So when in doubt, write to `.claude/architecture/MEMORY.md` and let promotion handle the rest.
+So when in doubt, write to `.engine/architecture/MEMORY.md` and let promotion handle the rest.
 
 ## Tech-scope file naming
 
@@ -115,7 +115,7 @@ A lesson can fit multiple files. If it's clearly about ONE library's behavior, p
 
 - Q1: Common knowledge? No.
 - Q2: Project-specific? Yes — this vendor is specific to our project.
-- → **PROJECT-SCOPE**: `.claude/architecture/MEMORY.md`. Don't put it in tech-scope; another project won't use the same vendor contract.
+- → **PROJECT-SCOPE**: `.engine/architecture/MEMORY.md`. Don't put it in tech-scope; another project won't use the same vendor contract.
 
 ### Example 3: We chose Pydantic for I/O, dataclass internally
 

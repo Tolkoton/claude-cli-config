@@ -15,44 +15,48 @@
 #          evals: they are this repository's project data and never ship.
 # machine  State of one machine and one run. Never committed, never shipped. Every install
 #          writes these patterns into the project's .gitignore, and this repository's own
-#          .gitignore must list them too (hook-checks/test_ownership.py checks it).
+#          .gitignore must list them too (tests/test_ownership.py checks it).
 # user     The owner's own. Personal skills (install.sh links them into ~/.claude/skills) and
 #          user/settings.json, the personal settings layer (`engine.py install --personal`
 #          merges it into the home settings file). Never shipped into a project.
+#
+# THE BOUNDARY (package 3c). `.claude/` is what defines, configures and feeds the gates —
+# Claude Code protects every agent-tool write there. `.engine/` is what the agent produces
+# while working — records, contracts, architecture, premises, spikes, PROGRESS — and is not
+# protected. Machine state is under `.claude/state/`, written by hooks and scripts only.
 
-# --- machine state --------------------------------------------------------------------
+# --- machine state: one directory, one line in .gitignore --------------------------------
+machine  .claude/state/
 machine  .claude/settings.local.json
 machine  .claude/worktrees/
 machine  .claude/**/__pycache__/
-machine  .claude/overseer/.last_audit_sha
-machine  .claude/overseer/.last_continue_sha
-machine  .claude/overseer/.continue_count
-machine  .claude/overseer/mode
-machine  .claude/overseer/.budget-*.json
-machine  .claude/overseer/complexity-report.md
-machine  .claude/unattended/state.json
-machine  .claude/unattended/cost.json
-machine  .claude/unattended/heartbeat
-machine  .claude/unattended/restarts.log
-machine  .claude/unattended/sim-plan.txt
-machine  .claude/unattended/supervisor.lock
-machine  .claude/unattended/logs/
-machine  .claude/unattended/archive/
 
 # --- written by engine.py into every project; never present in this repository ------------
 engine   .claude/engine-lock.json
 
-# --- project data inside .claude/ (in this repository: the engine's own records) ----------
+# --- the one project file left inside .claude/: the gates' switchboard ---------------------
 project  .claude/project.env              seed=templates/project/.claude/project.env
-project  .claude/overseer/ledger.md       seed=templates/project/.claude/overseer/ledger.md
-project  .claude/overseer/audit.md        seed=templates/project/.claude/overseer/audit.md
-project  .claude/overseer/escalations.md  seed=templates/project/.claude/overseer/escalations.md
-project  .claude/overseer/parked.md       seed=templates/project/.claude/overseer/parked.md
-project  .claude/overseer/MEMORY.md       seed=templates/project/.claude/overseer/MEMORY.md
-project  .claude/premises/premise-log.md  seed=templates/project/.claude/premises/premise-log.md
+
+# --- what the agent produces, in .engine/ (in this repository: the engine's own records) ----
+project  .engine/overseer/ledger.md       seed=templates/project/.engine/overseer/ledger.md
+project  .engine/overseer/audit.md        seed=templates/project/.engine/overseer/audit.md
+project  .engine/overseer/escalations.md  seed=templates/project/.engine/overseer/escalations.md
+project  .engine/overseer/parked.md       seed=templates/project/.engine/overseer/parked.md
+project  .engine/overseer/MEMORY.md       seed=templates/project/.engine/overseer/MEMORY.md
+project  .engine/premises/premise-log.md  seed=templates/project/.engine/premises/premise-log.md
+project  .engine/**
+
+# --- legacy paths of a project built before package 3c. Still the PROJECT'S data: never ----
+# --- touched by install/update, moved to .engine/ by engine.py's migration table. Listed ---
+# --- explicitly so the catch-all engine rule below can never retire them. -----------------
+project  .claude/overseer/ledger.md
+project  .claude/overseer/audit.md
+project  .claude/overseer/escalations.md
+project  .claude/overseer/parked.md
+project  .claude/overseer/MEMORY.md
 project  .claude/overseer/slice/
-project  .claude/premises/
 project  .claude/architecture/
+project  .claude/premises/
 project  .claude/artifacts/
 
 # --- everything else under .claude/ is the engine ------------------------------------------

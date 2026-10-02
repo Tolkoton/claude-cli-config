@@ -47,9 +47,9 @@ MUST_REFUSE = [
 MUST_ALLOW = [
     "a hook (newly granted)",        str(ROOT / ".claude/hooks/overseer_stop.py"),
     "the supervisor (newly granted)", str(ROOT / ".claude/unattended/supervisor.sh"),
-    "the DAG (newly granted)",       str(ROOT / ".claude/architecture/feature-dag.json"),
-    "the overseer ledger",           str(ROOT / ".claude/overseer/ledger.md"),
-    "an ordinary doc",               str(ROOT / "PROGRESS.md"),
+    "the DAG (newly granted)",       str(ROOT / ".engine/architecture/feature-dag.json"),
+    "the overseer ledger",           str(ROOT / ".engine/overseer/ledger.md"),
+    "an ordinary doc",               str(ROOT / ".engine/PROGRESS.md"),
 ]
 
 fails = []

@@ -33,7 +33,7 @@ Do not run these without the human explicitly requesting them in the current tur
 
 The settings.json `ask` list will prompt for these — that prompt is the human's signal to think before approving. Don't try to bypass it.
 
-**Unattended, do not invoke an ask-gated command at all.** The prompt is answered by nobody, so attempting one hangs the whole run instead of parking one item. Park it: append a `PARKED` entry to `.claude/overseer/parked.md` with `Class: ask-gated`, the exact command under `Blocked on`, and `Unblocks when: a human runs it or the session becomes attended` — then continue with the next unblocked item. `.claude/hooks/park-ask-gated.sh` enforces this as defense-in-depth and hands you the same instruction if you forget. This does not weaken the ask list: the command still does not run. It converts a hang into a park.
+**Unattended, do not invoke an ask-gated command at all.** The prompt is answered by nobody, so attempting one hangs the whole run instead of parking one item. Park it: append a `PARKED` entry to `.engine/overseer/parked.md` with `Class: ask-gated`, the exact command under `Blocked on`, and `Unblocks when: a human runs it or the session becomes attended` — then continue with the next unblocked item. `.claude/hooks/park-ask-gated.sh` enforces this as defense-in-depth and hands you the same instruction if you forget. This does not weaken the ask list: the command still does not run. It converts a hang into a park.
 
 ### Operations that are hard-denied
 
@@ -67,7 +67,7 @@ The Stop hook runs `ruff check`, `mypy`, and `pytest` (only on Python changes). 
 - Read the actual error; don't guess
 - Fix with minimal changes
 - Re-run until clean
-- **After 3 attempts with different fixes, stop attempting.** The 3-attempt limit is the loop guard and it is absolute — do not invent a 4th approach. Park the item in `.claude/overseer/parked.md` with the three approaches you tried, the exact failure output, and what it needs, then move to the next unblocked item. Address the human only if nothing else can move.
+- **After 3 attempts with different fixes, stop attempting.** The 3-attempt limit is the loop guard and it is absolute — do not invent a 4th approach. Park the item in `.engine/overseer/parked.md` with the three approaches you tried, the exact failure output, and what it needs, then move to the next unblocked item. Address the human only if nothing else can move.
 
 ### Hooks summary (transparency)
 
@@ -113,14 +113,14 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 - **Sentinel convention.** End your final message with `=== UNIT N COMPLETE ===`
   alone on its own line ONLY when you finish a genuine unit of work (a slice
   step, a `tasks.yaml` task). `N` is the unit number from the active slice
-  contract (`.claude/overseer/slice/<slug>.md`), or `1` if none applies. Do **not**
+  contract (`.engine/slices/<slug>.md`), or `1` if none applies. Do **not**
   emit it on a work-in-progress, RED-only, or question-answering turn — that
   triggers a spurious audit. Full developer-facing rules: the "Unit completion
   protocol" section of `.claude/skills/overseer/SKILL.md`.
 - When the hook fires it injects `OVERSEER_REQUEST`. On seeing it, read
   `.claude/skills/overseer/SKILL.md` and apply the full 12-check checklist
   before responding further.
-- **Citing overseer check numbers (#1-#12) in your reasoning counts as overseer invocation** — preventive refusals based on checks still require the full output structure from `.claude/skills/overseer/SKILL.md`, including the mandatory `Edit`-tool write to `.claude/overseer/ledger.md` BEFORE your reply.
+- **Citing overseer check numbers (#1-#12) in your reasoning counts as overseer invocation** — preventive refusals based on checks still require the full output structure from `.claude/skills/overseer/SKILL.md`, including the mandatory `Edit`-tool write to `.engine/overseer/ledger.md` BEFORE your reply.
 - **Verdict format.** End the audit turn with exactly one verdict marker on its
   own line: `OVERSEER_PASS` / `OVERSEER_BLOCK: #N <reason>` /
   `OVERSEER_ADR_REQUIRED: <ADR>` / `OVERSEER_ESCALATE: <JSON>`. Emitting any
@@ -129,18 +129,18 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 - **Verdict routing.** A verdict records a finding; whether it stops the run is a separate question, and the answer is almost never. Route by whether the fix needs a human, per `.claude/skills/overseer/SKILL.md` § "Verdict routing".
   - If `OVERSEER_BLOCK` and you can resolve it — fix it, log it, continue. If you cannot, park it and continue with the next unblocked item.
   - If `OVERSEER_ADR_REQUIRED` and the decision is reversible — write the ADR in `docs/adr/` and continue. One-way door: draft it as `PROPOSED — provisional`, park, continue.
-  - If `OVERSEER_ESCALATE` on a **two-way door** — log it to `.claude/overseer/escalations.md` with its cost-to-reverse, act on your own recommendation, continue. Use that file's **AUTONOMOUS** entry format; the original format's `Human chose` / `Latency to decision` fields presume a human answered and cannot represent a decision you made yourself.
+  - If `OVERSEER_ESCALATE` on a **two-way door** — log it to `.engine/overseer/escalations.md` with its cost-to-reverse, act on your own recommendation, continue. Use that file's **AUTONOMOUS** entry format; the original format's `Human chose` / `Latency to decision` fields presume a human answered and cannot represent a decision you made yourself.
   - **Logging is what closes a decision, and CLOSED means closed.** Deciding and continuing without writing the entry leaves the decision open in working memory, and an open decision gets re-raised with the owner turn after turn — a stop wearing a question mark. Once the entry exists, do not re-surface it: asking the owner to ratify a two-way door is asking them to do a job Article 5 assigns to you. If new evidence genuinely falsifies it, append a superseding entry.
   - **A deviation from an explicit owner instruction is classified by reversibility like anything else.** If the instruction rests on a premise you can show is false, say so once, state what you did instead and why, log it, and continue. Departing from an instruction does not by itself make a decision one-way, and "the owner said X" is not a reason to escalate a cheap, reversible call. On a **one-way door or an Art. 5 product decision** — park it, do not decide it.
   - Attended, `AskUserQuestion` is still the right tool and still cheap. Unattended, never block on it — it waits on a prompt nobody will answer.
-- Address the human only at a surface threshold: nothing unblocked can move, a single one-way door, three parked ratification items, or a falsified premise that invalidates committed work. See `.claude/overseer/parked.md`.
-- Always append the entry the skill prescribes to `.claude/overseer/ledger.md`.
+- Address the human only at a surface threshold: nothing unblocked can move, a single one-way door, three parked ratification items, or a falsified premise that invalidates committed work. See `.engine/overseer/parked.md`.
+- Always append the entry the skill prescribes to `.engine/overseer/ledger.md`.
 - **Recursion safety & override.** The hook has **two per-branch SHA-256
-  idempotency guards** — `.claude/overseer/.last_audit_sha` for the audit-request
-  branch (`overseer_stop.py:388-394`) and `.claude/overseer/.last_continue_sha`
+  idempotency guards** — `.claude/state/overseer/.last_audit_sha` for the audit-request
+  branch (`overseer_stop.py:388-394`) and `.claude/state/overseer/.last_continue_sha`
   for the PASS→CONTINUE branch (`:425-436`) — plus the `OVERSEER_` halt markers,
   which the hook silent-passes (`:421-422`), and a phase guard that skips the
-  audit when `.claude/overseer/state` contains `plan` (`:369-377, 443-444`).
+  audit when `.claude/state/overseer/state` contains `plan` (`:369-377, 443-444`).
   A `stop_hook_active` guard **used to** exist and was **removed**: it
   short-circuited before the per-branch SHAs on every hook-initiated turn, which
   made both injection branches unreachable in the autonomous loop. See the
@@ -151,10 +151,10 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 
 ## Attended vs unattended
 
-`.claude/overseer/mode` declares whether a human is in the loop. Contents
+`.claude/state/overseer/mode` declares whether a human is in the loop. Contents
 `unattended` → nobody is watching. **Absent or anything else → attended.** The
 default is attended, so an interactive session behaves exactly as before and a
-server run opts in explicitly (`echo unattended > .claude/overseer/mode`).
+server run opts in explicitly (`echo unattended > .claude/state/overseer/mode`).
 
 What the mode changes, and only this: an **interactive hard gate** in
 `/plan-slice` or `/feature-architect` becomes a **park**. The item waits, work
@@ -177,7 +177,7 @@ When a supervisor is driving this session (`.claude/unattended/supervisor.sh`),
 you have four obligations. Full detail in `.claude/unattended/README.md`.
 
 1. **Tick the heartbeat** while working: `python3 .claude/unattended/runstate.py heartbeat`.
-   Together with `PROGRESS.md` mtime this is the liveness signal. A session that
+   Together with `.engine/PROGRESS.md` mtime this is the liveness signal. A session that
    updates neither for `STALL_TIMEOUT_SEC` is killed as wedged.
 2. **Write a terminal status before you exit:**
    `runstate.py set finished|parked|halted "<reason>" "<what would unblock it>"`,

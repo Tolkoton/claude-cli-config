@@ -60,7 +60,7 @@ line:
 ```
 
 `N` is the unit number from the active slice contract
-(`.claude/overseer/slice/<slug>.md`), or `1` if no numbered contract applies.
+(`.engine/slices/<slug>.md`), or `1` if no numbered contract applies.
 
 Rules:
 
@@ -73,9 +73,9 @@ Rules:
   command. The sentinel without that evidence does nothing; both halves are
   required.
 - Three recursion guards keep the audit from looping: the `stop_hook_active`
-  envelope flag, a SHA-256 idempotency file (`.claude/overseer/.last_audit_sha`), and
+  envelope flag, a SHA-256 idempotency file (`.claude/state/overseer/.last_audit_sha`), and
   the `OVERSEER_` verdict marker you emit. A phase guard skips the audit
-  entirely when `.claude/overseer/state` contains `plan`.
+  entirely when `.claude/state/overseer/state` contains `plan`.
 - After the hook injects `OVERSEER_REQUEST`, run the 12-check checklist below
   and end the turn with a verdict marker (`OVERSEER_PASS` etc.). That marker is
   what tells the hook the audit ran — it will not re-fire on the verdict turn.
@@ -100,7 +100,7 @@ Rules:
    MUST cite a specific transcript turn, commit SHA, file path, or test
    name. Uncited entries are deleted on next read. This is load-bearing,
    not a stylistic note.
-7. **The planning artifact is the slice contract.** If `.claude/overseer/slice/<slug>.md`
+7. **The planning artifact is the slice contract.** If `.engine/slices/<slug>.md`
    exists for the current slice, it overrides generic patterns. Decisions
    in that file are the source of truth for WHY; deviations are check
    triggers, not freeform.
@@ -109,17 +109,17 @@ Rules:
 
 Read in this order:
 
-1. `.claude/overseer/MEMORY.md` — cross-slice patterns you've recorded
-2. `.claude/overseer/ledger.md` — verdicts on recent prior turns (newest entries)
-3. `.claude/overseer/escalations.md` — human decisions on prior escalations
-4. `.claude/overseer/audit.md` — your proposals for V2 self-improvement
+1. `.engine/overseer/MEMORY.md` — cross-slice patterns you've recorded
+2. `.engine/overseer/ledger.md` — verdicts on recent prior turns (newest entries)
+3. `.engine/overseer/escalations.md` — human decisions on prior escalations
+4. `.engine/overseer/audit.md` — your proposals for V2 self-improvement
 
 Then project state:
 
 5. `CLAUDE.md` — project conventions
-6. `PROGRESS.md` — current slice ledger. **From this, identify the CURRENT
+6. `.engine/PROGRESS.md` — current slice ledger. **From this, identify the CURRENT
    slice** (most recent entry marked IN PROGRESS / CODE COMPLETE / BLOCKED).
-7. `.claude/overseer/slice/<current-slug>.md` — **the slice planning artifact**.
+7. `.engine/slices/<current-slug>.md` — **the slice planning artifact**.
    If it exists, this is LOAD-BEARING context. Checks #1, #8, #10, #11
    below reference it specifically — read it before deciding any verdict
    that touches design, exit, seams, or scope.
@@ -129,7 +129,7 @@ Then project state:
 10. The current session transcript — the developer's last turn, and the 2-3
     turns before it for context
 
-If `.claude/overseer/slice/<current-slug>.md` is missing on a non-trivial slice,
+If `.engine/slices/<current-slug>.md` is missing on a non-trivial slice,
 that itself may be a finding (the slice was not planned with overseer).
 Note in ledger; do not block on its absence alone.
 
@@ -208,7 +208,7 @@ missing**.
 - **Trigger:** developer agrees to or proposes a design rule, routing rule,
   interface contract, or architectural commitment.
 - **Required evidence:** EITHER (a) the decision is already in
-  `.claude/overseer/slice/<slug>.md` under "Decisions (with WHY)", OR (b) an
+  `.engine/slices/<slug>.md` under "Decisions (with WHY)", OR (b) an
   existing ADR is cited by number, OR (c) a draft ADR is added in this
   turn.
 - **If the decision exists in the planning artifact with a DIFFERENT
@@ -218,7 +218,7 @@ missing**.
   block (title, context, decision, consequences).
 
 ### 9. Handoff WHY missing
-- **Trigger:** session resumption (PROGRESS.md mentions a prior slice
+- **Trigger:** session resumption (.engine/PROGRESS.md mentions a prior slice
   state, or developer references a prior decision).
 - **Required evidence:** Step 0 grounding articulates not only WHAT was
   decided but WHY (the rationale that would let someone reverse the
@@ -231,7 +231,7 @@ missing**.
 ### 10. Hardest seams unnamed (slice-aware)
 - **Trigger:** developer enters implementation phase (RED-GREEN cycles
   begin).
-- **Required evidence:** the planning artifact `.claude/overseer/slice/<slug>.md`
+- **Required evidence:** the planning artifact `.engine/slices/<slug>.md`
   has a "Hardest seams (with test approach)" section, AND the developer's
   RED test for the current cycle matches one of those test approaches.
   Failing the artifact — seams named in Step 0 grounding with concrete
@@ -252,7 +252,7 @@ missing**.
   for (b) explicit acknowledgment that scope is being expanded with user
   ratification.
 - **If missing:** `OVERSEER_BLOCK: #11 scope drift — work touches X
-  which is [out of scope per .claude/overseer/slice/<slug>.md / different layer
+  which is [out of scope per .engine/slices/<slug>.md / different layer
   than symptom]. Reconcile, or escalate to user for scope amendment`.
 
 ### 12. Bias-toward-agreement (self-check)
@@ -273,7 +273,7 @@ missing**.
 - **`OVERSEER_SLICE_AWAITING_OWNER: <reason>`** — the slice's remaining work
   is owner-driven (parked smoke, walkthrough, formal report).
 - **`OVERSEER_SLICE_COMPLETE: <slug>`** — the slice is closed: exit criterion
-  met, smoke recorded, `PROGRESS.md` updated. Halts the continue loop because
+  met, smoke recorded, `.engine/PROGRESS.md` updated. Halts the continue loop because
   there is no next unit in this slice, not because anything is wrong. Recognized
   as a halt marker by `.claude/hooks/overseer_stop.py` (HALT_MARKER_RE); defined
   here so the hook and this skill agree.
@@ -289,7 +289,7 @@ human, not by the verdict's name.
 
 | Verdict | If you can act on it yourself | If it genuinely needs a human |
 |---|---|---|
-| `OVERSEER_BLOCK` | Fix the specific defect, log the fix in the ledger, continue. A block you can resolve is work, not a stop. | Park the item (`.claude/overseer/parked.md`), continue with the next unblocked one. |
+| `OVERSEER_BLOCK` | Fix the specific defect, log the fix in the ledger, continue. A block you can resolve is work, not a stop. | Park the item (`.engine/overseer/parked.md`), continue with the next unblocked one. |
 | `OVERSEER_ADR_REQUIRED` | Write the ADR in `docs/adr/` and continue. A reversible decision does not wait for ratification — the ADR *is* the record, and ADRs are superseded, not edited. | One-way door (datastore, public contract, irreversible migration): draft the ADR marked `PROPOSED — provisional, awaiting ratification`, park, continue elsewhere. |
 | `OVERSEER_ESCALATE` | Two-way door: take your own recommendation. It was already required in the JSON — now you act on it instead of waiting. Log to `escalations.md` with `Decided autonomously (provisional)` and the cost-to-reverse. | One-way door — money, a real external system, irreversible data, a published contract — or a PRODUCT_DECISION the owner must own under Art. 5: park, do not decide. |
 
@@ -327,13 +327,13 @@ and recommendation verbatim, and waits for the selection.
 
 Unattended, it does **not** wait. Apply the routing table above:
 
-- **Two-way door** — append the block to `.claude/overseer/escalations.md` with
+- **Two-way door** — append the block to `.engine/overseer/escalations.md` with
   `Human chose: — decided autonomously (provisional)`, add a
   `Cost-to-reverse:` line, act on `your_recommendation` verbatim, and continue.
   The recommendation was already mandatory; acting on it is strictly more
   informative than stalling on it, because the outcome becomes reviewable.
 - **One-way door, or any `PRODUCT_DECISION` under Art. 5** — append the same
-  block with `Status: PARKED`, add the item to `.claude/overseer/parked.md`, and
+  block with `Status: PARKED`, add the item to `.engine/overseer/parked.md`, and
   continue with the next unblocked item. Do not decide it.
 
 Classify honestly. The classification is made by the same agent that benefits
@@ -361,7 +361,7 @@ Uncited entries are deleted on next read of MEMORY.md.
 
 If you observe a pattern that suggests a NEW check should be added,
 OR an existing check modified/removed, append a proposal to
-`.claude/overseer/audit.md`. Do NOT modify your own SKILL.md.
+`.engine/overseer/audit.md`. Do NOT modify your own SKILL.md.
 
 ```
 ## <ISO timestamp> — <proposed change>
@@ -375,7 +375,7 @@ OR an existing check modified/removed, append a proposal to
 
 - You do NOT modify code, run tests, or change project files.
 - You do NOT modify your own SKILL.md.
-- You do NOT modify `.claude/overseer/slice/<slug>.md` mid-implementation. If a
+- You do NOT modify `.engine/slices/<slug>.md` mid-implementation. If a
   decision needs to change, escalate (SCOPE_AMENDMENT) for human ratification.
 - You do NOT make product decisions (latency thresholds, scope, blocker
   classification, design forks, ADR ratification). You escalate them.
@@ -388,7 +388,7 @@ OR an existing check modified/removed, append a proposal to
 ## Output structure — MANDATORY ORDER
 
 **Step 1 (must happen BEFORE replying to the user):** use the `Edit` tool
-to append a ledger entry to `.claude/overseer/ledger.md`. Insert the new entry
+to append a ledger entry to `.engine/overseer/ledger.md`. Insert the new entry
 at the top of the entries section — after the format-doc header, before
 any existing entries (or before the `(no entries yet)` placeholder, which
 you replace).
@@ -417,7 +417,7 @@ correct your verdict is.
 4. **Verdict** — `OVERSEER_PASS` / `OVERSEER_BLOCK: #N <...>` /
    `OVERSEER_ADR_REQUIRED: <...>` / `OVERSEER_ESCALATE: <JSON>`.
 5. **Ledger entry written** — show the exact text you wrote to
-   `.claude/overseer/ledger.md` in Step 1.
+   `.engine/overseer/ledger.md` in Step 1.
 
 No closing pleasantries.
 

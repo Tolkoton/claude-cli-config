@@ -12,11 +12,11 @@ memory pollution and confabulation amplification.
 ## Source-of-truth pointers
 
 - Project conventions: `CLAUDE.md`
-- Slice ledger: `PROGRESS.md`
+- Slice ledger: `.engine/PROGRESS.md`
 - Architectural decisions: `docs/adr/`
 - TDD discipline: slice-builder skill
-- Overseer ledger: `.claude/overseer/ledger.md`
-- Human escalations log: `.claude/overseer/escalations.md`
-- Self-improvement proposals: `.claude/overseer/audit.md`
+- Overseer ledger: `.engine/overseer/ledger.md`
+- Human escalations log: `.engine/overseer/escalations.md`
+- Self-improvement proposals: `.engine/overseer/audit.md`
 
 ## Cross-slice patterns

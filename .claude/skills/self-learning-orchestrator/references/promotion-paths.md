@@ -18,7 +18,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
                                  │ promote (when lesson recurs in ≥3 projects)
                                  │
                     ┌────────────┴────────────┐
-                    │ .claude/architecture/MEMORY.md│ ← project-scope
+                    │ .engine/architecture/MEMORY.md│ ← project-scope
                     └────────────▲────────────┘
                                  │ promote (when lesson is general)
                                  │
@@ -66,7 +66,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
 ### project MEMORY.md → tech MEMORY.md
 
 **When**: periodic-maintenance pass 5, OR explicit promotion request.
-**Criterion**: the lesson appears in 2+ projects' `.claude/architecture/MEMORY.md` files, OR the lesson is clearly about a library's behavior rather than the project's domain.
+**Criterion**: the lesson appears in 2+ projects' `.engine/architecture/MEMORY.md` files, OR the lesson is clearly about a library's behavior rather than the project's domain.
 
 **Test**: rewrite the lesson removing all project-specific names. Does it still make sense and still teach a useful thing? If yes, promote.
 

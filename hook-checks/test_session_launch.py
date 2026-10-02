@@ -54,7 +54,7 @@ def main() -> int:
         tmp_path = Path(tmp)
         project = tmp_path / "project"
         shutil.copytree(UNATTENDED, project / ".claude/unattended", ignore=shutil.ignore_patterns("logs", "archive", "*.json", "heartbeat", "*.log", "__pycache__"))
-        (project / ".claude/unattended/logs").mkdir()
+        (project / ".claude/state/unattended/logs").mkdir(parents=True)
         subprocess.run(["git", "init", "-q"], cwd=project, check=True)
         shim_dir = tmp_path / "bin"
         shim_dir.mkdir()
@@ -81,9 +81,9 @@ def main() -> int:
         )
         t.check("argv: --output-format json kept", "--output-format" in argv and argv[argv.index("--output-format") + 1] == "json" if "--output-format" in argv else False, str(argv))
         t.check("argv: no --dangerously-skip-permissions", "--dangerously-skip-permissions" not in argv)
-        state = project / ".claude/unattended/state.json"
-        t.check("the session contract still holds: cost recorded from the shim's JSON", (project / ".claude/unattended/cost.json").is_file() or state.is_file() or "cost=" in r.stdout, r.stdout)
-        shim_log = json.loads((project / ".claude/unattended/logs/last-session.json").read_text(encoding="utf-8"))
+        state = project / ".claude/state/unattended/state.json"
+        t.check("the session contract still holds: cost recorded from the shim's JSON", (project / ".claude/state/unattended/cost.json").is_file() or state.is_file() or "cost=" in r.stdout, r.stdout)
+        shim_log = json.loads((project / ".claude/state/unattended/logs/last-session.json").read_text(encoding="utf-8"))
         t.check("the shim's answer landed where the real CLI's would", shim_log.get("result") == "shim")
 
     print(f"\nPASS {t.passed}   FAIL {t.failed}")

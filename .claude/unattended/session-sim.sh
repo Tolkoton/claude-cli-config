@@ -10,7 +10,7 @@
 #   session-sim.sh <NODE_ID> <PROMPT>
 #
 # Behaviour per node is read from sim-plan.txt, one line per invocation:
-#   work    <node>   do the unit properly: PROGRESS.md, node done, unit-done
+#   work    <node>   do the unit properly: .engine/PROGRESS.md, node done, unit-done
 #   crash   <node>   die mid-unit WITHOUT writing terminal state (the supervisor
 #                    must notice and restart)
 #   last    <node>   do the unit and mark the DAG finished
@@ -23,8 +23,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$HERE/../.." && pwd)}"
 cd "$PROJECT_ROOT" || exit 1
 RUNSTATE="python3 $HERE/runstate.py"
-PLAN="$HERE/sim-plan.txt"
-DAG="${DAG_FILE:-.claude/architecture/feature-dag.json}"
+PLAN="$PROJECT_ROOT/.claude/state/unattended/sim-plan.txt"
+DAG="${DAG_FILE:-.engine/architecture/feature-dag.json}"
 
 # Next unconsumed plan line.
 ACTION=$(grep -vE '^(#|x )' "$PLAN" 2>/dev/null | head -1 | awk '{print $1}')
@@ -57,7 +57,7 @@ case "$ACTION" in
     ;;
 
   hang)
-    # Wedge: alive but producing no liveness signal. Neither PROGRESS.md nor
+    # Wedge: alive but producing no liveness signal. Neither .engine/PROGRESS.md nor
     # the heartbeat moves, so the watchdog must SIGTERM/SIGKILL this (D-5).
     echo "[sim] simulating a wedged session for $NODE (no heartbeat, no PROGRESS)"
     sleep 600

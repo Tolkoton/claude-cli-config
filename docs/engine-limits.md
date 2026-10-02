@@ -92,8 +92,8 @@ target resolves — symlinks and `..` followed — to a path inside the session 
 `.claude/` whose owner in `.claude/ownership.txt` is `project`, and decides nothing
 otherwise. Its limits: it reads the ownership map of the session repository, so a project
 that edits its map changes what is approved; an arbitrary new file under
-`.claude/overseer/` is `engine`-owned by the shipped map (only the five named records and
-`slice/` are `project`) and is not approved — put ad-hoc notes under `.claude/artifacts/`;
+`.engine/overseer/` is `engine`-owned by the shipped map (only the five named records and
+`slice/` are `project`) and is not approved — put ad-hoc notes under `.engine/artifacts/`;
 and a headless session in a directory never trusted interactively ignores that project's
 settings, hooks included, so there the hook fires only when handed to the CLI with
 `--settings` (`evals/probe_permission_hook.sh` shows both). `protect-paths.sh` runs first

@@ -10,28 +10,15 @@ venv/
 
 .claude/settings.local.json
 
-# Overseer recursion guards — per-machine, per-session SHA caches.
-# Ephemeral by design (see .claude/README.md §3); tracking them would
-# replay one machine's guard state onto another.
-.claude/overseer/.last_audit_sha
-.claude/overseer/.last_continue_sha
+# Machine state — every file one machine and one run write for the gates: the overseer's
+# recursion guards, the continue counter, the supervision mode, the complexity budgets,
+# the unattended supervisor's state, cost, heartbeat, logs and archive. Written by hooks and
+# scripts, never by agent tools. One directory, so one line (package 3c).
+.claude/state/
 
-# Unattended-run machine-local state. Regenerated every run; committing it
-# would replay one machine's cost counter and restart history onto another.
-.claude/unattended/state.json
-.claude/unattended/cost.json
-.claude/unattended/heartbeat
-.claude/unattended/restarts.log
-.claude/unattended/sim-plan.txt
-.claude/unattended/logs/
-.claude/unattended/archive/
-.claude/overseer/mode
-PROGRESS.md
-.claude/unattended/supervisor.lock
-.claude/overseer/.continue_count
-# Complexity gate: the limits a slice began with, and the last report. Machine state.
-.claude/overseer/.budget-*.json
-.claude/overseer/complexity-report.md
+# What the agent produces while working is tracked under .engine/ — except PROGRESS.md, a
+# per-run working log (the audit scenarios lay their own fixture there).
+.engine/PROGRESS.md
 HANDOFF-*.md
 # Claude Code's own parallel-session checkouts (claude --worktree).
 .claude/worktrees/

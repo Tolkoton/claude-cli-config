@@ -26,16 +26,16 @@ four cooperating layers:
 
 | Layer | What it does | Lives in |
 |---|---|---|
-| **Design** | Turns intent into a task/slice plan | `.claude/architecture/`, `.claude/overseer/slice/` |
+| **Design** | Turns intent into a task/slice plan | `.engine/architecture/`, `.engine/slices/` |
 | **Build** | Writes code + tests under TDD | source dirs, `tests/`, `scripts/` |
-| **Enforce** | Hooks + overseer keep discipline | `.claude/hooks/`, `.claude/overseer/` |
-| **Remember** | Distils lessons across sessions | `PROGRESS.md`, memory files, `.claude/lesson-queue.md` |
+| **Enforce** | Hooks + overseer keep discipline | `.claude/hooks/`, `.engine/overseer/` |
+| **Remember** | Distils lessons across sessions | `.engine/PROGRESS.md`, memory files, `.claude/lesson-queue.md` |
 
 One build pipeline is active:
 
 **Slice flow.** `master-architect` (design) → `slice-builder` / the developer
 agent (build) → `overseer` (audit). Plans live in
-`.claude/overseer/slice/<slug>.md`; history in `PROGRESS.md`.
+`.engine/slices/<slug>.md`; history in `.engine/PROGRESS.md`.
 
 ---
 
@@ -63,20 +63,20 @@ volatile the artifact is.
 
 | Artifact (this repo) | Producer(s) | Consumer(s) | Lifetime |
 |---|---|---|---|
-| `.claude/architecture/INDEX.md` | `master-architect` | architect, humans | per phase |
-| `.claude/architecture/phase-0-brief.md`, `phase-1-system.md` | `master-architect` | `slice-builder` (context) | append/superseded |
-| `.claude/architecture/phase-2..4*` | `master-architect`, `feature-architect` | `slice-builder` | created per phase |
-| `.claude/architecture/PROGRESS.md` | `master-architect` | architect (resume) | per session |
-| `.claude/overseer/slice/<slug>.md` | `plan-slice`, developer | `overseer` (load-bearing), developer | per slice |
-| `.claude/overseer/ledger.md` | `overseer` | `overseer` (counts PASS streak) | append-only |
-| `.claude/overseer/MEMORY.md` | `overseer` | `overseer` | cross-slice, cited-or-pruned |
-| `.claude/overseer/audit.md` | `overseer` | humans (ratify V2 checks) | append-only |
-| `.claude/overseer/escalations.md` | humans | `overseer` | append-only |
-| `.claude/overseer/state` | (manual / planning) | `overseer_stop.py` (phase guard) | ephemeral |
-| `.claude/overseer/.last_audit_sha`, `.last_continue_sha` | `overseer_stop.py` | `overseer_stop.py` (recursion guard) | ephemeral |
-| `.claude/artifacts/spikes/*` | developer, smoke/probe scripts | `PROGRESS.md`, ADRs | dated, kept |
-| `.claude/artifacts/notes-during-session.md` | developer | developer | scratch |
-| `PROGRESS.md` (root) | `slice-builder`, developer | `overseer`, `self-learning-orchestrator`, humans | append-only |
+| `.engine/architecture/INDEX.md` | `master-architect` | architect, humans | per phase |
+| `.engine/architecture/phase-0-brief.md`, `phase-1-system.md` | `master-architect` | `slice-builder` (context) | append/superseded |
+| `.engine/architecture/phase-2..4*` | `master-architect`, `feature-architect` | `slice-builder` | created per phase |
+| `.engine/architecture/PROGRESS.md` | `master-architect` | architect (resume) | per session |
+| `.engine/slices/<slug>.md` | `plan-slice`, developer | `overseer` (load-bearing), developer | per slice |
+| `.engine/overseer/ledger.md` | `overseer` | `overseer` (counts PASS streak) | append-only |
+| `.engine/overseer/MEMORY.md` | `overseer` | `overseer` | cross-slice, cited-or-pruned |
+| `.engine/overseer/audit.md` | `overseer` | humans (ratify V2 checks) | append-only |
+| `.engine/overseer/escalations.md` | humans | `overseer` | append-only |
+| `.claude/state/overseer/state` | (manual / planning) | `overseer_stop.py` (phase guard) | ephemeral |
+| `.claude/state/overseer/.last_audit_sha`, `.last_continue_sha` | `overseer_stop.py` | `overseer_stop.py` (recursion guard) | ephemeral |
+| `.engine/artifacts/spikes/*` | developer, smoke/probe scripts | `.engine/PROGRESS.md`, ADRs | dated, kept |
+| `.engine/artifacts/notes-during-session.md` | developer | developer | scratch |
+| `.engine/PROGRESS.md` (root) | `slice-builder`, developer | `overseer`, `self-learning-orchestrator`, humans | append-only |
 | `CLAUDE.md` (root) | `claude-autonomy`, `documentation`, `self-learning-orchestrator` (rare, confirmed) | **every agent** (always loaded) | rare |
 | `AGENTS.md` (root) | `documentation` | every agent (via `@AGENTS.md`) | with code changes |
 | `docs/adr/NNNN-*.md` | `documentation`, `master-architect`, developer | every agent, humans | **append-only / supersede** |
@@ -99,7 +99,7 @@ runs inside.
 | `protect-paths.sh` | PreToolUse `Edit/Write/MultiEdit` | Blocks `.env`, `secrets/`, `migrations/`, `.git/`, workflows | — |
 | `format-on-edit.sh` | PostToolUse `Edit/Write/MultiEdit` | `ruff format` + import-sort on `.py` | edited `.py` |
 | `verify-on-stop.sh` | Stop | `ruff` + `mypy` + `pytest` on changed Python; blocks turn on fail | — |
-| `overseer_stop.py` | Stop | Triggers the overseer audit on a unit-completion claim | reads/writes `.claude/overseer/{state,.last_*_sha}` |
+| `overseer_stop.py` | Stop | Triggers the overseer audit on a unit-completion claim | reads/writes `.engine/overseer/{state,.last_*_sha}` |
 | `auto-approve-web.py` | PreToolUse / PermissionRequest `WebFetch/WebSearch` | Auto-approves read-only web access | — |
 
 `verify-on-stop.sh` enforces lint + type-check + tests on every turn where
@@ -114,20 +114,20 @@ Python files changed. See [§5](#5-cooperation--dataflow) for the full flow.
 ```mermaid
 flowchart TD
   user([owner intent]) --> MA[master-architect]
-  MA -->|writes| ARCH[".claude/architecture/* (phases, INDEX)"]
+  MA -->|writes| ARCH[".engine/architecture/* (phases, INDEX)"]
   MA <-->|split / overflow| FA[feature-architect]
-  PS["/plan-slice"] -->|writes| SC[".claude/overseer/slice/&lt;slug&gt;.md"]
+  PS["/plan-slice"] -->|writes| SC[".engine/slices/&lt;slug&gt;.md"]
   SC --> SB[slice-builder / developer]
   ARCH --> SB
   SB -->|writes| CODE["&lt;source-dirs&gt; + tests/ + scripts/smoke_*"]
-  SB -->|appends| PROG[PROGRESS.md]
+  SB -->|appends| PROG[.engine/PROGRESS.md]
   CODE --> STOP{{Stop hooks}}
   STOP --> VOS[verify-on-stop.sh]
   STOP --> OST[overseer_stop.py]
   OST -->|on unit-complete sentinel| OV[overseer skill]
   SC --> OV
   PROG --> OV
-  OV -->|appends| LED[".claude/overseer/ledger.md"]
+  OV -->|appends| LED[".engine/overseer/ledger.md"]
   OV -->|PASS| OST
   OST -->|re-inject 'continue'| SB
   OV -->|ESCALATE / ADR / BLOCK| user
@@ -138,7 +138,7 @@ flowchart TD
 ```mermaid
 flowchart LR
   moment([dev moment]) --> SLO[self-learning-orchestrator]
-  SLO -->|session start, reads| MEM["MEMORY.md files + PROGRESS.md + decisions.md"]
+  SLO -->|session start, reads| MEM["MEMORY.md files + .engine/PROGRESS.md + decisions.md"]
   LES["/lesson"] -->|append| LQ[".claude/lesson-queue.md"]
   WRAP["/wrap-up"] -->|drains| LQ
   WRAP -->|classify into| MEM
@@ -195,14 +195,14 @@ This map points; it does not restate. For behaviour, read the source:
 ## 8. Vendoring & path conventions
 
 **All paths are under `.claude/`.** Every skill in this repo uses the `.claude/`
-prefix for its artifacts: `.claude/architecture/`, `.claude/overseer/`,
-`.claude/artifacts/`. There is no root-level `.architecture/` or `artifacts/`
+prefix for its artifacts: `.engine/architecture/`, `.engine/overseer/`,
+`.engine/artifacts/`. There is no root-level `.architecture/` or `artifacts/`
 directory. When reading a skill, all paths are taken as written.
 
 **Note for `references/madr-format.md` and `references/c4-mermaid-syntax.md`.**
 These describe `master-architect`'s default output location as `.architecture/`
 because that skill is designed to be configurable per project. When using it here,
-override to `.claude/architecture/`.
+override to `.engine/architecture/`.
 
 **Vendoring (the 5 `[vendored]` skills).** Copied from upstream into `.claude/skills/`
 to make this template self-contained. No global `~/.claude/skills/` directory exists

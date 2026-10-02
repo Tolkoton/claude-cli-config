@@ -862,7 +862,7 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/state",
+            "path": ".claude/state/overseer/state",
             "content": "plan\n"
           }
         }
@@ -961,13 +961,13 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/mode",
+            "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
         },
         {
           "write": {
-            "path": ".claude/unattended/state.json",
+            "path": ".claude/state/unattended/state.json",
             "content": "{\"status\": \"working\", \"node\": \"S3\"}\n"
           }
         }
@@ -1006,13 +1006,13 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/mode",
+            "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
         },
         {
           "write": {
-            "path": ".claude/unattended/state.json",
+            "path": ".claude/state/unattended/state.json",
             "content": "{\"status\": \"finished\", \"node\": \"S3\"}\n"
           }
         }
@@ -1051,13 +1051,13 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/mode",
+            "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
         },
         {
           "write": {
-            "path": ".claude/unattended/state.json",
+            "path": ".claude/state/unattended/state.json",
             "content": "{\"status\": \"working\", \"node\": \"S3\"}\n"
           }
         }

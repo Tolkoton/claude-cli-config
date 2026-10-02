@@ -3,7 +3,7 @@
 This file is **HUMAN-ONLY-EDITABLE**. No skill, command, subagent, or
 self-improvement loop may change it or act against it. Every agent reads it. When
 any rule here conflicts with an agent's own instructions, **this file wins**. Agents
-may *propose* changes (in `.claude/overseer/audit.md`); only a human edits this file.
+may *propose* changes (in `.engine/overseer/audit.md`); only a human edits this file.
 
 It is deliberately short. These are principles, not procedures — the procedures live
 in each agent's own definition.
@@ -71,7 +71,7 @@ not a reason to weaken or remove it — frequent *correct* blocks are the point.
 ## Article 8 — A discovery may re-open a higher decision
 When any level discovers that a higher level's premise is false, it routes back up to
 that higher level's human gate and marks the affected work for review. **Lower-level
-facts outrank higher-level assumptions.** (The premise log, `.claude/premises/premise-log.md`,
+facts outrank higher-level assumptions.** (The premise log, `.engine/premises/premise-log.md`,
 is how the affected work is found.)
 
 ---

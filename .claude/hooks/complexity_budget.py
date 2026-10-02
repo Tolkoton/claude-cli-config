@@ -30,12 +30,12 @@ Standard library only (ast, tomllib, git): the gate has to work in cloud session
 a colleague's machine with no linter installed. Python 3.11+.
 
 THE SWITCH is COMPLEXITY_GATE in .claude/project.env: off (default) | warn | block.
-  warn   never blocks; writes .claude/overseer/complexity-report.md and says so
+  warn   never blocks; writes .claude/state/overseer/complexity-report.md and says so
   block  refuses to end the turn while a limit is exceeded
 No active slice, or a contract without a budget section: nothing to enforce, silent.
 
 RAISING THE BUDGET is the owner's call. The limits seen FIRST for a slice are remembered
-(.claude/overseer/.budget-<slug>.json); if the contract later shows higher numbers, the
+(.claude/state/overseer/.budget-<slug>.json); if the contract later shows higher numbers, the
 original ones stay in force and the report says so. The owner re-baselines by deleting
 that file — a visible act, not a quiet edit.
 """
@@ -65,9 +65,9 @@ LIMIT_KEYS = (
 KNOWN_KEYS = (*LIMIT_KEYS, "base_commit", "justification")
 SECTION_RE = re.compile(r"^##\s+Complexity budget\s*$", re.IGNORECASE | re.MULTILINE)
 ACTIVE_RE = re.compile(r"IN PROGRESS", re.IGNORECASE)
-CONTRACT_PATH_RE = re.compile(r"\.claude/overseer/slice/[\w.-]+\.md")
+CONTRACT_PATH_RE = re.compile(r"\.engine/slices/[\w.-]+\.md")
 SLUG_RE = re.compile(r"[Ss]lice\s+`?([\w.-]+)`?")
-REPORT_FILE = Path(".claude/overseer/complexity-report.md")
+REPORT_FILE = Path(".claude/state/overseer/complexity-report.md")
 NESTING_NODES = (
     ast.If,
     ast.For,
@@ -129,9 +129,9 @@ def git(root: Path, *args: str) -> str:
 
 
 def active_contract(root: Path) -> Path | None:
-    """The slice PROGRESS.md marks IN PROGRESS — the engine's own convention."""
+    """The slice .engine/PROGRESS.md marks IN PROGRESS — the engine's own convention."""
     try:
-        text = (root / "PROGRESS.md").read_text(encoding="utf-8")
+        text = (root / ".engine/PROGRESS.md").read_text(encoding="utf-8")
     except OSError:
         return None
     blocks = re.split(r"(?m)^(?=#{1,3} )", text)
@@ -143,7 +143,7 @@ def active_contract(root: Path) -> Path | None:
         candidate = (
             Path(named.group(0))
             if named
-            else (Path(".claude/overseer/slice") / f"{slug.group(1)}.md" if slug else None)
+            else (Path(".engine/slices") / f"{slug.group(1)}.md" if slug else None)
         )
         if candidate and (root / candidate).is_file():
             return root / candidate
@@ -388,13 +388,15 @@ def measure(root: Path, base: str, source_dirs: list[str]) -> Usage:
 
 def first_seen_limits(root: Path, budget: Budget) -> tuple[dict[str, int], list[str]]:
     """Limits in force, plus a note for every limit the contract has raised since."""
-    memo = root / ".claude" / "overseer" / f".budget-{budget.slug}.json"
+    memo = root / ".claude" / "state" / "overseer" / f".budget-{budget.slug}.json"
     try:
         remembered = json.loads(memo.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         remembered = None
     if not isinstance(remembered, dict) or remembered.get("base_commit") != budget.base_commit:
         try:
+            memo.parent.mkdir(parents=True, exist_ok=True)
+            memo.parent.mkdir(parents=True, exist_ok=True)
             memo.parent.mkdir(parents=True, exist_ok=True)
             memo.write_text(
                 json.dumps({"base_commit": budget.base_commit, "limits": budget.limits}, indent=2)

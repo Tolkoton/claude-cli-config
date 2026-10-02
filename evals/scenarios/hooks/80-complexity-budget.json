@@ -11,14 +11,14 @@
       "setup": [
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -44,7 +44,7 @@
         "hook_event_name": "Stop",
         "stop_hook_active": false
       },
-      "check_file": ".claude/overseer/complexity-report.md",
+      "check_file": ".claude/state/overseer/complexity-report.md",
       "expect": "allow",
       "expect_file_changed": false
     },
@@ -60,14 +60,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -95,14 +95,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -143,14 +143,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -179,14 +179,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -215,14 +215,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -251,14 +251,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -292,7 +292,7 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
@@ -333,14 +333,14 @@
         },
         {
           "write": {
-            "path": ".claude/overseer/slice/ref-tax.md",
+            "path": ".engine/slices/ref-tax.md",
             "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
           }
         },
         {
           "write": {
-            "path": "PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.claude/overseer/slice/ref-tax.md`.\n"
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
           }
         },
         {
@@ -366,7 +366,7 @@
         "hook_event_name": "Stop",
         "stop_hook_active": false
       },
-      "check_file": ".claude/overseer/complexity-report.md",
+      "check_file": ".claude/state/overseer/complexity-report.md",
       "expect": "allow",
       "expect_file_changed": true
     }

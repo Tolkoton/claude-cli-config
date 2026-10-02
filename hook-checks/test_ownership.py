@@ -80,7 +80,7 @@ shipped_seeds = [s for _, s in seeds if owners.get(s) == "engine"]
 check("no seed ships (seeds are copied once, never kept in sync)", not shipped_seeds, ", ".join(shipped_seeds))
 
 dated = re.compile(r"^## 20\d\d-\d\d-\d\d", re.MULTILINE)
-records = [".claude/overseer/" + n for n in ("ledger.md", "audit.md", "escalations.md", "parked.md", "MEMORY.md")]
+records = [".engine/overseer/" + n for n in ("ledger.md", "audit.md", "escalations.md", "parked.md", "MEMORY.md")]
 seed_of = dict(seeds)
 for path in records:
     seed = seed_of.get(path)
@@ -96,19 +96,19 @@ expected = {
     ".claude/settings.json": "engine",
     ".claude/ownership.txt": "engine",
     ".claude/unattended/unattended-decisions.md": "engine",
-    ".claude/overseer/_template.md": "engine",
+    ".claude/templates/slice-contract.md": "engine",
     ".claude/settings.local.json": "machine",
-    ".claude/overseer/mode": "machine",
+    ".claude/state/overseer/mode": "machine",
     ".claude/hooks/__pycache__/overseer_stop.cpython-312.pyc": "machine",
     ".claude/worktrees/feature-a/src/app.py": "machine",
     ".claude/project.env": "project",
-    ".claude/architecture/feature-dag.json": "project",
-    ".claude/artifacts/spikes/x/notes.md": "project",
-    ".claude/overseer/slice/checkout.md": "project",
+    ".engine/architecture/feature-dag.json": "project",
+    ".engine/artifacts/spikes/x/notes.md": "project",
+    ".engine/slices/checkout.md": "project",
     "CLAUDE.md": "project",
     "evals/make_sandbox.sh": "project",
     "engine.py": "project",
-    "templates/project/.claude/overseer/ledger.md": "project",
+    "templates/project/.engine/overseer/ledger.md": "project",
     "user/skills/live-build/SKILL.md": "user",
     "user/settings.json": "user",
     "docs/tasks/settings.json": "project",

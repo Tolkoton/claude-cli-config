@@ -1,5 +1,5 @@
 ---
-description: Plan a new slice with an automated planner-critic loop. Phase 1 (Frame & Premises) is interactive and human-gated; Phases 2-5 are drafted by the planner and stress-tested by the slice-planner-critic subagent until convergence. Writes .claude/overseer/slice/<slug>.md. Use whenever the owner wants to plan a new vertical slice before implementation.
+description: Plan a new slice with an automated planner-critic loop. Phase 1 (Frame & Premises) is interactive and human-gated; Phases 2-5 are drafted by the planner and stress-tested by the slice-planner-critic subagent until convergence. Writes .engine/slices/<slug>.md. Use whenever the owner wants to plan a new vertical slice before implementation.
 ---
 
 You are the **Slice Planner orchestrator**, not the coder and not the critic.
@@ -14,20 +14,20 @@ you spawn lives at `.claude/agents/slice-planner-critic.md`.
 ask for it and confirm before proceeding.
 
 Pre-flight:
-- If `.claude/overseer/slice/$ARGUMENTS.md` exists, ask: (a) overwrite, (b) read
+- If `.engine/slices/$ARGUMENTS.md` exists, ask: (a) overwrite, (b) read
   and refine, (c) different slug.
-- Write `plan` into `.claude/overseer/state` NOW, so the overseer Stop-hook stands
+- Write `plan` into `.claude/state/overseer/state` NOW, so the overseer Stop-hook stands
   down for the whole planning session (the phase guard skips audits while state is
   `plan`). Clear it only at the very end.
 
 ## Unattended operation — a hard gate becomes a park
 
-Read `.claude/overseer/mode`. Contents `unattended` → nobody is in the loop;
+Read `.claude/state/overseer/mode`. Contents `unattended` → nobody is in the loop;
 absent or anything else → attended, and every gate below behaves exactly as
 written.
 
 Unattended, a gate that would block instead **parks**: append the item to
-`.claude/overseer/parked.md` with what it needs, continue with whatever else can
+`.engine/overseer/parked.md` with what it needs, continue with whatever else can
 move, and surface it at the next legitimate interruption. Concretely:
 
 - **Phase 1 (interactive framing)** — derive the frame from the feature artifact,
@@ -85,7 +85,7 @@ one explicit exclusion.
 assumption this slice makes about EXTERNAL systems (third-party APIs, OS/file-
 system behavior, library versions, network/hardware). For each:
 - the assumption, one falsifiable sentence;
-- evidence: a spike artifact under `.claude/artifacts/spikes/<slug>-<name>-<date>.{json,txt}`
+- evidence: a spike artifact under `.engine/artifacts/spikes/<slug>-<name>-<date>.{json,txt}`
   (≤ 7 days old AND testing the SPECIFIC behavior), OR docs + a captured runtime
   confirmation, OR `untested — common knowledge`.
 
@@ -139,7 +139,7 @@ loop:
     CRITIC_ESCALATE →
         surface to the owner via AskUserQuestion using the critic's category,
         options, and recommendation VERBATIM; wait for the choice;
-        append the outcome to `.claude/overseer/escalations.md`;
+        append the outcome to `.engine/overseer/escalations.md`;
         fold the decision into `draft`; continue loop.
     CRITIC_PASS →
         break.          # ← convergence: no surviving BLOCKING objection
@@ -189,8 +189,8 @@ trusting further runs.)*
 
 # Write the artifact
 
-Use `Write` to create `.claude/overseer/slice/$ARGUMENTS.md` with this structure
-(matches `.claude/overseer/slice/_template.md` and the sections the overseer reads):
+Use `Write` to create `.engine/slices/$ARGUMENTS.md` with this structure
+(matches `.claude/templates/slice-contract.md` and the sections the overseer reads):
 
 ```markdown
 # Slice $ARGUMENTS — planning artifact
@@ -240,18 +240,18 @@ Use `Write` to create `.claude/overseer/slice/$ARGUMENTS.md` with this structure
 section to the artifact as `.claude/references/complexity-budget.md` describes: the smallest
 shape of change that can meet the exit criterion, with `base_commit` set to the current
 `git rev-parse HEAD`. Then run
-`python3 .claude/hooks/complexity_budget.py validate .claude/overseer/slice/$ARGUMENTS.md`
+`python3 .claude/hooks/complexity_budget.py validate .engine/slices/$ARGUMENTS.md`
 and fix what it reports. Include the budget in the owner summary below.
 
-1. `Edit` a ledger entry into `.claude/overseer/ledger.md` (top of entries):
+1. `Edit` a ledger entry into `.engine/overseer/ledger.md` (top of entries):
    ```
    ## <ISO timestamp UTC> — $ARGUMENTS — PLANNING_COMPLETE
    - Trigger: /plan-slice command
-   - Evidence: .claude/overseer/slice/$ARGUMENTS.md
+   - Evidence: .engine/slices/$ARGUMENTS.md
    - Action: planning artifact written, N decisions logged, M seams named, K critic rounds, J escalations
    - Category: strategy
    ```
-2. Clear the planning phase guard: remove `plan` from `.claude/overseer/state`
+2. Clear the planning phase guard: remove `plan` from `.claude/state/overseer/state`
    (so the overseer resumes auditing once implementation begins).
 3. Summarize for the owner in 3-5 bullets (goal, key decisions, hardest seams,
    exit criterion, any open items), then:

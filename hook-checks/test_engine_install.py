@@ -63,10 +63,10 @@ def tree_digest(project: Path) -> dict[str, str]:
 
 MAP = """\
 machine  .claude/settings.local.json
-machine  .claude/overseer/mode
+machine  .claude/state/overseer/mode
 machine  .claude/state/
-project  .claude/overseer/ledger.md  seed=templates/project/.claude/overseer/ledger.md
-project  .claude/architecture/
+project  .engine/overseer/ledger.md  seed=templates/project/.engine/overseer/ledger.md
+project  .engine/architecture/
 engine   .claude/**
 project  CLAUDE.md  seed=CLAUDE.md
 project  **
@@ -84,9 +84,9 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     write(eng / ".claude/hooks/a.sh", "echo a1\n", executable=True)
     write(eng / ".claude/hooks/b.sh", "echo b1\n", executable=True)
     write(eng / ".claude/settings.json", '{"v": 1}\n')
-    write(eng / ".claude/overseer/ledger.md", "# Ledger\n\n## 2026-08-27 — the engine's own record\n")
-    write(eng / ".claude/overseer/mode", "unattended\n")  # machine state committed by mistake
-    write(eng / "templates/project/.claude/overseer/ledger.md", "# Ledger\n")
+    write(eng / ".engine/overseer/ledger.md", "# Ledger\n\n## 2026-08-27 — the engine's own record\n")
+    write(eng / ".claude/state/overseer/mode", "unattended\n")  # machine state committed by mistake
+    write(eng / "templates/project/.engine/overseer/ledger.md", "# Ledger\n")
     write(eng / "CLAUDE.md", "# Rules v1\n")
     write(eng / "evals/run.py", "print('the engine repository's own tooling')\n")
     git(eng, "add", "-A")
@@ -100,7 +100,7 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     git(eng, "tag", "v2.0.0")
     write(eng / ".claude/hooks/a.sh", "echo a3\n", executable=True)
     write(eng / ".claude/settings.json", '{"v": 3}\n')
-    write(eng / "templates/project/.claude/overseer/ledger.md", "# Ledger, v3 seed\n")
+    write(eng / "templates/project/.engine/overseer/ledger.md", "# Ledger, v3 seed\n")
     git(eng, "add", "-A")
     git(eng, "commit", "-q", "-m", "v3")
     git(eng, "tag", "v3.0.0")
@@ -125,16 +125,16 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     check("install: the ownership map ships", (p / ".claude/ownership.txt").read_text() == MAP)
     check(
         "install: the ledger is the clean seed, not the engine's records",
-        (p / ".claude/overseer/ledger.md").read_text() == "# Ledger\n",
+        (p / ".engine/overseer/ledger.md").read_text() == "# Ledger\n",
     )
     check("install: CLAUDE.md starts from its seed", (p / "CLAUDE.md").read_text() == "# Rules v1\n")
-    check("install: machine state never ships", not (p / ".claude/overseer/mode").exists())
+    check("install: machine state never ships", not (p / ".claude/state/overseer/mode").exists())
     check("install: the engine repository's own files never ship", not (p / "evals").exists())
     ignore = (p / ".gitignore").read_text()
     check("install: the project's own ignore lines stay", ignore.startswith(".venv/\n"))
     check(
         "install: machine patterns go into the marked block",
-        "# >>> engine:" in ignore and ".claude/overseer/mode\n" in ignore and ignore.endswith("# <<< engine\n"),
+        "# >>> engine:" in ignore and ".claude/state/overseer/mode\n" in ignore and ignore.endswith("# <<< engine\n"),
     )
     lock = __import__("json").loads((p / LOCK).read_text())
     check(
@@ -142,7 +142,7 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
         lock["ref"] == "v1.0.0"
         and lock["commit"] == git(eng, "rev-parse", "v1.0.0").strip()
         and lock["files"].get(".claude/hooks/a.sh") == blob("echo a1\n")
-        and ".claude/overseer/ledger.md" in lock["seeded"],
+        and ".engine/overseer/ledger.md" in lock["seeded"],
         str(lock),
     )
     check(
@@ -182,8 +182,8 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
 
     # --- a local edit is kept, reported, and taken only on request ------------------------------
     write(p / ".claude/settings.json", '{"v": 1, "mine": true}\n')
-    write(p / ".claude/overseer/ledger.md", "# Ledger\n\n## our first entry\n")
-    write(p / ".claude/architecture/map.md", "our architecture\n")
+    write(p / ".engine/overseer/ledger.md", "# Ledger\n\n## our first entry\n")
+    write(p / ".engine/architecture/map.md", "our architecture\n")
     r = engine("update", str(p), "--ref", "v3.0.0")
     check("edit: exit 1 (something held back)", r.returncode == 1, r.stdout + r.stderr)
     check(
@@ -193,11 +193,11 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     check("edit: the untouched engine file still updates", (p / ".claude/hooks/a.sh").read_text() == "echo a3\n")
     check(
         "project: the seeded ledger is never overwritten",
-        (p / ".claude/overseer/ledger.md").read_text() == "# Ledger\n\n## our first entry\n",
+        (p / ".engine/overseer/ledger.md").read_text() == "# Ledger\n\n## our first entry\n",
     )
     check(
         "project: project paths are never touched",
-        (p / ".claude/architecture/map.md").read_text() == "our architecture\n",
+        (p / ".engine/architecture/map.md").read_text() == "our architecture\n",
     )
     r = engine("update", str(p), "--ref", "v3.0.0")
     check("edit: stays held back on the next update", r.returncode == 1 and "keep    .claude/settings.json" in r.stdout)
@@ -209,11 +209,11 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     )
     r = engine("update", str(p), "--ref", "v3.0.0", "--take", "evals/run.py")
     check("take: refuses a path the engine does not own", r.returncode == 2 and "not engine files" in r.stderr)
-    (p / ".claude/overseer/ledger.md").unlink()
+    (p / ".engine/overseer/ledger.md").unlink()
     r = engine("update", str(p), "--ref", "v3.0.0")
     check(
         "seed: a seed is created once — a deleted project file is not recreated",
-        not (p / ".claude/overseer/ledger.md").exists(),
+        not (p / ".engine/overseer/ledger.md").exists(),
         r.stdout,
     )
 
@@ -225,7 +225,7 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     # --- adoption of a copy made by hand (no lock), the old way ----------------------------------
     old = project("copied-by-hand")
     archive = subprocess.run(
-        ["git", "-C", str(eng), "archive", "v1.0.0", ".claude", "CLAUDE.md"], capture_output=True, check=True
+        ["git", "-C", str(eng), "archive", "v1.0.0", ".claude", ".engine", "CLAUDE.md"], capture_output=True, check=True
     ).stdout
     subprocess.run(["tar", "-xf", "-", "-C", str(old)], input=archive, check=True)
     git(old, "add", "-A")
@@ -247,20 +247,20 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     check("adopt: an edited engine file is kept", "keep    .claude/settings.json" in out and r.returncode == 1)
     check(
         "adopt: the engine's records in a project file are reported, not touched",
-        "note    .claude/overseer/ledger.md holds only the engine's own records" in out
-        and "the engine's own record" in (old / ".claude/overseer/ledger.md").read_text(),
+        "note    .engine/overseer/ledger.md holds only the engine's own records" in out
+        and "the engine's own record" in (old / ".engine/overseer/ledger.md").read_text(),
         out,
     )
     check(
         "adopt: tracked machine state is reported",
-        "machine state are tracked by git" in out and ".claude/overseer/mode" in out,
+        "machine state are tracked by git" in out and ".claude/state/overseer/mode" in out,
         out,
     )
     check("adopt: a lock now exists", (old / LOCK).is_file())
     r = engine("update", str(old), "--ref", "v2.0.0", "--reseed-pristine")
     check(
         "reseed: the copied ledger becomes the clean seed",
-        (old / ".claude/overseer/ledger.md").read_text() == "# Ledger\n",
+        (old / ".engine/overseer/ledger.md").read_text() == "# Ledger\n",
         r.stdout,
     )
 
@@ -334,10 +334,10 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
         )
         r = subprocess.run(cmd + ["--reseed-pristine"], capture_output=True, text=True, env=env, check=False)
         check("real v0.8.0: the update applies", r.returncode == 0, r.stdout + r.stderr)
-        ledger_seed = (ROOT / "templates/project/.claude/overseer/ledger.md").read_text()
+        ledger_seed = (ROOT / "templates/project/.engine/overseer/ledger.md").read_text()
         check(
             "real v0.8.0: the engine's old ledger is replaced by the clean seed",
-            (real / ".claude/overseer/ledger.md").read_text() == ledger_seed,
+            (real / ".engine/overseer/ledger.md").read_text() == ledger_seed,
         )
         # The sandbox was installed from HEAD, so its hooks are HEAD's; the working tree's hooks
         # equal them only while nothing under .claude/hooks is uncommitted. Comparing while a

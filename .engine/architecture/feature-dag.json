@@ -1,6 +1,6 @@
 {
   "feature": "engine-package-3c",
-  "note": "Package 3c (docs/plan/package-3c.md): separate what defines the agent (.claude/) from what it produces (.engine/). Contract: .claude/architecture/feature/engine-package-3c.md (moves to .engine/architecture/ in C2). Branch unattended/2026-10-02-package-3c from v0.10.1. C9 and the carried-over owner items are parked with their exact unblocking step.",
+  "note": "Package 3c (docs/plan/package-3c.md): separate what defines the agent (.claude/) from what it produces (.engine/). Contract: .engine/architecture/feature/engine-package-3c.md (moves to .engine/architecture/ in C2). Branch unattended/2026-10-02-package-3c from v0.10.1. C9 and the carried-over owner items are parked with their exact unblocking step.",
   "nodes": [
     {
       "id": "C1",

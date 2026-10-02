@@ -88,7 +88,7 @@ PROTECTED_PATTERNS=(
   # on. Widening what an agent may edit is exactly when the things that define
   # its limits need a second layer: the permission list is one mechanism, and a
   # settings.local.json edit could quietly re-widen it. These three stay out of
-  # reach in both mechanisms. Propose changes in .claude/overseer/audit.md.
+  # reach in both mechanisms. Propose changes in .engine/overseer/audit.md.
   '\.claude/constitution\.md$'
   '\.claude/settings\.json$'
   '\.claude/settings\.local\.json$'

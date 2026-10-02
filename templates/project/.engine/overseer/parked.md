@@ -28,7 +28,7 @@ Surface the parked queue when ANY of these is true:
 - **Three or more** items are parked awaiting ratification. Three is the signal
   that the contract itself is systematically under-specified, which is a human
   problem, not an item problem.
-- A premise in `.claude/premises/premise-log.md` flips to `falsified` and any
+- A premise in `.engine/premises/premise-log.md` flips to `falsified` and any
   parked or completed item depends on it (reason 2, Constitution Art. 8).
 
 ## Entry format

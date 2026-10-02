@@ -68,9 +68,9 @@ Convergence is the critic's PASS **plus** the owner's approval — never frictio
 ---
 
 # Pre-flight
-- Read the existing **domain map** and **architecture map** (`.claude/architecture/*`),
+- Read the existing **domain map** and **architecture map** (`.engine/architecture/*`),
   `docs/adr/`, and both playbook files. If none of the maps exist, this is greenfield.
-- Write `plan` into `.claude/overseer/state` during architecture work; clear it before
+- Write `plan` into `.claude/state/overseer/state` during architecture work; clear it before
   feature builds begin.
 
 ---
@@ -85,10 +85,10 @@ Establish, with the owner, one at a time:
   Draft → stress-test with the master-critic (`domain` phase) → refine with the owner.
   Show it as a plain-language summary **and a Mermaid context diagram**.
 - **Load-bearing premises** — assumptions about technology and scale the project rests
-  on. Record each in `.claude/premises/premise-log.md` (status `unverified`, linked to
+  on. Record each in `.engine/premises/premise-log.md` (status `unverified`, linked to
   `project`). The riskiest get a PoC in M2.
 
-Write the result to `.claude/architecture/domain-map.md` (text + the context diagram).
+Write the result to `.engine/architecture/domain-map.md` (text + the context diagram).
 
 ---
 
@@ -105,7 +105,7 @@ piece is a box; arrows show data and communication between them. The riskiest te
 premise from M1 MUST clear a PoC here (Art. 1) — the playbook says "X usually handles
 Y", the PoC proves it handles *your* workload.
 
-Output: the system-level half of `.claude/architecture/architecture-map.md` + an ADR per
+Output: the system-level half of `.engine/architecture/architecture-map.md` + an ADR per
 ratified one-way door.
 
 ---
@@ -124,7 +124,7 @@ boxes are layers or modules; arrows show allowed dependencies. The playbook's
 `earns-its-place` thresholds are your guard against premature layering — do not add
 structure the project's size does not yet justify.
 
-Output: the component-level half of `.claude/architecture/architecture-map.md` (incl.
+Output: the component-level half of `.engine/architecture/architecture-map.md` (incl.
 the dependency rules) + an ADR per ratified one-way door.
 
 ---
@@ -135,7 +135,7 @@ Break the product into **features** (each mapping to a bounded context / coheren
 capability). Draft the feature DAG → stress-test with the master-critic
 (`decomposition` phase) until `MASTER_CRITIC_PASS`. The critic enforces coverage, an
 acyclic DAG, and **identifies the walking skeleton** — the thinnest end-to-end feature
-chain. Record the feature list + DAG in `.claude/architecture/INDEX.md`, with a
+chain. Record the feature list + DAG in `.engine/architecture/INDEX.md`, with a
 **Mermaid diagram of the feature DAG** (walking skeleton highlighted).
 
 ---
@@ -168,14 +168,14 @@ boundaries stay with the owner.)*
 
 # Artifacts master-architect owns
 
-- `.claude/architecture/domain-map.md` — bounded contexts + ubiquitous language + the
+- `.engine/architecture/domain-map.md` — bounded contexts + ubiquitous language + the
   context diagram.
-- `.claude/architecture/architecture-map.md` — the system-level (container) diagram from
+- `.engine/architecture/architecture-map.md` — the system-level (container) diagram from
   M2 and the component/dependency diagram from M3; kept current as features land (the
   feature-critic and master-critic read it).
-- `.claude/architecture/INDEX.md` — the feature list + DAG diagram + walking skeleton.
+- `.engine/architecture/INDEX.md` — the feature list + DAG diagram + walking skeleton.
 - `docs/adr/NNNN-*.md` — one ADR per ratified one-way-door decision.
-- premise nodes in `.claude/premises/premise-log.md` for project-level premises.
+- premise nodes in `.engine/premises/premise-log.md` for project-level premises.
 
 Ledger each milestone:
 ```

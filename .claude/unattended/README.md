@@ -28,8 +28,8 @@ added mid-session does not apply until the next one.
 ```bash
 command -v jq                                # REQUIRED: four hooks silently
                                              # enforce nothing without it
-echo unattended > .claude/overseer/mode      # only when the guardrails verify green
-nohup .claude/unattended/supervisor.sh >> .claude/unattended/logs/nohup.log 2>&1 &
+echo unattended > .claude/state/overseer/mode      # only when the guardrails verify green
+nohup .claude/unattended/supervisor.sh >> .claude/state/unattended/logs/nohup.log 2>&1 &
 ```
 
 On the Linux server, prefer the unit: `sudo cp claude-unattended.service
@@ -64,7 +64,7 @@ Anything used as `SESSION_CMD` must:
 
 1. **Tick the heartbeat** while working —
    `python3 .claude/unattended/runstate.py heartbeat`. Combined with
-   `PROGRESS.md` mtime this is the liveness signal; a session that updates
+   `.engine/PROGRESS.md` mtime this is the liveness signal; a session that updates
    neither for `STALL_TIMEOUT_SEC` is killed as wedged (D-4, D-5).
 2. **Write a terminal status before exiting** —
    `runstate.py set finished|parked|halted "<reason>" "<what unblocks it>"`, or
@@ -101,7 +101,7 @@ of these tokens into the line and the queue heals itself:
 | `env:VAR` | that variable is set |
 | `file:PATH` | that path exists |
 | `node:ID` | that DAG node is `done` |
-| `mode:attended` | `.claude/overseer/mode` no longer says unattended |
+| `mode:attended` | `.claude/state/overseer/mode` no longer says unattended |
 | `premise:ID` | that premise row is `verified` in the premise log |
 
 An item with no token stays parked until a human moves it. That is deliberate —
@@ -119,7 +119,7 @@ re-opening on a guess is how a run starts thrashing.
 deps are all `done` (D-10). A parked node blocks its dependents but not the rest
 of the graph — the run routes around it.
 
-`.claude/architecture/feature-dag.json` currently holds a **tracer-bullet DAG**
+`.engine/architecture/feature-dag.json` currently holds a **tracer-bullet DAG**
 built to prove the harness. Replace it with a real one from
 `/feature-architect`.
 

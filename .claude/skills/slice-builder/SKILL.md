@@ -1,6 +1,6 @@
 ---
 name: slice-builder
-description: Build ONE isolated testable logical piece (a "thin slice") of a larger system using strict per-test TDD (RED→GREEN→REFACTOR), paranoid-SRP (one method = one responsibility; multi-responsibility logic becomes a flow method orchestrating helpers), seam-first design, and dependency injection. Use this skill WHENEVER the user asks to "implement a small piece", "add a thin slice", "build the upload module", "build piece N of the pipeline", "wrap this API in a clean function", or otherwise wants controlled incremental progress on a known integration without architecture overhead. Output is one production module + integration tests derived from the method's distinct behaviors + one manual smoke script + a PROGRESS.md entry. Gates once on the behavior list, then runs every behavior to completion without stopping; evidence goes to the artifact and the ledger, not to chat. DO NOT use for greenfield architecture (→ master-architect), splitting oversized multi-file features (→ feature-architect), unknown-API exploration (→ spike, no skill), or single-file edits (→ user edits directly).
+description: Build ONE isolated testable logical piece (a "thin slice") of a larger system using strict per-test TDD (RED→GREEN→REFACTOR), paranoid-SRP (one method = one responsibility; multi-responsibility logic becomes a flow method orchestrating helpers), seam-first design, and dependency injection. Use this skill WHENEVER the user asks to "implement a small piece", "add a thin slice", "build the upload module", "build piece N of the pipeline", "wrap this API in a clean function", or otherwise wants controlled incremental progress on a known integration without architecture overhead. Output is one production module + integration tests derived from the method's distinct behaviors + one manual smoke script + a .engine/PROGRESS.md entry. Gates once on the behavior list, then runs every behavior to completion without stopping; evidence goes to the artifact and the ledger, not to chat. DO NOT use for greenfield architecture (→ master-architect), splitting oversized multi-file features (→ feature-architect), unknown-API exploration (→ spike, no skill), or single-file edits (→ user edits directly).
 ---
 
 # Slice Builder
@@ -53,7 +53,7 @@ You are extending a known system one isolated logical piece at a time. The user 
 
    What is NEVER added at slice level: mutmut / cosmic-ray mutation testing, exhaustive hypothesis property tests, wide-lens enumeration (security/performance/concurrency/encoding lenses) — those belong to a full-feature implementation effort. Adding them to a slice is scope creep.
 
-7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the smoke result is recorded. This is a genuine human-input dependency (reason 1) whenever the verification needs eyes on a real external system — so it **parks**, it does not halt: write the script, append a `PARKED / external-verification` entry to `.claude/overseer/parked.md`, mark the slice `CODE COMPLETE — SMOKE PENDING` in `PROGRESS.md`, and move to the next unblocked item. If the smoke can be asserted programmatically against a sandbox, do that instead and close the slice without parking.
+7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the smoke result is recorded. This is a genuine human-input dependency (reason 1) whenever the verification needs eyes on a real external system — so it **parks**, it does not halt: write the script, append a `PARKED / external-verification` entry to `.engine/overseer/parked.md`, mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. If the smoke can be asserted programmatically against a sandbox, do that instead and close the slice without parking.
 
 ## When to use this skill
 
@@ -94,7 +94,7 @@ Answer these four, in the slice artifact, before anything else:
 - What does this slice **NOT** do? (List 3-5 deferred items.)
 - Existing conventions in the repo to follow? (test layout, type strictness, Pydantic vs dataclass for what kinds of objects)
 
-**Sources, in order:** the slice contract at `.claude/overseer/slice/<slug>.md`, then the feature artifact, then the existing code's conventions. Attended, ask all four at once and wait. Unattended, derive each from those sources and write it down; if the *seam itself* is underdetermined and no source settles it, that is a design fork — park it (`one-way-door` only if the signature is a published contract; otherwise decide, record the alternative you rejected, and continue).
+**Sources, in order:** the slice contract at `.engine/slices/<slug>.md`, then the feature artifact, then the existing code's conventions. Attended, ask all four at once and wait. Unattended, derive each from those sources and write it down; if the *seam itself* is underdetermined and no source settles it, that is a design fork — park it (`one-way-door` only if the signature is a published contract; otherwise decide, record the alternative you rejected, and continue).
 
 **Do not wait.** The artifact write is the checkpoint.
 
@@ -108,7 +108,7 @@ Read the vendor docs the user pointed to. Report back:
 
 Record all four findings in the slice artifact.
 
-**Missing test-environment details** (folder ID, account ID, sandbox URL) are the textbook human-only input — reason 1. If they are not in `.env`, `.env.example`, the slice contract, or the vendor docs: append a `PARKED / human-input` entry to `.claude/overseer/parked.md` naming the exact values needed and where they should go, then move to the next unblocked item. Do not guess a credential and do not halt the run waiting for one.
+**Missing test-environment details** (folder ID, account ID, sandbox URL) are the textbook human-only input — reason 1. If they are not in `.env`, `.env.example`, the slice contract, or the vendor docs: append a `PARKED / human-input` entry to `.engine/overseer/parked.md` naming the exact values needed and where they should go, then move to the next unblocked item. Do not guess a credential and do not halt the run waiting for one.
 
 ### Step 2 — Skeleton
 
@@ -165,13 +165,13 @@ Write `scripts/smoke_test_<slice>.py`:
 Then take the cheapest path that closes the slice:
 
 - **Assertable against a sandbox** — run it, capture the output to the ledger, close the slice. No park.
-- **Needs human eyes on a real external system** — park it. Append `PARKED / external-verification` to `.claude/overseer/parked.md` with the exact command and the printed instruction, mark the slice `CODE COMPLETE — SMOKE PENDING` in `PROGRESS.md`, and move to the next unblocked item. The slice resumes when the smoke result comes back.
+- **Needs human eyes on a real external system** — park it. Append `PARKED / external-verification` to `.engine/overseer/parked.md` with the exact command and the printed instruction, mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. The slice resumes when the smoke result comes back.
 
 Never block the run on a smoke walkthrough, and never mark a slice DONE on an unrun smoke.
 
 ### Step 6 — PROGRESS update
 
-Append to `PROGRESS.md` at repo root (create if missing) as soon as the code is complete — do not wait on the smoke result. If the smoke is parked, write the entry with `Smoke: PARKED — see .claude/overseer/parked.md` and update it in place when the result arrives:
+Append to `.engine/PROGRESS.md` at repo root (create if missing) as soon as the code is complete — do not wait on the smoke result. If the smoke is parked, write the entry with `Smoke: PARKED — see .engine/overseer/parked.md` and update it in place when the result arrives:
 
 ```
 ## Slice N — <name> (DONE YYYY-MM-DD)
@@ -199,9 +199,9 @@ If the user asks for any of the following DURING the slice, push them out of sco
 - Implementing the NEXT slice "since we're here"
 
 Response template (attended):
-> That's beyond the scope of this slice. Want me to (a) defer it to a follow-up slice (I'll note it in `PROGRESS.md` under "Open for next slice"), or (b) escalate to `master-architect` if it's actually architectural?
+> That's beyond the scope of this slice. Want me to (a) defer it to a follow-up slice (I'll note it in `.engine/PROGRESS.md` under "Open for next slice"), or (b) escalate to `master-architect` if it's actually architectural?
 
-Unattended, do not ask — decide and log. Default to (a): note it in `PROGRESS.md` under "Open for next slice" and continue the current slice. Choose (b) only when it meets one of the Escalation-signal triggers below, in which case park it per that section. Deferring is a two-way door; the note is the record.
+Unattended, do not ask — decide and log. Default to (a): note it in `.engine/PROGRESS.md` under "Open for next slice" and continue the current slice. Choose (b) only when it meets one of the Escalation-signal triggers below, in which case park it per that section. Deferring is a two-way door; the note is the record.
 
 ## Escalation signals
 
@@ -217,8 +217,8 @@ STOP and ESCALATE to **`master-architect`** (or pause and discuss with the owner
 
 In both cases, do NOT continue **this slice** — the trigger is real and the level is wrong. But do not halt the run either. Route through park-and-continue:
 
-1. Append a `PARKED` entry to `.claude/overseer/parked.md` with class `one-way-door` for a missing architectural decision or an API semantics mismatch, `human-input` for anything needing the owner, naming which skill should pick it up (`master-architect` / `feature-architect`).
-2. Record what you found in the slice artifact and in `PROGRESS.md`; mark the slice `BLOCKED`.
+1. Append a `PARKED` entry to `.engine/overseer/parked.md` with class `one-way-door` for a missing architectural decision or an API semantics mismatch, `human-input` for anything needing the owner, naming which skill should pick it up (`master-architect` / `feature-architect`).
+2. Record what you found in the slice artifact and in `.engine/PROGRESS.md`; mark the slice `BLOCKED`.
 3. Leave the partial work as-is — never revert someone else's decision surface on your own.
 4. Move to the next unblocked item.
 5. Surface only per the thresholds in `parked.md`: nothing else can move, a single one-way door, or three parked ratification items.
@@ -227,7 +227,7 @@ These triggers stay exactly as written. They are genuine "needs a human or a dif
 
 ## What you DO NOT do
 
-- Write to `.claude/architecture/` (that's `master-architect` / `feature-architect` territory)
+- Write to `.engine/architecture/` (that's `master-architect` / `feature-architect` territory)
 - Create or modify `tasks.yaml`
 - Run mutmut, cosmic-ray, code-reviewer subagent, security-auditor
 - Generate ADRs
@@ -263,6 +263,6 @@ What the old per-cycle STOPs were protecting was drift away from the seam. That 
 1. **Write before you build.** The seam, the out-of-scope list, and the behavior list go to the slice artifact before the first RED. Drift is visible as a diff against them.
 2. **Record every transition.** RED output, GREEN output, refactor result — all to the ledger. This is stronger than a human skimming chat, because the overseer audits it afterwards (checks #1, #2, #4) and a skim leaves no evidence.
 3. **Do not chain past a bad state.** Never start Bn+1 over a red or unrefactored Bn. This is the part of the old rule that was load-bearing, and it is unchanged.
-4. **Park, don't stop.** When something genuinely needs a human, it goes to `.claude/overseer/parked.md` and you move to the next unblocked item.
+4. **Park, don't stop.** When something genuinely needs a human, it goes to `.engine/overseer/parked.md` and you move to the next unblocked item.
 
 The run stops for exactly three reasons: something only a human can supply, a falsified premise that invalidates committed work, or an empty unblocked queue. Nothing else. A checkpoint that exists so a watching human *could* redirect is not one of them — unattended, it redirects nobody and costs the whole run.
