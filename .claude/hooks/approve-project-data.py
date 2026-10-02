@@ -14,6 +14,13 @@ constitution.md, the hooks, the skills — are owned by `engine` or `machine` in
 enforces: ONLY a path whose owner is `project` is approved. protect-paths.sh still runs
 first (PreToolUse) and refuses its protected paths regardless.
 
+ONE PROJECT FILE IS NEVER APPROVED: .claude/project.env. It is project-owned, but it is not
+bookkeeping — it is the switchboard of the gates: TEST_CMD, LINT_CMD and TYPECHECK_CMD say
+what verify-on-stop runs, SOURCE_DIRS and CODE_EXTENSIONS what it looks at, COMPLEXITY_GATE
+and CLOUD_COMMIT_POLICY turn a gate on or off. An unprompted write there could make every
+gate pass (`TEST_CMD=true`) with no human seeing it. A person edits it at setup time, rarely,
+so the normal prompt is the right price. (Owner review of package 3b, 2026-10-02.)
+
 WHAT COUNTS. The target path is resolved with every symlink and `..` followed
 (`Path.resolve()`); it must land inside the real `$CLAUDE_PROJECT_DIR/.claude/` directory,
 and its path relative to the project root must match a `project` rule in
@@ -40,6 +47,8 @@ from typing import Any
 
 TOOLS = ("Edit", "Write", "MultiEdit")
 OWNERSHIP = ".claude/ownership.txt"
+# Project-owned, but it configures the gates themselves — see the module docstring.
+GATE_CONFIG = frozenset({".claude/project.env"})
 OWNERS = ("engine", "project", "machine", "user")
 
 
@@ -118,6 +127,8 @@ def is_project_data(target: str, project: Path, rules: list[tuple[str, re.Patter
     if claude_dir not in resolved.parents:
         return False
     rel = resolved.relative_to(project.resolve()).as_posix()
+    if rel in GATE_CONFIG:
+        return False
     return owner_of(rules, rel) == "project"
 
 

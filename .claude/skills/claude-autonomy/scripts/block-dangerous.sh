@@ -130,11 +130,12 @@ for pattern in "${DANGEROUS_PATTERNS[@]}"; do
   fi
 done
 
-# Block direct git commit/push on protected branches (defense-in-depth)
+# Block a direct git commit on a protected branch (defense-in-depth). A push is not blocked
+# here: the `ask` rule in settings.json decides it (owner decision 2026-10-01).
 BRANCH=""
 # Ask git, do not look for a .git DIRECTORY: in a `git worktree` checkout .git is a FILE.
-# With the old `[ -d .../.git ]` the branch stayed unknown there and a push from a
-# protected branch was allowed (evals: bd-push-on-protected-branch-in-worktree).
+# With the old `[ -d .../.git ]` the branch stayed unknown there, and a legitimate commit
+# on an unattended/<date> branch was refused (evals: bd-commit-on-unattended-branch-in-worktree).
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   BRANCH=$(git -C "$CLAUDE_PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 fi

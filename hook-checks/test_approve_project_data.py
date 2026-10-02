@@ -6,7 +6,7 @@ Every path class, against a temporary project carrying this repository's real
 .claude/ownership.txt:
 
 - project-owned data under .claude/ (ledger, parked, premise log, slice contract, feature DAG,
-  spike, project.env): APPROVED — relative and absolute spellings;
+  spike): APPROVED; project.env is NOT, it switches the gates — relative and absolute spellings;
 - engine-owned (settings.json, a hook, a skill, constitution.md), machine-owned
   (settings.local.json, overseer/mode), outside .claude/ (src/app.py, CLAUDE.md): NO decision;
 - `..` that escapes .claude/, `..` that stays inside, a symlink under .claude/overseer/ that
@@ -92,7 +92,7 @@ def main() -> int:
         for rel in (
             ".claude/overseer/ledger.md", ".claude/overseer/parked.md", ".claude/overseer/escalations.md",
             ".claude/overseer/slice/checkout.md", ".claude/premises/premise-log.md",
-            ".claude/architecture/feature-dag.json", ".claude/artifacts/spikes/x/notes.md", ".claude/project.env",
+            ".claude/architecture/feature-dag.json", ".claude/artifacts/spikes/x/notes.md",
         ):
             t.check(f"{rel} (absolute)", approved(run(envelope(str(project / rel)), project)))
         t.check(".claude/overseer/ledger.md (relative to the project)", approved(run(envelope(".claude/overseer/ledger.md"), project)))
@@ -108,6 +108,10 @@ def main() -> int:
             "src/app.py", "CLAUDE.md", ".env", "user/settings.json",
         ):
             t.check(f"{rel}", no_decision(run(envelope(str(project / rel)), project)))
+
+        print("no decision — project-owned, but the gates' switchboard:")
+        t.check(".claude/project.env (TEST_CMD=true would pass every gate)", no_decision(run(envelope(str(project / ".claude/project.env")), project)))
+        t.check(".claude/project.env spelled relative to the project", no_decision(run(envelope(".claude/project.env"), project)))
 
         print("no decision — escapes:")
         t.check("`..` out of .claude/ to the project root", no_decision(run(envelope(str(project / ".claude/overseer/../../CLAUDE.md")), project)))
