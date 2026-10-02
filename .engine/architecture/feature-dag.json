@@ -84,6 +84,34 @@
       ],
       "status": "parked",
       "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
+    },
+    {
+      "id": "X7",
+      "title": "own project.env: SOURCE_DIRS = engine code dirs, CODE_EXTENSIONS py sh, TEST_CMD = bash tests/run_all.sh; fix _is_code_path for multi-segment dirs on absolute paths; AGENTS.md; time the suite",
+      "deps": [],
+      "status": "pending"
+    },
+    {
+      "id": "X8",
+      "title": "run_audit_scenarios.py: save --out after every run, --resume completes a partial file, refuse mismatched or unflagged overwrite; shim-based test",
+      "deps": [],
+      "status": "pending"
+    },
+    {
+      "id": "X9",
+      "title": "tests/test_deny_hooks.py clean under mypy --strict, 66 cases unchanged",
+      "deps": [],
+      "status": "pending"
+    },
+    {
+      "id": "X10",
+      "title": "records and report (addendum)",
+      "deps": [
+        "X7",
+        "X8",
+        "X9"
+      ],
+      "status": "pending"
     }
   ]
 }

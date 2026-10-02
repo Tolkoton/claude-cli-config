@@ -42,6 +42,41 @@ and the new .gitignore block no longer ignores the old paths.
   difference with that reason. · depends on: —.
 - **X6 records** — report, DAG, ledger, parked (C8b, C9 unchanged). · depends on: X1–X5.
 
+### Addendum (items 7–9, received after X6 shipped)
+
+- **X7 own-project-env** (item 7) — this repository's `.claude/project.env`: `SOURCE_DIRS`
+  names the engine's code directories (`.claude/hooks .claude/unattended evals tests`),
+  `CODE_EXTENSIONS="py sh"` (the hooks are shell — agent decision), `TEST_CMD="bash
+  tests/run_all.sh"`. **Prerequisite found while probing**: `overseer_stop._is_code_path`
+  matches a multi-segment `SOURCE_DIRS` entry (`.claude/hooks`, or the documented
+  `backend/src`) only against a RELATIVE path; Claude Code hands the hook absolute paths, so
+  the setting would be inert. Fix the matcher (a directory entry matches when `/<entry>/`
+  occurs in the path) with its own suite. AGENTS.md's two paragraphs on this file and the
+  `3c-C7-test-cmd` decision are superseded. Measure `bash tests/run_all.sh` wall time for
+  the report, and run the live Stop hook once against a dirty tree to see it call the suite.
+  · depends on: —.
+- **X8 audit-runner-resume** (item 8) — `evals/run_audit_scenarios.py` writes `--out` after
+  every RUN (finer than the owner's "every scenario": a crash on run 3 of 3 keeps runs 1–2)
+  with `"status": "partial"` and the pending ids; `--resume` reloads an existing `--out`,
+  keeps every recorded run and performs only the missing ones; the file's `engine_ref`,
+  `model`, `setting_sources` and `runs_per_scenario` must equal the invocation's or the
+  runner refuses (exit 2) — mixing engines in one file is worse than a crash. Without
+  `--resume` an existing `--out` is refused too (agent decision: forgetting the flag must
+  not destroy paid results). Ctrl-C leaves a partial file and says how to resume.
+  **Test** `tests/test_audit_runner_resume.py`: a `claude` shim on `--claude` that answers
+  `--version`, prompt A (json with a session_id) and prompt B (stream-json with an
+  OVERSEER_PASS text block and a cost), records every call in a log, and on the Nth call
+  kills the runner (SIGKILL on its parent); asserts the partial file holds exactly the runs
+  paid for; a `--resume` run completes the file, re-runs none of them (call log), and the
+  final file is `complete` with the summed cost; the two refusals. Real sandboxes
+  (`make_sandbox.sh`, ~1.4 s each), `--only` to keep it to three scenarios.
+  · depends on: —.
+- **X9 deny-hooks-typing** (item 9) — `tests/test_deny_hooks.py` clean under
+  `mypy --strict`, 66 cases unchanged. The owner's "45" is the LINE count of mypy's output
+  (9 errors + 36 overload-variant notes); the report's figure was wrong and is corrected.
+  · depends on: —.
+- **X10 records** — report, DAG, ledger, escalations. · depends on: X7–X9.
+
 ## Contracts
 
 - X1 → X3: the state table is the single source for both the moves and the test's list of
