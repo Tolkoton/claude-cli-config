@@ -53,6 +53,41 @@ from pathlib import Path, PurePosixPath
 
 import tomllib
 
+
+def engine_stand_down() -> bool:
+    """Fire once per event when this hook is wired at two settings levels under DIFFERENT
+    command strings (an identical string already runs once — code.claude.com/docs/en/hooks,
+    "Merging across settings levels"). The project's own copy,
+    $CLAUDE_PROJECT_DIR/.claude/hooks/<name>, always runs; any other copy stands down when
+    the project wires hooks/<name> in .claude/settings.json or settings.local.json, and says
+    so on stderr so a stand-down is never mistaken for an allow. Decided from files only,
+    never from timing or order. ENGINE_HOOK_ALWAYS_RUN=1 skips this — the one override, in
+    the safe direction."""
+    if os.environ.get("ENGINE_HOOK_ALWAYS_RUN") == "1":
+        return False
+    project = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if not project:
+        return False
+    name = Path(__file__).name
+    mine = Path(project) / ".claude" / "hooks" / name
+    try:
+        if not mine.is_file() or mine.resolve() == Path(__file__).resolve():
+            return False
+        wired = any(
+            f"hooks/{name}" in p.read_text(encoding="utf-8", errors="replace")
+            for p in (Path(project) / ".claude" / "settings.json", Path(project) / ".claude" / "settings.local.json")
+            if p.is_file()
+        )
+    except OSError:
+        return False
+    if not wired:
+        return False
+    print(
+        f"STOOD_DOWN: {name} defers to {mine} (wired by the project; this copy is {Path(__file__).resolve()})",
+        file=sys.stderr,
+    )
+    return True
+
 LIMIT_KEYS = (
     "max_new_files",
     "max_net_new_lines",
@@ -124,7 +159,7 @@ def project_env(root: Path) -> dict[str, str]:
 
 
 def git(root: Path, *args: str) -> str:
-    proc = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    proc = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
     return proc.stdout if proc.returncode == 0 else ""
 
 
@@ -458,10 +493,12 @@ def report(
     ]
     lines += [
         f"slice {budget.slug}, measured from {budget.base_commit[:10]} to the working tree",
-        f"  production: {len(usage.new_files)} new files, {usage.net_new_lines:+d} lines, "
-        f"{len(usage.new_public_symbols)} new public symbols, "
-        f"{len(usage.new_abstractions)} new abstractions, "
-        f"{len(usage.new_dependencies)} new dependencies",
+        (
+            f"  production: {len(usage.new_files)} new files, {usage.net_new_lines:+d} lines, "
+            f"{len(usage.new_public_symbols)} new public symbols, "
+            f"{len(usage.new_abstractions)} new abstractions, "
+            f"{len(usage.new_dependencies)} new dependencies"
+        ),
         f"  tests: {usage.test_lines:+d} lines (reported, never limited)",
     ]
     lines += [f"  could not parse: {path}" for path in usage.unparseable]
@@ -493,8 +530,10 @@ def evaluate(root: Path) -> tuple[str, bool] | None:
         return None
     if not git(root, "rev-parse", "--verify", "--quiet", f"{budget.base_commit}^{{commit}}"):
         return (
-            f"Complexity budget of {contract.name}: base_commit '{budget.base_commit}' is "
-            "not a commit in this repository",
+            (
+                f"Complexity budget of {contract.name}: base_commit '{budget.base_commit}' is "
+                "not a commit in this repository"
+            ),
             True,
         )
     env = project_env(root)
@@ -512,12 +551,14 @@ def project_root() -> Path:
     given = os.environ.get("CLAUDE_PROJECT_DIR", "")
     if given and Path(given).is_dir():
         return Path(given)
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
     return Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else Path.cwd()
 
 
 def run_hook() -> int:
     raw = sys.stdin.read()
+    if engine_stand_down():
+        return 0
     # Same loop guard as verify-on-stop.sh: a turn the hook itself started is not re-judged.
     if re.search(r'"stop_hook_active"\s*:\s*true', raw):
         return 0

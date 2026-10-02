@@ -39,6 +39,41 @@ import subprocess
 import sys
 from pathlib import Path
 
+
+def engine_stand_down() -> bool:
+    """Fire once per event when this hook is wired at two settings levels under DIFFERENT
+    command strings (an identical string already runs once — code.claude.com/docs/en/hooks,
+    "Merging across settings levels"). The project's own copy,
+    $CLAUDE_PROJECT_DIR/.claude/hooks/<name>, always runs; any other copy stands down when
+    the project wires hooks/<name> in .claude/settings.json or settings.local.json, and says
+    so on stderr so a stand-down is never mistaken for an allow. Decided from files only,
+    never from timing or order. ENGINE_HOOK_ALWAYS_RUN=1 skips this — the one override, in
+    the safe direction."""
+    if os.environ.get("ENGINE_HOOK_ALWAYS_RUN") == "1":
+        return False
+    project = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if not project:
+        return False
+    name = Path(__file__).name
+    mine = Path(project) / ".claude" / "hooks" / name
+    try:
+        if not mine.is_file() or mine.resolve() == Path(__file__).resolve():
+            return False
+        wired = any(
+            f"hooks/{name}" in p.read_text(encoding="utf-8", errors="replace")
+            for p in (Path(project) / ".claude" / "settings.json", Path(project) / ".claude" / "settings.local.json")
+            if p.is_file()
+        )
+    except OSError:
+        return False
+    if not wired:
+        return False
+    print(
+        f"STOOD_DOWN: {name} defers to {mine} (wired by the project; this copy is {Path(__file__).resolve()})",
+        file=sys.stderr,
+    )
+    return True
+
 # Mirrored from .claude/settings.json permissions.ask. Keep in sync: an entry
 # here that is NOT in the ask list would block work that should merely prompt.
 ASK_GATED = [
@@ -86,13 +121,13 @@ def project_dir() -> Path:
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, timeout=5, check=False,
         )
         if r.returncode == 0:
             return Path(r.stdout.strip()).resolve()
     except (OSError, subprocess.TimeoutExpired):
         pass
-    return Path(".").resolve()
+    return Path.cwd()
 
 
 def is_unattended(root: Path) -> bool:
@@ -110,11 +145,13 @@ def is_unattended(root: Path) -> bool:
 def main() -> None:
     try:
         data = json.load(sys.stdin)
-    except Exception:
+    except Exception:  # noqa: BLE001 — cannot read the call: do not decide, never fail closed here
         # Cannot read the call -> do not decide. The ask prompt still fires;
         # this hook only ever converts a prompt into a park, never the reverse.
         sys.exit(0)
 
+    if engine_stand_down():
+        sys.exit(0)
     cmd = ""
     tool_input = data.get("tool_input") or {}
     if isinstance(tool_input, dict):

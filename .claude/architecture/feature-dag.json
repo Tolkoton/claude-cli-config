@@ -15,7 +15,8 @@
       "deps": [
         "S1"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "engine_stand_down() in all 9 hooks (4 skill copies synced): static rule, STOOD_DOWN marker on stderr, exit 0; ENGINE_HOOK_ALWAYS_RUN=1 the only override. Runner executes <project_dir>/.claude/hooks/<hook> for subdirectory sessions and sets the override for --hooks-dir. test_hooks_fire_once.py 33/33; owner's real ~/.claude/settings.json read-only: no hooks key, so no duplicate today. Pre-existing ruff/mypy findings in the 4 Python hooks cleared (16)."
     },
     {
       "id": "S3",

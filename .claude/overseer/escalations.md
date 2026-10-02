@@ -187,3 +187,27 @@ one; do not reopen the old one in conversation.
 - Falsified by: the owner changing the live shared file for an unrelated reason before
   applying — then the snapshot must be regenerated and the test says so by failing.
 - Status: CLOSED
+
+## 2026-10-02T11:30:00Z — AUTONOMOUS — 3b-S2-stand-down
+- Decision: every engine hook carries a static stand-down — not the project's own copy AND
+  the project wires `hooks/<name>` → exit 0 with `STOOD_DOWN: …` on stderr — although the
+  feature-critic's round-1 O1 asked to drop any runtime rule because identical handlers
+  already run once. Kept, respecified (file-based, no dependence on order or timing, a
+  marker so it is never mistaken for an allow, `ENGINE_HOOK_ALWAYS_RUN=1` as the only
+  override and only in the running direction); the critic passed it in round 3.
+- Door: two-way
+- Cost to reverse: delete one function and one line from nine hooks (the skill's four
+  copies follow by `cp`), delete test_hooks_fire_once.py, revert the runner change.
+- Why not escalated: the owner's frame names the case verbatim — hooks wired in
+  `~/.claude/settings.json` AND in the project must fire once per event — and the docs
+  dedupe only IDENTICAL command strings; a home-level copy is wired under a different
+  string (`~/.claude/hooks/x.sh`), which is exactly what the claude-autonomy skill installs.
+  A design choice inside the engine's own files, reversible in one commit: Article 5
+  assigns it to the AI. The critic's valid half (a silent exit 0 is indistinguishable from
+  an allow) was adopted, not argued with.
+- Evidence: hook-checks/test_hooks_fire_once.py 33/33 — nine home copies stand down with
+  the marker, the project's copies still block all 10 deny and 4 refuse cases in the same
+  environment, a project that wires nothing leaves the home copy guarding.
+- Falsified by: Claude Code documenting that handlers are deduplicated by resolved script
+  path rather than by command string — then the rule is dead weight and comes out.
+- Status: CLOSED

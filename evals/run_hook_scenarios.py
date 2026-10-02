@@ -164,7 +164,12 @@ def first_line(text: str) -> str:
 
 
 def run_scenario(
-    sandbox: Path, hooks_dir: Path, hook: str, scenario: JsonObj, timeout_s: int
+    sandbox: Path,
+    hooks_dir: Path,
+    hook: str,
+    scenario: JsonObj,
+    timeout_s: int,
+    foreign_hooks: bool = False,
 ) -> JsonObj:
     result: JsonObj = {"id": scenario["id"], "hook": hook, "expect": scenario.get("expect")}
     if "expect_detail_contains" in scenario:
@@ -195,9 +200,23 @@ def run_scenario(
         project_dir = (sandbox / scenario.get("project_dir", ".")).resolve()
         if project_dir != sandbox.resolve() and sandbox.resolve() not in project_dir.parents:
             raise SandboxError(f"project_dir escapes the sandbox: {project_dir}")
+        # A session started in a subdirectory runs THAT checkout's copy of the hook, as Claude
+        # Code would (`$CLAUDE_PROJECT_DIR/.claude/hooks/<hook>`); the sandbox copy would stand
+        # down there, correctly, because the project it is asked about wires its own copy.
+        if not foreign_hooks and project_dir != sandbox.resolve():
+            own = project_dir / ".claude" / "hooks" / hook
+            if own.is_file():
+                hook_path = own
         env = dict(os.environ)
         env["CLAUDE_PROJECT_DIR"] = str(project_dir)
         env.pop("CLAUDE_UNATTENDED_SESSION", None)
+        # Measuring a hook directory that is not the sandbox's own (--hooks-dir): the hooks
+        # would stand down in favour of the sandbox's copies and record nothing. Tell them to
+        # run — the override exists for exactly this, and only in that direction.
+        if foreign_hooks:
+            env["ENGINE_HOOK_ALWAYS_RUN"] = "1"
+        else:
+            env.pop("ENGINE_HOOK_ALWAYS_RUN", None)
         env.update(substitute(scenario.get("env", {}), mapping))
         interpreter = [sys.executable] if hook.endswith(".py") else ["bash"]
         envelope = json.dumps(substitute(scenario.get("input", {}), mapping))
@@ -209,7 +228,7 @@ def run_scenario(
                 proc = subprocess.run(
                     [*interpreter, str(hook_path), *scenario.get("_hook_args", [])],
                     input=envelope, capture_output=True, text=True,
-                    cwd=project_dir, env=env, timeout=timeout_s,
+                    cwd=project_dir, env=env, timeout=timeout_s, check=False,
                 )
             except subprocess.TimeoutExpired:
                 outcomes.append("timeout")
@@ -250,7 +269,7 @@ def tool_version(*cmd: str) -> str:
     if shutil.which(cmd[0]) is None:
         return "not found"
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return "error"
     return first_line(out.stdout or out.stderr)
@@ -284,7 +303,7 @@ def main() -> int:
         temp_root = Path(tempfile.mkdtemp(prefix="engine-hooks-"))
         args.sandbox = temp_root / "sandbox"
         build = subprocess.run(["bash", str(here / "make_sandbox.sh"), args.engine_ref,
-                                str(args.sandbox)], capture_output=True, text=True)
+                                str(args.sandbox)], capture_output=True, text=True, check=False)
         if build.returncode != 0:
             shutil.rmtree(temp_root, ignore_errors=True)
             print(build.stderr.strip() or "make_sandbox.sh failed", file=sys.stderr)
@@ -327,7 +346,9 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
                 if args.only and args.only not in scenario["id"]:
                     continue
                 scenario["_hook_args"] = group.get("args", [])
-                result = run_scenario(sandbox, hooks_dir, group["hook"], scenario, args.timeout)
+                result = run_scenario(
+                    sandbox, hooks_dir, group["hook"], scenario, args.timeout, foreign_hooks=bool(args.hooks_dir)
+                )
                 verdict = meets_expectation(result)
                 result["pass"] = verdict
                 results.append(result)
@@ -378,7 +399,7 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
     if args.compare and out_file:
         print()
         diff = subprocess.run([sys.executable, str(here / "compare.py"), str(args.compare),
-                               str(out_file)], capture_output=True, text=True)
+                               str(out_file)], capture_output=True, text=True, check=False)
         print(diff.stdout.rstrip())
         if not args.out:
             shutil.rmtree(out_file.parent, ignore_errors=True)

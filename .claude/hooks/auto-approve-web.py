@@ -24,8 +24,46 @@ Source: adapted from https://dev.to/alexisfranorge (Dec 2025)
 from __future__ import annotations
 
 import json
+import os
 import sys
+from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
+
+
+def engine_stand_down() -> bool:
+    """Fire once per event when this hook is wired at two settings levels under DIFFERENT
+    command strings (an identical string already runs once — code.claude.com/docs/en/hooks,
+    "Merging across settings levels"). The project's own copy,
+    $CLAUDE_PROJECT_DIR/.claude/hooks/<name>, always runs; any other copy stands down when
+    the project wires hooks/<name> in .claude/settings.json or settings.local.json, and says
+    so on stderr so a stand-down is never mistaken for an allow. Decided from files only,
+    never from timing or order. ENGINE_HOOK_ALWAYS_RUN=1 skips this — the one override, in
+    the safe direction."""
+    if os.environ.get("ENGINE_HOOK_ALWAYS_RUN") == "1":
+        return False
+    project = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if not project:
+        return False
+    name = Path(__file__).name
+    mine = Path(project) / ".claude" / "hooks" / name
+    try:
+        if not mine.is_file() or mine.resolve() == Path(__file__).resolve():
+            return False
+        wired = any(
+            f"hooks/{name}" in p.read_text(encoding="utf-8", errors="replace")
+            for p in (Path(project) / ".claude" / "settings.json", Path(project) / ".claude" / "settings.local.json")
+            if p.is_file()
+        )
+    except OSError:
+        return False
+    if not wired:
+        return False
+    print(
+        f"STOOD_DOWN: {name} defers to {mine} (wired by the project; this copy is {Path(__file__).resolve()})",
+        file=sys.stderr,
+    )
+    return True
 
 # Restrict WebFetch to a domain allowlist (set of lowercase hostnames).
 # Leave as None to allow ALL domains (recommended for autonomy).
@@ -44,11 +82,11 @@ def log(msg: str) -> None:
 def host_of(url: str) -> str:
     try:
         return (urlparse(url).hostname or "").lower()
-    except Exception:
+    except Exception:  # noqa: BLE001 — any parse failure means "no hostname"
         return ""
 
 
-def emit(result: dict) -> None:
+def emit(result: dict[str, Any]) -> None:
     try:
         print(json.dumps(result))
         sys.exit(0)
@@ -84,8 +122,8 @@ def fail_open(why: str) -> None:
     })
 
 
-def handle_pre_tool_use(tool: str, tool_input: dict) -> None:
-    updated_input = None
+def handle_pre_tool_use(tool: str, tool_input: dict[str, Any]) -> None:
+    updated_input: dict[str, Any] | None = None
 
     if tool == "WebFetch" and ALLOWED_FETCH_DOMAINS is not None:
         host = host_of(tool_input.get("url", ""))
@@ -102,7 +140,7 @@ def handle_pre_tool_use(tool: str, tool_input: dict) -> None:
         updated_input = dict(tool_input)
         updated_input["allowed_domains"] = list(FORCE_SEARCH_ALLOWED_DOMAINS)
 
-    result = {
+    result: dict[str, Any] = {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "allow",
@@ -130,10 +168,12 @@ def main() -> None:
     except json.JSONDecodeError as e:
         fail_open(f"invalid JSON input: {e}")
         return
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — fail open by design, see fail_open()
         fail_open(f"failed to read stdin: {e}")
         return
 
+    if engine_stand_down():
+        sys.exit(0)
     event = data.get("hook_event_name", "")
     tool = data.get("tool_name", "")
     tool_input = data.get("tool_input") or {}
@@ -160,5 +200,5 @@ if __name__ == "__main__":
         main()
     except SystemExit:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — fail open by design, see fail_open()
         fail_open(f"unexpected error: {e}")
