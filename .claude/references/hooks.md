@@ -14,6 +14,7 @@ this file holds the detail they point at. Wiring: `.claude/settings.json`; confi
 | `verify-on-stop.sh` | turn end | Runs `LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD` (or the Python auto-detect) when a file matching `CODE_EXTENSIONS` changed; blocks the turn with the failure output. |
 | `overseer_stop.py` | turn end | On a unit-completion claim (sentinel + code edit + verification command) injects `OVERSEER_REQUEST`; after `OVERSEER_PASS` re-injects "continue"; while an unattended run is live, blocks a turn from ending for no legitimate reason (`UNATTENDED_CONTINUE`, capped). Compares the active slice contract with its sealed fingerprint first. |
 | `complexity_budget.py` | turn end | `COMPLEXITY_GATE=warn|block`: measures the slice's changes against the contract's "Complexity budget" section. Off by default. |
+| `overseer_phase.py` | called by `/plan-slice` and `/feature-architect` | `set plan` / `clear` / `show`: the sanctioned way to set the phase guard the Stop hook reads (`.claude/state/overseer/state`). |
 | `contract_fingerprint.py` | called by `/plan-slice` and `overseer_stop.py` | `seal` writes `.claude/state/contracts/<slug>.sha256` and refuses to overwrite; `check` compares. |
 | `env-check.sh` | session start | Names the tools this machine lacks for the hooks to enforce anything. Silent when nothing is missing. |
 

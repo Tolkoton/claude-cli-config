@@ -47,6 +47,9 @@ the next unblocked item.
   one marker on its own line: `OVERSEER_PASS` / `OVERSEER_BLOCK: #N <reason>` /
   `OVERSEER_ADR_REQUIRED: <ADR>` / `OVERSEER_ESCALATE: <JSON>`. Citing a check number
   (#1–#12) in your own reasoning counts as an invocation and needs the same ledger entry.
+- Planning stands the overseer down: `python3 .claude/hooks/overseer_phase.py set plan` before
+  drafting a contract, `… clear` when done. Never write `.claude/state/` with your own tools —
+  it is the state of hooks and scripts; the named scripts are the only sanctioned path.
 - The slice contract is sealed: `/plan-slice` records its SHA-256 in
   `.claude/state/contracts/<slug>.sha256`. A contract changed after approval gets no audit —
   the turn is blocked with an escalation instead. Re-approving is the owner's act; never

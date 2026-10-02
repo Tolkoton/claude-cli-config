@@ -16,9 +16,10 @@ ask for it and confirm before proceeding.
 Pre-flight:
 - If `.engine/slices/$ARGUMENTS.md` exists, ask: (a) overwrite, (b) read
   and refine, (c) different slug.
-- Write `plan` into `.claude/state/overseer/state` NOW, so the overseer Stop-hook stands
-  down for the whole planning session (the phase guard skips audits while state is
-  `plan`). Clear it only at the very end.
+- Run `python3 .claude/hooks/overseer_phase.py set plan` NOW, so the overseer Stop-hook
+  stands down for the whole planning session (the phase guard skips audits while the phase
+  is `plan`). Never write `.claude/state/` with your own tools — that is hook-and-script
+  state; the script is the sanctioned path. Clear it only at the very end.
 
 ## Unattended operation — a hard gate becomes a park
 
@@ -260,7 +261,7 @@ audit and escalates instead of auditing when it has changed.
    - Action: planning artifact written, N decisions logged, M seams named, K critic rounds, J escalations
    - Category: strategy
    ```
-2. Clear the planning phase guard: remove `plan` from `.claude/state/overseer/state`
+2. Clear the planning phase guard: `python3 .claude/hooks/overseer_phase.py clear`
    (so the overseer resumes auditing once implementation begins).
 3. Summarize for the owner in 3-5 bullets (goal, key decisions, hardest seams,
    exit criterion, any open items), then:

@@ -13,8 +13,9 @@ at `.claude/agents/feature-critic.md`.
 Pre-flight:
 - If `.engine/architecture/feature/$ARGUMENTS.md` exists, ask: (a) overwrite,
   (b) refine, (c) different slug.
-- Write `plan` into `.claude/state/overseer/state` so the implementation overseer stands
-  down during planning. Clear it at the end.
+- Run `python3 .claude/hooks/overseer_phase.py set plan` so the implementation overseer
+  stands down during planning (never write `.claude/state/` with your own tools; the
+  script is the sanctioned path). Clear it at the end with `... overseer_phase.py clear`.
 - Read the **domain map** and **architecture map** (`.engine/architecture/*`) to place
   this feature in the existing system.
 
@@ -190,11 +191,11 @@ its thresholds). For each remaining slice:
 
 ```
 for slice in dag_order_after_tracer:
-    set .claude/state/overseer/state = "plan"
+    python3 .claude/hooks/overseer_phase.py set plan
     plan  = /plan-slice <slice>  IN DRIVEN MODE
             — frame SUPPLIED from the feature artifact (NOT asked of the human)
             — its gates route to THIS orchestrator's interrupt filter, not to the human
-    clear .claude/state/overseer/state
+    python3 .claude/hooks/overseer_phase.py clear
     build = slice-builder implements <slice> under TDD; overseer audits each unit
             — OVERSEER_PASS → continue; any OVERSEER_* halt marker → interrupt filter
     on slice done (smoke green): append to .engine/PROGRESS.md; continue to next slice
@@ -230,7 +231,7 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
    - Action: N slices planned+built, tracer verified, K critic rounds, J interrupts
    - Category: strategy
    ```
-2. Clear the phase guard (remove `plan` from `.claude/state/overseer/state`).
+2. Clear the phase guard: `python3 .claude/hooks/overseer_phase.py clear`.
 3. Summarize for the owner: capability delivered, slices built, how acceptance is met,
    any accepted risks / open items. *"Feature $ARGUMENTS is built and its acceptance
    criteria are met."*

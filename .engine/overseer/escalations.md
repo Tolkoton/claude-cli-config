@@ -438,3 +438,48 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T14:44:23Z — FINDING — a suite can be green by hand and red from the Stop gate
 - The gate runs TEST_CMD with Claude Code's hook environment, where CLAUDE_PROJECT_DIR names the project. tests/test_deny_gaps.py let block-dangerous.sh read this repository's branch through it, so on an unattended/<date> branch its commit cases came back ALLOWED — only from the gate. Seen on the first gate run of X7; pinned like test_deny_hooks. Any suite that calls a hook without pinning CLAUDE_PROJECT_DIR has the same exposure; the whole set ran green from the gate afterwards (102 s).
+
+## 2026-10-02T19:40:00Z — AUTONOMOUS — 2b-D7-jq-paragraph
+- Decision: no paragraph names macOS, so the owner's "false jq paragraph" was located by what is false: the unattended README's "REQUIRED: four hooks silently enforce nothing without it" (false since the python3 fallback) and the evals README naming jq alone. Every jq paragraph the model reads now says: jq or python3, refuse with neither, install either with the OS's package manager (.claude/references/hooks.md).
+- Door: two-way
+- Cost to reverse: a few lines of prose.
+- Why not escalated: the requirement (true text, any OS) is clear; only which paragraph the owner meant is ambiguous, and fixing all of them satisfies every reading.
+- Evidence: grep for jq across the tree; tests/test_text_hygiene.py pins the rule and that both deny hooks really fall back to python3.
+- Falsified by: the owner naming a different paragraph — then that one gets the same treatment.
+- Status: CLOSED
+
+## 2026-10-02T19:40:00Z — AUTONOMOUS — 2b-D10-instrument
+- Decision: the before-run was stopped after 10 runs ($6.83) and the instrument fixed first — the audit fixture moved to .engine/slices/ (the path a post-3c overseer reads), the runner passes --settings <sandbox>/.claude/settings.json and pre-flights the fixtures against a built sandbox, a usage-limit answer is recorded as an error that --resume redoes. Both runs of the package use the fixed instrument; the stopped run is kept as audit-v0.11.0-run1-broken-instrument.json.
+- Door: two-way
+- Cost to reverse: one commit (e7b89c4); the stopped run's $6.83 cannot be unspent.
+- Why not escalated: the owner's item 0 asks for a check of package 3c, and this IS its result — two 3c defects that made every audit session block for want of evidence it was not allowed to gather; measuring a broken instrument for $20 more would have answered nothing. Money stayed inside the $35 cap (estimate $28 total for item 0).
+- Evidence: every 01 session at v0.11.0 "the slice contract .engine/slices/ref-tax.md is missing", ledger_entry_written=false, permission_denials 2-13; permission probe 16:10Z: plain → 2 denials, --settings → 0.
+- Falsified by: a clean before-run that still shows the same denials — then the cause is elsewhere (the allow list itself).
+- Status: CLOSED
+
+## 2026-10-02T19:40:00Z — AUTONOMOUS — 2b-D11-restart-before-run
+- Decision: restart the before-run in full on the fixed instrument rather than continue the stopped file or sample 01/08 only.
+- Door: two-way
+- Cost to reverse: about $21 of sessions (0.68 $/run × 30), already inside the cap.
+- Why not escalated: a before/after pair measured on two instruments is not a pair, and the owner's "no other scenario worse" needs every scenario on the same footing; the cap is not exceeded.
+- Evidence: $6.83 spent + ~$21 ≈ $28 < $35; audit-v0.11.0-run1-broken-instrument.json label.
+- Falsified by: the clean run exceeding the cap through usage-limit retries — then the remainder parks as money.
+- Status: CLOSED
+
+## 2026-10-02T19:40:00Z — AUTONOMOUS — 2b-critic-convergence
+- Decision: the feature-critic loop closed at round 4 with its PREMISE_PROBE_REQUIRED folded in as the exit criteria of P5a/P5b (one scenario session per edited text, cents, before P7) — no BLOCKING objection survives; a fifth round would be the circuit-breaker's owner ruling, which the owner's correction 3 ("repeat round 3 before building") did not ask for.
+- Door: two-way
+- Cost to reverse: one more critic round (~100k tokens).
+- Why not escalated: every round's finding was distinct, real and applied (fixture path; confounded 01 cause; engine.py freeze during P0; cheap probe before P7); the remaining notes are recorded in the contract.
+- Evidence: .engine/architecture/feature/engine-package-2b.md § Critic.
+- Falsified by: P7 failing on a text that a probe would have caught — the probes exist precisely for that.
+- Status: CLOSED
+
+## 2026-10-02T19:40:00Z — AUTONOMOUS — 2b-P9-phase-script (owner correction 2)
+- Decision: the phase guard is set through `python3 .claude/hooks/overseer_phase.py set plan | clear | show`, named in the engine rules and used by /plan-slice and /feature-architect; the agent never writes .claude/state/ with its own tools. The alternative the owner named — a hook that sets the phase by event (UserPromptSubmit on a planning command) — needs a .claude/settings.json change, which is owner-only, so it is not built; the script is also what such a hook would call.
+- Door: two-way
+- Cost to reverse: one script, three text edits, one test.
+- Why not escalated: the owner asked for exactly one of the two paths; the script needs no settings change and works today.
+- Evidence: the classifier's refusal of `printf plan > .claude/state/overseer/state` (16:19Z); tests/test_overseer_phase.py shows set → _phase_is_plan True, clear → False.
+- Falsified by: the classifier refusing the script too — then the hook path is the only one and needs a docs/tasks proposal.
+- Status: CLOSED
