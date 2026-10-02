@@ -15,6 +15,22 @@ venv/
 # the unattended supervisor's state, cost, heartbeat, logs and archive. Written by hooks and
 # scripts, never by agent tools. One directory, so one line (package 3c).
 .claude/state/
+# The pre-3c state paths, for the transition: a checkout that still has them must not commit them.
+.claude/overseer/mode
+.claude/overseer/state
+.claude/overseer/.last_audit_sha
+.claude/overseer/.last_continue_sha
+.claude/overseer/.continue_count
+.claude/overseer/.budget-*.json
+.claude/overseer/complexity-report.md
+.claude/unattended/state.json
+.claude/unattended/cost.json
+.claude/unattended/heartbeat
+.claude/unattended/restarts.log
+.claude/unattended/sim-plan.txt
+.claude/unattended/supervisor.lock
+.claude/unattended/logs/
+.claude/unattended/archive/
 
 # What the agent produces while working is tracked under .engine/ — except PROGRESS.md, a
 # per-run working log (the audit scenarios lay their own fixture there).

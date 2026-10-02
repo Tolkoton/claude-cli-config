@@ -59,6 +59,25 @@ project  .claude/architecture/
 project  .claude/premises/
 project  .claude/artifacts/
 
+# --- legacy MACHINE STATE of a project built before package 3c. Moved to .claude/state/ by -----
+# --- engine.py (STATE_MIGRATIONS); until then still state, never retired, never held back. ----
+# --- Being machine rules, they also go into the project's .gitignore block for the transition.
+machine  .claude/overseer/mode
+machine  .claude/overseer/state
+machine  .claude/overseer/.last_audit_sha
+machine  .claude/overseer/.last_continue_sha
+machine  .claude/overseer/.continue_count
+machine  .claude/overseer/.budget-*.json
+machine  .claude/overseer/complexity-report.md
+machine  .claude/unattended/state.json
+machine  .claude/unattended/cost.json
+machine  .claude/unattended/heartbeat
+machine  .claude/unattended/restarts.log
+machine  .claude/unattended/sim-plan.txt
+machine  .claude/unattended/supervisor.lock
+machine  .claude/unattended/logs/
+machine  .claude/unattended/archive/
+
 # --- everything else under .claude/ is the engine ------------------------------------------
 engine   .claude/**
 
