@@ -1,27 +1,20 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment_philosophy": "Bulk-allow safe tool families, hard-deny catastrophic patterns, ask only for shared-state changes. The deny list does the security work; the allow list is broad on purpose. To tighten, narrow allow and/or expand deny.",
+  "_comment_philosophy": "Bulk-allow safe tool families, hard-deny catastrophic patterns, ask only for shared-state changes. The deny list does the security work; the allow list is broad on purpose. To tighten, narrow allow and/or expand deny. Personal choices (defaultMode, home directories, blanket WebFetch/WebSearch, model aliases) are NOT here: they live in the owner's user-level settings, installed by `engine.py install --personal`.",
   "permissions": {
-    "defaultMode": "acceptEdits",
-    "additionalDirectories": [
-      "~/.claude/",
-      "~/.claude/skills/",
-      "~/.claude/agents/",
-      "~/.claude/commands/",
-      "~/.claude/output-styles/",
-      "~/.config/claude/",
-      "/tmp/claude/"
-    ],
     "deny": [
-      "Bash(rm -rf /*)",
+      "Bash(rm -rf /)",
+      "Bash(rm -fr /)",
       "Bash(rm -rf ~)",
+      "Bash(rm -fr ~)",
       "Bash(rm -rf ~/*)",
+      "Bash(rm -fr ~/*)",
       "Bash(rm -rf .)",
-      "Bash(rm -rf ./*)",
+      "Bash(rm -fr .)",
       "Bash(rm -rf $HOME*)",
-      "Bash(rm -fr *)",
+      "Bash(rm -fr $HOME*)",
       "Bash(rm --recursive *)",
-      "Bash(rm -r /*)",
+      "Bash(rm -r /)",
       "Bash(rm -r ~)",
       "Bash(sudo:*)",
       "Bash(dd if=*of=/dev/*)",
@@ -152,8 +145,6 @@
       "MultiEdit",
       "Glob",
       "Grep",
-      "WebFetch",
-      "WebSearch",
       "Task",
       "TodoWrite",
       "NotebookEdit",
@@ -258,10 +249,6 @@
     ]
   },
   "env": {
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5",
     "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "30"
   }
 }
