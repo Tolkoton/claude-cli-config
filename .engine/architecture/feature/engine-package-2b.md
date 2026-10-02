@@ -217,6 +217,25 @@ before (v0.11.0) and after (HEAD).
   both have valid sessions (01, 07, 08); where only one has, noise is undefined and the
   comparison reports it as such.
 
+## Outcome of the probes (after P0, 2026-10-02T19:45Z)
+
+On the fixed instrument (0 denials, every ledger written) 08 still ended ESCALATE
+(SCOPE_AMENDMENT) 3/3 and 01 matched 1/3 (PASS; BLOCK #1 "zero tool calls, quoted output
+is text"; BLOCK #2 "RED-before-GREEN order has no artifact" after a successful reproduction)
+— both are text defects, confirmed. P5a (6d8103c) probe: 08 → `ADR_REQUIRED#8` ($0.69).
+P5b (b52c215) probe: 01 → `PASS` ($0.66). The night program file `~/engine-night/night-1.md`
+did not exist when checked at 19:55Z (parked: human-only input).
+
+## After-run events (2026-10-02T19:51Z–)
+
+- **Third instrument defect (P7a, cdb53b2):** the developer session sometimes refuses to relay
+  the scripted turn (04 and 10 at 3/3 in every run ever recorded, 02 in two of three); such a
+  session was counted as a verdict. The runner now validates the echo; earlier files are
+  annotated from the transcripts (D12). The comparison counts relayed sessions only.
+- **Regression caught by the after-run (P5c, b72c218):** 06 flipped to 3/3 PASS through P5b's
+  #5 wording; #5 restored, #2 narrowed (a RED must be shown). Re-measured on 01 and 06 only
+  (`audit-post-2b-p5c.json`); a second full after-run would exceed the item-7 cap.
+
 ## Owner corrections (2026-10-02T17:50Z, applied)
 
 1. 08 is not fixed before the clean before-run either (P5a depends on P0). 2. The phase guard

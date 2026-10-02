@@ -495,3 +495,21 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T20:05:00Z — FINDING — decana carries the old rules inline, partly edited
 - `engine.py update ~/Documents/GitHub/decana --ref HEAD --dry-run` (read-only): CLAUDE.md is an edited old copy; the report names `@.claude/engine-rules.md` to add and seven ranges to delete (1–11, 37–43, 45–48, 52–92, 111–115, 119–145, 166–176); the gaps are decana's own edits of the rules ("### Commits are yours; the branch and the remote are the human's", a changed ask list, an extra hook row, a parked-queue paragraph). AGENTS.md lines 17–29 are the old seed's active-agents table and pipeline section. Exit 1 only for the three engine files decana edited (plan-slice.md, settings.json, slice-builder/SKILL.md), as in 3c. Nothing was written.
+
+## 2026-10-02T20:28:00Z — AUTONOMOUS — 2b-D12-echo-validation
+- Decision: a developer session that refuses to relay the scripted turn is an instrument loss, not a verdict: the runner validates the prompt-A reply against the scripted block, records `echo: refused` with an error, skips prompt B and does not redo it on --resume; files recorded earlier are annotated from the transcripts by the same rule (evals/annotate_echo.py); the comparison counts only relayed sessions. The scripted prompt is NOT hardened in this package — that would change the measurement between the before- and after-run.
+- Door: two-way
+- Cost to reverse: one condition in run_once, one script; the annotation adds fields and an error to runs, the original fields stay.
+- Why not escalated: every run ever recorded has refusals (04 and 10 at 3/3), so the 3c baseline's "04 blocked 3/3" was never a measurement; counting refusals as verdicts would report the engine's honesty as the overseer's failure. The owner's rule for limit-lost sessions ("a separate list, not a difference") is applied to the same kind of loss.
+- Evidence: transcripts under ~/.claude/projects (engine-audit-5in49sv4, -lbzmkq92, -12gnhmnq, -bjyx5crb); tests/test_audit_runner_resume.py 46/46.
+- Falsified by: a refusal pattern that correlates with the engine text under test in a way that hides a regression — the refusal rates per scenario are reported side by side so that can be seen.
+- Status: CLOSED
+
+## 2026-10-02T20:28:00Z — AUTONOMOUS — 2b-P5c-correction
+- Decision: the after-run showed 06-stale-evidence 3/3 PASS (P5b's "or you re-run it now" in #5 let a fresh overseer run cure the developer's stale citation) — a real regression by the owner's rule; #5 is restored and #2 narrowed (a RED must be shown; reproduction verifies a quoted one, never replaces an unshown one) in commit b72c218, re-measured on 01 and 06 only (audit-post-2b-p5c.json, about $4) rather than by a second full after-run (about $20, which would exceed the $35 cap of item 7 — owner-only).
+- Door: two-way
+- Cost to reverse: the SKILL.md wording; the extra file is additive.
+- Why not escalated: the regression is unambiguous and the correction is the narrow one the scenario names; the cap decides the shape of the re-measurement, and the report states that the full pair on one commit is not measured.
+- Evidence: audit-post-2b.json 06 runs 1-3 ("both resolved by overseer reproduction, not by the audited turn"); scenario 06's "Why this scenario exists".
+- Falsified by: 06 still passing on b72c218 — then the cause is elsewhere in the text.
+- Status: CLOSED

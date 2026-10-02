@@ -164,16 +164,27 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
         lines.append(f"- `{sid}`: before {vb}; after {va}")
     lines.append("")
     usage: list[str] = []
+    refused: list[str] = []
     tooling: list[str] = []
     for label, data in (("before", b), ("after", a)):
         for sid in sorted(data):
             for run in failed_runs(data[sid]):
                 err = error_of(run)
-                target = usage if USAGE_LIMIT_MARK in err.lower() else tooling
+                if USAGE_LIMIT_MARK in err.lower():
+                    target = usage
+                elif err.lower().startswith("echo refused"):
+                    target = refused
+                else:
+                    target = tooling
                 target.append(f"- {label} `{sid}` ({run.get('sandbox', '?')}): {err[:160]}")
     lines.append("**Sessions lost to the account usage limit — not differences**")
     lines.append("")
     lines.extend(usage or ["- none"])
+    lines.append("")
+    lines.append("**Sessions whose developer turn refused to relay the scripted claim — not differences** "
+                 "(the overseer had nothing false to audit; see evals/annotate_echo.py)")
+    lines.append("")
+    lines.extend(refused or ["- none"])
     lines.append("")
     lines.append("**Sessions lost to tooling errors — not differences**")
     lines.append("")

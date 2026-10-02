@@ -147,3 +147,11 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Evidence: tests/test_settings_proposal.py 11/11 (the removal is the only hooks difference). Until applied, Claude Code reports the missing script once per Edit/Write/MultiEdit permission request.
 - Unblocks when: the owner runs, from the repository root, `cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code. No machine-checkable condition; a human moves this entry.
 - Continued with: C6–C8.
+
+## 2026-10-02T20:42:48Z — engine-package-2b / N1 night program — PARKED
+- Blocked on: the file ~/engine-night/night-1.md, which the owner named as the program to run after the report; it does not exist on this machine.
+- Class: human-input
+- Reversibility: none needed — nothing was run.
+- Evidence: `ls ~/engine-night` → "No such file or directory" at 19:55Z and at the end of the run.
+- Unblocks when: the owner creates ~/engine-night/night-1.md (no machine-checkable token: the path is outside the repository); a human moves this entry
+- Continued with: the package-2b records and report.

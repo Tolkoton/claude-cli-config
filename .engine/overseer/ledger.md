@@ -21,6 +21,12 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 
 ---
 
+## 2026-10-02T20:42:48Z — feature:engine-package-2b — FEATURE_COMPLETE
+- Trigger: /feature-architect engine-package-2b (owner plan docs/plan/package-2b.md)
+- Evidence: .engine/architecture/feature/engine-package-2b.md; commits 9552ec2..HEAD on unattended/2026-10-02-package-2b; 36 suites green; golden set 87/87 identical to results-package-3c.json; audit-v0.11.0.json vs audit-post-2b.json — 01 and 08 FIXED on 56dc2f7 (3/3 each); 06 WORSE on 56dc2f7 (0/2) and corrected on b72c218 (audit-post-2b-p5c.json: 06 BLOCK#5 2/2 relayed, 01 PASS 3/3); 03/05/07/09 same; 02/04/10 no valid session on either side (refused echoes, D12); probes 08 → ADR_REQUIRED, 01 → PASS
+- Action: 12 slices built (P0a, P0, P1, P2, P3, P4, P5a, P5b, P5c, P6, P7a, P9), 4 critic rounds, 3 owner corrections applied, 1 item parked (night program file absent), 2 parked money/instrument proposals (full after-run on one commit; hardened echo prompt)
+- Category: strategy
+
 ## 2026-08-27T17:42:42Z — unattended-cadence — OWNER_RATIFIED_CHANGE_APPLIED
 - Trigger: none (not an audit — an Article 7 ratified self-modification, logged per the owner's instruction)
 - Evidence: `.claude/overseer/audit.md` RATIFIED entry 2026-08-27T17:20:00Z; owner approval of the full diff set in-session
