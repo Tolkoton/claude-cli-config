@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 0 | `2b9da96` | план дослівно в `docs/plan/package-3b-finish.md` | — |
 | 1 | `a0f5109` | контракт фічі; черга F1–F8 (+S8/S9 перенесені) | критик: REVISE (#1 обсяг перейменування) → PASS у раунді 2 |
-| 2 | `6172293` | **F1** stand-down прибрано з 9 hook-ів і 4 копій; `ENGINE_HOOK_ALWAYS_RUN` прибрано; claude-autonomy у user-scope ставить лише settings без hook-ів (`settings.user.json.template`) | `test_no_home_hook_copies` 25/25; сценарії 86/86 тотожно еталону 3б |
+| 2 | `6172293` | **F1** stand-down прибрано з 9 hook-ів і 4 копій; `ENGINE_HOOK_ALWAYS_RUN` прибрано; claude-autonomy у user-scope ставить лише settings без hook-ів (`settings.user.json.template`) | `test_no_home_hook_copies` 26/26; сценарії 86/86 тотожно еталону 3б |
 | 3 | `8fc4223` | **F2** push виходить із блоку захищених гілок; повідомлення називає підкоманду; ask/deny закріплено тестом; 2 сценарії → allow, +1 worktree-commit; `results-push-policy.json` → `results-package-3a-copy.json` | `test_commit_policy` 28/28; сценарії: 84 тотожні, 3 задумані відмінності |
 | 4 | `12361a1` | **F3** `session-claude.sh` передає `--permission-mode acceptEdits` | `test_session_launch` 9/9 (shim `claude` записує argv) |
 | 5 | `3b8f034` | **F4** особистий шар: `defaultMode: auto`, без змінних моделей | `test_personal_layer` 28/28; `test_settings_proposal` 10/10 (6 задуманих відмінностей із причинами) |
@@ -35,7 +35,7 @@ ruff/mypy у 4 Python-hook-ах і запуск hook-а з того checkout-у,
 (`project_dir` у сценаріях worktree). Джерело дублів закрито: єдине, що двигун колись
 ставив у `~/.claude/hooks/`, — user-scope навички claude-autonomy; тепер user-scope пише
 `assets/settings.user.json.template` (шаблон проєкту без блоку `hooks`) і жодного скрипта,
-з поясненням у SKILL.md. **Перевірено:** `test_no_home_hook_copies.py` 25/25 — симуляція
+з поясненням у SKILL.md. **Перевірено:** `test_no_home_hook_copies.py` 26/26 (після F5 — один hook більше) — симуляція
 user-scope установки в тимчасову домівку рівно за кроком 3 SKILL.md не підключає hook-ів і не
 створює `hooks/`; обидва шаблони збігаються в усьому, крім `hooks`; у жодному hook-у, копії,
 runner-і чи зонді немає `engine_stand_down`/`STOOD_DOWN`/`ENGINE_HOOK_ALWAYS_RUN`; копії
