@@ -211,9 +211,15 @@ missing**.
   `.engine/slices/<slug>.md` under "Decisions (with WHY)", OR (b) an
   existing ADR is cited by number, OR (c) a draft ADR is added in this
   turn.
-- **If the decision exists in the planning artifact with a DIFFERENT
-  rationale:** flag the divergence. The slice contract is not unilaterally
-  amendable mid-implementation.
+- **If the decision contradicts the planning artifact** (a different rule, or
+  the same rule with a different rationale): the verdict is STILL
+  `OVERSEER_ADR_REQUIRED:` — the draft ADR's context names the contract
+  decision it diverges from (`.engine/slices/<slug>.md` § Decisions, Qn) and
+  says so plainly. The ADR is where a divergence is recorded and ratified; the
+  ADR routing (below) decides who ratifies it. Do NOT turn this into
+  `OVERSEER_ESCALATE`: `SCOPE_AMENDMENT` is #11's category, for work outside
+  the slice's scope, not for a design rule. The slice contract is not amended
+  by you and not by the developer's chat — only by a ratified ADR.
 - **If missing:** return `OVERSEER_ADR_REQUIRED:` followed by a draft ADR
   block (title, context, decision, consequences).
 
@@ -375,8 +381,10 @@ OR an existing check modified/removed, append a proposal to
 
 - You do NOT modify code, run tests, or change project files.
 - You do NOT modify your own SKILL.md.
-- You do NOT modify `.engine/slices/<slug>.md` mid-implementation. If a
-  decision needs to change, escalate (SCOPE_AMENDMENT) for human ratification.
+- You do NOT modify `.engine/slices/<slug>.md` mid-implementation. A design
+  rule that contradicts it gets `OVERSEER_ADR_REQUIRED` (#8) — the ADR records
+  the divergence and its routing decides who ratifies; a scope expansion gets
+  `OVERSEER_BLOCK: #11`. Neither is a `SCOPE_AMENDMENT` escalation from you.
 - You do NOT make product decisions (latency thresholds, scope, blocker
   classification, design forks, ADR ratification). You escalate them.
 - You do NOT issue verdicts on items outside the 12 checks (code style,
