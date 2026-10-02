@@ -1,0 +1,25 @@
+{
+  "_comment": "The owner's personal layer. engine.py install --personal merges it into ~/.claude/settings.json (user level), where it applies in every directory. It never ships into a project and must never wire hooks: a hook wired here AND in a project would fire twice. Shared policy (allow/ask/deny, hooks) lives in .claude/settings.json.",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "~/.claude/",
+      "~/.claude/skills/",
+      "~/.claude/agents/",
+      "~/.claude/commands/",
+      "~/.claude/output-styles/",
+      "~/.config/claude/",
+      "/tmp/claude/"
+    ],
+    "allow": [
+      "WebFetch",
+      "WebSearch"
+    ]
+  },
+  "env": {
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5"
+  }
+}

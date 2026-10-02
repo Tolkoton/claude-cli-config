@@ -6,7 +6,8 @@
       "id": "S1",
       "title": "personal-layer: user/settings.json, engine.py install --personal, the parity check, the proposed shared settings.json (tracer bullet)",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "user/settings.json holds defaultMode, 7 additionalDirectories, WebFetch/WebSearch, 4 model env vars; engine.py install --personal [--dry-run] [--home] merges it (set/append/keep, backup before write, refuses hooks); evals/settings_parity.py computes effective settings per the documented merge rules; docs/tasks/settings.json + README.md (apply command) + effective-before-split.json. test_personal_layer.py 29/29, test_settings_proposal.py 8/8; parity on the owner's real home file read-only: 13/13 identical. ruff + mypy --strict clean on the 4 Python files."
     },
     {
       "id": "S2",

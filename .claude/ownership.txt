@@ -16,7 +16,9 @@
 # machine  State of one machine and one run. Never committed, never shipped. Every install
 #          writes these patterns into the project's .gitignore, and this repository's own
 #          .gitignore must list them too (hook-checks/test_ownership.py checks it).
-# user     The owner's personal skills. install.sh links them into ~/.claude. Never shipped.
+# user     The owner's own. Personal skills (install.sh links them into ~/.claude/skills) and
+#          user/settings.json, the personal settings layer (`engine.py install --personal`
+#          merges it into the home settings file). Never shipped into a project.
 
 # --- machine state --------------------------------------------------------------------
 machine  .claude/settings.local.json
@@ -61,8 +63,13 @@ engine   .claude/**
 project  CLAUDE.md  seed=CLAUDE.md
 project  AGENTS.md  seed=AGENTS.md
 
-# --- the owner's personal skills ----------------------------------------------------------
+# --- the owner's personal layer: skills and settings ---------------------------------------
+user     user/settings.json
 user     user/**
+
+# --- proposals for the owner's hands, the parity instrument and its frozen "before" --------
+project  docs/tasks/
+project  evals/settings_parity.py
 
 # --- everything else is this repository's own material: installer, evals, tests, docs, seeds
 project  **

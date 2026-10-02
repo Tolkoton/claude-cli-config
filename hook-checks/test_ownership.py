@@ -65,7 +65,10 @@ check("no tracked file is machine state", not machine_tracked, ", ".join(machine
 not_ignored = []
 for rule in (r for r in rules if r.owner == "machine"):
     for sample in samples(rule.pattern):
-        ignored = subprocess.run(["git", "-C", str(ROOT), "check-ignore", "-q", "--no-index", sample]).returncode == 0
+        ignored = (
+            subprocess.run(["git", "-C", str(ROOT), "check-ignore", "-q", "--no-index", sample], check=False).returncode
+            == 0
+        )
         if not ignored:
             not_ignored.append(f"{rule.pattern} ({sample})")
 check("this repository's .gitignore ignores every machine pattern", not not_ignored, "; ".join(not_ignored))
@@ -107,6 +110,11 @@ expected = {
     "engine.py": "project",
     "templates/project/.claude/overseer/ledger.md": "project",
     "user/skills/live-build/SKILL.md": "user",
+    "user/settings.json": "user",
+    "docs/tasks/settings.json": "project",
+    "docs/tasks/effective-before-split.json": "project",
+    "evals/settings_parity.py": "project",
+    "hook-checks/fixtures/home-settings.json": "project",
 }
 for path, owner in expected.items():
     got = engine.owner_of(rules, path)

@@ -132,3 +132,58 @@ one; do not reopen the old one in conversation.
   The final enabling step is the owner's BY CONSTRUCTION, which is the design
   working rather than a defect. See the exact change in PROGRESS.md.
 - Status: IMPLEMENTED — awaiting one owner edit
+
+## 2026-10-02T10:40:00Z — AUTONOMOUS — 3b-baseline-alias
+- Decision: `evals/baseline/clean-ubuntu-24.04/results-push-policy.json` is created as a copy
+  of `results-package-3a.json` with a label saying so, instead of being recorded afresh.
+- Door: two-way
+- Cost to reverse: delete one file.
+- Why not escalated: not a product decision, not a threshold; the plan's step 6 names a file
+  that does not exist, and `engine/push-policy` and `engine/package-3a` are the same commit
+  (`9249b82`), so the 3a results ARE the push-policy engine's results. A clean-Ubuntu run
+  cannot be made from this macOS machine; the honest move is a labelled alias, not a
+  re-recording under a different environment presented as the same.
+- Evidence: `git rev-parse engine/push-policy engine/package-3a`; HEAD measured against the
+  3a file before any work: 77/77 identical.
+- Falsified by: a hook or scenario change between the 3a recording and `9249b82` (none:
+  the commits after the recording touch evals/ and docs/ only).
+- Status: CLOSED
+
+## 2026-10-02T10:41:00Z — AUTONOMOUS — 3b-S1-personal-keys
+- Decision: ALL seven `permissions.additionalDirectories` entries move to the personal layer,
+  `/tmp/claude/` included; `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` stays shared; the personal
+  layer is read from the git ref like every other engine file and the home directory comes
+  from `--home`, else Claude Code's own `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+- Door: two-way
+- Cost to reverse: move a line between two JSON files and re-run `test_settings_proposal.py`.
+- Why not escalated: the plan says "additionalDirectories з моїми домашніми теками"; six of
+  the seven are home paths and the seventh is this machine's scratch directory, which is
+  no more a project's business than the home paths. The block cap is engine behaviour, not
+  a personal preference. Reading from the ref keeps "an install can be repeated byte for
+  byte" true for the personal layer too. `CLAUDE_CONFIG_DIR` is the documented way to
+  relocate `~/.claude` (code.claude.com/docs/en/env-vars); honouring anything else would
+  make `install --personal` write where Claude Code does not read.
+- Evidence: `evals/settings_parity.py compare` on the owner's real `~/.claude/settings.json`
+  (read-only) + the live shared file vs. the real home file + `user/settings.json` merged in
+  memory + `docs/tasks/settings.json`: identical, 13/13 effective settings.
+- Falsified by: a project that legitimately needs `/tmp/claude/` as an additional directory
+  for every contributor — then it belongs in the shared file again.
+- Status: CLOSED
+
+## 2026-10-02T10:42:00Z — AUTONOMOUS — 3b-S1-frozen-before
+- Decision: the proposal test compares against a FROZEN effective-settings snapshot
+  (`docs/tasks/effective-before-split.json`, computed from a home fixture of the owner's
+  file's shape plus the shared file before the split) rather than against the live
+  `.claude/settings.json`.
+- Door: two-way
+- Cost to reverse: regenerate the snapshot with one command (`settings_parity.py effective`).
+- Why not escalated: a test that reads the live file as "before" inverts the moment the
+  owner applies the proposal (the live file then IS the proposal, and "before" would be
+  wrong). A frozen before holds on both sides of the apply, which is what a test the owner
+  runs after the apply needs. The S4 deny-list change will be an intended, named difference
+  against the same snapshot.
+- Evidence: `hook-checks/test_settings_proposal.py`, 8/8, with a control showing the
+  proposal WITHOUT the personal layer is not today's settings.
+- Falsified by: the owner changing the live shared file for an unrelated reason before
+  applying — then the snapshot must be regenerated and the test says so by failing.
+- Status: CLOSED

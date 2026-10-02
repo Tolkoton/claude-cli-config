@@ -2,6 +2,7 @@
 """Install, update and inspect the engine in a project — from ONE git ref of this repository.
 
     engine.py install <project> [--ref REF] [--dry-run] [--reseed-pristine] [--take PATH] [--no-register]
+    engine.py install --personal [--ref REF] [--dry-run] [--home DIR]
     engine.py update  <project> [--ref REF] [--dry-run] [--reseed-pristine] [--take PATH]
     engine.py update  --all     [--ref REF] [--dry-run] [--reseed-pristine]
     engine.py status  [<project>] [--ref REF]
@@ -13,6 +14,14 @@ ref says who owns every path:
   engine   copied into the project; later replaced only while the project has not changed it
   project  never overwritten; a `seed=` creates the file once when the project lacks it
   machine  never shipped; its patterns go into a marked block of the project's .gitignore
+  user     the owner's own: personal skills and `user/settings.json`, the personal settings
+           layer. `install --personal` merges that layer into the home settings file
+           (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR/settings.json`, or --home):
+           keys the layer names are set, lists gain the entries they lack, every key the
+           file already has and the layer does not name is kept, a backup is written next
+           to the file before it changes, and a second run changes nothing. A layer that
+           wires hooks is refused: a hook wired at the user level AND in a project fires
+           twice per event.
 
 The project keeps `.claude/engine-lock.json`: the ref, the commit and the git blob id of every
 engine file as installed. That is how an update tells "unchanged since install" (replace it)
@@ -42,6 +51,9 @@ from pathlib import Path
 
 OWNERSHIP = ".claude/ownership.txt"
 LOCK = ".claude/engine-lock.json"
+PERSONAL = "user/settings.json"
+HOME_SETTINGS = "settings.json"
+BACKUP_PREFIX = "settings.json.engine-backup-"
 OWNERS = ("engine", "project", "machine", "user")
 LOCK_SCHEMA = 1
 BLOCK_BEGIN = "# >>> engine: machine state — written by engine.py from .claude/ownership.txt; edit it there"
@@ -561,6 +573,157 @@ def print_plan(plan: Plan, dry_run: bool) -> None:
         )
 
 
+# --- the personal layer -------------------------------------------------------------------
+
+JsonObj = dict[str, object]
+
+
+@dataclass
+class PersonalPlan:
+    target: Path
+    merged: JsonObj
+    actions: list[Action] = field(default_factory=list)
+    unchanged: int = 0
+
+    @property
+    def changes(self) -> bool:
+        return bool(self.actions)
+
+
+def config_home(explicit: str | None) -> Path:
+    """--home, else Claude Code's own override CLAUDE_CONFIG_DIR, else ~/.claude."""
+    if explicit:
+        return Path(explicit).expanduser()
+    override = os.environ.get("CLAUDE_CONFIG_DIR")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".claude"
+
+
+def read_json_object(path: Path, what: str) -> JsonObj:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise EngineError(f"{what} {path} cannot be read: {exc}") from None
+    except ValueError as exc:
+        raise EngineError(
+            f"{what} {path} is not valid JSON ({exc}); nothing was written. Fix the file by hand first."
+        ) from None
+    if not isinstance(data, dict):
+        raise EngineError(f"{what} {path} must hold a JSON object, not {type(data).__name__}")
+    return {str(k): v for k, v in data.items()}
+
+
+def parse_personal(text: bytes, where: str) -> JsonObj:
+    try:
+        data = json.loads(text.decode("utf-8"))
+    except ValueError as exc:
+        raise EngineError(f"{where} is not valid JSON: {exc}") from None
+    if not isinstance(data, dict):
+        raise EngineError(f"{where} must hold a JSON object")
+    layer = {str(k): v for k, v in data.items() if not str(k).startswith("_")}
+    if "hooks" in layer:
+        raise EngineError(
+            f"{where} wires hooks; the personal layer must not. A hook wired in the home settings AND "
+            "in a project fires twice per event — hooks belong to the project's .claude/settings.json only."
+        )
+    return layer
+
+
+def merge_into(current: JsonObj, layer: JsonObj, plan: PersonalPlan, prefix: str = "") -> JsonObj:
+    """Set what the layer names, union lists, keep everything else. Records each change in the plan."""
+    merged: JsonObj = dict(current)
+    for key, wanted in layer.items():
+        path = f"{prefix}{key}"
+        if key not in merged:
+            merged[key] = wanted
+            plan.actions.append(Action("set", path, json.dumps(wanted, ensure_ascii=False)))
+            continue
+        have = merged[key]
+        if isinstance(wanted, dict) and isinstance(have, dict):
+            merged[key] = merge_into(
+                {str(k): v for k, v in have.items()}, {str(k): v for k, v in wanted.items()}, plan, path + "."
+            )
+        elif isinstance(wanted, list) and isinstance(have, list):
+            items = list(have)
+            for item in wanted:
+                if item in items:
+                    plan.unchanged += 1
+                else:
+                    items.append(item)
+                    plan.actions.append(Action("append", path, json.dumps(item, ensure_ascii=False)))
+            merged[key] = items
+        elif isinstance(wanted, (dict, list)) or isinstance(have, (dict, list)):
+            # dict+dict and list+list were handled above; any other pairing is a shape conflict
+            raise EngineError(
+                f"{path}: the home settings hold a {type(have).__name__} and the personal layer a "
+                f"{type(wanted).__name__}; resolve that by hand, nothing was written"
+            )
+        elif have == wanted:
+            plan.unchanged += 1
+        else:
+            merged[key] = wanted
+            plan.actions.append(
+                Action(
+                    "set",
+                    path,
+                    f"{json.dumps(wanted, ensure_ascii=False)}  (was {json.dumps(have, ensure_ascii=False)})",
+                )
+            )
+    return merged
+
+
+def plan_personal(src: EngineSource, ref: str, home: Path) -> PersonalPlan:
+    commit = src.resolve(ref)
+    text = src.show(commit, PERSONAL)
+    if text is None:
+        raise EngineError(f"{ref} ({commit[:7]}) has no {PERSONAL}; pass --ref with a newer tag, branch or commit")
+    layer = parse_personal(text, f"{PERSONAL} in {ref}")
+    target = home / HOME_SETTINGS
+    current: JsonObj = read_json_object(target, "the home settings file") if target.exists() else {}
+    if target.exists() and not target.is_file():
+        raise EngineError(f"{target} is not a regular file")
+    plan = PersonalPlan(target, {})
+    plan.merged = merge_into(current, layer, plan)
+    return plan
+
+
+def apply_personal(plan: PersonalPlan) -> Path | None:
+    """Write the merged file; return the backup path when one was made."""
+    backup: Path | None = None
+    if plan.target.exists():
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup = plan.target.with_name(BACKUP_PREFIX + stamp)
+        n = 0
+        while backup.exists():
+            n += 1
+            backup = plan.target.with_name(f"{BACKUP_PREFIX}{stamp}-{n}")
+        backup.write_bytes(plan.target.read_bytes())
+    plan.target.parent.mkdir(parents=True, exist_ok=True)
+    plan.target.write_text(json.dumps(plan.merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return backup
+
+
+def cmd_install_personal(src: EngineSource, args: argparse.Namespace) -> int:
+    ref = default_ref(src, args.ref)
+    home = config_home(args.home)
+    plan = plan_personal(src, ref, home)
+    print(f"engine install --personal: {ref} ({src.resolve(ref)[:7]}) -> {plan.target}")
+    if not plan.target.exists():
+        print("  (no settings file there yet: it will be created)")
+    for action in plan.actions:
+        print(f"  {action.verb:<7} {action.path}  {'+= ' if action.verb == 'append' else '= '}{action.detail}")
+    suffix = " — dry run, nothing written" if args.dry_run else ""
+    print(f"  total   {len(plan.actions)} change(s), {plan.unchanged} already as the layer says{suffix}")
+    if args.dry_run or not plan.changes:
+        return EXIT_OK
+    backup = apply_personal(plan)
+    if backup is not None:
+        print(f"  backup  {backup}")
+    print(f"  wrote   {plan.target}  (keys the layer does not name were kept as they were)")
+    return EXIT_OK
+
+
 # --- commands -----------------------------------------------------------------------------
 
 
@@ -618,6 +781,15 @@ def sync(src: EngineSource, args: argparse.Namespace, project: Path, command: st
 
 
 def cmd_install(src: EngineSource, args: argparse.Namespace) -> int:
+    if args.personal == (args.project is not None):
+        raise EngineError("give either a project directory or --personal")
+    if args.personal:
+        for flag, used in (("--reseed-pristine", args.reseed_pristine), ("--take", args.take), ("--no-register", args.no_register)):
+            if used:
+                raise EngineError(f"{flag} applies to a project install, not to --personal")
+        return cmd_install_personal(src, args)
+    if args.home:
+        raise EngineError("--home applies to --personal only")
     return sync(src, args, Path(args.project), "install")
 
 
@@ -692,10 +864,23 @@ def build_parser() -> argparse.ArgumentParser:
                 help="apply the engine's version of PATH although the project changed it (repeatable)",
             )
 
-    install = sub.add_parser("install", help="install the engine into a project, or adopt a copy made by hand")
-    install.add_argument("project")
+    install = sub.add_parser(
+        "install",
+        help="install the engine into a project (or adopt a copy made by hand), or the personal layer into the home settings",
+    )
+    install.add_argument("project", nargs="?")
     common(install, writes=True)
     install.add_argument("--no-register", action="store_true", help="do not list the project for `update --all`")
+    install.add_argument(
+        "--personal",
+        action="store_true",
+        help=f"merge {PERSONAL} of the ref into the home settings file instead of installing into a project",
+    )
+    install.add_argument(
+        "--home",
+        metavar="DIR",
+        help="with --personal: the Claude Code config directory (default: $CLAUDE_CONFIG_DIR, else ~/.claude)",
+    )
     install.set_defaults(handler=cmd_install)
 
     update = sub.add_parser("update", help="update one project, or every listed project with --all")
