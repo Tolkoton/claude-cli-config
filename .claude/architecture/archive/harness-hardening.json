@@ -1,0 +1,67 @@
+{
+  "feature": "harness-hardening",
+  "note": "Real backlog from the 2026-08-27 session. S1-S3, S5 done. S4 split: the single-session real path is proven; the supervisor-driven loop (S4b) is blocked on a permission only the owner can grant.",
+  "nodes": [
+    {
+      "id": "S1",
+      "title": "Anchor verdict markers so prose cannot trigger the continue loop",
+      "deps": [],
+      "status": "done",
+      "evidence": "overseer_stop.py:69-93 anchored ^[ \\t]*OVERSEER_ under re.MULTILINE; 10/10 regression cases green including 4 prose shapes that previously fired; --dry-run still blocks. audit.md proposal marked RATIFIED and APPLIED."
+    },
+    {
+      "id": "S2",
+      "title": "Fill AGENTS.md - placeholder text loaded into every session",
+      "deps": [],
+      "status": "done",
+      "evidence": "AGENTS.md rewritten: real project description, agent table, key paths, the five rules that bite, and how to verify a change. No placeholders remain."
+    },
+    {
+      "id": "S3",
+      "title": "Verify format-on-edit.sh and verify-on-stop.sh enforce post-jq",
+      "deps": [],
+      "status": "done",
+      "prior_evidence": "verify-on-stop: stop_hook_active guard short-circuits; happy path detects 5 changed .py files; block path emits decision:block as VALID JSON (jq -Rs was already correct). format-on-edit receives the path and no-ops only because ruff is absent on this machine - it never blocks by design.",
+      "evidence": "Residual gap closed. Session S3 found 4 real defects in format-on-edit.sh and verify-on-stop.sh and proved them against copies; patch reviewed and applied by the orchestrator with ONE hunk rejected as a regression: it rewrote the git rev-parse --show-toplevel command substitution to send stdout to /dev/null, which empties PROJECT_ROOT because in a command substitution stdout IS the value, silently falling back to the cwd. Acceptance met after the revert: test_format_on_edit 22/0, test_verify_on_stop 5/0."
+    },
+    {
+      "id": "S4a",
+      "title": "Prove session-claude.sh - the real production path",
+      "deps": [
+        "S3"
+      ],
+      "status": "done",
+      "evidence": "Real bounded claude -p run: rc=0, session wrote state 'unit-done', cost captured from the run's own JSON at $0.202783, heartbeat ticker started and cleaned up."
+    },
+    {
+      "id": "S4b",
+      "title": "Prove supervisor + real sessions crossing a slice boundary",
+      "deps": [
+        "S4a"
+      ],
+      "status": "done",
+      "evidence": "Session restart cleared the permission block. Supervisor run 18:52:51Z-18:53:30Z against a throwaway 2-node DAG with the REAL session-claude.sh: spawn P1 -> rc=0 state='unit-done' -> 'self-feeding to the next node' -> spawn P2 -> rc=0 state='unit-done' -> 'DAG exhausted' -> state 'finished', sessions=2, exit 0. Boundary crossed twice with no human turn. A scratch DAG was required because the live one had no ready node, and S4b itself is self-referential (D-16)."
+    },
+    {
+      "id": "S5",
+      "title": "Resolve project.env being unwritable under protect-paths",
+      "deps": [],
+      "status": "done",
+      "evidence": "Narrow allowlist '(^|/)\\.claude/project\\.env$' checked before the deny patterns. 18/18 regression green: the two allowed forms pass, five near-miss lookalikes still deny, and all nine pre-existing protections (.env, .env.local, pem, key, ssh, secrets/, migrations, workflows, aws) are intact. Rename to project.sh rejected - it would silently break every downstream project whose hooks read project.env by name."
+    },
+    {
+      "id": "S6",
+      "title": "Give the supervisor mutual exclusion on a DAG node",
+      "deps": [],
+      "status": "done",
+      "evidence": "Two fixes for one root cause. (1) supervisor.sh takes a PID lock at startup: a live holder is REFUSED before the start banner, a dead holder's lock is reclaimed, and the lock is released on exit -- all three verified. (2) session-claude.sh now runs the headless child in the background and its trap TERMs then KILLs it on EXIT/TERM/INT; previously the trap killed only the heartbeat ticker, so a SIGTERM to the wrapper orphaned a `claude` process that kept editing the repo while the supervisor believed the node was free."
+    },
+    {
+      "id": "S7",
+      "title": "Close the evasion gaps in block-dangerous.sh and its false positives",
+      "deps": [],
+      "status": "done",
+      "evidence": "All four evasions closed by matching at COMMAND POSITION -- start of string or just after a separator -- instead of a bare caret, plus a git option group that tolerates both a lone flag and a flag with its own argument (the -C <dir> form was the one case that still slipped through the first attempt). The home-variable pattern now accepts quoted and braced forms. hook-checks/test_deny_gaps.py: 10 blocked / 9 allowed, where the 9 prove ordinary commands were not caught in the widening -- 'sudoku --help', a subcommand used as a word prefix, and a binary whose name merely ends in git all still pass. The suite that originally reported the gaps, test_deny_hooks.py, now reports 62 PASS / 0 FAIL. NOT fixed, deliberately: the mirror defect. Patterns still match inside quoted literals and heredoc bodies, so documenting a dangerous command is blocked as if running it -- hit twice while doing this work. Distinguishing a real invocation from a quoted mention needs shell parsing, and the shortcut of stripping heredoc bodies opens a real hole because a heredoc fed to a shell executes. For a deny control a false positive is a nuisance and a false negative is a breach, so the bias was left where it is and the reasoning written into the hook header."
+    }
+  ]
+}
