@@ -63,23 +63,15 @@ together: `rm -rf /`, `rm -rf /*`, `rm -rf ~`, `rm -rf $HOME` and their `-fr` tw
 refused; a temporary directory by its absolute path, `./build`, `.venv` let through. The
 reference matcher is `evals/permission_rules.py`.
 
-## `settings.json` — the PermissionRequest hook for the project's own data (fix round, item 5)
+## `settings.json` — unwire the retired `approve-project-data.py` (package 3c, item 5)
 
-`.claude/hooks/approve-project-data.py` is a **temporary** PermissionRequest hook: when Claude
-Code is about to ask for Edit/Write/MultiEdit of a path that resolves (symlinks and `..`
-followed) to a file inside this project's `.claude/` whose owner in `.claude/ownership.txt`
-is `project` — the ledger, the parked queue, the premise log, slice contracts, the feature
-DAG, spikes — it answers allow. For anything else it decides nothing and the normal prompt
-appears. It never denies. `protect-paths.sh` still runs first and refuses its protected
-paths regardless. Why temporary: it exists because `defaultMode` moved to the personal
-layer, so a session without that layer (a cloud session, a fresh machine) is asked before
-every bookkeeping write; once Claude Code offers a narrower permission for that, this hook
-goes.
-
-The proposal adds exactly one handler to the `PermissionRequest` block and changes nothing
-else; `hook-checks/test_settings_proposal.py` asserts that, and
-`hook-checks/test_approve_project_data.py` the hook's decisions (every path class, `..`,
-symlinks out). Apply, from the repository root, then restart Claude Code:
+Package 3c moved everything the agent produces out of `.claude/` into `.engine/`, which
+Claude Code does not protect. `approve-project-data.py` approved writes to project-owned
+paths UNDER `.claude/`; none exist there any more, so the hook is deleted and the proposal
+drops its `PermissionRequest` handler — nothing else in the hooks block changes
+(`hook-checks/test_settings_proposal.py` asserts exactly that). The live file still carries
+the handler from F8; until it is applied, Claude Code reports the missing script once per
+Edit/Write/MultiEdit permission request. Apply, from the repository root, then restart:
 
 ```bash
 cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py

@@ -54,10 +54,6 @@ INTENDED: dict[str, str] = {
     "env.ANTHROPIC_DEFAULT_OPUS_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
     "env.ANTHROPIC_DEFAULT_HAIKU_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
     "env.CLAUDE_CODE_SUBAGENT_MODEL": "F4 (owner): removed — the variable is not documented at code.claude.com/docs/en/env-vars",
-    "hooks": (
-        "F5 (owner): one PermissionRequest handler added — approve-project-data.py approves Edit/Write/MultiEdit of "
-        "project-owned paths under .claude/ and decides nothing else (hook-checks/test_approve_project_data.py)"
-    ),
 }
 
 
@@ -100,16 +96,18 @@ def main() -> int:
     t.check("proposal: no model variables under env", not any(k in proposal.get("env", {}) for k in PERSONAL_ENV))
     t.check("personal layer: no model variables either (removed, not moved)", "env" not in {k: v for k, v in personal_raw.items() if not k.startswith("_")})
     t.check("personal layer: defaultMode auto", personal_raw["permissions"].get("defaultMode") == "auto")
-    # F5 (owner): the proposal adds ONE PermissionRequest handler — approve-project-data.py for
-    # Edit|Write|MultiEdit — and changes no other wiring. Until the owner applies it (F8) the
-    # live file lacks exactly that handler; afterwards the two are equal.
+    # C5 (owner, package 3c): approve-project-data.py is retired — after the move nothing
+    # project-owned is left under .claude/ for it to approve — so the proposal DROPS its
+    # PermissionRequest handler and changes no other wiring. Until the owner applies it the
+    # live file still carries exactly that handler; afterwards the two are equal.
     extra = set(parity.hook_handlers(proposal["hooks"])) - set(parity.hook_handlers(live["hooks"]))
-    missing_in_proposal = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
+    gone = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
     t.check(
-        "proposal: every live hook is kept, and the only addition is approve-project-data on PermissionRequest",
-        not missing_in_proposal and (not extra or extra == {APPROVE_HANDLER}),
-        json.dumps({"extra": sorted(extra), "missing": sorted(missing_in_proposal)}),
+        "proposal: no hook added, and the only removal is approve-project-data on PermissionRequest",
+        not extra and (not gone or gone == {APPROVE_HANDLER}),
+        json.dumps({"extra": sorted(extra), "gone": sorted(gone)}),
     )
+    t.check("proposal: the retired hook is not wired anywhere", "approve-project-data" not in json.dumps(proposal["hooks"]))
     t.check("proposal: the engine's own env stays", proposal["env"].get("CLAUDE_CODE_STOP_HOOK_BLOCK_CAP") is not None)
     t.check("personal layer: wires no hooks", "hooks" not in personal_raw)
 

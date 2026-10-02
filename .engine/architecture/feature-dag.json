@@ -40,7 +40,8 @@
       "deps": [
         "C2"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "approve-project-data.py removed in C2; proposal drops its handler (test_settings_proposal 11/11, the removal is the only hooks difference); docs/tasks/README and engine-limits rewritten (boundary section; project.env never auto-approved); session-claude.sh passes --settings $PROJECT_ROOT/.claude/settings.json (test_session_launch 10/10); real sessions: SessionStart handlers 2 with and 2 without the flag."
     },
     {
       "id": "C6",

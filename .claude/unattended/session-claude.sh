@@ -69,8 +69,15 @@ export CLAUDE_UNATTENDED_SESSION=1
 # whatever machine runs the supervisor happens to say. acceptEdits is the mode the whole
 # design assumes: edits to non-protected paths go through, Bash is governed by the
 # allow/ask/deny lists and the hooks, and an ask-gated command is parked, not hung on.
+# --settings names the project's own file explicitly. A headless session in a directory that
+# was never trusted interactively IGNORES that project's .claude/settings.json — hooks
+# included — so a supervisor on a fresh machine would run with no guardrails at all. Passing
+# the same file on the command line is read regardless of trust, and Claude Code runs an
+# identical handler defined twice ONCE (code.claude.com/docs/en/hooks; measured on 2.1.287
+# with --debug: the same hook execution count with and without the flag in a trusted repo).
 claude -p "$PROMPT" \
   --permission-mode acceptEdits \
+  --settings "$PROJECT_ROOT/.claude/settings.json" \
   --output-format json \
   > "$STATE_DIR/logs/last-session.json" 2> "$STATE_DIR/logs/last-session.err" &
 CLAUDE_PID=$!

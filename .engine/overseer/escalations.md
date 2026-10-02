@@ -361,3 +361,15 @@ one; do not reopen the old one in conversation.
 - Evidence: test_contract_fingerprint.py 15/15 against the real Stop hook.
 - Falsified by: a project whose PROGRESS.md does not mark the slice IN PROGRESS — then there is no active contract and no check; the complexity gate has the same limit.
 - Status: CLOSED
+
+## 2026-10-02T12:16:38Z — AUTONOMOUS — 3c-C5-once-measurement
+- Decision: the "hooks do not fire twice with --settings" check is measured by the headless session's own event stream (`--output-format stream-json --verbose` records `hook_started` per handler): in this trusted repository the SessionStart block's two handlers ran twice in total with and without `--settings .claude/settings.json`; the stream does not record PreToolUse/Stop handlers, so those rest on the same documented rule (identical handler → once). Not measured by `--debug`, whose log at this version does not list hook commands.
+- Door: two-way
+- Cost to reverse: re-run `evals`-style with another instrument when Claude Code exposes one.
+- Why not escalated: the owner asked for a real-session check; which instrument shows the count is implementation. Six sessions on haiku, about $0.10 in total.
+- Evidence: /tmp/claude-hooks-once/{with,without}-3.jsonl — 2 hook_started each (SessionStart:startup ×2), 0 extra with --settings.
+- Falsified by: a stream showing 4 SessionStart handlers with --settings — then the handlers are not identical and the launcher must drop the flag or the project must change.
+- Status: CLOSED
+
+## 2026-10-02T12:16:38Z — FINDING (no decision) — Write(...) deny rules are inert
+- Claude Code 2.1.287 warns at session start, for every `Write(<path>)` rule in permissions.deny: "not matched by file permission checks — only Edit(path) rules are. Use Edit(<path>) instead (Edit rules cover all file-modifying tools)". The live .claude/settings.json and the proposal carry twelve such rules; protect-paths.sh covers the same paths independently, so nothing is unguarded, but the rules are dead text. Owner-only (settings.json): fold into the next docs/tasks proposal.

@@ -85,20 +85,27 @@ closes this at the source rather than at run time:
   `"true"` in a cloud session; `.claude/unattended/env-probe.sh` prints that and the other
   facts the commit policy decides on.
 
-## Writes to the project's own data under `.claude/`
+## The boundary: `.claude/` is the engine's, `.engine/` is the agent's
 
-`approve-project-data.py` (PermissionRequest, Edit/Write/MultiEdit) answers allow when the
-target resolves — symlinks and `..` followed — to a path inside the session repository's
-`.claude/` whose owner in `.claude/ownership.txt` is `project`, and decides nothing
-otherwise. Its limits: it reads the ownership map of the session repository, so a project
-that edits its map changes what is approved; an arbitrary new file under
-`.engine/overseer/` is `engine`-owned by the shipped map (only the five named records and
-`slice/` are `project`) and is not approved — put ad-hoc notes under `.engine/artifacts/`;
-and a headless session in a directory never trusted interactively ignores that project's
-settings, hooks included, so there the hook fires only when handed to the CLI with
-`--settings` (`evals/probe_permission_hook.sh` shows both). `protect-paths.sh` runs first
-and still refuses its protected paths. The hook is temporary: when Claude Code offers a
-narrower permission for this, it goes.
+`.claude/` holds what **defines and constrains** the agent — settings, hooks, skills, agents,
+commands, the constitution, the ownership map, the unattended harness, `project.env`, and all
+machine state under `.claude/state/`. Claude Code protects it: every write an agent tool
+makes there is shown to a human or to the classifier, and that is the point. `.engine/` holds
+what the agent **produces** while working — the overseer's records, slice contracts,
+architecture, premises, spikes, `PROGRESS.md` — and is not protected; a ledger entry needs
+no permission prompt. The limits:
+
+- machine state is written by hooks and scripts, never by agent tools, so it raises no
+  prompt although it lives under `.claude/`; an agent that writes `.claude/state/` by hand
+  is doing something the design did not intend;
+- `project.env` is project-owned and lives under `.claude/` on purpose: it is the gates'
+  switchboard (`TEST_CMD=true` would pass every gate), so it is **never approved
+  automatically** — a person edits it at setup time and answers the prompt;
+- a project built before package 3c has its records at the old paths; `engine.py update`
+  moves them by an explicit table and reports, without touching, a file that exists in both
+  places (`docs/TEMPLATE-SETUP.md`, "Keeping the engine up to date");
+- the old `approve-project-data.py` hook is gone with the move; a project that still wires
+  it sees Claude Code report the missing script until `docs/tasks/settings.json` is applied.
 
 ## The deny list's `*`
 

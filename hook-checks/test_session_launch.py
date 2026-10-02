@@ -80,6 +80,11 @@ def main() -> int:
             str(argv),
         )
         t.check("argv: --output-format json kept", "--output-format" in argv and argv[argv.index("--output-format") + 1] == "json" if "--output-format" in argv else False, str(argv))
+        t.check(
+            "argv: --settings <project>/.claude/settings.json (read regardless of workspace trust)",
+            "--settings" in argv and argv[argv.index("--settings") + 1] == str(project / ".claude/settings.json") if "--settings" in argv else False,
+            str(argv),
+        )
         t.check("argv: no --dangerously-skip-permissions", "--dangerously-skip-permissions" not in argv)
         state = project / ".claude/state/unattended/state.json"
         t.check("the session contract still holds: cost recorded from the shim's JSON", (project / ".claude/state/unattended/cost.json").is_file() or state.is_file() or "cost=" in r.stdout, r.stdout)
