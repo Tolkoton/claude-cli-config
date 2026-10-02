@@ -1,0 +1,91 @@
+{
+  "feature": "engine-package-3b-finish",
+  "note": "The owner's fix round on package 3b (docs/plan/package-3b-finish.md). Contract: .claude/architecture/feature/engine-package-3b-finish.md. Same branch, new commits only. F8 and the carried-over S8/S9 are owner-only and parked with their exact unblocking step.",
+  "nodes": [
+    {
+      "id": "F1",
+      "title": "remove-stand-down: engine_stand_down() and ENGINE_HOOK_ALWAYS_RUN out of every hook and copy; claude-autonomy user scope installs no hooks; test_no_home_hook_copies.py",
+      "deps": [],
+      "status": "done",
+      "evidence": "engine_stand_down() and ENGINE_HOOK_ALWAYS_RUN removed from 9 hooks, 4 skill copies, runner, probe; claude-autonomy user scope installs settings.user.json.template (no hooks, no scripts); test_no_home_hook_copies.py 25/25 replaces test_hooks_fire_once.py; docs rewritten around the closed source. Scenarios 86/86 identical to the 3b baseline."
+    },
+    {
+      "id": "F2",
+      "title": "push-leaves-the-hook: protected-branch block names commit only, message names the subcommand; ask/deny asserted in test_commit_policy; scenarios flipped; results-push-policy.json renamed",
+      "deps": [],
+      "status": "done",
+      "evidence": "block-dangerous.sh protected block names commit only, message names the subcommand; test_commit_policy.py 28/28 incl. ask/deny rules pinned on the live and proposed settings; bd-push-on-main and bd-push-on-protected-branch-in-worktree expect allow, bd-commit-on-unattended-branch-in-worktree added (27 bd scenarios, 87 total); results-push-policy.json -> results-package-3a-copy.json with live refs updated."
+    },
+    {
+      "id": "F3",
+      "title": "explicit-permission-mode: session-claude.sh passes --permission-mode acceptEdits; test_session_launch.py with a recording shim",
+      "deps": [],
+      "status": "done",
+      "evidence": "session-claude.sh passes --permission-mode acceptEdits; test_session_launch.py 9/9 with a recording shim `claude` on PATH."
+    },
+    {
+      "id": "F4",
+      "title": "personal-layer-reshape: defaultMode auto, no model variables; proposal test lists each intended difference with its reason",
+      "deps": [],
+      "status": "done",
+      "evidence": "user/settings.json: defaultMode auto, no env; test_personal_layer 28/28; test_settings_proposal 10/10 with 6 intended differences each with a reason; docs updated. Real machine (S7 applied, S8 not): 3 effective settings currently missing until S8."
+    },
+    {
+      "id": "F5",
+      "title": "approve-project-data: PermissionRequest hook for project-owned paths under .claude/; proposal wiring; tests incl. ../ and symlinks; one real headless session",
+      "deps": [
+        "F4"
+      ],
+      "status": "done",
+      "evidence": ".claude/hooks/approve-project-data.py (PermissionRequest; allow only project-owned paths under .claude/, realpath-resolved; silent otherwise); wired in docs/tasks/settings.json as a proposal + command; test_approve_project_data.py 40/40; test_settings_proposal 10/10 lists the hooks difference; REAL headless sessions (evals/probe_permission_hook.sh, Claude Code 2.1.287): with the hook the write to .claude/architecture/probe.md succeeded, without it refused, outside .claude/ refused. Finding: untrusted-workspace headless sessions ignore project settings, so the probe wires via --settings."
+    },
+    {
+      "id": "F6",
+      "title": "small-things: recheck_parked reads the Unblocks line only; test_engine_lint.py; test_engine_install skips the HEAD comparison while hooks are dirty; git commit -F documented; critics distinguish owner requirements",
+      "deps": [],
+      "status": "done",
+      "evidence": "recheck_parked.py reads tokens from the Unblocks line only (test_recheck_parked 7/7); test_engine_lint.py (ruff --isolated + mypy --strict on engine-owned Python, fails without tools) — 21 findings fixed; test_engine_install skips the HEAD comparison with the dirty list while .claude/hooks is uncommitted; git commit -F documented in engine-limits.md; critic-core §0 and feature-critic distinguish owner requirements from agent decisions."
+    },
+    {
+      "id": "F7",
+      "title": "records-and-baseline: docs, ownership map, results-package-3b-finish.json, the report",
+      "deps": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6"
+      ],
+      "status": "done",
+      "evidence": "docs (TEMPLATE-SETUP 10 hooks, engine-limits section on approve-project-data, evals/README everyday reference), test_ownership expectations for the 4 new paths, results-package-3b-finish.json 87/87, parked F8, ledger, report docs/plan/package-3b-finish-report.md."
+    },
+    {
+      "id": "F8",
+      "title": "wire-approve-project-data (OWNER): apply docs/tasks/settings.json over .claude/settings.json",
+      "deps": [
+        "F5"
+      ],
+      "status": "parked",
+      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code."
+    },
+    {
+      "id": "S8",
+      "title": "apply-personal (OWNER): engine.py install --personal against the real ~/.claude",
+      "deps": [
+        "S1"
+      ],
+      "status": "parked",
+      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref unattended/2026-10-02-package-3b` after reading its --dry-run."
+    },
+    {
+      "id": "S9",
+      "title": "cloud-probe (OWNER): run .claude/unattended/env-probe.sh in a real cloud session, then decide CLOUD_COMMIT_POLICY",
+      "deps": [
+        "S3"
+      ],
+      "status": "parked",
+      "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
+    }
+  ]
+}
