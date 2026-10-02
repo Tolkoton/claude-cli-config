@@ -85,6 +85,21 @@ closes this at the source rather than at run time:
   `"true"` in a cloud session; `.claude/unattended/env-probe.sh` prints that and the other
   facts the commit policy decides on.
 
+## Writes to the project's own data under `.claude/`
+
+`approve-project-data.py` (PermissionRequest, Edit/Write/MultiEdit) answers allow when the
+target resolves — symlinks and `..` followed — to a path inside the session repository's
+`.claude/` whose owner in `.claude/ownership.txt` is `project`, and decides nothing
+otherwise. Its limits: it reads the ownership map of the session repository, so a project
+that edits its map changes what is approved; an arbitrary new file under
+`.claude/overseer/` is `engine`-owned by the shipped map (only the five named records and
+`slice/` are `project`) and is not approved — put ad-hoc notes under `.claude/artifacts/`;
+and a headless session in a directory never trusted interactively ignores that project's
+settings, hooks included, so there the hook fires only when handed to the CLI with
+`--settings` (`evals/probe_permission_hook.sh` shows both). `protect-paths.sh` runs first
+and still refuses its protected paths. The hook is temporary: when Claude Code offers a
+narrower permission for this, it goes.
+
 ## The deny list's `*`
 
 A `*` in a `Bash(...)` rule matches any text, so a rule like `Bash(rm -rf /` + `*)`

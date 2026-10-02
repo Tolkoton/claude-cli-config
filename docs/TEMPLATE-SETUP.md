@@ -10,11 +10,13 @@ any project with one command; the steps after that tailor it. The whole setup ta
 
 - **Slice flow**: design (master-architect) → build (slice-builder) → audit (overseer).
 - **Memory lifecycle**: self-learning-orchestrator distils lessons across sessions.
-- **9 hooks**: block dangerous commands (with the commit policy by environment), protect
+- **10 hooks**: block dangerous commands (with the commit policy by environment), protect
   sensitive paths, format on edit, verify on stop, auto-approve web fetches, trigger the
   overseer audit on unit completion, park ask-gated commands when unattended, the
-  complexity budget, and a session-start check of what the machine lacks. They are wired by
-  the project's `settings.json` only — never from `~/.claude/` (`docs/engine-limits.md`).
+  complexity budget, a session-start check of what the machine lacks, and — once the owner
+  wires it (`docs/tasks/README.md`) — a PermissionRequest hook that approves writes to the
+  project's own data under `.claude/`. They are wired by the project's `settings.json` only
+  — never from `~/.claude/` (`docs/engine-limits.md`).
 - **Critic agents**: slice-planner-critic, feature-critic, master-critic — adversarial
   review before implementation begins.
 
@@ -301,7 +303,8 @@ This forces the agent to load the policy and map before doing anything else.
 ```
 .claude/
   project.env     — ← fill this in (Step 2)
-  hooks/          — 9 enforcement hooks (wired in settings.json)
+  hooks/          — 10 enforcement hooks (wired in settings.json; approve-project-data.py
+                    is a proposal in docs/tasks/ until the owner wires it)
   skills/         — vendored skills: overseer, slice-builder, master-architect,
                     feature-architect, self-learning-orchestrator, documentation,
                     claude-autonomy

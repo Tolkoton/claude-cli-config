@@ -106,3 +106,17 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
   - S6 docs/engine-limits.md, TEMPLATE-SETUP personal layer, stale escalation closed with commit ids, ownership map, macOS baseline.
 - Parked for the owner: S7 apply the shared settings, S8 apply the personal layer, S9 run the probe in a cloud session (parked.md, exact commands).
 - Category: strategy
+
+## 2026-10-02T10:15:07Z — engine-package-3b-finish — FIX_ROUND_BUILT + 3_PARKED
+- Trigger: the owner's review of package 3b (docs/plan/package-3b-finish.md), run through /feature-architect; feature-critic REVISE (#1 scope of the baseline rename) → PASS in round 2.
+- Evidence: nine commits on unattended/2026-10-02-package-3b after the owner's S7 commit; 25 hook-check suites green incl. 5 new (no_home_hook_copies 25, session_launch 9, approve_project_data 40, recheck_parked 7, engine_lint); scenarios 87/87 recorded as results-package-3b-finish.json, 84 identical to results-package-3b.json plus the 3 intended differences; ruff + mypy --strict clean on every Python file the round touched and on the engine's own Python.
+- Action, one line per slice:
+  - F1 stand-down removed from 9 hooks + 4 copies, ENGINE_HOOK_ALWAYS_RUN gone; claude-autonomy user scope installs settings only (settings.user.json.template).
+  - F2 protected-branch block names commit only; ask/deny push rules pinned on the live and proposed settings; two scenarios flipped, one worktree commit scenario added; results-push-policy.json → results-package-3a-copy.json.
+  - F3 session-claude.sh passes --permission-mode acceptEdits; recording-shim test.
+  - F4 personal layer: defaultMode auto, no model variables; proposal test lists 6 intended differences with reasons.
+  - F5 approve-project-data.py (PermissionRequest, project-owned paths under .claude/), proposal wiring, 40 path cases, three REAL headless sessions.
+  - F6 recheck_parked reads the Unblocks line only; test_engine_lint; test_engine_install skips the HEAD comparison on dirty hooks; git commit -F documented; critics distinguish owner requirements.
+  - F7 docs, ownership expectations, baseline, report.
+- Parked for the owner: F8 wire the hook (parked.md, one command), S8 personal layer into ~/.claude, S9 cloud probe.
+- Category: strategy

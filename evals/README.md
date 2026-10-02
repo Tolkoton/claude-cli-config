@@ -18,14 +18,14 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |
 | `probe_permission_hook.sh` | Three REAL headless sessions in a throwaway project: does approve-project-data.py lift the Edit/Write prompt in this Claude Code version? About $0.02 per session on haiku. |
 | `permission_rules.py` | A reference matcher for Bash permission rules as the docs state them (`*` any text, `:*`, exact, compound commands). What a deny list refuses, before it is applied. |
-| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (package 3b). |
+| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, then `results-package-3b-finish.json` — the everyday reference now). |
 
 ## Quick start
 
 ```bash
 # The everyday check: one command, temporary sandbox, nothing left behind.
 python3 evals/run_hook_scenarios.py --engine-ref HEAD \
-  --compare evals/baseline/clean-ubuntu-24.04/results-package-3a.json
+  --compare evals/baseline/Laos-MacBook-Pro/results-package-3b-finish.json
 
 # Two engine versions against each other.
 python3 evals/run_hook_scenarios.py --engine-ref v0.8.0 --record-only --out /tmp/old.json

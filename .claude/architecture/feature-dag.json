@@ -57,7 +57,8 @@
         "F5",
         "F6"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "docs (TEMPLATE-SETUP 10 hooks, engine-limits section on approve-project-data, evals/README everyday reference), test_ownership expectations for the 4 new paths, results-package-3b-finish.json 87/87, parked F8, ledger, report docs/plan/package-3b-finish-report.md."
     },
     {
       "id": "F8",

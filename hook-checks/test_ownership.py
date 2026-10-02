@@ -118,6 +118,10 @@ expected = {
     "hook-checks/fixtures/home-settings.json": "project",
     "docs/engine-limits.md": "project",
     ".claude/unattended/env-probe.sh": "engine",
+    ".claude/hooks/approve-project-data.py": "engine",
+    ".claude/skills/claude-autonomy/assets/settings.user.json.template": "engine",
+    "evals/probe_permission_hook.sh": "project",
+    "hook-checks/test_engine_lint.py": "project",
     ".claude/unattended/commit_checkpoint.sh": "engine",
     "templates/project/.claude/project.env": "project",
 }

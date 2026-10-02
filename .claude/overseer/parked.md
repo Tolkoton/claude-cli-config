@@ -124,3 +124,11 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Evidence: .claude/unattended/env-probe.sh — hook-checks/test_env_probe.py 15/15 (cloud recognised from CLAUDE_CODE_REMOTE=true; the policy verdict follows the switch; secrets never printed).
 - Unblocks when: the owner runs `bash .claude/unattended/env-probe.sh` inside a Claude Code cloud session on this repository and pastes the output back; then, on that evidence, sets `CLOUD_COMMIT_POLICY="session-branch"` in .claude/project.env or leaves it off.
 - Continued with: S4–S6.
+
+## 2026-10-02T10:15:07Z — engine-package-3b-finish / F8 wire-approve-project-data — PARKED
+- Blocked on: adding the PermissionRequest handler for approve-project-data.py to .claude/settings.json — protect-paths.sh refuses that path to any agent, by design (D-23).
+- Class: human-input
+- Reversibility: `git checkout -- .claude/settings.json`; the proposal test holds on both sides of the apply.
+- Evidence: hook-checks/test_approve_project_data.py 40/40; hook-checks/test_settings_proposal.py 10/10 (the one handler is the only hooks difference); evals/probe_permission_hook.sh — three real headless sessions on Claude Code 2.1.287: with the hook the write to project data went through, without it refused, outside .claude/ refused.
+- Unblocks when: the owner runs, from the repository root, `cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code. No machine-checkable condition; a human moves this entry.
+- Continued with: F6, F7.
