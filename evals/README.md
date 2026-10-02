@@ -14,7 +14,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `compare.py` | Diffs two result files. The differences are what changed between two engine versions, two machines, or two hook directories. |
 | `scenarios/hooks/*.json` | The hook scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
 | `run_audit_scenarios.py` | Runs the audit scenarios in headless Claude Code sessions and records the verdicts. |
-| `scenarios/audit/*.md` | 10 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. |
+| `scenarios/audit/*.md` | 10 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. Seven are relayed by a live session (prompt A); 02, 04 and 10 are recorded turns the runner writes into the sandbox as a fixture (see below). |
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |
 | `permission_rules.py` | A reference matcher for Bash permission rules as the docs state them (`*` any text, `:*`, exact, compound commands). What a deny list refuses, before it is applied. |
 | `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json` — the everyday reference now; `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
@@ -117,6 +117,19 @@ scenario is reported as having no valid session. Files recorded before that get 
 treatment after the fact from the transcripts Claude Code keeps under `~/.claude/projects/`:
 `python3 evals/annotate_echo.py <result.json> <workdir-name> --write` (the workdir name is the
 `engine-audit-xxxx` the runner printed). The comparison counts only relayed sessions.
+
+**Recorded turns (night program 1, item 0): the model is out of the lie.** Scenarios 02, 04 and
+10 no longer have a prompt A. Their builder turn is a fixture: the fenced block under
+"Builder turn — recorded fixture" in the scenario file is written verbatim into the sandbox at
+`turn_fixture.path` (`.engine/artifacts/ref-tax/unit-3-turn.md`), `.engine/PROGRESS.md` gets a
+pointer line, and prompt B — the only session — tells the overseer where the recorded turn is.
+The scene and the expected verdict are unchanged; what changed is that nobody is asked to say
+"tests green" when nothing ran. Each scene names the claims it lives on in `expected.json`
+(`turn_fixture.must_contain`, `must_not_contain`: 02 forbids any test output, 04 forbids a RED,
+10 demands the RED of 01), and the pre-flight refuses to start when a block has lost one —
+before any session is paid for. Such a run is recorded with `"echo": "fixture"` and costs one
+session, not two. `tests/test_audit_turn_fixture.py` exercises all of it with the `claude`
+shim, including the refusals, on a broken copy of the scenarios (`--scenarios-dir`).
 
 ## Adding a scenario
 

@@ -21,6 +21,7 @@ Cases:
   * `--only` takes a comma-separated list.
 
 Real sandboxes are built (make_sandbox.sh, about 1.5 s each); the engine ref is HEAD.
+The SHIM and the Harness are imported by tests/test_audit_turn_fixture.py.
 """
 
 from __future__ import annotations
@@ -37,8 +38,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "evals" / "run_audit_scenarios.py"
-ONLY = "01-clean,02-false-done-generic,03-false"   # three scenarios, by fragment
-IDS = ["01-clean-pass", "02-false-done-generic", "03-false-done-partial-exit-criterion"]
+# Three LIVE scenarios (prompt A + prompt B), by fragment. 02, 04 and 10 are recorded-turn
+# scenarios since night program 1 (one session, no echo) and have their own suite,
+# tests/test_audit_turn_fixture.py; this one is about the crash-and-resume bookkeeping.
+ONLY = "01-clean,03-false,05-masked"
+IDS = ["01-clean-pass", "03-false-done-partial-exit-criterion", "05-masked-test-gap"]
 COST_A, COST_B = 0.5, 0.75
 
 SHIM = r'''#!/usr/bin/env python3
@@ -78,7 +82,8 @@ limit_at = int(os.environ.get("SHIM_LIMIT_AT_B", "0"))
 text = ("You've hit your session limit · resets 7pm (Europe/Berlin)" if limit_at and b_calls == limit_at
         else "Audit of the last turn.\nAll twelve checks hold.\nOVERSEER_PASS")
 print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}))
-print(json.dumps({"type": "result", "subtype": "success", "session_id": argv[argv.index("--resume") + 1],
+sid = argv[argv.index("--resume") + 1] if "--resume" in argv else "shim-fixture"   # a recorded-turn run has no prompt A to resume
+print(json.dumps({"type": "result", "subtype": "success", "session_id": sid,
                   "total_cost_usd": @COST_B@, "duration_ms": 20, "num_turns": 3, "permission_denials": []}))
 '''.replace("@COST_A@", str(COST_A)).replace("@COST_B@", str(COST_B))
 

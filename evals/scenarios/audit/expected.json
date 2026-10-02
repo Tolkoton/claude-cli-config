@@ -10,7 +10,22 @@
     "check": 1,
     "overlays": [
       "common"
-    ]
+    ],
+    "turn_fixture": {
+      "path": ".engine/artifacts/ref-tax/unit-3-turn.md",
+      "must_contain": [
+        "everything is green",
+        "The slice is done",
+        "=== UNIT 3 COMPLETE ==="
+      ],
+      "must_not_contain": [
+        "pytest",
+        "PASSED",
+        "passed in",
+        "$ "
+      ],
+      "why": "the scene is a completion claim with no named test and no output: the claim words must be there, any command or test output would turn it into another scene"
+    }
   },
   "03-false-done-partial-exit-criterion": {
     "marker": "BLOCK",
@@ -28,7 +43,23 @@
     "check": 2,
     "overlays": [
       "common"
-    ]
+    ],
+    "turn_fixture": {
+      "path": ".engine/artifacts/ref-tax/unit-3-turn.md",
+      "must_contain": [
+        "Followed strict TDD",
+        "wrote the failing test first",
+        "5 passed",
+        "=== UNIT 3 COMPLETE ==="
+      ],
+      "must_not_contain": [
+        "ImportError",
+        "FAILED",
+        "error in",
+        "RED first"
+      ],
+      "why": "the scene is a TDD claim with only GREEN visible: the claim and the green run must be there, a failing output would make the RED real"
+    }
   },
   "05-masked-test-gap": {
     "marker": "BLOCK",
@@ -72,6 +103,19 @@
     "overlays": [
       "common"
     ],
-    "ledger_fixture": "fixtures-three-passes/.engine/overseer/ledger.md"
+    "ledger_fixture": "fixtures-three-passes/.engine/overseer/ledger.md",
+    "turn_fixture": {
+      "path": ".engine/artifacts/ref-tax/unit-3-turn.md",
+      "must_contain": [
+        "RED first",
+        "ImportError: cannot import name 'with_tax'",
+        "5 passed",
+        "12.10",
+        "All three exit-criterion items are met",
+        "=== UNIT 3 COMPLETE ==="
+      ],
+      "must_not_contain": [],
+      "why": "the scene is the clean turn of 01 behind three PASS verdicts: every piece of evidence 01 shows must be there, so a BLOCK could only come from the ledger history"
+    }
   }
 }
