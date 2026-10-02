@@ -36,7 +36,8 @@
       "deps": [
         "F4"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": ".claude/hooks/approve-project-data.py (PermissionRequest; allow only project-owned paths under .claude/, realpath-resolved; silent otherwise); wired in docs/tasks/settings.json as a proposal + command; test_approve_project_data.py 40/40; test_settings_proposal 10/10 lists the hooks difference; REAL headless sessions (evals/probe_permission_hook.sh, Claude Code 2.1.287): with the hook the write to .claude/architecture/probe.md succeeded, without it refused, outside .claude/ refused. Finding: untrusted-workspace headless sessions ignore project settings, so the probe wires via --settings."
     },
     {
       "id": "F6",

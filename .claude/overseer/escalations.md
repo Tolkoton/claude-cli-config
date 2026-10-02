@@ -316,3 +316,12 @@ one; do not reopen the old one in conversation.
 - Evidence: repo-wide grep for the old name: hits only in closed records and the plan files; test_commit_policy.py 28/28.
 - Falsified by: a live document found to point at the old name — then it is updated, not the records.
 - Status: CLOSED
+
+## 2026-10-02T10:07:29Z — AUTONOMOUS — 3b-finish-F5-no-decision-shape
+- Decision: approve-project-data.py says 'no decision' as exit 0 with empty stdout (not the sample's exit 1), approves only `project`-owned paths under .claude/ by the ownership map, and the real-session probe hands the wiring to the CLI with --settings and targets .claude/architecture/.
+- Door: two-way
+- Cost to reverse: three small edits in one file and one in the probe script.
+- Why not escalated: the owner decided what the hook approves and that it must be proven in a real session; the output shape for 'not mine' and the probe's mechanics are implementation. Exit 1 would surface a non-blocking error line on every ordinary write; exit 0 silent is the documented 'no decision'. --settings because a headless session in a never-trusted directory ignores that project's settings, hooks included (measured). architecture/ because overseer/<arbitrary>.md is engine-owned by the map and the hook rightly stays silent there — the first probe run showed exactly that.
+- Evidence: test_approve_project_data.py 40/40; evals/probe_permission_hook.sh: A exists / B absent / C absent on Claude Code 2.1.287, haiku, ~$0.02 per session; the hook's logged stdout in case A was the allow decision, in the overseer/probe.md run it was empty.
+- Falsified by: a Claude Code version that treats exit 0 + empty stdout on PermissionRequest as something other than 'no decision' — the probe would show B or C creating a file.
+- Status: CLOSED
