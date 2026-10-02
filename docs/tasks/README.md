@@ -23,13 +23,13 @@ What changed against the live `.claude/settings.json`, and why:
   itself changes nothing in effect (`evals/settings_parity.py`: 13 of 13 identical on
   2026-10-02 against the real `~/.claude/settings.json`). The fix round then changed two
   things ON PURPOSE — `defaultMode` to `auto` and the model variables gone — and
-  `hook-checks/test_settings_proposal.py` lists each such difference from the frozen
+  `tests/test_settings_proposal.py` lists each such difference from the frozen
   "before" (`effective-before-split.json`) with its reason.
 
 Apply, from the repository root:
 
 ```bash
-cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py
+cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```
 
 The test passes both before and after applying: it compares the proposal plus the personal
@@ -58,7 +58,7 @@ with patterns that tell `/` from `/tmp/...` and `./*` from `./build`, so the lis
 | `Bash(rm -rf ./` + `*)` | removed | the hook, for `rm -rf ./*` |
 | `Bash(rm -fr *)` (every `rm -fr`) | the same rules as `-rf`, spelled `-fr` | both, symmetrically |
 
-`hook-checks/test_root_delete_deny.py` shows the result with the deny list and the hook
+`tests/test_root_delete_deny.py` shows the result with the deny list and the hook
 together: `rm -rf /`, `rm -rf /*`, `rm -rf ~`, `rm -rf $HOME` and their `-fr` twins
 refused; a temporary directory by its absolute path, `./build`, `.venv` let through. The
 reference matcher is `evals/permission_rules.py`.
@@ -69,10 +69,10 @@ Package 3c moved everything the agent produces out of `.claude/` into `.engine/`
 Claude Code does not protect. `approve-project-data.py` approved writes to project-owned
 paths UNDER `.claude/`; none exist there any more, so the hook is deleted and the proposal
 drops its `PermissionRequest` handler — nothing else in the hooks block changes
-(`hook-checks/test_settings_proposal.py` asserts exactly that). The live file still carries
+(`tests/test_settings_proposal.py` asserts exactly that). The live file still carries
 the handler from F8; until it is applied, Claude Code reports the missing script once per
 Edit/Write/MultiEdit permission request. Apply, from the repository root, then restart:
 
 ```bash
-cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py
+cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```

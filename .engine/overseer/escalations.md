@@ -373,3 +373,21 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T12:16:38Z — FINDING (no decision) — Write(...) deny rules are inert
 - Claude Code 2.1.287 warns at session start, for every `Write(<path>)` rule in permissions.deny: "not matched by file permission checks — only Edit(path) rules are. Use Edit(<path>) instead (Edit rules cover all file-modifying tools)". The live .claude/settings.json and the proposal carry twelve such rules; protect-paths.sh covers the same paths independently, so nothing is unguarded, but the rules are dead text. Owner-only (settings.json): fold into the next docs/tasks proposal.
+
+## 2026-10-02T12:23:29Z — AUTONOMOUS — 3c-C6-references
+- Decision: of the retired skill's three references, permission-philosophy.md moves to .claude/references/ with two stale sentences corrected (commit is governed by the hook's branch rule, push by the ask rule alone); hooks-reference.md (four of nine hooks) and auto-mode-and-flags.md (guessed flag names, Auto Mode described as a sandbox) are deleted. block-dangerous.sh's message names the engine and the script instead of the skill.
+- Door: two-way
+- Cost to reverse: `git revert` of one commit restores the files.
+- Why not escalated: the owner said to keep what is still true and delete what is stale; which is which was checked against the live settings file and Claude Code 2.1.287's behaviour. No scenario or test depended on the old message text.
+- Evidence: test_no_home_hook_copies.py 15/15 incl. "no live file points at the retired skill"; 28 suites green.
+- Falsified by: a reader who needs the per-hook reference — CLAUDE.md's hook table and docs/engine-limits.md are where it lives now.
+- Status: CLOSED
+
+## 2026-10-02T12:23:29Z — AUTONOMOUS — 3c-C7-test-cmd
+- Decision: with hook-checks/ renamed tests/, this repository's own .claude/project.env sets TEST_CMD="true" (the seed project.env is unchanged); tests/run_all.sh is the runner AGENTS.md names.
+- Door: two-way
+- Cost to reverse: one line in project.env.
+- Why not escalated: the alternative — TEST_CMD running the whole suite — would add minutes to every turn end for a repository whose checks are run by hand after each slice anyway, and the owner's standing instruction is not to rely on this repository's Stop gate. A real project's gate is untouched.
+- Evidence: bash tests/run_all.sh: 28 suites green after the rename.
+- Falsified by: the owner wanting the Stop gate to run the suite here — one line.
+- Status: CLOSED

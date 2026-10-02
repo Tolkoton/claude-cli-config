@@ -46,7 +46,7 @@ MUST_ALLOW = [
     ("name ending in git",           "mygit commit"),
     ("targeted delete",              "rm -rf ./build"),
     ("home in an unrelated path",    "ls $HOME/projects"),
-    ("python invocation",            "python3 hook-checks/test_deny_gaps.py"),
+    ("python invocation",            "python3 tests/test_deny_gaps.py"),
 ]
 
 fails = []

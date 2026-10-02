@@ -98,13 +98,13 @@ negative case:
 ```bash
 command -v jq || command -v python3                  # one of them must exist
 python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
-python3 hook-checks/test_format_on_edit.py           # 22 cases, exits 1 on any fail
-python3 hook-checks/test_deny_gaps.py               # 10 blocked / 9 allowed
-python3 hook-checks/test_overseer_continue.py       # the loop cannot silently stop
-python3 hook-checks/test_decision_logged.py         # no unlogged autonomous deviation
-python3 hook-checks/test_engine_lint.py             # ruff --isolated + mypy --strict on the engine's own Python
+python3 tests/test_format_on_edit.py           # 22 cases, exits 1 on any fail
+python3 tests/test_deny_gaps.py               # 10 blocked / 9 allowed
+python3 tests/test_overseer_continue.py       # the loop cannot silently stop
+python3 tests/test_decision_logged.py         # no unlogged autonomous deviation
+python3 tests/test_engine_lint.py             # ruff --isolated + mypy --strict on the engine's own Python
 python3 .claude/unattended/test_selfref.py          # no self-spawning DAG node
-for t in hook-checks/test_*.py; do python3 "$t" | tail -1; done   # the whole set
+bash tests/run_all.sh                                # the whole set, one summary line per suite
 bash .claude/unattended/supervisor.sh --status       # state, restarts, spend
 ```
 
@@ -114,7 +114,8 @@ allows. Where the hook's tool is absent from the machine, put a **shim on PATH
 that records its argv**: that shows the hook issuing the right command without
 pretending the tool is installed. See `.engine/overseer/MEMORY.md`.
 
-`hook-checks/` is deliberately **not** named `tests/`. `verify-on-stop.sh` runs
-`pytest -x` whenever a `tests/` or `test/` directory exists and a `.py` file
-changed; `pytest` is not installed here, so the rename would make the Stop hook
-fail on every turn.
+`tests/` holds every check of this repository — hooks, harness, installer, evals
+instruments — and `bash tests/run_all.sh` runs the whole set. `verify-on-stop.sh` would run
+`pytest -x` here on every Python change because a `tests/` directory exists, and pytest is
+not installed; this repository's `.claude/project.env` therefore sets `TEST_CMD="true"`
+— the Stop gate is not the measuring instrument of the engine, the suite is (package 3c).

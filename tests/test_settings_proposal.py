@@ -27,7 +27,7 @@ PROPOSAL = ROOT / "docs/tasks/settings.json"
 LIVE = ROOT / ".claude/settings.json"
 PERSONAL = ROOT / "user/settings.json"
 FROZEN = ROOT / "docs/tasks/effective-before-split.json"
-HOME_FIXTURE = ROOT / "hook-checks/fixtures/home-settings.json"
+HOME_FIXTURE = ROOT / "tests/fixtures/home-settings.json"
 PERSONAL_KEYS = ("defaultMode", "additionalDirectories")
 PERSONAL_ALLOW = ("WebFetch", "WebSearch")
 PERSONAL_ENV = (
@@ -43,7 +43,7 @@ APPROVE_HANDLER = 'PermissionRequest|Edit|Write|MultiEdit|command|python3 "$CLAU
 INTENDED: dict[str, str] = {
     "permissions.deny": (
         "S4: the root rule `rm -rf /` + `*` matched any text and refused a delete under /tmp; now the exact root, "
-        "with -fr given the same shape as -rf (hook-checks/test_root_delete_deny.py)"
+        "with -fr given the same shape as -rf (tests/test_root_delete_deny.py)"
     ),
     "permissions.defaultMode": (
         "F4 (owner): the personal layer says `auto`, not `acceptEdits`; `auto` is legal at the user level only, "

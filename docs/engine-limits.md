@@ -58,7 +58,7 @@ closes this at the source rather than at run time:
   hook into `~/.claude/`: the installer is `engine.py` alone (the claude-autonomy skill that once
   copied hooks into a home directory is retired), the personal
   layer (`user/settings.json`) must not wire hooks, and `engine.py install --personal`
-  refuses one that does. `hook-checks/test_no_home_hook_copies.py` pins all three;
+  refuses one that does. `tests/test_no_home_hook_copies.py` pins all three;
 - the hooks themselves contain **no** "stand down if another copy exists" logic. Package 3b
   briefly had one (`engine_stand_down()`); it was removed because its test — "does the
   project's settings text mention `hooks/<name>`" — also matched a mention in an allow rule,
@@ -113,7 +113,7 @@ A `*` in a `Bash(...)` rule matches any text, so a rule like `Bash(rm -rf /` + `
 refuses every absolute path, not only the root. The list keeps exact rules for the root,
 the home directory and `$HOME`; the catastrophic literals a rule cannot express exactly
 (`/*`, `./*`) are refused by `block-dangerous.sh`. `evals/permission_rules.py` is a
-reference matcher for the documented semantics; `hook-checks/test_root_delete_deny.py`
+reference matcher for the documented semantics; `tests/test_root_delete_deny.py`
 shows the two instruments together.
 
 ## The commit policy, by environment

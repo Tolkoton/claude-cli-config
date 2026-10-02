@@ -20,7 +20,7 @@ CODE_GLOBS = (
     ".claude/hooks/*.sh", ".claude/hooks/*.py",
     ".claude/unattended/*.sh", ".claude/unattended/*.py",
     ".claude/skills/*/scripts/*",
-    "hook-checks/*.py", "evals/*.py", "evals/*.sh", "install.sh", "engine.py",
+    "tests/*.py", "evals/*.py", "evals/*.sh", "install.sh", "engine.py",
 )
 # /Users/<name>/ (macOS) or /home/<name>/ (Linux). `$HOME`, `~` and relative paths are fine.
 # The name must start with a letter or digit, so an elided example such as /home/.../src

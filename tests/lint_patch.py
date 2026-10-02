@@ -23,7 +23,7 @@ or a blind critic -- looks at those hunks specifically.
 It is a screen, not a proof. Exit 1 means "these hunks need eyes", not "wrong".
 
 Usage:
-  python3 hook-checks/lint_patch.py <patch-file> [...]
+  python3 tests/lint_patch.py <patch-file> [...]
 """
 import re
 import sys

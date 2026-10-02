@@ -32,7 +32,7 @@ it is the primary control and is unaffected by any of the above. These hooks
 are defense-in-depth. A gap here is a thinner second layer, not an open door —
 the BYPASS-* cases below are reported in that register.
 
-Run:   python3 hook-checks/test_deny_hooks.py
+Run:   python3 tests/test_deny_hooks.py
 Exit:  0 = all green, 1 = at least one case failed.
 """
 
@@ -198,7 +198,7 @@ print("ALLOW-*  block-dangerous.sh stays out of the way (exit 0, silent)")
 MUST_ALLOW = [
     "git status",
     "git diff HEAD",
-    "git add hook-checks/test_deny_hooks.py",
+    "git add tests/test_deny_hooks.py",
     "git log --oneline -5",
     "pytest -q",
     "ruff check .",
@@ -274,7 +274,7 @@ print("PASS-*   protect-paths.sh allows ordinary work and the one allowlisted fi
 MUST_ALLOW_PATHS = [
     ("src/app.py", "ordinary source"),
     ("README.md", "docs"),
-    ("hook-checks/test_deny_hooks.py", "this file"),
+    ("tests/test_deny_hooks.py", "this file"),
     (".claude/project.env", "the narrow, documented allowlist entry"),
     ("/abs/repo/.claude/project.env", "same, absolute"),
     ("src/migrations_helper.py", "'migrations' as a name fragment, not a dir"),

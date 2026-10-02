@@ -13,7 +13,7 @@ instead of overwriting it. So: every node carrying `prior_evidence` must have a
 matching `AUTONOMOUS` entry, marked `Status: CLOSED`, in escalations.md.
 
 Usage:
-  python3 hook-checks/test_decision_logged.py [dag.json] [escalations.md]
+  python3 tests/test_decision_logged.py [dag.json] [escalations.md]
 """
 import json
 import re

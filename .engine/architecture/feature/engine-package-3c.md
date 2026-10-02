@@ -92,7 +92,7 @@ a project's un-migrated record can never be swept up by the engine-retirement st
   stale ones are deleted; `test_hook_copies_in_sync.py` removed; every mention updated
   (the hook messages still say "claude-autonomy safety hook" only if a scenario's
   `expect_detail_contains` needs it — checked). · depends on: C2.
-- **C7 tidy** (item 8) — `hook-checks/` → `tests/` (git mv; `verify-on-stop.sh` would then
+- **C7 tidy** (item 8) — `tests/` → `tests/` (git mv; `verify-on-stop.sh` would then
   run `pytest -x` here on every Python change, so this repository's `project.env` sets
   `TEST_CMD` explicitly — agent decision, logged); `.claude/unattended/test_selfref.py` →
   `tests/`; seeds verified against the new paths. · depends on: C2–C6.

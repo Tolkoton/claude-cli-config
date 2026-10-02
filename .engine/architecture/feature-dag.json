@@ -49,11 +49,12 @@
       "deps": [
         "C2"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "claude-autonomy skill removed; permission-philosophy.md moved to .claude/references/ and corrected; two stale references deleted; test_hook_copies_in_sync removed; test_no_home_hook_copies 15/15."
     },
     {
       "id": "C7",
-      "title": "tidy: hook-checks/ -> tests/, test_selfref.py -> tests/, seeds mirror the new paths, this repo's TEST_CMD set",
+      "title": "tidy: tests/ -> tests/, test_selfref.py -> tests/, seeds mirror the new paths, this repo's TEST_CMD set",
       "deps": [
         "C2",
         "C3",
@@ -61,7 +62,8 @@
         "C5",
         "C6"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "hook-checks/ -> tests/ (git mv), test_selfref.py -> tests/, 23 files' paths updated, tests/run_all.sh, this repo's TEST_CMD=true with the reason; 28 suites green."
     },
     {
       "id": "C8",

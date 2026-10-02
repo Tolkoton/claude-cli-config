@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply the three proposed block-dangerous.sh pattern fixes to a COPY.
 
-Usage: python3 hook-checks/_propose_block_patch.py <path-to-copy>
+Usage: python3 tests/_propose_block_patch.py <path-to-copy>
 
 Kept as a file rather than an inline heredoc for a reason worth recording: the
 patch text necessarily contains the literal destructive strings it is teaching

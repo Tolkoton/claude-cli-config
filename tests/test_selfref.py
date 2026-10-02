@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude" / "unattended"))
 from runstate import next_node, self_reference
 
 MUST_REFUSE = [

@@ -62,7 +62,7 @@ def main() -> int:
     for rel in tracked:
         if not rel or rel.startswith(("docs/plan/", "evals/baseline/", ".engine/architecture/archive/", ".engine/architecture/feature/engine-package-3")):
             continue
-        if rel in (".engine/overseer/ledger.md", ".engine/overseer/escalations.md", ".engine/overseer/parked.md", ".engine/architecture/feature-dag.json", ".claude/unattended/unattended-decisions.md", "docs/engine-limits.md", ".claude/references/permission-philosophy.md", "hook-checks/test_no_home_hook_copies.py"):
+        if rel in (".engine/overseer/ledger.md", ".engine/overseer/escalations.md", ".engine/overseer/parked.md", ".engine/architecture/feature-dag.json", ".claude/unattended/unattended-decisions.md", "docs/engine-limits.md", ".claude/references/permission-philosophy.md", "tests/test_no_home_hook_copies.py"):
             continue
         p = ROOT / rel
         if p.suffix in (".md", ".py", ".sh", ".json", ".txt") and p.is_file() and "claude-autonomy" in p.read_text(encoding="utf-8", errors="replace"):

@@ -11,7 +11,7 @@ This project is configured for autonomous Claude Code operation. Follow these ru
 
 ### Commits are a human checkpoint
 
-**Do NOT run `git commit` — except on the run's own `unattended/<date>` branch** (owner-ratified 2026-08-27). On `main`, on any feature branch, and when the branch cannot be determined, a commit is still refused and still yours to hand to a human. Nothing reaches `main` without a person reading the diff; what changed is only that a long run may checkpoint onto a branch of its own, so each session builds on a committed base instead of on an unreviewed index inherited from the session before it. Use `.claude/unattended/commit_checkpoint.sh <node>`. `block-dangerous.sh` enforces the same rule for a command **you type directly** (`hook-checks/test_commit_policy.py`, 11 cases) — but NOT for one run from inside a script, which no hook and no deny-list entry ever sees. On that path the guard inside the script is the only guard.
+**Do NOT run `git commit` — except on the run's own `unattended/<date>` branch** (owner-ratified 2026-08-27). On `main`, on any feature branch, and when the branch cannot be determined, a commit is still refused and still yours to hand to a human. Nothing reaches `main` without a person reading the diff; what changed is only that a long run may checkpoint onto a branch of its own, so each session builds on a committed base instead of on an unreviewed index inherited from the session before it. Use `.claude/unattended/commit_checkpoint.sh <node>`. `block-dangerous.sh` enforces the same rule for a command **you type directly** (`tests/test_commit_policy.py`, 11 cases) — but NOT for one run from inside a script, which no hook and no deny-list entry ever sees. On that path the guard inside the script is the only guard.
 
 After completing a logical unit of work:
 1. Stage relevant files with `git add <files>` (not `git add -A` unless the diff truly is one unit)
@@ -87,7 +87,7 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
 > `python3`. With neither on the machine the two deny hooks **refuse the call** (exit 2,
 > reason on stderr) instead of allowing it, `format-on-edit.sh` does nothing and says so,
 > and `verify-on-stop.sh` still blocks a failing check (exit 2). Pinned by
-> `hook-checks/test_deny_hooks.py` (NOJQ-*) and by the no-`jq` run in `evals/`.
+> `tests/test_deny_hooks.py` (NOJQ-*) and by the no-`jq` run in `evals/`.
 > Until 2026-09 these hooks exited 0 and enforced nothing without `jq`.
 
 <!-- ============================================== -->

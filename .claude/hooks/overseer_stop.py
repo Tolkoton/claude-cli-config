@@ -278,7 +278,7 @@ UNATTENDED_CONTINUE_REASON = (
     "the whole run.\n"
     "Continue now: take the next unblocked item. If the only thing in flight is "
     "a supervisor session editing the repo, do work that does not race it — "
-    "verify a hook's negative case, extend hook-checks/, re-check "
+    "verify a hook's negative case, extend tests/, re-check "
     ".engine/overseer/parked.md, or update .engine/PROGRESS.md.\n"
     "To stop for real, emit an OVERSEER_ halt marker naming which of the three "
     "reasons applies."

@@ -76,7 +76,7 @@ project  docs/tasks/
 project  docs/engine-limits.md
 project  evals/settings_parity.py
 project  evals/permission_rules.py
-project  hook-checks/fixtures/
+project  tests/fixtures/
 
 # --- everything else is this repository's own material: installer, evals, tests, docs, seeds
 project  **

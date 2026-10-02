@@ -11,7 +11,7 @@ INPUT=$(cat)
 
 # Read one string field from the hook envelope: jq when present, python3 otherwise.
 # Exit status 0 = read (the value may be empty, and input that is not JSON reads as empty —
-# pinned by hook-checks ROBUST-*); 97 = no parser on this machine at all.
+# pinned by tests ROBUST-*); 97 = no parser on this machine at all.
 # WHY: the old idiom `jq ... 2>/dev/null || echo ""` turned "jq is not installed" into "the
 # field is empty", and the hook then allowed everything. Measured with evals/: without jq
 # every block of this hook became an allow. Here the

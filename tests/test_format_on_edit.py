@@ -36,17 +36,17 @@ WHY THE DIRECTORY IS NOT CALLED tests/
     would make the Stop hook fail every turn and block the run. Do not rename
     this directory to tests/ until pytest is a declared dependency.
 
-Run:   python3 hook-checks/test_format_on_edit.py
+Run:   python3 tests/test_format_on_edit.py
 Exit:  0 = all green, 1 = at least one case failed.
 
 EXPECTED STATE AS OF 2026-08-27: 19 PASS, 3 FAIL.
     The three failures -- NEG-3, EDGE-1 and NEG-6 -- are REAL DEFECTS in
     format-on-edit.sh, not broken cases. They are red on purpose and must stay
     red until the hook is patched. The patches are staged as an appliable diff
-    in hook-checks/hooks-s3.patch and written up in HANDOFF-S3.md; they could
+    in tests/hooks-s3.patch and written up in HANDOFF-S3.md; they could
     not be applied in the session that found them because every write under
     .claude/ was refused by the harness sensitive-path classifier.
-    After `git apply hook-checks/hooks-s3.patch` this must go to 22 PASS / 0 FAIL.
+    After `git apply tests/hooks-s3.patch` this must go to 22 PASS / 0 FAIL.
 
     A note on ACT-7/NEG-6 vs the shims: ACT-2/3/4 use an argv-recording shim,
     which proves which command the hook ISSUES and which branch wins. ACT-7

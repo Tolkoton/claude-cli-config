@@ -15,7 +15,7 @@
 #
 # block-dangerous.sh enforces the same rule independently: a commit outside an
 # `unattended/*` branch is refused regardless of what this script does. See
-# hook-checks/test_commit_policy.py, 11 cases.
+# tests/test_commit_policy.py, 11 cases.
 #
 # Usage:  commit_checkpoint.sh [--staged] <node-id> [message]
 #   --staged   commit exactly what is already in the index; do not `git add -u`.

@@ -31,7 +31,7 @@ WHY THE DIRECTORY IS NOT CALLED tests/
     exists and a .py file changed. pytest is absent here, so creating tests/
     would make the Stop hook fail every turn.
 
-Run:   python3 hook-checks/test_verify_on_stop.py
+Run:   python3 tests/test_verify_on_stop.py
 Exit:  0 = all green, 1 = at least one case failed.
 
 EXPECTED STATE AS OF 2026-08-27: 4 PASS, 1 FAIL.
