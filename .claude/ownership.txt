@@ -67,9 +67,12 @@ project  AGENTS.md  seed=AGENTS.md
 user     user/settings.json
 user     user/**
 
-# --- proposals for the owner's hands, the parity instrument and its frozen "before" --------
+# --- proposals for the owner's hands, the measuring instruments and their fixtures ---------
 project  docs/tasks/
+project  docs/engine-limits.md
 project  evals/settings_parity.py
+project  evals/permission_rules.py
+project  hook-checks/fixtures/
 
 # --- everything else is this repository's own material: installer, evals, tests, docs, seeds
 project  **

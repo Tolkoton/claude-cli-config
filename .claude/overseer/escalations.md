@@ -103,7 +103,7 @@ one; do not reopen the old one in conversation.
   exiting 0, not by a non-zero exit. The `.env` control is what exposed the bad
   test. Kept in the suite for that reason.
 
-## 2026-08-27T20:06:00Z — PRODUCT_DECISION — commits during an overnight run — OPEN
+## 2026-08-27T20:06:00Z — PRODUCT_DECISION — commits during an overnight run — CLOSED
 - Question: does `git commit` stay a human-only checkpoint when a run is meant
   to last a night?
 - Why it matters: work accumulates in the index. Today 41 files accumulated and
@@ -131,7 +131,15 @@ one; do not reopen the old one in conversation.
   re-enable it -- and `settings.json` is now unwritable by the AI under D-23.
   The final enabling step is the owner's BY CONSTRUCTION, which is the design
   working rather than a defect. See the exact change in PROGRESS.md.
-- Status: IMPLEMENTED — awaiting one owner edit
+- Closed 2026-10-02 (package 3b, S6): the owner edit was made in the 2026-08-27 session —
+  `git log -S'Bash(git commit' -- .claude/settings.json` shows the rule added in 8029d22
+  and removed in 63df312 ("checkpoint(harness): unattended run baseline"), the D-27
+  session. Verified today: the live `.claude/settings.json` carries
+  no `Bash(git commit*)` deny, `block-dangerous.sh` allows a commit on `unattended/*`
+  (test_commit_policy.py 20/20), and this run's own commits on
+  `unattended/2026-10-02-package-3b` are the proof in use. The policy has since grown
+  the environment table (cloud switch, ships off) — see docs/engine-limits.md.
+- Status: CLOSED
 
 ## 2026-10-02T10:40:00Z — AUTONOMOUS — 3b-baseline-alias
 - Decision: `evals/baseline/clean-ubuntu-24.04/results-push-policy.json` is created as a copy
@@ -274,4 +282,19 @@ one; do not reopen the old one in conversation.
   reported failure on every hit but the last name.
 - Falsified by: Claude Code documenting that user skills and project commands live in
   separate namespaces — then the command half of the check is noise and comes out.
+- Status: CLOSED
+
+## 2026-10-02T13:50:00Z — AUTONOMOUS — 3b-S6-baseline-name
+- Decision: the new reference results live at `evals/baseline/Laos-MacBook-Pro/results-package-3b.json`
+  (the machine's LocalHostName; the plan says `<назва цієї машини>`), recorded from the S5
+  commit (179ed43): S6 changes documents, the ownership map and tests, no hook, so the hook
+  outcomes at S6 are those at S5 and the final run re-confirms it against this file.
+- Door: two-way
+- Cost to reverse: rename a directory; re-record with one command.
+- Why not escalated: a file name and a recording point, both fixed by the plan's wording
+  and by what changes between the two commits.
+- Evidence: 86/86 scenarios pass on macOS 14.8.9 (Darwin 23.6.0), jq 1.8.2, Python 3.12.3;
+  the 77 shared with results-push-policy.json identical, the 9 new ones (4 cloud-commit,
+  5 rm-root/-fr) listed as the intended differences in the final report.
+- Falsified by: nothing — a renamed directory is still the same data.
 - Status: CLOSED

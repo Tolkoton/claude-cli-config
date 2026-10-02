@@ -10,8 +10,11 @@ any project with one command; the steps after that tailor it. The whole setup ta
 
 - **Slice flow**: design (master-architect) → build (slice-builder) → audit (overseer).
 - **Memory lifecycle**: self-learning-orchestrator distils lessons across sessions.
-- **6 hooks**: block dangerous commands, protect sensitive paths, format on edit,
-  verify on stop, auto-approve web fetches, trigger overseer audit on unit completion.
+- **9 hooks**: block dangerous commands (with the commit policy by environment), protect
+  sensitive paths, format on edit, verify on stop, auto-approve web fetches, trigger the
+  overseer audit on unit completion, park ask-gated commands when unattended, the
+  complexity budget, and a session-start check of what the machine lacks. Each fires once
+  per event even when wired at two settings levels (`docs/engine-limits.md`).
 - **Critic agents**: slice-planner-critic, feature-critic, master-critic — adversarial
   review before implementation begins.
 
@@ -126,6 +129,46 @@ CODE_EXTENSIONS="py ts tsx"
 ---
 
 ## Step 3 — Tailor `.claude/settings.json` and copy env overrides (optional)
+
+### Shared and personal: what lives where
+
+The engine's settings come in two layers, and the split is what lets one `settings.json`
+ship into every project without carrying one person's preferences along:
+
+| layer | file | holds | applies |
+|---|---|---|---|
+| **shared** | `.claude/settings.json` (engine file, ships into every project) | the `allow` / `ask` / `deny` lists, every hook, the engine's own `env` (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`) | in that project |
+| **personal** | `user/settings.json` in the engine repository → merged into `~/.claude/settings.json` | `permissions.defaultMode`, your `additionalDirectories`, a blanket `WebFetch`/`WebSearch` allow, the model aliases (`ANTHROPIC_DEFAULT_*_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL`) | in every directory on your machine |
+| machine-local | `.claude/settings.local.json` (gitignored) | per-machine, per-project overrides | in that project, on that machine |
+
+Nothing changes in effect: Claude Code merges list keys across levels and takes a scalar
+from the highest level that sets it (user < project < local), so a `defaultMode` at the
+user level is what the project sees unless the project sets its own.
+`evals/settings_parity.py compare` shows the effective settings identical before and after
+the split.
+
+Install the personal layer with the engine itself — never by hand:
+
+```bash
+python3 /path/to/claude-cli-config/engine.py install --personal --dry-run   # the plan, nothing written
+python3 /path/to/claude-cli-config/engine.py install --personal             # merge into ~/.claude/settings.json
+```
+
+Keys the layer names are set, lists gain only what they lack, every key the file already has
+and the layer does not name is kept, a backup (`settings.json.engine-backup-<UTC>`) is
+written next to the file before it changes, and a second run changes nothing. `--home DIR`
+or `CLAUDE_CONFIG_DIR` names a different config directory. A layer that wires hooks is
+refused: a hook wired at the user level **and** in a project would fire twice per event (the
+engine's hooks also stand down in that case — `docs/engine-limits.md`). A cloud session does
+not read the user level at all, so the personal layer never reaches it; that is correct, the
+shared file carries everything a project needs.
+
+Personal **skills** live in `user/skills/` and are deployed with `install.sh` (symlinks into
+`~/.claude/skills`). Name a new one `my-<name>`: a personal skill that shares a name with an
+engine skill or command would shadow it in every project, and `install.sh` refuses to deploy
+such a set.
+
+### The shared `ask` list
 
 `.claude/settings.json`'s `ask` list ships with a neutral cross-language default:
 git/gh/docker operations, plus the "add/remove a dependency" command for six
@@ -258,7 +301,7 @@ This forces the agent to load the policy and map before doing anything else.
 ```
 .claude/
   project.env     — ← fill this in (Step 2)
-  hooks/          — 6 enforcement hooks (wired in settings.json)
+  hooks/          — 9 enforcement hooks (wired in settings.json)
   skills/         — vendored skills: overseer, slice-builder, master-architect,
                     feature-architect, self-learning-orchestrator, documentation,
                     claude-autonomy
@@ -304,4 +347,9 @@ own records, not the project's. The list for `--all` is
 `~/.config/claude-engine/projects.txt`.
 
 Machine-local tweaks belong in `.claude/settings.local.json`, which never ships and never
-blocks an update.
+blocks an update. Personal preferences belong in the personal layer (Step 3), installed with
+`engine.py install --personal`, which is as repeatable as a project install: a new engine
+version with a changed `user/settings.json` is applied by running it again.
+
+What the guarantees assume, and where they stop (one session, one repository; hooks guard
+tool calls, not scripts; the deny list's `*`): `docs/engine-limits.md`.

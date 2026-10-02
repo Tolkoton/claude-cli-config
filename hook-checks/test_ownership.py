@@ -114,7 +114,12 @@ expected = {
     "docs/tasks/settings.json": "project",
     "docs/tasks/effective-before-split.json": "project",
     "evals/settings_parity.py": "project",
+    "evals/permission_rules.py": "project",
     "hook-checks/fixtures/home-settings.json": "project",
+    "docs/engine-limits.md": "project",
+    ".claude/unattended/env-probe.sh": "engine",
+    ".claude/unattended/commit_checkpoint.sh": "engine",
+    "templates/project/.claude/project.env": "project",
 }
 for path, owner in expected.items():
     got = engine.owner_of(rules, path)
