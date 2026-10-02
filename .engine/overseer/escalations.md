@@ -391,3 +391,24 @@ one; do not reopen the old one in conversation.
 - Evidence: bash tests/run_all.sh: 28 suites green after the rename.
 - Falsified by: the owner wanting the Stop gate to run the suite here — one line.
 - Status: CLOSED
+
+## 2026-10-02T14:05:12Z — AUTONOMOUS — 3c-fix-X1-heartbeat-threshold
+- Decision: a heartbeat younger than 900 s (config.sh's STALL_TIMEOUT_SEC default, copied as STALL_TIMEOUT_S into engine.py) counts as a live supervisor; so does supervisor.lock at the old OR the new place. State is then reported as `keep … stop it first` (exit 1) and data still moves.
+- Door: two-way
+- Cost to reverse: one constant.
+- Why not escalated: the owner asked for "a fresh heartbeat"; the harness already defines fresh as "younger than the stall timeout", and reading the shell default into Python keeps the two in step without executing config.sh from the installer.
+- Evidence: tests/test_state_migration.py 31/31 — lock case, fresh-heartbeat case, stale-heartbeat case.
+- Falsified by: a project that sets STALL_TIMEOUT_SEC far above 900 and a supervisor that writes its heartbeat less often — then the constant should read config.sh.
+- Status: CLOSED
+
+## 2026-10-02T14:05:12Z — AUTONOMOUS — 3c-fix-X5-test-shape
+- Decision: the owner's text ends at "Тест:"; the test asserts (a) no Write(<path>) deny rule remains in the proposal and (b) every deny rule dropped against the live file is a Write(...) whose Edit(...) twin is kept, and the deny difference from the frozen pre-split settings carries the reason.
+- Door: two-way
+- Cost to reverse: two checks in one test.
+- Why not escalated: the requirement and its rationale were complete; only the test's wording was cut off, and (a)+(b) are what the rationale says must hold.
+- Evidence: tests/test_settings_proposal.py 13/13; 12 Write rules removed, 12 Edit twins present.
+- Falsified by: the owner's intended test being something else — one edit.
+- Status: CLOSED
+
+## 2026-10-02T14:05:12Z — FINDING — decana dry run exits 1 for a reason outside this round
+- `engine.py update ~/Documents/GitHub/decana --ref HEAD --dry-run` (read-only): 3 state moves (.claude/overseer/state, .last_audit_sha, .continue_count → .claude/state/overseer/), no keep and no remove for any state file — item 5's substance holds. The exit code is 1, not 0, because decana edited three engine files (commands/plan-slice.md, settings.json, skills/slice-builder/SKILL.md) and the engine holds them back as it always did; exit 0 there would need `--take` or a merge by the owner.

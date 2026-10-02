@@ -122,8 +122,9 @@ def main() -> int:
     ), str([r for r in proposal["permissions"]["deny"] if r.endswith(" /*)")]))
 
     print("the defect this fixes, shown on the live file:")
-    if live["permissions"]["deny"] == proposal["permissions"]["deny"]:
-        print("  info the live deny list already equals the proposal (applied)")
+    live_rm = [r for r in live["permissions"]["deny"] if r.startswith("Bash(rm")]
+    if live_rm == [r for r in proposal["permissions"]["deny"] if r.startswith("Bash(rm")]:
+        print("  info the live rm rules already equal the proposal's (S7 applied); the defect is history")
     else:
         t.check("live list refuses a delete under /tmp (the defect)", denied_by(live, "rm -rf /tmp/claude/scratch"))
         t.check("live list refuses every rm -fr, even ./build (the inconsistency)", denied_by(live, "rm -fr ./build"))

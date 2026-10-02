@@ -8,13 +8,15 @@
       "deps": [
         "X2"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "STATE_MIGRATIONS + supervisor_live guard in engine.py (5295975); test_migration 40/40 unchanged."
     },
     {
       "id": "X2",
       "title": "ownership-and-ignore: legacy machine rules for the old state paths before engine .claude/**; transitional gitignore lines",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "15 legacy machine rules before engine .claude/**; transitional .gitignore lines (39a06f9); test_ownership 60/60."
     },
     {
       "id": "X3",
@@ -23,7 +25,8 @@
         "X1",
         "X2"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "tests/test_state_migration.py 31/31 (baab189): reproduction, v0.10.1 and v0.8.0 with live state, lock, fresh/stale heartbeat."
     },
     {
       "id": "X4",
@@ -32,13 +35,15 @@
         "X1",
         "X2"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "decana --dry-run: 3 state moves, 0 keep/remove for state; exit 1 only for the 3 project-edited engine files held back (pre-existing)."
     },
     {
       "id": "X5",
       "title": "proposal drops the 12 Write(...) deny rules; test that each has an Edit twin",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "12 Write(...) deny rules dropped from the proposal, each with its Edit twin (a3ea3fc); test_settings_proposal 13/13."
     },
     {
       "id": "X6",
@@ -50,7 +55,8 @@
         "X4",
         "X5"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "records, report appended; test_root_delete_deny's live-file branch now keys on the rm rules, not on any deny difference."
     },
     {
       "id": "C9",

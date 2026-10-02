@@ -135,3 +135,10 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
   - C8 docs (engine-limits boundary section, TEMPLATE-SETUP migration and directory reference, evals README), ownership expectations, baselines, report.
 - Parked for the owner: C9 (apply the settings proposal), C8b (the post-move audit re-run, ~$28 beyond the $60 limit), S8 (personal layer into ~/.claude), S9 (cloud probe), F8 superseded by C9.
 - Category: strategy
+
+## 2026-10-02T14:05:12Z — engine-package-3c-fix — FIX_ROUND_BUILT
+- Trigger: the owner's defect report (docs/plan/package-3c-fix.md): machine state at the old paths was retired or held back by the new map. feature-critic: REVISE (X1 must depend on X2) → applied.
+- Evidence: 29 suites green (tests/run_all.sh); test_state_migration 31/31; decana dry run: 3 state moves, 0 keep/remove for state.
+- Action: STATE_MIGRATIONS with the live-supervisor guard; 15 legacy machine rules + transitional ignore lines; the tests; the proposal without the 12 inert Write rules.
+- Still parked for the owner: C8b (post-move audit re-run, money), C9 (apply the settings proposal — now also drops the Write rules), S8, S9.
+- Category: recovery
