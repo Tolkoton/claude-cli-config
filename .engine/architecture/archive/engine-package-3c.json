@@ -1,0 +1,116 @@
+{
+  "feature": "engine-package-3c",
+  "note": "Package 3c (docs/plan/package-3c.md): separate what defines the agent (.claude/) from what it produces (.engine/). Contract: .engine/architecture/feature/engine-package-3c.md (moves to .engine/architecture/ in C2). Branch unattended/2026-10-02-package-3c from v0.10.1. C9 and the carried-over owner items are parked with their exact unblocking step.",
+  "nodes": [
+    {
+      "id": "C1",
+      "title": "audit-pre: run_audit_scenarios --runs 3 on the plan commit 2788357 -> audit-pre-3c.json (started before any skill text changed)",
+      "deps": [],
+      "status": "done",
+      "evidence": "evals/baseline/Laos-MacBook-Pro/audit-pre-3c.json recorded on the plan commit 2788357 (--runs 3): matched 2/30, 16 tooling errors, $8.93 — see the report for what that says about the runner, not the move."
+    },
+    {
+      "id": "C2",
+      "title": "the-move: records to .engine/, template to .claude/templates/, machine state to .claude/state/; every reader, seed, scenario, test, doc and the ownership map updated (tracer bullet)",
+      "deps": [],
+      "status": "done",
+      "evidence": "fba4349: records → .engine/, template → .claude/templates/slice-contract.md, machine state → .claude/state/; 63 files rewritten by the path pass + targeted joins; seeds mirrored; legacy project rules; approve-project-data retired. 87/87 scenarios identical; probe test_legacy_records_survive 9/9."
+    },
+    {
+      "id": "C3",
+      "title": "migration: engine.py update/install moves old paths to new by an explicit table; conflicts reported; --dry-run; tests on v0.10.1, hand copy v0.8.0, conflict, idempotence; decana dry run",
+      "deps": [
+        "C2"
+      ],
+      "status": "done",
+      "evidence": "engine.py MIGRATIONS table, plan_migration/apply_migration/prune_old_dirs; seeds never land on a moving file; test_migration.py 40/40; test_engine_install updated; decana dry run 17 moves, no loss."
+    },
+    {
+      "id": "C4",
+      "title": "contract-fingerprint: seal/check sha256 in .claude/state/contracts/; plan-slice seals after PASS; overseer_stop refuses to audit a changed contract and escalates; tests",
+      "deps": [
+        "C2"
+      ],
+      "status": "done",
+      "evidence": "contract_fingerprint.py seal/check; plan-slice seals after the write; overseer_stop escalates instead of auditing a changed contract; CLAUDE.md protocol bullet; test_contract_fingerprint.py 15/15."
+    },
+    {
+      "id": "C5",
+      "title": "retire approve-project-data.py (+test, proposal); session-claude.sh --settings .claude/settings.json; real session shows hooks run once",
+      "deps": [
+        "C2"
+      ],
+      "status": "done",
+      "evidence": "approve-project-data.py removed in C2; proposal drops its handler (test_settings_proposal 11/11, the removal is the only hooks difference); docs/tasks/README and engine-limits rewritten (boundary section; project.env never auto-approved); session-claude.sh passes --settings $PROJECT_ROOT/.claude/settings.json (test_session_launch 10/10); real sessions: SessionStart handlers 2 with and 2 without the flag."
+    },
+    {
+      "id": "C6",
+      "title": "retire the claude-autonomy skill; move the still-true references to .claude/references/; drop test_hook_copies_in_sync",
+      "deps": [
+        "C2"
+      ],
+      "status": "done",
+      "evidence": "claude-autonomy skill removed; permission-philosophy.md moved to .claude/references/ and corrected; two stale references deleted; test_hook_copies_in_sync removed; test_no_home_hook_copies 15/15."
+    },
+    {
+      "id": "C7",
+      "title": "tidy: tests/ -> tests/, test_selfref.py -> tests/, seeds mirror the new paths, this repo's TEST_CMD set",
+      "deps": [
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6"
+      ],
+      "status": "done",
+      "evidence": "hook-checks/ -> tests/ (git mv), test_selfref.py -> tests/, 23 files' paths updated, tests/run_all.sh, this repo's TEST_CMD=true with the reason; 28 suites green."
+    },
+    {
+      "id": "C8",
+      "title": "records: engine-limits.md, docs, ownership completeness, results-package-3c.json, audit-post-3c.json and its comparison, the report",
+      "deps": [
+        "C1",
+        "C7"
+      ],
+      "status": "done",
+      "evidence": "engine-limits boundary section + project.env sentence; TEMPLATE-SETUP migration paragraph and directory reference; evals README; test_ownership 60/60; results-package-3c.json 87/87; audit: pre (valid run): matched 19/30 (3 sessions of scenario 10 hit the account usage limit), cost $27.92; post: NOT recorded — the first attempt crashed on a fixture at scenario 10 after nine paid-for scenarios; the re-run (~$28) exceeds the $60 limit and is the owner's call (parked); report docs/plan/package-3c-report.md."
+    },
+    {
+      "id": "C9",
+      "title": "apply-settings (OWNER): docs/tasks/settings.json without the approve-project-data handler",
+      "deps": [
+        "C5"
+      ],
+      "status": "parked",
+      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code."
+    },
+    {
+      "id": "F8",
+      "title": "wire-approve-project-data (OWNER): apply docs/tasks/settings.json over .claude/settings.json",
+      "deps": [
+        "F5"
+      ],
+      "status": "superseded",
+      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code.",
+      "evidence": "approve-project-data.py retired in package 3c; C9 proposes the removal of its handler instead."
+    },
+    {
+      "id": "S8",
+      "title": "apply-personal (OWNER): engine.py install --personal against the real ~/.claude",
+      "deps": [
+        "S1"
+      ],
+      "status": "parked",
+      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref unattended/2026-10-02-package-3b` after reading its --dry-run."
+    },
+    {
+      "id": "S9",
+      "title": "cloud-probe (OWNER): run .claude/unattended/env-probe.sh in a real cloud session, then decide CLOUD_COMMIT_POLICY",
+      "deps": [
+        "S3"
+      ],
+      "status": "parked",
+      "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
+    }
+  ]
+}
