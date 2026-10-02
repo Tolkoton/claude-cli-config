@@ -196,16 +196,6 @@
             "timeout": 5
           }
         ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/approve-project-data.py\"",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "PostToolUse": [
