@@ -311,11 +311,12 @@ This forces the agent to load the policy and map before doing anything else.
   agents/         — critic subagents: slice-planner-critic, feature-critic,
                     master-critic, critic-core
   commands/       — project commands: plan-slice, master-architect, feature-architect
-  overseer/       — audit ledger, escalations, slice contracts
-  architecture/   — design artifacts from master-architect (created on first use)
-  artifacts/      — spikes, notes (created on first use)
-  premises/       — premise log (created on first use)
-  references/     — reference materials for agents (ADR format, C4, etc.)
+  templates/      — slice-contract.md, the shape /plan-slice writes
+  references/     — reference materials for agents (ADR format, C4, permission philosophy)
+  unattended/     — the supervisor and its harness
+  state/          — MACHINE STATE, written by hooks and scripts only; gitignored as one line
+                    (overseer/ guards, mode and budgets; unattended/ state, cost, logs;
+                    contracts/ the sealed fingerprints of approved slice contracts)
   README.md       — agentic system map (read this before adding a new agent)
   settings.json   — hook wiring and permissions
   settings.local.json.example — ← copy to settings.local.json, trim to your stack (Step 3)
@@ -323,9 +324,16 @@ This forces the agent to load the policy and map before doing anything else.
   ownership.txt   — who owns each path: engine, project, machine (read by engine.py)
   engine-lock.json — installed ref, commit and checksums (written by engine.py; commit it)
 
+.engine/            — WHAT THE AGENT PRODUCES; not protected by Claude Code, that is the point
+  overseer/       — ledger, audit, escalations, parked queue, MEMORY (seeded once)
+  slices/         — slice contracts written by /plan-slice
+  architecture/   — design artifacts and the feature DAG (created on first use)
+  premises/       — premise log (seeded once)
+  artifacts/      — spikes, notes (created on first use)
+  PROGRESS.md     — slice completion history (created by slice-builder; gitignored)
+
 CLAUDE.md         — standing policy (every agent reads this)
 AGENTS.md         — agent roster and project context (loaded via @AGENTS.md)
-.engine/PROGRESS.md       — slice completion history (created by slice-builder)
 ```
 
 ---
@@ -348,6 +356,16 @@ are still unedited copies of an older engine version with their clean seed — i
 with `cp -r`, the overseer's ledger, audit, escalations and memory hold this repository's
 own records, not the project's. The list for `--all` is
 `~/.config/claude-engine/projects.txt`.
+
+**A project built before package 3c** keeps its ledger, parked queue, slice contracts,
+architecture, premises, spikes and `PROGRESS.md` where the old engine put them, under
+`.claude/`. `engine.py update` (and `install` on a copy without a lock) MOVES them to
+`.engine/` by the explicit table in `engine.py`, file by file, and prunes the emptied
+directories; `--dry-run` lists every move first. A file that exists in both places is left
+alone and reported (`keep … exists in both places`) — merge it by hand and run the update
+again. The moves apply only when the ref you update to knows the new layout, so updating to
+an older engine never half-migrates a project. Machine state at the old paths is not moved:
+it is regenerated, and `.claude/state/` is where it lives now.
 
 Machine-local tweaks belong in `.claude/settings.local.json`, which never ships and never
 blocks an update. Personal preferences belong in the personal layer (Step 3), installed with

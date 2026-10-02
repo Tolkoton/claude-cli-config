@@ -31,8 +31,7 @@ def refused(path: str) -> bool:
         ["bash", str(HOOK)],
         input=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": path}}),
         capture_output=True,
-        text=True,
-    )
+        text=True, check=False)
     return '"permissionDecision"' in r.stdout and '"deny"' in r.stdout
 
 

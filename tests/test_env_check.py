@@ -34,8 +34,7 @@ def path_with(*tools: str) -> str:
 def run(project: Path, path: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", str(HOOK)], capture_output=True, text=True,
-        env={"PATH": path, "CLAUDE_PROJECT_DIR": str(project), "HOME": os.environ.get("HOME", "/")},
-    )
+        env={"PATH": path, "CLAUDE_PROJECT_DIR": str(project), "HOME": os.environ.get("HOME", "/")}, check=False)
 
 
 bash = shutil.which("bash")

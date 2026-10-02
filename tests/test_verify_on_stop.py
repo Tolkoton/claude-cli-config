@@ -116,7 +116,7 @@ def noisy_checker(root: Path, name: str, rc: int) -> Path:
     return p
 
 
-def run_hook(root: Path) -> subprocess.CompletedProcess:
+def run_hook(root: Path) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root))
     return subprocess.run(
         ["bash", str(HOOK)],
@@ -124,8 +124,7 @@ def run_hook(root: Path) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         cwd=root,
-        env=env,
-    )
+        env=env, check=False)
 
 
 print("verify-on-stop.sh regression")
@@ -194,8 +193,7 @@ res = subprocess.run(
     capture_output=True,
     text=True,
     cwd=r,
-    env=env,
-)
+    env=env, check=False)
 if res.returncode == 0 and res.stdout.strip() == "":
     ok("exit 0, silent")
 else:

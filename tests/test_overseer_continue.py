@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Does the Stop hook actually keep the orchestrator going?"""
-import json, os, subprocess, sys, tempfile
+import json
+import os
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -20,20 +24,18 @@ def run(mode: str | None, status: str | None, msg: str = "ordinary turn, no sent
     e = dict(os.environ); e["CLAUDE_PROJECT_DIR"]=str(root); e.pop("CLAUDE_UNATTENDED_SESSION",None)
     if env: e.update(env)
     r = subprocess.run([sys.executable,HOOK],input=json.dumps({"last_assistant_message":msg}),
-                       capture_output=True,text=True,env=e)
+                       capture_output=True,text=True,env=e, check=False)
     return r.stdout.strip()
 
 CASES: list[tuple[str, dict[str, Any], bool]] = [
-    ("unattended + session working -> MUST BLOCK",      dict(mode="unattended",status="working"),      True),
-    ("unattended + unit-done       -> MUST BLOCK",      dict(mode="unattended",status="unit-done"),    True),
-    ("unattended + finished        -> must pass",       dict(mode="unattended",status="finished"),     False),
-    ("unattended + parked          -> must pass",       dict(mode="unattended",status="parked"),       False),
-    ("ATTENDED  + session working  -> must pass",       dict(mode="attended",status="working"),        False),
-    ("no mode file + working       -> must pass",       dict(mode=None,status="working"),              False),
-    ("spawned session (env set)    -> must pass",       dict(mode="unattended",status="working",
-                                                            env={"CLAUDE_UNATTENDED_SESSION":"1"}),    False),
-    ("continue budget exhausted    -> must pass",       dict(mode="unattended",status="working",
-                                                            count=25),                                 False),
+    ("unattended + session working -> MUST BLOCK",      {"mode": "unattended", "status": "working"},      True),
+    ("unattended + unit-done       -> MUST BLOCK",      {"mode": "unattended", "status": "unit-done"},    True),
+    ("unattended + finished        -> must pass",       {"mode": "unattended", "status": "finished"},     False),
+    ("unattended + parked          -> must pass",       {"mode": "unattended", "status": "parked"},       False),
+    ("ATTENDED  + session working  -> must pass",       {"mode": "attended", "status": "working"},        False),
+    ("no mode file + working       -> must pass",       {"mode": None, "status": "working"},              False),
+    ("spawned session (env set)    -> must pass",       {"mode": "unattended", "status": "working", "env": {"CLAUDE_UNATTENDED_SESSION":"1"}},    False),
+    ("continue budget exhausted    -> must pass",       {"mode": "unattended", "status": "working", "count": 25},                                 False),
 ]
 fails=[]
 for name,kw,should_block in CASES:

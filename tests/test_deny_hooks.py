@@ -87,14 +87,14 @@ def _pinned_main_repo() -> str:
     import tempfile
     root = tempfile.mkdtemp()
     q = dict(capture_output=True, text=True, cwd=root)
-    subprocess.run(["git", "init", "-q"], **q)
-    subprocess.run(["git", "config", "user.email", "t@t"], **q)
-    subprocess.run(["git", "config", "user.name", "t"], **q)
+    subprocess.run(["git", "init", "-q"], **q, check=False)
+    subprocess.run(["git", "config", "user.email", "t@t"], **q, check=False)
+    subprocess.run(["git", "config", "user.name", "t"], **q, check=False)
     with open(os.path.join(root, "f.txt"), "w") as fh:
         fh.write("x")
-    subprocess.run(["git", "add", "f.txt"], **q)
-    subprocess.run(["git", "commit", "-qm", "init"], **q)
-    subprocess.run(["git", "branch", "-M", "main"], **q)
+    subprocess.run(["git", "add", "f.txt"], **q, check=False)
+    subprocess.run(["git", "commit", "-qm", "init"], **q, check=False)
+    subprocess.run(["git", "branch", "-M", "main"], **q, check=False)
     return root
 
 
@@ -109,8 +109,7 @@ def run_block(cmd: str, path_override: str | None = None) -> subprocess.Complete
     return subprocess.run(
         ["bash", str(BLOCK_HOOK)],
         input=json.dumps({"tool_input": {"command": cmd}}),
-        capture_output=True, text=True, env=env,
-    )
+        capture_output=True, text=True, env=env, check=False)
 
 
 def run_paths(file_path: str, path_override: str | None = None) -> subprocess.CompletedProcess:
@@ -121,8 +120,7 @@ def run_paths(file_path: str, path_override: str | None = None) -> subprocess.Co
     return subprocess.run(
         ["bash", str(PATHS_HOOK)],
         input=json.dumps({"tool_input": {"file_path": file_path}}),
-        capture_output=True, text=True, env=env,
-    )
+        capture_output=True, text=True, env=env, check=False)
 
 
 def decision(res: subprocess.CompletedProcess) -> tuple[str | None, str | None]:
@@ -156,7 +154,7 @@ def minimal_path_without(*missing: str) -> str:
 
 print("deny-hook regression  (block-dangerous.sh + protect-paths.sh)")
 print(f"  jq:     {shutil.which('jq') or 'ABSENT'}")
-print(f"  branch: {subprocess.run(['git', '-C', str(REPO_ROOT), 'branch', '--show-current'], capture_output=True, text=True).stdout.strip()}")
+print(f"  branch: {subprocess.run(['git', '-C', str(REPO_ROOT), 'branch', '--show-current'], capture_output=True, text=True, check=False).stdout.strip()}")
 print()
 
 # ===========================================================================
@@ -355,8 +353,7 @@ for name, hook, payload in (
 ):
     res = subprocess.run(
         ["bash", str(hook)], input=payload, capture_output=True, text=True,
-        env=dict(os.environ, CLAUDE_PROJECT_DIR=str(REPO_ROOT)),
-    )
+        env=dict(os.environ, CLAUDE_PROJECT_DIR=str(REPO_ROOT)), check=False)
     if res.returncode == 0:
         ok(f"{name}: exit 0 on {payload[:22]!r}")
     else:

@@ -19,8 +19,7 @@ def blocked(cmd: str) -> bool:
         ["bash", str(HOOK)],
         input=json.dumps({"tool_input": {"command": cmd}}),
         capture_output=True,
-        text=True,
-    )
+        text=True, check=False)
     return r.returncode == 2
 
 
