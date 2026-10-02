@@ -35,8 +35,9 @@ PARKED = ROOT / ".claude" / "overseer" / "parked.md"
 MODE = ROOT / ".claude" / "overseer" / "mode"
 PREMISES = ROOT / ".claude" / "premises" / "premise-log.md"
 
-ENTRY_RE = re.compile(r"^## (\S+) — (.+?) — (PARKED|RESUMED|SURFACED)\s*$", re.M)
+ENTRY_RE = re.compile(r"^## (\S+) — (.+?) — (PARKED|RESUMED|SURFACED)\s*$", re.MULTILINE)
 COND_RE = re.compile(r"\b(env|file|node|mode|premise):([^\s,;]+)")
+UNBLOCKS_RE = re.compile(r"^-\s*Unblocks when:\s*(.*)$", re.MULTILINE)
 
 
 def dag_path() -> Path:
@@ -111,7 +112,11 @@ def main() -> int:
             already += 1
             continue
         body = text[m.end(): entries[i + 1].start() if i + 1 < len(entries) else len(text)]
-        conds = COND_RE.findall(body)
+        # Tokens are read from the `Unblocks when:` line ONLY. Reading the whole entry once
+        # resumed an item because its Evidence line MENTIONED the `file:` syntax
+        # (package 3b, S7); a mention is not a condition.
+        unblocks = UNBLOCKS_RE.search(body)
+        conds = COND_RE.findall(unblocks.group(1)) if unblocks else []
         if not conds:
             judgment.append(m.group(2))
             continue

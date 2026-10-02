@@ -325,3 +325,12 @@ one; do not reopen the old one in conversation.
 - Evidence: test_approve_project_data.py 40/40; evals/probe_permission_hook.sh: A exists / B absent / C absent on Claude Code 2.1.287, haiku, ~$0.02 per session; the hook's logged stdout in case A was the allow decision, in the overseer/probe.md run it was empty.
 - Falsified by: a Claude Code version that treats exit 0 + empty stdout on PermissionRequest as something other than 'no decision' — the probe would show B or C creating a file.
 - Status: CLOSED
+
+## 2026-10-02T10:09:37Z — AUTONOMOUS — 3b-finish-F6-lint-scope
+- Decision: test_engine_lint.py judges the Python the ownership map calls `engine` (what ships), not every .py under .claude/: spike code under .claude/artifacts/ is project data and is excluded. The 21 mypy findings in runstate.py, recheck_parked.py and test_selfref.py were fixed rather than suppressed.
+- Door: two-way
+- Cost to reverse: one function in the test; the typing fixes stand on their own.
+- Why not escalated: the owner asked for `ruff check --isolated .claude` and mypy on the engine's Python; the map says which Python is the engine's. A failing check on a project's spike would make every project's run red for code the engine does not own.
+- Evidence: test_engine_lint.py: 7 engine-owned Python files, ruff clean, mypy --strict clean; test_selfref.py 10 refused / 8 allowed still.
+- Falsified by: an engine Python file the map misclassifies as project — test_ownership.py would catch the map first.
+- Status: CLOSED

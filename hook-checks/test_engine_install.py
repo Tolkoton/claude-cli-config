@@ -107,7 +107,7 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     shutil.copy2(ENGINE_PY, eng / "engine.py")  # untracked: found through its own location
 
     def engine(*args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run([sys.executable, str(eng / "engine.py"), *args], capture_output=True, text=True, env=env)
+        return subprocess.run([sys.executable, str(eng / "engine.py"), *args], capture_output=True, text=True, env=env, check=False)
 
     def project(name: str) -> Path:
         p = tmp_path / name
@@ -299,14 +299,12 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
     # --- a real copy of v0.8.0, made the old way, adopted by this repository's HEAD --------------
     head_has_map = (
         subprocess.run(
-            ["git", "-C", str(ROOT), "cat-file", "-e", "HEAD:.claude/ownership.txt"], capture_output=True
-        ).returncode
+            ["git", "-C", str(ROOT), "cat-file", "-e", "HEAD:.claude/ownership.txt"], capture_output=True, check=False).returncode
         == 0
     )
     has_tag = (
         subprocess.run(
-            ["git", "-C", str(ROOT), "rev-parse", "-q", "--verify", "v0.8.0"], capture_output=True
-        ).returncode
+            ["git", "-C", str(ROOT), "rev-parse", "-q", "--verify", "v0.8.0"], capture_output=True, check=False).returncode
         == 0
     )
     if not (head_has_map and has_tag):
@@ -322,7 +320,7 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
         git(real, "add", "-A")
         git(real, "commit", "-q", "-m", "v0.8.0 copied by hand")
         cmd = [sys.executable, str(ENGINE_PY), "update", str(real), "--ref", "HEAD"]
-        r = subprocess.run(cmd + ["--dry-run"], capture_output=True, text=True, env=env)
+        r = subprocess.run(cmd + ["--dry-run"], capture_output=True, text=True, env=env, check=False)
         lines = r.stdout.splitlines()
         check(
             "real v0.8.0: nothing held back in an untouched copy",
@@ -334,25 +332,38 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
             any("an older engine version, adopted" in line for line in lines),
             r.stdout,
         )
-        r = subprocess.run(cmd + ["--reseed-pristine"], capture_output=True, text=True, env=env)
+        r = subprocess.run(cmd + ["--reseed-pristine"], capture_output=True, text=True, env=env, check=False)
         check("real v0.8.0: the update applies", r.returncode == 0, r.stdout + r.stderr)
         ledger_seed = (ROOT / "templates/project/.claude/overseer/ledger.md").read_text()
         check(
             "real v0.8.0: the engine's old ledger is replaced by the clean seed",
             (real / ".claude/overseer/ledger.md").read_text() == ledger_seed,
         )
-        hooks_same = all(
-            (real / ".claude/hooks" / h.name).read_bytes() == h.read_bytes()
-            for h in (ROOT / ".claude/hooks").iterdir()
-            if h.is_file()
-        )
-        check("real v0.8.0: every hook now matches HEAD", hooks_same)
+        # The sandbox was installed from HEAD, so its hooks are HEAD's; the working tree's hooks
+        # equal them only while nothing under .claude/hooks is uncommitted. Comparing while a
+        # hook is being edited made this red between the edit and its commit — a false
+        # alarm that taught people to ignore the suite. Skip, and say why, until it is clean.
+        dirty_hooks = subprocess.run(
+            ["git", "-C", str(ROOT), "status", "--porcelain", "--", ".claude/hooks"],
+            capture_output=True, text=True, check=False,
+        ).stdout.strip()
+        if dirty_hooks:
+            print("  skip real v0.8.0: every hook matches HEAD — .claude/hooks has uncommitted changes:")
+            for line in dirty_hooks.splitlines():
+                print(f"       {line}")
+            print("       (the sandbox holds HEAD's hooks; commit or stash the edits to compare)")
+        else:
+            hooks_same = all(
+                (real / ".claude/hooks" / h.name).read_bytes() == h.read_bytes()
+                for h in (ROOT / ".claude/hooks").iterdir()
+                if h.is_file()
+            )
+            check("real v0.8.0: every hook now matches HEAD", hooks_same)
         r = subprocess.run(
             [sys.executable, str(ENGINE_PY), "status", str(real), "--ref", "HEAD"],
             capture_output=True,
             text=True,
-            env=env,
-        )
+            env=env, check=False)
         check("real v0.8.0: status afterwards says up to date", "up to date" in r.stdout, r.stdout + r.stderr)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")

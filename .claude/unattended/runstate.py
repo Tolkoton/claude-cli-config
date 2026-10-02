@@ -66,11 +66,12 @@ def _now() -> int:
 # state
 # --------------------------------------------------------------------------
 
-def get_state() -> dict:
-    return _read_json(STATE_FILE, {"status": "unknown", "reason": "no state file"})
+def get_state() -> dict[str, Any]:
+    data: dict[str, Any] = _read_json(STATE_FILE, {"status": "unknown", "reason": "no state file"})
+    return data
 
 
-def set_state(status: str, reason: str = "", unblocks: str = "", node: str = "") -> dict:
+def set_state(status: str, reason: str = "", unblocks: str = "", node: str = "") -> dict[str, Any]:
     if status not in VALID:
         raise SystemExit(f"invalid status {status!r}; expected one of {sorted(VALID)}")
     prev = get_state()
@@ -95,11 +96,12 @@ def is_terminal() -> bool:
 # cost (D-9: the file is the source of truth, it survives the supervisor)
 # --------------------------------------------------------------------------
 
-def get_cost() -> dict:
-    return _read_json(COST_FILE, {"spent_usd": 0.0, "sessions": 0, "updated_at": 0})
+def get_cost() -> dict[str, Any]:
+    data: dict[str, Any] = _read_json(COST_FILE, {"spent_usd": 0.0, "sessions": 0, "updated_at": 0})
+    return data
 
 
-def add_cost(amount: float) -> dict:
+def add_cost(amount: float) -> dict[str, Any]:
     c = get_cost()
     obj = {
         "spent_usd": round(float(c.get("spent_usd", 0.0)) + float(amount), 6),
@@ -114,8 +116,8 @@ def add_cost(amount: float) -> dict:
 # DAG (D-10)
 # --------------------------------------------------------------------------
 
-def load_dag(dag_path: Path) -> dict:
-    dag = _read_json(dag_path, None)
+def load_dag(dag_path: Path) -> dict[str, Any]:
+    dag: dict[str, Any] | None = _read_json(dag_path, None)
     if dag is None:
         raise SystemExit(f"no readable DAG at {dag_path}")
     return dag
@@ -139,10 +141,12 @@ def load_dag(dag_path: Path) -> dict:
 # only a node that RUNS the harness is refused.
 SELF_REF_PATTERNS = [
     # an execution verb aimed at the supervisor / the loop
-    r"\b(run|runs|running|launch|launches|launching|start|starts|starting"
-    r"|spawn|spawns|spawning|execute|executes|executing|invoke|invokes"
-    r"|invoking|drive|drives|driving|prove|proves|proving)\b[^.]{0,40}?"
-    r"\b(supervisor|unattended loop|session-claude)\b",
+    (
+        r"\b(run|runs|running|launch|launches|launching|start|starts|starting"
+        r"|spawn|spawns|spawning|execute|executes|executing|invoke|invokes"
+        r"|invoking|drive|drives|driving|prove|proves|proving)\b[^.]{0,40}?"
+        r"\b(supervisor|unattended loop|session-claude)\b"
+    ),
     # a literal invocation of either script
     r"(?:\bbash\b|\bsh\b|\bexec\b|\./)\s*\S*supervisor\.sh",
     r"(?:\bbash\b|\bsh\b|\bexec\b|\./)\s*\S*session-claude\.sh",
@@ -158,7 +162,7 @@ SELF_REF_RE = [re.compile(p, re.IGNORECASE) for p in SELF_REF_PATTERNS]
 _TASK_FIELDS = ("id", "title", "task", "description", "note", "why_parked")
 
 
-def self_reference(node: dict) -> str | None:
+def self_reference(node: dict[str, Any]) -> str | None:
     """Return the offending phrase if this node's task is to run the harness
     that would spawn it, else None."""
     haystack = " ".join(str(node.get(f, "")) for f in _TASK_FIELDS)
@@ -169,7 +173,7 @@ def self_reference(node: dict) -> str | None:
     return None
 
 
-def next_node(dag: dict) -> tuple[str, str]:
+def next_node(dag: dict[str, Any]) -> tuple[str, str]:
     """Return (verdict, node_id).
 
     verdict is one of:
@@ -198,7 +202,7 @@ def next_node(dag: dict) -> tuple[str, str]:
     return "parked", ""
 
 
-def set_node_status(dag_path: Path, node_id: str, status: str) -> dict:
+def set_node_status(dag_path: Path, node_id: str, status: str) -> dict[str, Any]:
     dag = load_dag(dag_path)
     hit = False
     for n in dag.get("nodes", []):
@@ -249,11 +253,11 @@ def main(argv: list[str]) -> int:
         # node; this catches one that reached a spawn by any other route (a
         # hand-set node, a resumed state file, a future caller).
         dag = load_dag(Path(argv[2]))
-        node = next((n for n in dag.get("nodes", []) if n["id"] == argv[3]), None)
-        if node is None:
+        node_obj = next((n for n in dag.get("nodes", []) if n["id"] == argv[3]), None)
+        if node_obj is None:
             print(f"no node {argv[3]!r} in {argv[2]}", file=sys.stderr)
             return 2
-        hit = self_reference(node)
+        hit = self_reference(node_obj)
         if hit:
             print(hit)
             return 3

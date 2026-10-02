@@ -101,7 +101,9 @@ python3 hook-checks/test_format_on_edit.py           # 22 cases, exits 1 on any 
 python3 hook-checks/test_deny_gaps.py               # 10 blocked / 9 allowed
 python3 hook-checks/test_overseer_continue.py       # the loop cannot silently stop
 python3 hook-checks/test_decision_logged.py         # no unlogged autonomous deviation
+python3 hook-checks/test_engine_lint.py             # ruff --isolated + mypy --strict on the engine's own Python
 python3 .claude/unattended/test_selfref.py          # no self-spawning DAG node
+for t in hook-checks/test_*.py; do python3 "$t" | tail -1; done   # the whole set
 bash .claude/unattended/supervisor.sh --status       # state, restarts, spend
 ```
 

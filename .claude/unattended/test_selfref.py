@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from runstate import self_reference, next_node  # noqa: E402
+from runstate import next_node, self_reference
 
 MUST_REFUSE = [
     # the real one that started this

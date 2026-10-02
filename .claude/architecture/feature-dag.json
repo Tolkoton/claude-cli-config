@@ -43,7 +43,8 @@
       "id": "F6",
       "title": "small-things: recheck_parked reads the Unblocks line only; test_engine_lint.py; test_engine_install skips the HEAD comparison while hooks are dirty; git commit -F documented; critics distinguish owner requirements",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "recheck_parked.py reads tokens from the Unblocks line only (test_recheck_parked 7/7); test_engine_lint.py (ruff --isolated + mypy --strict on engine-owned Python, fails without tools) — 21 findings fixed; test_engine_install skips the HEAD comparison with the dirty list while .claude/hooks is uncommitted; git commit -F documented in engine-limits.md; critic-core §0 and feature-critic distinguish owner requirements from agent decisions."
     },
     {
       "id": "F7",

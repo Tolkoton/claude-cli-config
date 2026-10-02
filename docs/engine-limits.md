@@ -36,8 +36,15 @@ at top level and runs untouched from a two-line script). Two consequences:
 - the hook scans the **whole command text**, including quoted strings and heredoc bodies.
   Writing documentation that mentions a root delete or a force push through a shell heredoc
   is refused as if the command were being run. This is deliberate (a false positive is a
-  nuisance, a false negative is a breach); the workaround is to write such text with the
-  Edit/Write tool, or to run a script from a file instead of a heredoc.
+  nuisance, a false negative is a breach) and the hook is not weakened for it. The
+  canonical ways around it:
+  - **a commit whose message mentions a dangerous command**: write the message to a file
+    and commit with `git commit -F <file>` — the hook sees `git commit -F path`, never the
+    message text. Writing the message inline (`-m "…"` or a heredoc) puts the text in the
+    command and is refused;
+  - documentation or tests that quote such a command: write the file with the Edit/Write
+    tool (not scanned), or run a helper script from a file instead of a heredoc; in a
+    Python test split the literal (`"git push " + "--force"`).
 
 ## One hook, one run per event
 

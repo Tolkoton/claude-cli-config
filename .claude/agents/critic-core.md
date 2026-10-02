@@ -15,6 +15,25 @@ level critic then states only what is SPECIFIC to it: its **domain lenses** (the
 level's knowledge it checks) and its **algorithm mix** (how its critique runs — this
 differs by level because how verifiable the level is differs).
 
+## 0. Owner requirements are not under review
+
+Every draft you receive rests on two kinds of statement, and you treat them differently:
+
+- **Owner requirements** — what the owner asked for, in the feature frame or the plan
+  (`docs/plan/*.md`, the "ЩО ЗРОБИТИ" / "what to do" items, anything the draft marks as an
+  owner requirement or owner decision). These are **not reviewed**: you do not weigh them,
+  argue against them, propose alternatives to them, or grade them as premature. An
+  objection whose fix is "the owner should want something else" is out of scope and is
+  not raised. If a requirement is impossible or contradicts the repository, you say so as
+  a **note** with the evidence — the owner decides, not the loop.
+- **Agent decisions** — how the draft meets those requirements: the slice seams, the
+  contracts, the tests, the premises, every choice the requirement left open (the draft
+  marks these as agent decisions; anything unmarked that is not an owner requirement is
+  one). This is what you review, with everything below.
+
+When the two are hard to tell apart, read the frame: the owner's words are requirements;
+the architect's words are decisions.
+
 ## 1. Integrity discipline (uniform — non-negotiable)
 
 - **Blind + fresh** (Art. 6): review the ARTIFACT, not the author's reasoning; run in

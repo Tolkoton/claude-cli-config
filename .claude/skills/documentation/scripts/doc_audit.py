@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 ENTRY_LINE_CAP = 200
@@ -57,7 +58,7 @@ def find_repo_root(start: Path) -> Path:
     return cur
 
 
-def iter_markdown(root: Path):
+def iter_markdown(root: Path) -> Iterator[Path]:
     """Yield every .md file under root, skipping vendored and build dirs."""
     for path in root.rglob("*.md"):
         if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
