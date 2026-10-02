@@ -43,7 +43,9 @@ APPROVE_HANDLER = 'PermissionRequest|Edit|Write|MultiEdit|command|python3 "$CLAU
 INTENDED: dict[str, str] = {
     "permissions.deny": (
         "S4: the root rule `rm -rf /` + `*` matched any text and refused a delete under /tmp; now the exact root, "
-        "with -fr given the same shape as -rf (tests/test_root_delete_deny.py)"
+        "with -fr given the same shape as -rf (tests/test_root_delete_deny.py); X5: the twelve Write(<path>) rules "
+        "are gone — Claude Code 2.1.287 does not apply Write rules with a path and warns about them at start-up; "
+        "each had an Edit(<path>) twin, which covers every file-modifying tool, so nothing is unguarded"
     ),
     "permissions.defaultMode": (
         "F4 (owner): the personal layer says `auto`, not `acceptEdits`; `auto` is legal at the user level only, "
@@ -110,6 +112,17 @@ def main() -> int:
     t.check("proposal: the retired hook is not wired anywhere", "approve-project-data" not in json.dumps(proposal["hooks"]))
     t.check("proposal: the engine's own env stays", proposal["env"].get("CLAUDE_CODE_STOP_HOOK_BLOCK_CAP") is not None)
     t.check("personal layer: wires no hooks", "hooks" not in personal_raw)
+
+    # X5 (owner): no Write(<path>) deny rule remains — Claude Code does not match them — and every
+    # rule the proposal dropped relative to the live file is such a rule with its Edit twin kept.
+    write_rules = [r for r in perm["deny"] if r.startswith("Write(")]
+    t.check("proposal: no Write(<path>) deny rule left", not write_rules, str(write_rules))
+    dropped = [r for r in live["permissions"]["deny"] if r not in perm["deny"]]
+    t.check(
+        "proposal: every deny rule dropped against the live file is a Write(...) whose Edit(...) twin stays",
+        all(r.startswith("Write(") and ("Edit(" + r[len("Write("):]) in perm["deny"] for r in dropped),
+        str(dropped),
+    )
 
     # --- effective parity against the frozen "before" ---------------------------------------
     frozen: dict[str, Any] = json.loads(FROZEN.read_text(encoding="utf-8"))
