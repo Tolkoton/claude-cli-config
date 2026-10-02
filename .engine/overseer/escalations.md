@@ -32,12 +32,11 @@ ADR_RATIFICATION escalation and the human's resolution. Used in the
 ## Second entry format — AUTONOMOUS two-way-door decisions
 
 The format above has no slot for a decision the AI made itself: every field
-(`Human chose`, `Latency to decision`) presumes a human answered. But CLAUDE.md's
-verdict routing says a two-way door is *logged here and continued*, not
+(`Human chose`, `Latency to decision`) presumes a human answered. But the engine
+rules' verdict routing says a two-way door is *logged here and continued*, not
 escalated. A decision with nowhere to be recorded stays open in working memory
 and gets re-raised turn after turn, which is a stop wearing a question mark.
-That happened for real on node S3 — decided once, re-surfaced to the owner three
-times, never written down. Hence this second shape:
+Hence this second shape:
 
 ```
 ## <ISO timestamp UTC> — AUTONOMOUS — <item id>

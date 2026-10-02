@@ -50,7 +50,6 @@ agent (build) → `overseer` (audit). Plans live in
 | `documentation` | `[vendored]` | skill | Maintains AGENTS.md / ADRs / `docs/` (this guide's skill) |
 | `overseer` | `[project]` | skill | 12-check discipline audit of the last turn |
 | `plan-slice` | `[project]` | command | Writes a slice contract before implementation |
-| `/lesson` `/wrap-up` `/stuck` `/memory-maintenance` | `[global]` | commands | Memory-lifecycle entry points |
 | 9 hooks | `[engine]` | hooks | Enforcement (see [§4](#4-the-enforcement-layer-hooks)) |
 
 ---
@@ -80,7 +79,7 @@ volatile the artifact is.
 | `AGENTS.md` (root) | `documentation` | every agent (via `@AGENTS.md`) | with code changes |
 | `docs/adr/NNNN-*.md` | `documentation`, `master-architect`, developer | every agent, humans | **append-only / supersede** |
 | `.claude/settings.json` + 9 hooks | `engine.py install` (shipped from the engine repository) | Claude Code harness (session start) | rare |
-| `.claude/lesson-queue.md` | `/lesson`, developer | `/wrap-up` (session-end) | drained per session |
+| `.claude/lesson-queue.md` | developer (lesson capture, `self-learning-orchestrator`) | the session-end trigger of the same skill | drained per session |
 | `~/.claude/memory/<tech>/MEMORY.md` `[global]` | `self-learning-orchestrator` | all (session start) | per session-end |
 | `decisions.md`, `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator` | same | created on demand |
 
@@ -138,11 +137,11 @@ flowchart TD
 flowchart LR
   moment([dev moment]) --> SLO[self-learning-orchestrator]
   SLO -->|session start, reads| MEM["MEMORY.md files + .engine/PROGRESS.md + decisions.md"]
-  LES["/lesson"] -->|append| LQ[".claude/lesson-queue.md"]
-  WRAP["/wrap-up"] -->|drains| LQ
+  LES["lesson capture (in flow)"] -->|append| LQ[".claude/lesson-queue.md"]
+  WRAP["session end"] -->|drains| LQ
   WRAP -->|classify into| MEM
-  STK["/stuck"] -.->|tier 2/3| dbg[execution-feedback-debugging / plan-mode]
-  MM["/memory-maintenance"] -->|prune / promote| MEM
+  STK["stuck protocol"] -.->|tier 2/3| dbg[execution-feedback-debugging / plan-mode]
+  MM["periodic maintenance"] -->|prune / promote| MEM
 ```
 
 ---
@@ -183,11 +182,11 @@ This map points; it does not restate. For behaviour, read the source:
 - Skills: all under `.claude/skills/<name>/SKILL.md` — `overseer` is
   repo-native; the other 5 are **vendored** copies (keep them in sync manually — see §8).
 - Subagents (critic agents): `.claude/agents/*.md` — repo-native.
-- Commands: `.claude/commands/{plan-slice,master-architect,feature-architect}.md`;
-  memory-lifecycle commands (`/lesson`, `/wrap-up`, `/stuck`, `/memory-maintenance`)
-  are expected in `~/.claude/commands/` (global).
+- Commands: `.claude/commands/{plan-slice,master-architect,feature-architect,mvp-architect}.md`.
+  The memory lifecycle has no slash commands: the `self-learning-orchestrator` skill reacts
+  to the moments its SKILL.md lists (session start, a decision, being stuck, wrapping up).
 - Hooks: `.claude/hooks/*` (wired in `.claude/settings.json`).
-- Standing policy: `CLAUDE.md` + `AGENTS.md` (root).
+- Standing policy: `.claude/engine-rules.md` (imported by `CLAUDE.md`) + `AGENTS.md` (root).
 
 ---
 

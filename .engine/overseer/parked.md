@@ -4,8 +4,7 @@ The mechanism that replaces stop-and-wait. When an item cannot proceed, it is
 parked here with the specific thing it needs, and work continues on the next
 unblocked item. Nothing halts the run except an empty unblocked queue.
 
-Governed by the unattended-operation cadence ratified 2026-08-27 (see
-`audit.md`). Article 5 still governs what may be decided autonomously: one-way
+Article 5 of the constitution governs what may be decided autonomously: one-way
 doors park, two-way doors are decided and logged provisionally.
 
 ## The three legitimate reasons to surface to a human

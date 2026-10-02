@@ -4,7 +4,7 @@ Memory files rot. Without periodic review they grow to the point Claude ignores 
 
 ## When this fires
 
-- User says "/memory-maintenance", "review memory", "clean up CLAUDE.md", "prune decisions".
+- User says "memory maintenance", "review memory", "clean up CLAUDE.md", "prune decisions".
 - Calendar reminder (recommended cadence: weekly for active projects, monthly for slow projects, every 3 months minimum).
 - Before a major project milestone (release, end of quarter, project handoff).
 - When CLAUDE.md exceeds 200 lines or any MEMORY.md exceeds 50 entries (signal to consolidate).

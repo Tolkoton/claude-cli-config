@@ -119,5 +119,5 @@ scenario nobody can explain gets deleted the first time it is inconvenient.
 - The runner calls hooks directly. It does not prove that `settings.json` wires them; a real
   session does.
 - `uv sync` needs the network once per machine; later sandboxes reuse the uv cache.
-- Requirements: bash, git, Python 3.12+, uv. `jq` is what the bash hooks themselves need —
-  run once without it to see what a machine lacking it loses.
+- Requirements: bash, git, Python 3.12+, uv. the bash hooks parse their input with `jq`, or with
+  `python3` when jq is absent — run once without both to see what a machine lacking them loses.

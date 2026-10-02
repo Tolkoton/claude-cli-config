@@ -6,7 +6,7 @@ The session or task is ending. This is the trigger where lesson candidates accum
 
 Strong signals:
 - User says "wrap up", "done for now", "let's end here", "good for today".
-- User types `/clear`, `/bye`, `/wrap-up`.
+- User types `/clear` or `/bye`, or says "wrap up".
 - Task or slice reaches DONE state.
 - Sustained idle period (>2h) followed by an end-conversation cue.
 

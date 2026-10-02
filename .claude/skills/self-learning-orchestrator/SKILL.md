@@ -50,7 +50,7 @@ Mismatching the cadence is the most common failure mode. CLAUDE.md is not a plac
        │      │      │    → triggers/stuck-protocol.md                 │
        │      │      │                                                  │
        │      │      ├─ bug fix >15 min?                                │
-       │      │      │    → /lesson queue (lightweight capture)        │
+       │      │      │    → lesson queue (lightweight capture)        │
        │      │      │                                                  │
        │      │      └─ ready to commit?                                │
        │      │           → triggers/pre-commit-checkpoint.md          │
@@ -83,8 +83,8 @@ When invoked, identify which moment is happening and read the matching trigger f
 | Tried ≥3 approaches without progress | `triggers/stuck-protocol.md` |
 | About to commit / "done with this" | `triggers/pre-commit-checkpoint.md` |
 | User said "/clear", "/bye", "wrap up", or task is complete | `triggers/session-end-dreaming.md` |
-| User said "/memory-maintenance" or asked for periodic review | `triggers/periodic-maintenance.md` |
-| User said `/lesson "..."` | append to `.claude/lesson-queue.md`, see "Lesson capture" below |
+| User asked for memory maintenance or a periodic review | `triggers/periodic-maintenance.md` |
+| User said "lesson learned: ..." or "remember this for next time" | append to `.claude/lesson-queue.md`, see "Lesson capture" below |
 
 Read **only the trigger file that applies**. Do not preload everything — each trigger has independent context needs.
 
@@ -101,7 +101,7 @@ echo "- $(date +%F) | $(git log -1 --format=%h) | <lesson>" >> .claude/lesson-qu
 The queue is processed at session-end-dreaming. The point of the queue is *defer the classification* (tech vs project vs noise) until you have several candidates and can see patterns.
 
 Trigger this from:
-- The user typing `/lesson "<text>"`
+- The user saying "lesson learned: <text>" or "remember this for next time"
 - Recognizing in your own work "this took longer than it should have, future-me would benefit from knowing why"
 
 ## Delegation map (cue phrases that activate other skills)

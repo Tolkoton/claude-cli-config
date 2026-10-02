@@ -26,8 +26,9 @@ refused, correctly, by the permission layer. Add to
 added mid-session does not apply until the next one.
 
 ```bash
-command -v jq                                # REQUIRED: four hooks silently
-                                             # enforce nothing without it
+command -v jq || command -v python3          # the hooks parse their input with one of
+                                             # them; with neither, the deny hooks refuse
+                                             # every call (.claude/references/hooks.md)
 echo unattended > .claude/state/overseer/mode      # only when the guardrails verify green
 nohup .claude/unattended/supervisor.sh >> .claude/state/unattended/logs/nohup.log 2>&1 &
 ```

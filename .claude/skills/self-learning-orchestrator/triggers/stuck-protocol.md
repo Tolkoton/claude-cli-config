@@ -8,7 +8,7 @@ Any of:
 - You've tried ≥ 3 distinct approaches to the same problem without progress.
 - Same test/error has been failing for > 20 minutes despite attempted fixes.
 - You've edited the same file ≥ 5 times in succession without converging.
-- User said "stuck", "tried everything", "this isn't working", "/stuck".
+- User said "stuck", "tried everything", "this isn't working".
 - Your hypotheses are getting wilder / more speculative.
 
 ## The escalation ladder
