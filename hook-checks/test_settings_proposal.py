@@ -43,6 +43,15 @@ INTENDED: dict[str, str] = {
         "S4: the root rule `rm -rf /` + `*` matched any text and refused a delete under /tmp; now the exact root, "
         "with -fr given the same shape as -rf (hook-checks/test_root_delete_deny.py)"
     ),
+    "permissions.defaultMode": (
+        "F4 (owner): the personal layer says `auto`, not `acceptEdits`; `auto` is legal at the user level only, "
+        "which is where the layer lives. Unattended sessions do not depend on it: session-claude.sh passes "
+        "--permission-mode acceptEdits itself"
+    ),
+    "env.ANTHROPIC_DEFAULT_SONNET_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
+    "env.ANTHROPIC_DEFAULT_OPUS_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
+    "env.ANTHROPIC_DEFAULT_HAIKU_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
+    "env.CLAUDE_CODE_SUBAGENT_MODEL": "F4 (owner): removed — the variable is not documented at code.claude.com/docs/en/env-vars",
 }
 
 
@@ -83,6 +92,8 @@ def main() -> int:
     t.check("proposal: no defaultMode / additionalDirectories", not any(k in perm for k in PERSONAL_KEYS))
     t.check("proposal: WebFetch/WebSearch are not blanket-allowed", not any(a in perm["allow"] for a in PERSONAL_ALLOW))
     t.check("proposal: no model variables under env", not any(k in proposal.get("env", {}) for k in PERSONAL_ENV))
+    t.check("personal layer: no model variables either (removed, not moved)", "env" not in {k: v for k, v in personal_raw.items() if not k.startswith("_")})
+    t.check("personal layer: defaultMode auto", personal_raw["permissions"].get("defaultMode") == "auto")
     t.check("proposal: hooks block is byte-for-byte the live one", proposal["hooks"] == live["hooks"])
     t.check("proposal: the engine's own env stays", proposal["env"].get("CLAUDE_CODE_STOP_HOOK_BLOCK_CAP") is not None)
     t.check("personal layer: wires no hooks", "hooks" not in personal_raw)

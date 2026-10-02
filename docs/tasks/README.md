@@ -10,17 +10,21 @@ checks exactly it and the one command that applies it.
 What changed against the live `.claude/settings.json`, and why:
 
 - **Removed, moved to the personal layer `user/settings.json`:** `permissions.defaultMode`
-  (`acceptEdits`), `permissions.additionalDirectories` (the owner's home directories and
-  `/tmp/claude/`), `WebFetch` and `WebSearch` from `permissions.allow`, and the four model
-  variables under `env` (`ANTHROPIC_DEFAULT_*_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL`). These
-  are one person's choices; a project that installs the engine should not inherit another
-  person's home directories or model aliases. At the user level they apply in every
-  directory, which is where they were meant to apply.
+  (there as `auto`, legal at the user level only), `permissions.additionalDirectories` (the
+  owner's home directories and `/tmp/claude/`), `WebFetch` and `WebSearch` from
+  `permissions.allow`. These are one person's choices; a project that installs the engine
+  should not inherit another person's home directories. At the user level they apply in
+  every directory, which is where they were meant to apply.
+- **Removed, not moved:** the four model variables under `env` (`ANTHROPIC_DEFAULT_*_MODEL`,
+  `CLAUDE_CODE_SUBAGENT_MODEL`). Pinning a model id freezes an old model, and
+  `CLAUDE_CODE_SUBAGENT_MODEL` is not documented (fix round, item 4).
 - **Kept:** the `allow` / `ask` / `deny` lists, every hook, `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`.
-- Nothing is lost on the owner's machine: list keys merge across levels and scalars fall
-  through to the user level, so `evals/settings_parity.py` shows the effective settings
-  identical before and after (13 of 13 on 2026-10-02, against the real
-  `~/.claude/settings.json`). The frozen "before" is `effective-before-split.json`.
+- List keys merge across levels and scalars fall through to the user level, so the split
+  itself changes nothing in effect (`evals/settings_parity.py`: 13 of 13 identical on
+  2026-10-02 against the real `~/.claude/settings.json`). The fix round then changed two
+  things ON PURPOSE — `defaultMode` to `auto` and the model variables gone — and
+  `hook-checks/test_settings_proposal.py` lists each such difference from the frozen
+  "before" (`effective-before-split.json`) with its reason.
 
 Apply, from the repository root:
 

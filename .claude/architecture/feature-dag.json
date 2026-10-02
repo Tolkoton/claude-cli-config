@@ -20,13 +20,15 @@
       "id": "F3",
       "title": "explicit-permission-mode: session-claude.sh passes --permission-mode acceptEdits; test_session_launch.py with a recording shim",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "session-claude.sh passes --permission-mode acceptEdits; test_session_launch.py 9/9 with a recording shim `claude` on PATH."
     },
     {
       "id": "F4",
       "title": "personal-layer-reshape: defaultMode auto, no model variables; proposal test lists each intended difference with its reason",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "user/settings.json: defaultMode auto, no env; test_personal_layer 28/28; test_settings_proposal 10/10 with 6 intended differences each with a reason; docs updated. Real machine (S7 applied, S8 not): 3 effective settings currently missing until S8."
     },
     {
       "id": "F5",

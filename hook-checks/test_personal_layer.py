@@ -169,12 +169,11 @@ def main() -> int:
     # --- this repository's own personal layer -------------------------------------------------
     own: dict[str, Any] = json.loads(PERSONAL_HERE.read_text(encoding="utf-8"))
     settings = {k: v for k, v in own.items() if not k.startswith("_")}
-    t.check("user/settings.json: only permissions and env", set(settings) == {"permissions", "env"}, str(set(settings)))
+    t.check("user/settings.json: only permissions (no env: no model variables)", set(settings) == {"permissions"}, str(set(settings)))
     perm = settings["permissions"]
-    t.check("user/settings.json: defaultMode acceptEdits", perm.get("defaultMode") == "acceptEdits")
+    t.check("user/settings.json: defaultMode auto (legal at the user level)", perm.get("defaultMode") == "auto")
     t.check("user/settings.json: home directories as additionalDirectories", bool(perm.get("additionalDirectories")) and all(d.startswith(("~/", "/tmp/")) for d in perm["additionalDirectories"]), str(perm.get("additionalDirectories")))
     t.check("user/settings.json: WebFetch and WebSearch, nothing else, in allow", sorted(perm.get("allow", [])) == ["WebFetch", "WebSearch"])
-    t.check("user/settings.json: only model variables under env", all(k.endswith("_MODEL") for k in settings["env"]) and len(settings["env"]) == 4, str(settings["env"]))
     t.check("user/settings.json: wires no hooks", "hooks" not in own)
 
     print(f"\nPASS {t.passed}   FAIL {t.failed}")

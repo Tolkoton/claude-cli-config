@@ -66,10 +66,12 @@ closes this at the source rather than at run time:
 
 - Scalars such as `permissions.defaultMode` come from the highest level that sets them
   (local > project > user); list keys such as `permissions.allow` **merge** across levels.
-  That is why the personal layer can carry `defaultMode`, the home directories, the blanket
-  `WebFetch`/`WebSearch` allow and the model aliases without any project noticing a change:
+  That is why the personal layer can carry `defaultMode`, the home directories and the
+  blanket `WebFetch`/`WebSearch` allow without any project noticing a change:
   `evals/settings_parity.py` shows the effective settings identical before and after the
-  split.
+  split. (`defaultMode: auto` is legal at the user level only — the layer IS user level.
+  Unattended sessions do not depend on it: `session-claude.sh` passes
+  `--permission-mode acceptEdits` itself.)
 - A **cloud session** reads the shared `.claude/settings.json` (it is in the clone) and does
   **not** read `~/.claude/settings.json` or `.claude/settings.local.json`. The engine's
   hooks run there; the personal layer does not apply there. `CLAUDE_CODE_REMOTE` is

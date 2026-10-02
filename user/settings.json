@@ -1,7 +1,7 @@
 {
-  "_comment": "The owner's personal layer. engine.py install --personal merges it into ~/.claude/settings.json (user level), where it applies in every directory. It never ships into a project and must never wire hooks: a hook wired here AND in a project would fire twice. Shared policy (allow/ask/deny, hooks) lives in .claude/settings.json.",
+  "_comment": "The owner's personal layer. engine.py install --personal merges it into ~/.claude/settings.json (user level), where it applies in every directory. It never ships into a project and must never wire hooks. Holds: defaultMode auto (legal at the user level only — code.claude.com/docs/en/settings-reference), the owner's additionalDirectories, and a blanket WebFetch/WebSearch allow. No model variables: pinning ANTHROPIC_DEFAULT_*_MODEL freezes old model ids, and CLAUDE_CODE_SUBAGENT_MODEL is not documented. Shared policy (allow/ask/deny, hooks) lives in .claude/settings.json.",
   "permissions": {
-    "defaultMode": "acceptEdits",
+    "defaultMode": "auto",
     "additionalDirectories": [
       "~/.claude/",
       "~/.claude/skills/",
@@ -15,11 +15,5 @@
       "WebFetch",
       "WebSearch"
     ]
-  },
-  "env": {
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5"
   }
 }

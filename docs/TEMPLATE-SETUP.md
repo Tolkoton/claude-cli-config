@@ -138,7 +138,7 @@ ship into every project without carrying one person's preferences along:
 | layer | file | holds | applies |
 |---|---|---|---|
 | **shared** | `.claude/settings.json` (engine file, ships into every project) | the `allow` / `ask` / `deny` lists, every hook, the engine's own `env` (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`) | in that project |
-| **personal** | `user/settings.json` in the engine repository → merged into `~/.claude/settings.json` | `permissions.defaultMode`, your `additionalDirectories`, a blanket `WebFetch`/`WebSearch` allow, the model aliases (`ANTHROPIC_DEFAULT_*_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL`) | in every directory on your machine |
+| **personal** | `user/settings.json` in the engine repository → merged into `~/.claude/settings.json` | `permissions.defaultMode` (`auto` — legal at the user level only), your `additionalDirectories`, a blanket `WebFetch`/`WebSearch` allow. No model variables: pinning a model id freezes an old model | in every directory on your machine |
 | machine-local | `.claude/settings.local.json` (gitignored) | per-machine, per-project overrides | in that project, on that machine |
 
 Nothing changes in effect: Claude Code merges list keys across levels and takes a scalar
