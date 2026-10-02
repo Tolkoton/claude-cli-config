@@ -37,8 +37,9 @@ decides what happens to each path:
 
 - **engine** files are copied in, with their executable bits;
 - **project** files are created once from a clean seed when the project lacks them —
-  `CLAUDE.md`, `AGENTS.md`, `.claude/project.env`, the overseer's ledger, audit,
-  escalations, parked queue and memory, the premise log — and never overwritten after;
+  `CLAUDE.md` and `AGENTS.md` (from `templates/project/`), `.claude/project.env`, the
+  overseer's ledger, audit, escalations, parked queue and memory, the premise log — and
+  never overwritten after (one exception: the marked block in CLAUDE.md, Step 4);
 - **machine** state is never copied; its patterns go into a marked block of the
   project's `.gitignore`.
 
@@ -217,36 +218,40 @@ real settings. Example for a Python project:
 
 ## Step 4 — Write your `CLAUDE.md`
 
-`CLAUDE.md` at the repo root is the standing policy every agent reads. The template
-ships with a generic version. Update it with:
+The install seeded `CLAUDE.md` from `templates/project/CLAUDE.md`: a marked block that imports
+the engine's standing rules, an `@AGENTS.md` line, and a few placeholder lines for your
+project. The block —
 
-- Your project name and one-line purpose.
-- Any migration or generated-code paths that should be write-protected — add them
-  to `.claude/hooks/protect-paths.sh` under the `PROTECTED` array.
-- Anything domain-specific every agent should know by default.
+```
+<!-- >>> engine: ... -->
+@.claude/engine-rules.md
+<!-- <<< engine -->
+```
 
-The format is already established — follow the existing structure.
+— is the engine's: `engine.py update` rewrites what is between the markers when the engine
+changes the import, and never touches a byte outside them. Everything below the end marker is
+yours. Replace the placeholders with your project's name, purpose, stack commands and the
+conventions every agent must know by default. Keep it short: CLAUDE.md, AGENTS.md and
+everything they import are loaded into every session, and the engine budgets 200 lines for
+the lot (the rules file takes about 90). Detail that is rarely needed belongs in `docs/`.
+
+Do not copy the rules into CLAUDE.md and do not edit `.claude/engine-rules.md`: the engine
+owns that file and replaces it on update. `.claude/references/hooks.md` and
+`.claude/references/unattended.md` are the long versions, read on demand.
+
+**A project that installed an earlier engine** has the old rules inline in its CLAUDE.md.
+`engine.py update` reports what to do: an unedited old copy is replaced by the seed with
+`--reseed-pristine`; an edited copy is left alone, and the report names the import line to
+add and the line ranges that now duplicate `.claude/engine-rules.md` — delete those and keep
+your own text.
 
 ---
 
 ## Step 5 — Write your `AGENTS.md`
 
-`AGENTS.md` is loaded via `@AGENTS.md` at the start of every conversation. Minimal:
-
-```markdown
-# Agents guide — <project name>
-
-## Project in one sentence
-<What the project does.>
-
-## Active agents
-- slice-builder (build layer)
-- overseer (audit layer)
-- self-learning-orchestrator (memory layer)
-
-## Pipeline
-Slice flow: master-architect → slice-builder → overseer.
-```
+Seeded from `templates/project/AGENTS.md` and loaded through `@AGENTS.md`. Fill in the project
+sentence, the key paths and the verification commands; keep the pipeline line. Minimal is
+right — this file is in every session's context.
 
 ---
 
@@ -332,7 +337,7 @@ This forces the agent to load the policy and map before doing anything else.
   artifacts/      — spikes, notes (created on first use)
   PROGRESS.md     — slice completion history (created by slice-builder; gitignored)
 
-CLAUDE.md         — standing policy (every agent reads this)
+CLAUDE.md         — the marked block importing .claude/engine-rules.md, then your text
 AGENTS.md         — agent roster and project context (loaded via @AGENTS.md)
 ```
 

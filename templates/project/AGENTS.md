@@ -1,0 +1,31 @@
+# Agents guide — <project name>
+
+> Loaded into every session via `@AGENTS.md` from CLAUDE.md. Keep it short and true: CLAUDE.md,
+> this file and everything they import should stay under 200 lines together.
+
+## Project in one sentence
+
+<What the project does.>
+
+## Active agents and pipeline
+
+`/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
+`/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit,
+auto-triggered by the Stop hook). `/mvp-architect` designs the cheapest thing that answers one
+question. Agents communicate through files, never chat.
+
+## Key paths
+
+| Path | What it is |
+|---|---|
+| `.claude/constitution.md` | The rules every agent obeys. Human-only. |
+| `.claude/engine-rules.md` | The engine's standing policy (installed by engine.py; do not edit here) |
+| `.claude/references/` | Read on demand: `hooks.md`, `unattended.md`, the design playbooks |
+| `.claude/project.env` | Source dirs, check commands and gates for the hooks |
+| `.engine/` | What the agent produces: records, slice contracts, architecture, premises, PROGRESS |
+| `<src/>`, `<tests/>` | The code and its tests |
+
+## Verifying a change
+
+`<the test command>`; `<the lint command>`; `<the type-check command>`. The Stop hook runs
+them when code changed. A claim of "done" names the test and shows its output.

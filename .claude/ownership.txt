@@ -81,10 +81,11 @@ machine  .claude/unattended/archive/
 # --- everything else under .claude/ is the engine ------------------------------------------
 engine   .claude/**
 
-# --- root files a project starts from. CLAUDE.md still mixes engine rules with this ------
-# --- repository's own text, so it is a project file until package 2b splits the rules out --
-project  CLAUDE.md  seed=CLAUDE.md
-project  AGENTS.md  seed=AGENTS.md
+# --- root files a project starts from: short clean seeds, not this repository's own files. ---
+# --- The engine's rules reach a project as .claude/engine-rules.md (engine-owned, above); the --
+# --- seed CLAUDE.md imports it from a marked block that engine.py maintains (package 2b). ----
+project  CLAUDE.md  seed=templates/project/CLAUDE.md
+project  AGENTS.md  seed=templates/project/AGENTS.md
 
 # --- the owner's personal layer: skills and settings ---------------------------------------
 user     user/settings.json
