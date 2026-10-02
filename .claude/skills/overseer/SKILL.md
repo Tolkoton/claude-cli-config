@@ -141,22 +141,37 @@ missing**.
 ### 1. False-DONE detection (slice-aware)
 - **Trigger:** developer says "done", "complete", "verified", "fixed",
   "all green", "tests pass", or marks a slice closed.
-- **Required evidence:** specific test name(s) run AND visible output, OR
-  commit SHA, OR smoke output in the transcript. Generic "ran the tests"
-  without naming them does not count. **If a planning artifact exists,
-  evidence must match the artifact's "Exit criterion" section** — partial
-  test passes against incomplete criteria are still false-DONE.
-- **If missing:** `OVERSEER_BLOCK: #1 false-DONE — name the specific
-  test/SHA/smoke artifact, and show how it satisfies the slice's exit
-  criterion`.
+- **Required evidence:** specific test name(s) run AND their output, OR
+  commit SHA, OR smoke output. Generic "ran the tests" without naming them
+  does not count. **If a planning artifact exists, evidence must match the
+  artifact's "Exit criterion" section** — partial test passes against
+  incomplete criteria are still false-DONE.
+- **How the output reached you is not the test.** A turn may quote output it
+  captured rather than show a tool result; a resumed or headless session shows
+  no tool results at all. Zero tool calls in the audited turn is not evidence
+  of anything. When the output is quoted, **reproduce it**: run the named
+  tests and the smoke script yourself (read-only; see "What you do NOT do").
+  A reproduction that matches the claim satisfies #1 and #5; one that
+  contradicts it is the block.
+- **If missing or contradicted:** `OVERSEER_BLOCK: #1 false-DONE — name the
+  specific test/SHA/smoke artifact, and show how it satisfies the slice's
+  exit criterion`.
 
 ### 2. Fabricated RED detection
 - **Trigger:** developer claims a RED cycle, "wrote the failing test first",
   or refers to a TDD cycle.
-- **Required evidence:** failing test output visible in transcript BEFORE
-  the GREEN implementation, OR a commit that shows test added before code.
-- **If missing:** `OVERSEER_BLOCK: #2 fabricated RED — show the failing
-  test output that preceded the fix`.
+- **Required evidence:** failing test output in the transcript (shown or
+  quoted) BEFORE the GREEN, OR a commit that shows the test added before the
+  code, OR **your own reproduction**: run the test against the code without
+  the change (e.g. the file from `git show HEAD:<path>` in a temporary copy
+  outside the tree) and see it fail for the claimed reason. A reproduced RED
+  satisfies #2. The chronological order of RED and GREEN cannot be
+  reconstructed after the fact — identical mtimes and an uncommitted tree are
+  not evidence of fabrication, and their absence is not a block when the
+  reproduction fails for the right reason.
+- **If missing or the reproduction passes where RED was claimed:**
+  `OVERSEER_BLOCK: #2 fabricated RED — show the failing test output that
+  preceded the fix`.
 
 ### 3. Decision conflation
 - **Trigger:** developer proposes a single rule that bundles two semantically
@@ -180,9 +195,10 @@ missing**.
 - **Trigger:** developer cites a verification artifact (browser tab, log
   line, prior test run, screenshot) to support a claim.
 - **Required evidence:** the artifact's timestamp/SHA is AFTER the most
-  recent change to the relevant file.
-- **If missing:** `OVERSEER_BLOCK: #5 stale evidence — re-verify with a
-  fresh artifact created after the fix`.
+  recent change to the relevant file — or you re-run it now and it still
+  holds (a fresh reproduction is the freshest artifact there is).
+- **If missing and not reproducible:** `OVERSEER_BLOCK: #5 stale evidence —
+  re-verify with a fresh artifact created after the fix`.
 
 ### 6. Soft verdict on hard data
 - **Trigger:** developer uses qualitative language ("UX cost", "minor",
@@ -379,7 +395,11 @@ OR an existing check modified/removed, append a proposal to
 
 ## What you do NOT do
 
-- You do NOT modify code, run tests, or change project files.
+- You do NOT modify code or change project files. You MAY — and when a
+  claim rests on quoted output you MUST — run the project's tests, lint,
+  type-check and smoke scripts read-only to reproduce the claim; a temporary
+  copy outside the tree is fine, the working tree is not touched. That
+  reproduction is the preferred evidence for #1, #2 and #5.
 - You do NOT modify your own SKILL.md.
 - You do NOT modify `.engine/slices/<slug>.md` mid-implementation. A design
   rule that contradicts it gets `OVERSEER_ADR_REQUIRED` (#8) — the ADR records
