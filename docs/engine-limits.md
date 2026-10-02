@@ -55,8 +55,8 @@ closes this at the source rather than at run time:
 
 - the engine's hooks live in every repository that installs it and are wired there, by that
   repository's `.claude/settings.json`, and nowhere else. Nothing the engine ships writes a
-  hook into `~/.claude/`: the claude-autonomy skill's user scope installs a settings file
-  with no `hooks` block and no scripts (`assets/settings.user.json.template`), the personal
+  hook into `~/.claude/`: the installer is `engine.py` alone (the claude-autonomy skill that once
+  copied hooks into a home directory is retired), the personal
   layer (`user/settings.json`) must not wire hooks, and `engine.py install --personal`
   refuses one that does. `hook-checks/test_no_home_hook_copies.py` pins all three;
 - the hooks themselves contain **no** "stand down if another copy exists" logic. Package 3b

@@ -1,6 +1,6 @@
 # Permission philosophy — what goes where, and why
 
-This skill organizes permissions by the cost of the operation, not by its name.
+The engine's shared `.claude/settings.json` organizes permissions by the cost of the operation, not by its name. (Moved here from the retired claude-autonomy skill in package 3c; the facts were re-read against the live file on 2026-10-02.)
 
 ## The three buckets
 
@@ -14,13 +14,13 @@ The cost is irreversible damage in the worst case. Includes:
 - **Publishing**: `twine upload`, `uv publish`, `poetry publish`, `npm publish`. Yanking is annoying; accidentally publishing a private package once is a real incident.
 - **Migration tampering**: editing files in `migrations/`, `alembic/versions/`. These are append-only history; modifying a committed migration breaks every other developer's DB.
 - **CI tampering**: editing `.github/workflows/`. Subtle changes here propagate to production deploys.
-- **`git commit`**: not destructive per se, but commits are the human checkpoint in this workflow. Defense-in-depth makes the hook block it AND the settings.json have it in `ask` (where Claude would still get the message that this is a checkpoint).
+- **`git commit`**: not destructive per se, but a commit is the human's review checkpoint. `block-dangerous.sh` refuses it everywhere except on a run's own `unattended/*` branch (and in a cloud session when `CLOUD_COMMIT_POLICY` says so); it is not in the settings lists at all — see `docs/engine-limits.md`, "The commit policy, by environment".
 
 ### ask — Claude must request confirmation
 
 The cost is "I shared this with the world" or "I changed long-term state". Includes:
 
-- **`git push`, `gh pr create/merge`, `gh release`**: pushing affects the remote; PRs and releases are intent statements. Worth one explicit "yes" each.
+- **`git push`, `gh pr create/merge`, `gh release`**: pushing affects the remote (push is governed by this `ask` rule alone since 2026-10-01; the hook no longer blocks it); PRs and releases are intent statements. Worth one explicit "yes" each.
 - **Dependency adds/removes**: `uv add`, `poetry add`, `pip install`. Adding a dependency is a long-term commitment (licenses, security, transitive bloat). Defer to the human.
 - **Schema migrations**: `alembic upgrade/downgrade/revision`, `python manage.py migrate/makemigrations`. Even on dev DB, the schema delta is something the human should consciously approve.
 - **`docker push`, `docker run`, `docker compose up`**: starting containers can hog ports, create state on disk, or push images. Not catastrophic but worth confirming.
@@ -44,13 +44,13 @@ Everything else routine. The cost is at most some wasted time, recoverable by un
 
 `--dangerously-skip-permissions` is a runtime flag that disables ALL permission checks, including `deny` rules. It's intended for sandboxed environments (devcontainer, ephemeral VM) where there's nothing to destroy.
 
-This skill deliberately does NOT bake that flag into the configuration. If you're running in a sandbox, you can pass `--dangerously-skip-permissions` at the CLI yourself (e.g., for headless `claude -p` in CI inside a container). But the default config keeps the safety net so that even if Claude makes a mistake, the blast radius is bounded.
+The engine deliberately does not bake that flag into the configuration. If you're running in a sandbox, you can pass `--dangerously-skip-permissions` at the CLI yourself (e.g., for headless `claude -p` in CI inside a container). But the default config keeps the safety net so that even if Claude makes a mistake, the blast radius is bounded.
 
 ## How the bug-aware design works
 
 Claude Code's deny rules have known holes (see issues `anthropics/claude-code#6699`, `#12918`, `#27040`). For example, `Edit(./.env)` blocks the built-in Edit tool, but `Bash(echo SECRET >> .env)` may slip through if the Bash command doesn't trigger the right matcher.
 
-That's why this configuration uses three lines of defense:
+That's why the engine uses three lines of defense:
 
 1. **settings.json deny/ask/allow**: the documented mechanism. Blocks the obvious shapes.
 2. **`block-dangerous.sh` PreToolUse hook**: catches Bash patterns that slip past settings.json, including all the wildcard-expansion shapes.

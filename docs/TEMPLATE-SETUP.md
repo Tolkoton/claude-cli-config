@@ -308,7 +308,6 @@ This forces the agent to load the policy and map before doing anything else.
   hooks/          — 9 enforcement hooks (wired in settings.json)
   skills/         — vendored skills: overseer, slice-builder, master-architect,
                     feature-architect, self-learning-orchestrator, documentation,
-                    claude-autonomy
   agents/         — critic subagents: slice-planner-critic, feature-critic,
                     master-critic, critic-core
   commands/       — project commands: plan-slice, master-architect, feature-architect

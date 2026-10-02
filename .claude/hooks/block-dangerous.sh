@@ -40,7 +40,7 @@ for path in sys.argv[1:]:
 }
 
 if ! CMD=$(read_field tool_input.command 2>/dev/null); then
-  echo "BLOCKED by claude-autonomy safety hook: the tool call could not be read." >&2
+  echo "BLOCKED by the engine safety hook (block-dangerous.sh): the tool call could not be read." >&2
   echo "Neither jq nor python3 parsed the hook input, so this command cannot be checked." >&2
   echo "Install jq (or python3) and retry. Until then Bash calls are refused on purpose:" >&2
   echo "an unchecked command is a breach, a refused one is a nuisance." >&2
@@ -121,7 +121,7 @@ DANGEROUS_PATTERNS=(
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do
   if echo "$CMD" | grep -qE "$pattern"; then
-    echo "BLOCKED by claude-autonomy safety hook." >&2
+    echo "BLOCKED by the engine safety hook (block-dangerous.sh)." >&2
     echo "Pattern matched: $pattern" >&2
     echo "Command: $CMD" >&2
     echo "" >&2

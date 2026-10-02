@@ -1,6 +1,5 @@
 <!-- ============================================== -->
-<!-- ## Autonomy policy (configured by claude-autonomy skill) -->
-<!-- This section was added by the claude-autonomy skill.    -->
+<!-- ## Autonomy policy — the engine's standing rules (installed by engine.py) -->
 <!-- It contains only autonomy rules. Your implementation     -->
 <!-- skill should add coding conventions in a separate        -->
 <!-- section below this one.                                   -->

@@ -156,6 +156,6 @@ For everything else — every real coding session — run at minimum the session
 ## Compatibility notes
 
 Designed to compose with the broader project setup:
-- `claude-autonomy` provides PostToolUse / Stop hooks (quality gates) — those are execution feedback, not learning artifacts; this skill is orthogonal.
+- the engine's hooks provide PostToolUse / Stop hooks (quality gates) — those are execution feedback, not learning artifacts; this skill is orthogonal.
 - `master-architect` and `feature-architect` own architectural artifacts and may keep their own task-scoped `reflections.md`. This orchestrator handles the *between-task* and *across-task* memory; it defers when they're active.
 - The 12 research-backed skills (decisions-log-adr-lite, progress-file-for-long-tasks, pre-commit-self-review-checklist, plan-mode-and-task-decomposition, execution-feedback-debugging, etc.) are the delegates this orchestrator triggers via cue phrases.

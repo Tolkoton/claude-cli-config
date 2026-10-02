@@ -35,7 +35,6 @@ hooks, and supervisor under `.claude/`. Two consequences that surprise people:
 | `overseer` | Audit | auto-triggered by the Stop hook |
 | `self-learning-orchestrator` | Memory | session start/end, `/lesson`, `/wrap-up` |
 | `documentation` | Docs | any README/ADR/AGENTS.md work |
-| `claude-autonomy` | Config | one-time settings + hooks install |
 
 Critics (fresh-context, blind, in `.claude/agents/`): `master-critic`,
 `feature-critic`, `slice-planner-critic`, `mvp-critic`, all inheriting

@@ -48,11 +48,10 @@ agent (build) → `overseer` (audit). Plans live in
 | `slice-builder` | `[vendored]` | skill | Builds one thin vertical slice (seam-first TDD) |
 | `self-learning-orchestrator` | `[vendored]` | skill | Dispatches the memory lifecycle at each dev moment |
 | `documentation` | `[vendored]` | skill | Maintains AGENTS.md / ADRs / `docs/` (this guide's skill) |
-| `claude-autonomy` | `[vendored]` | skill | One-time config of `settings.json` + the 6 hooks |
 | `overseer` | `[project]` | skill | 12-check discipline audit of the last turn |
 | `plan-slice` | `[project]` | command | Writes a slice contract before implementation |
 | `/lesson` `/wrap-up` `/stuck` `/memory-maintenance` | `[global]` | commands | Memory-lifecycle entry points |
-| 6 hooks | `[project]` | hooks | Enforcement (see [§4](#4-the-enforcement-layer-hooks)) |
+| 9 hooks | `[engine]` | hooks | Enforcement (see [§4](#4-the-enforcement-layer-hooks)) |
 
 ---
 
@@ -77,10 +76,10 @@ volatile the artifact is.
 | `.engine/artifacts/spikes/*` | developer, smoke/probe scripts | `.engine/PROGRESS.md`, ADRs | dated, kept |
 | `.engine/artifacts/notes-during-session.md` | developer | developer | scratch |
 | `.engine/PROGRESS.md` (root) | `slice-builder`, developer | `overseer`, `self-learning-orchestrator`, humans | append-only |
-| `CLAUDE.md` (root) | `claude-autonomy`, `documentation`, `self-learning-orchestrator` (rare, confirmed) | **every agent** (always loaded) | rare |
+| `CLAUDE.md` (root) | `documentation`, `self-learning-orchestrator` (rare, confirmed) | **every agent** (always loaded) | rare |
 | `AGENTS.md` (root) | `documentation` | every agent (via `@AGENTS.md`) | with code changes |
 | `docs/adr/NNNN-*.md` | `documentation`, `master-architect`, developer | every agent, humans | **append-only / supersede** |
-| `.claude/settings.json` + 6 hooks | `claude-autonomy` | Claude Code harness (session start) | rare |
+| `.claude/settings.json` + 9 hooks | `engine.py install` (shipped from the engine repository) | Claude Code harness (session start) | rare |
 | `.claude/lesson-queue.md` | `/lesson`, developer | `/wrap-up` (session-end) | drained per session |
 | `~/.claude/memory/<tech>/MEMORY.md` `[global]` | `self-learning-orchestrator` | all (session start) | per session-end |
 | `decisions.md`, `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator` | same | created on demand |
@@ -89,7 +88,7 @@ volatile the artifact is.
 
 ## 4. The enforcement layer (hooks)
 
-All 6 are `[project]`, produced by `claude-autonomy`, wired in
+All 9 are `[engine]`, installed by `engine.py`, wired in
 `.claude/settings.json`. They are the harness-executed guardrails every agent
 runs inside.
 
