@@ -424,3 +424,18 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T14:21:07Z — FINDING — SOURCE_DIRS with a multi-segment entry was inert on absolute paths
 - overseer_stop._is_code_path matched an entry such as backend/src (the documented monorepo example) or .claude/hooks against a RELATIVE path only; Claude Code sends absolute ones. Every sandbox and scenario uses the single-segment "src", which took a different branch, so nothing caught it. Fixed in X7 (one containment test replaces the segment walk); pinned by tests/test_source_dirs.py.
+
+## 2026-10-02T14:44:23Z — AUTONOMOUS — 3c-fix-X8-runner-save-shape
+- Decision: run_audit_scenarios.py saves after every RUN (the owner said every scenario; a run is the unit paid for and the cost of saving is the same), writes temp-then-replace, records the resolved engine COMMIT and refuses --resume on a different commit, model, settings layers or runs-per-scenario; an existing --out without --resume is refused rather than replaced; --only takes a comma-separated list.
+- Door: two-way
+- Cost to reverse: each rule is one condition in main(); the file format only gained keys (engine_commit, status, pending).
+- Why not escalated: all are the owner's item 8 made concrete. The two refusals exist because forgetting a flag or moving HEAD between a crash and a resume are the two cheapest ways to destroy or contaminate paid results, and the second was the critic's blocking finding. The documented re-record command now needs the old file removed first; evals/README.md says so.
+- Evidence: tests/test_audit_runner_resume.py 32/32 with a claude shim and a SIGKILL at run 3; ~12 s.
+- Falsified by: a legitimate need to top up a file to more runs per scenario — then runs_per_scenario mismatch should become "continue up to the larger number" (one condition).
+- Status: CLOSED
+
+## 2026-10-02T14:44:23Z — FINDING — item 9's "45 mypy findings" were 9
+- The package 3c report counted the lines of mypy's output: nine errors, each call-overload error followed by six "possible overload variants" notes (6 x 6 = 36), 45 lines. The file had 9 strict errors at v0.10.1 and 9 at the start of the addendum. The report is corrected in place; the plan text keeps the owner's wording.
+
+## 2026-10-02T14:44:23Z — FINDING — a suite can be green by hand and red from the Stop gate
+- The gate runs TEST_CMD with Claude Code's hook environment, where CLAUDE_PROJECT_DIR names the project. tests/test_deny_gaps.py let block-dangerous.sh read this repository's branch through it, so on an unattended/<date> branch its commit cases came back ALLOWED — only from the gate. Seen on the first gate run of X7; pinned like test_deny_hooks. Any suite that calls a hook without pinning CLAUDE_PROJECT_DIR has the same exposure; the whole set ran green from the gate afterwards (102 s).

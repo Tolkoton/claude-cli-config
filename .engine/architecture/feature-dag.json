@@ -89,19 +89,22 @@
       "id": "X7",
       "title": "own project.env: SOURCE_DIRS = engine code dirs, CODE_EXTENSIONS py sh, TEST_CMD = bash tests/run_all.sh; fix _is_code_path for multi-segment dirs on absolute paths; AGENTS.md; time the suite",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "b3a8d94 matcher fix + tests/test_source_dirs.py 30/30; ff1e74d project.env, AGENTS.md, test_deny_gaps pinned; gate run by hand: green 102 s, red with a failing suite present; golden set 87/87."
     },
     {
       "id": "X8",
       "title": "run_audit_scenarios.py: save --out after every run, --resume completes a partial file, refuse mismatched or unflagged overwrite; shim-based test",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "a6423b4 save after every run (temp+replace), --resume, refusals on commit/model/layers/runs and on an unflagged --out, --only list; tests/test_audit_runner_resume.py 32/32 via a claude shim with SIGKILL."
     },
     {
       "id": "X9",
       "title": "tests/test_deny_hooks.py clean under mypy --strict, 66 cases unchanged",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "d11acd1 mypy --strict clean (9 errors, not 45 — the count was output lines); 66 cases unchanged."
     },
     {
       "id": "X10",
@@ -111,7 +114,8 @@
         "X8",
         "X9"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "records; run_all.sh re-timed at 31 suites: 143 s and 148 s wall."
     }
   ]
 }

@@ -148,3 +148,10 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Evidence: verify-on-stop.sh run by hand with CLAUDE_PROJECT_DIR set, dirty tree — "all checks passed" in 102 s; with an untracked failing suite present — decision block, "TESTS FAILED (bash tests/run_all.sh)". Golden hook set with the working-tree hooks: 87/87 identical to results-package-3c.json. First gate run also exposed tests/test_deny_gaps.py reading this repository's branch through the inherited CLAUDE_PROJECT_DIR (red under the gate, green by hand) — pinned to a throwaway main like test_deny_hooks.
 - Timing: bash tests/run_all.sh 100.4 s wall by hand (29 suites, before X7); the gate run 102 s (30 suites). Provisional — X10 re-measures after X8 adds a suite.
 - Category: config
+
+## 2026-10-02T14:44:23Z — engine-package-3c-fix addendum X7–X10 — ADDENDUM_BUILT
+- Trigger: the owner's addendum (items 7–9 of docs/plan/package-3c-fix.md). feature-critic round 2: REVISE (resolve the engine ref to a commit before comparing; temp+replace; kill at a run boundary; timing in X10; more matcher cases; separate commits; README note) → all applied.
+- Evidence: 31 suites green (tests/run_all.sh, 143 s / 148 s wall); golden hook set 87/87 identical to results-package-3c.json with the working-tree hooks (hooks unchanged since); ruff --isolated and mypy --strict clean on every touched Python file.
+- Action: SOURCE_DIRS matcher fixed for multi-segment entries on absolute paths; this repository's project.env describes the engine and the Stop gate runs the suite; the audit runner saves per run and resumes; test_deny_hooks.py strictly typed.
+- Still parked for the owner: C8b (post-move audit re-run — now resumable if it crashes), C9 (apply the settings proposal), S8, S9.
+- Category: build
