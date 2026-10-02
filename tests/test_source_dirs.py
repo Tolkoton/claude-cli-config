@@ -101,7 +101,7 @@ def main() -> int:
           hook._is_code_path(str(ROOT / ".claude/hooks/overseer_stop.py"), own, exts))
     check("an absolute edit of a skill does not",
           not hook._is_code_path(str(ROOT / ".claude/skills/overseer/SKILL.md"), own, exts))
-    check("TEST_CMD runs the suite", cfg.get("TEST_CMD") == "bash tests/run_all.sh", repr(cfg.get("TEST_CMD")))
+    check("TEST_CMD runs the fast subset of the suites (package 2b)", cfg.get("TEST_CMD") == "bash tests/run_all.sh --fast", repr(cfg.get("TEST_CMD")))
 
     print(f"\nPASS {PASS}   FAIL {FAIL}")
     return 1 if FAIL else 0

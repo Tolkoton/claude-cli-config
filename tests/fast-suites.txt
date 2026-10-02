@@ -1,0 +1,32 @@
+# The Stop-gate subset: `bash tests/run_all.sh --fast` runs exactly these suites, in this
+# order. Budget: 20 seconds wall on the author's machine (package 2b, item 8); the full set
+# (`bash tests/run_all.sh`, about 135 s) is the check before a tag.
+#
+# In: every suite under about 2 s plus the two hook negative-case suites. Out, with their
+# measured times (2026-10-02, sequential, idle machine): test_session_launch 30.2 s (real
+# headless sessions), test_complexity_budget 11.0, test_engine_install 10.1,
+# test_state_migration 9.3, test_deny_hooks 7.7, test_migration 7.2,
+# test_audit_runner_resume 7.1 (real sandboxes), test_commit_policy 5.6,
+# test_commit_checkpoint 3.9, test_audit_verdict_parsing ~3 (two sandboxes),
+# test_env_probe 2.8, test_personal_layer 2.7, test_project_seeds ~2.5.
+test_deny_gaps.py
+test_root_delete_deny.py
+test_format_on_edit.py
+test_engine_lint.py
+test_contract_fingerprint.py
+test_guardrail_paths.py
+test_overseer_continue.py
+test_ownership.py
+test_verify_on_stop.py
+test_legacy_records_survive.py
+test_install_collision.py
+test_no_home_hook_copies.py
+test_settings_proposal.py
+test_env_check.py
+test_recheck_parked.py
+test_no_machine_paths.py
+test_source_dirs.py
+test_selfref.py
+test_decision_logged.py
+test_context_budget.py
+test_text_hygiene.py

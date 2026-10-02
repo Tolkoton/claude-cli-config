@@ -137,6 +137,17 @@ def main() -> int:
     check("the import parser: inline and own-line imports, not code blocks, spans or e-mail",
           found == ["README", "docs/x.md", "~/home.md"], str(found))
 
+    # The Stop gate's fast subset (package 2b, item 8): `--fast` must run at least one suite,
+    # every name in the list must exist, and TEST_CMD must name the subset.
+    import subprocess
+
+    listed = subprocess.run(["bash", str(ROOT / "tests/run_all.sh"), "--fast", "--list"], capture_output=True, text=True, check=False)
+    suites = [s for s in listed.stdout.split("\n") if s]
+    check(f"`run_all.sh --fast` resolves to {len(suites)} suites (not a silent zero)", listed.returncode == 0 and len(suites) >= 1, listed.stderr)
+    check("every fast suite exists", all((ROOT / s).is_file() for s in suites), str(suites))
+    env_text = (ROOT / ".claude/project.env").read_text(encoding="utf-8")
+    check("TEST_CMD of this repository runs the fast subset", 'TEST_CMD="bash tests/run_all.sh --fast"' in env_text)
+
     print(f"\nPASS {PASS}   FAIL {FAIL}")
     return 1 if FAIL else 0
 
