@@ -100,3 +100,27 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
   - The first ask-clean watcher reported the run finished before it started, by
     matching a terminal line from an earlier run in the same log (fixed: anchored
     to the last start banner).
+
+## 2026-10-02T08:39:00Z — engine-package-3b / S7 apply-shared-settings — PARKED
+- Blocked on: copying docs/tasks/settings.json over .claude/settings.json — protect-paths.sh refuses that path to any agent, by design (D-23).
+- Class: human-input
+- Reversibility: `git checkout -- .claude/settings.json` restores the previous file; the proposal test holds on both sides of the apply.
+- Evidence: hook-checks/test_settings_proposal.py 8/8 (frozen pre-split effective settings, permissions.deny the one intended difference); hook-checks/test_root_delete_deny.py 37/37.
+- Unblocks when: the owner runs, from the repository root: `cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py` (prints "APPLIED"), then restarts Claude Code. No machine-checkable token: the live file always exists, so only a human moves this entry (recheck_parked.py once mis-read a mention of the token syntax here and resumed it).
+- Continued with: S2–S6.
+
+## 2026-10-02T08:39:00Z — engine-package-3b / S8 apply-personal — PARKED
+- Blocked on: a real write under ~/.claude — the run may only dry-run there (plan, step 9).
+- Class: human-input
+- Reversibility: `engine.py install --personal` writes `~/.claude/settings.json.engine-backup-<UTC>` before it changes the file; `cp` it back.
+- Evidence: the dry run against the real home (nothing written): 2 changes — `permissions` and `env` set from the layer, `model` and `theme` kept. hook-checks/test_personal_layer.py 29/29 on temporary homes.
+- Unblocks when: the owner runs `python3 engine.py install --personal --ref unattended/2026-10-02-package-3b --dry-run`, reads it, then the same without `--dry-run`, then restarts Claude Code. Do S7 first or together: until the shared file is applied the personal keys are set twice (harmlessly — same values).
+- Continued with: S2–S6.
+
+## 2026-10-02T09:00:00Z — engine-package-3b / S9 cloud-probe — PARKED
+- Blocked on: facts only a real cloud session can produce (which branch it checks out, the remote, whether CLAUDE_CODE_REMOTE is set as documented, which settings files are present).
+- Class: external-verification
+- Reversibility: the switch ships off; flipping it is one line in .claude/project.env, and `off` restores the shipped behaviour.
+- Evidence: .claude/unattended/env-probe.sh — hook-checks/test_env_probe.py 15/15 (cloud recognised from CLAUDE_CODE_REMOTE=true; the policy verdict follows the switch; secrets never printed).
+- Unblocks when: the owner runs `bash .claude/unattended/env-probe.sh` inside a Claude Code cloud session on this repository and pastes the output back; then, on that evidence, sets `CLOUD_COMMIT_POLICY="session-branch"` in .claude/project.env or leaves it off.
+- Continued with: S4–S6.

@@ -93,3 +93,16 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - (see the 24/7 harness entry above for what followed)
 - Post-install enforcement table, all verified: `git commit` → exit 2 (blocked on protected branch `main`); recursive root delete → exit 2 (pattern `rm -rf /$`); `git status` → exit 0 silent; `.env` write → **deny** (valid JSON); `.pem`, `.key`, `.ssh/id_rsa`, `migrations/*.py`, `.github/workflows/*` → deny; `src/app.py`, `README.md` → allow. 9/9 pass.
 - Category: recovery
+
+## 2026-10-02T09:15:00Z — engine-package-3b — PACKAGE_BUILT + 3_PARKED
+- Trigger: the owner's plan (docs/plan/package-3b.md), run through /feature-architect; three feature-critic rounds (REVISE, REVISE, PASS) shaped S2.
+- Evidence: seven commits on unattended/2026-10-02-package-3b (cd00c40 … 6b95cb7); 22 hook-check suites green incl. 8 new (personal_layer 29, settings_proposal 8, hooks_fire_once 33, commit_policy 20, commit_checkpoint 19, env_probe 15, root_delete_deny 37, install_collision 12); scenarios 86/86 on macOS, 77/77 identical to results-push-policy.json plus 9 intended new ones; ruff + mypy --strict clean on the 17 Python files the branch touched.
+- Action, one line per slice:
+  - S1 personal layer: user/settings.json, `engine.py install --personal`, evals/settings_parity.py, docs/tasks/{settings.json,README.md,effective-before-split.json}. Parity on the owner's real home file, read-only: 13/13 identical.
+  - S2 hooks fire once: static stand-down with STOOD_DOWN marker in all nine hooks; runner runs the session checkout's copy; the owner's real ~/.claude/settings.json holds model and theme only — no hooks, no duplicate.
+  - S3 commit policy by environment: cloud switch CLOUD_COMMIT_POLICY (off) in project.env; env-probe.sh; commit_checkpoint.sh keeps a suffixed branch and takes --staged.
+  - S4 deny list: exact root rules, -fr mirrors -rf, ./* dropped (same defect, found by the test); evals/permission_rules.py.
+  - S5 install.sh refuses a personal skill named like an engine skill or command; `my-` prefix. Found and fixed a pipefail/SIGPIPE bug in its own first version.
+  - S6 docs/engine-limits.md, TEMPLATE-SETUP personal layer, stale escalation closed with commit ids, ownership map, macOS baseline.
+- Parked for the owner: S7 apply the shared settings, S8 apply the personal layer, S9 run the probe in a cloud session (parked.md, exact commands).
+- Category: strategy

@@ -141,7 +141,7 @@ one; do not reopen the old one in conversation.
   the environment table (cloud switch, ships off) — see docs/engine-limits.md.
 - Status: CLOSED
 
-## 2026-10-02T10:40:00Z — AUTONOMOUS — 3b-baseline-alias
+## 2026-10-02T08:37:00Z — AUTONOMOUS — 3b-baseline-alias
 - Decision: `evals/baseline/clean-ubuntu-24.04/results-push-policy.json` is created as a copy
   of `results-package-3a.json` with a label saying so, instead of being recorded afresh.
 - Door: two-way
@@ -157,7 +157,7 @@ one; do not reopen the old one in conversation.
   the commits after the recording touch evals/ and docs/ only).
 - Status: CLOSED
 
-## 2026-10-02T10:41:00Z — AUTONOMOUS — 3b-S1-personal-keys
+## 2026-10-02T08:38:00Z — AUTONOMOUS — 3b-S1-personal-keys
 - Decision: ALL seven `permissions.additionalDirectories` entries move to the personal layer,
   `/tmp/claude/` included; `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` stays shared; the personal
   layer is read from the git ref like every other engine file and the home directory comes
@@ -178,7 +178,7 @@ one; do not reopen the old one in conversation.
   for every contributor — then it belongs in the shared file again.
 - Status: CLOSED
 
-## 2026-10-02T10:42:00Z — AUTONOMOUS — 3b-S1-frozen-before
+## 2026-10-02T08:39:00Z — AUTONOMOUS — 3b-S1-frozen-before
 - Decision: the proposal test compares against a FROZEN effective-settings snapshot
   (`docs/tasks/effective-before-split.json`, computed from a home fixture of the owner's
   file's shape plus the shared file before the split) rather than against the live
@@ -196,7 +196,7 @@ one; do not reopen the old one in conversation.
   applying — then the snapshot must be regenerated and the test says so by failing.
 - Status: CLOSED
 
-## 2026-10-02T11:30:00Z — AUTONOMOUS — 3b-S2-stand-down
+## 2026-10-02T08:52:00Z — AUTONOMOUS — 3b-S2-stand-down
 - Decision: every engine hook carries a static stand-down — not the project's own copy AND
   the project wires `hooks/<name>` → exit 0 with `STOOD_DOWN: …` on stderr — although the
   feature-critic's round-1 O1 asked to drop any runtime rule because identical handlers
@@ -220,7 +220,7 @@ one; do not reopen the old one in conversation.
   path rather than by command string — then the rule is dead weight and comes out.
 - Status: CLOSED
 
-## 2026-10-02T12:10:00Z — AUTONOMOUS — 3b-S3-cloud-switch
+## 2026-10-02T09:00:00Z — AUTONOMOUS — 3b-S3-cloud-switch
 - Decision: the cloud commit switch is `CLOUD_COMMIT_POLICY` in `.claude/project.env`
   (values `off` | `session-branch`, shipped `off`, absent = off), read with `sed` rather
   than `source`; "the session's branch" means the branch the cloud session has checked
@@ -245,7 +245,7 @@ one; do not reopen the old one in conversation.
   that CLAUDE_CODE_REMOTE is not set as documented — then the rule changes on evidence.
 - Status: CLOSED
 
-## 2026-10-02T12:50:00Z — AUTONOMOUS — 3b-S4-dot-slash-rule
+## 2026-10-02T09:06:00Z — AUTONOMOUS — 3b-S4-dot-slash-rule
 - Decision: besides the root rule the plan names, the `./` + `*` deny rules (both
   spellings) are removed from the proposal; `Bash(rm --recursive *)`, `~/*` and `$HOME*`
   stay as they are.
@@ -265,7 +265,7 @@ one; do not reopen the old one in conversation.
   by the hook — it adds the rule back in its own settings.json.
 - Status: CLOSED
 
-## 2026-10-02T13:20:00Z — AUTONOMOUS — 3b-S5-collision-scope
+## 2026-10-02T09:09:00Z — AUTONOMOUS — 3b-S5-collision-scope
 - Decision: install.sh compares personal skill names against engine SKILLS and engine
   COMMANDS (both are /<name>), not against agents; the prefix for new personal skills is
   `my-`; a collision refuses the whole deployment before anything is linked.
@@ -284,7 +284,7 @@ one; do not reopen the old one in conversation.
   separate namespaces — then the command half of the check is noise and comes out.
 - Status: CLOSED
 
-## 2026-10-02T13:50:00Z — AUTONOMOUS — 3b-S6-baseline-name
+## 2026-10-02T09:14:00Z — AUTONOMOUS — 3b-S6-baseline-name
 - Decision: the new reference results live at `evals/baseline/Laos-MacBook-Pro/results-package-3b.json`
   (the machine's LocalHostName; the plan says `<назва цієї машини>`), recorded from the S5
   commit (179ed43): S6 changes documents, the ownership map and tests, no hook, so the hook
