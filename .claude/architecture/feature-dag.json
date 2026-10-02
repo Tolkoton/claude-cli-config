@@ -1,67 +1,66 @@
 {
-  "feature": "engine-package-3b",
-  "note": "Package 3b: the personal settings layer, the commit policy by environment, hooks that fire once, and the small items of docs/plan/package-3b.md. Contract: .claude/architecture/feature/engine-package-3b.md. One slice = one commit on unattended/2026-10-02-package-3b. S7-S9 are owner-only and parked from the start with their exact unblocking step.",
+  "feature": "engine-package-3b-finish",
+  "note": "The owner's fix round on package 3b (docs/plan/package-3b-finish.md). Contract: .claude/architecture/feature/engine-package-3b-finish.md. Same branch, new commits only. F8 and the carried-over S8/S9 are owner-only and parked with their exact unblocking step.",
   "nodes": [
     {
-      "id": "S1",
-      "title": "personal-layer: user/settings.json, engine.py install --personal, the parity check, the proposed shared settings.json (tracer bullet)",
+      "id": "F1",
+      "title": "remove-stand-down: engine_stand_down() and ENGINE_HOOK_ALWAYS_RUN out of every hook and copy; claude-autonomy user scope installs no hooks; test_no_home_hook_copies.py",
       "deps": [],
-      "status": "done",
-      "evidence": "user/settings.json holds defaultMode, 7 additionalDirectories, WebFetch/WebSearch, 4 model env vars; engine.py install --personal [--dry-run] [--home] merges it (set/append/keep, backup before write, refuses hooks); evals/settings_parity.py computes effective settings per the documented merge rules; docs/tasks/settings.json + README.md (apply command) + effective-before-split.json. test_personal_layer.py 29/29, test_settings_proposal.py 8/8; parity on the owner's real home file read-only: 13/13 identical. ruff + mypy --strict clean on the 4 Python files."
+      "status": "pending"
     },
     {
-      "id": "S2",
-      "title": "hooks-fire-once: the personal layer wires no hooks; an engine hook outside the project stands down when the project wires its own copy",
-      "deps": [
-        "S1"
-      ],
-      "status": "done",
-      "evidence": "engine_stand_down() in all 9 hooks (4 skill copies synced): static rule, STOOD_DOWN marker on stderr, exit 0; ENGINE_HOOK_ALWAYS_RUN=1 the only override. Runner executes <project_dir>/.claude/hooks/<hook> for subdirectory sessions and sets the override for --hooks-dir. test_hooks_fire_once.py 33/33; owner's real ~/.claude/settings.json read-only: no hooks key, so no duplicate today. Pre-existing ruff/mypy findings in the 4 Python hooks cleared (16)."
-    },
-    {
-      "id": "S3",
-      "title": "commit-policy-by-environment: env-probe.sh, cloud commit switch (ships off), commit_checkpoint.sh keeps a suffixed branch and commits the index as staged",
+      "id": "F2",
+      "title": "push-leaves-the-hook: protected-branch block names commit only, message names the subcommand; ask/deny asserted in test_commit_policy; scenarios flipped; results-push-policy.json renamed",
       "deps": [],
-      "status": "done",
-      "evidence": "block-dangerous.sh: environment table in the header, cloud rule behind CLOUD_COMMIT_POLICY (project.env, ships off, read with sed); commit_checkpoint.sh keeps a suffixed unattended/* branch, --staged commits the index, mirrors the cloud rule; .claude/unattended/env-probe.sh prints the facts (names only for env vars, allow-listed values, masked remote URLs) and the policy's verdict here. test_commit_policy.py 20/20, test_commit_checkpoint.py 19/19, test_env_probe.py 15/15; 4 new scenarios (81 total)."
+      "status": "pending"
     },
     {
-      "id": "S4",
-      "title": "narrow-root-delete-deny: rm -fr/-rf parity, a reference matcher for Bash permission rules, the narrowed deny list in the proposal",
-      "deps": [
-        "S1"
-      ],
-      "status": "done",
-      "evidence": "block-dangerous.sh: every rm pattern accepts -rf and -fr; proposal deny list: exact root rules, -fr mirrors -rf, ./* rules dropped (same defect); evals/permission_rules.py implements the documented Bash-rule semantics; test_root_delete_deny.py 37/37 (13 refused, 8 allowed, division of labour, live-file defect shown); test_settings_proposal.py: permissions.deny is the one intended difference; 5 new scenarios (86)."
-    },
-    {
-      "id": "S5",
-      "title": "install-name-collision: install.sh refuses a user skill named like an engine skill; the prefix for new personal skills",
+      "id": "F3",
+      "title": "explicit-permission-mode: session-claude.sh passes --permission-mode acceptEdits; test_session_launch.py with a recording shim",
       "deps": [],
-      "status": "done",
-      "evidence": "install.sh refuses, before linking anything, when a user/skills name equals an engine skill or command name, with the reason and the my- prefix for new personal skills; existing live-build untouched. test_install_collision.py 12/12 (skill clash, command clash, clean deploy, idempotent re-run, real directory never destroyed, the real repository into a temp home)."
+      "status": "pending"
     },
     {
-      "id": "S6",
-      "title": "docs-and-records: docs/engine-limits.md, the personal layer in TEMPLATE-SETUP.md, the stale escalation closed, the ownership map, the macOS baseline",
+      "id": "F4",
+      "title": "personal-layer-reshape: defaultMode auto, no model variables; proposal test lists each intended difference with its reason",
+      "deps": [],
+      "status": "pending"
+    },
+    {
+      "id": "F5",
+      "title": "approve-project-data: PermissionRequest hook for project-owned paths under .claude/; proposal wiring; tests incl. ../ and symlinks; one real headless session",
       "deps": [
-        "S1",
-        "S2",
-        "S3",
-        "S4",
-        "S5"
+        "F4"
       ],
-      "status": "done",
-      "evidence": "docs/engine-limits.md (one session one repository; hooks guard tool calls not scripts; fire-once limits; settings levels; the deny list's *; the commit policy table); TEMPLATE-SETUP.md Step 3 describes the personal layer, hook count 9, pointer to the limits doc; the 2026-08-27 commit escalation closed with the commit ids (added 8029d22, removed 63df312); ownership map names every new path (test_ownership 49/49); evals/README lists the two instruments and the macOS baseline; AGENTS.md key paths updated; evals/baseline/Laos-MacBook-Pro/results-package-3b.json 86/86."
+      "status": "pending"
     },
     {
-      "id": "S7",
-      "title": "apply-shared-settings (OWNER): copy docs/tasks/settings.json over .claude/settings.json",
+      "id": "F6",
+      "title": "small-things: recheck_parked reads the Unblocks line only; test_engine_lint.py; test_engine_install skips the HEAD comparison while hooks are dirty; git commit -F documented; critics distinguish owner requirements",
+      "deps": [],
+      "status": "pending"
+    },
+    {
+      "id": "F7",
+      "title": "records-and-baseline: docs, ownership map, results-package-3b-finish.json, the report",
       "deps": [
-        "S4"
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F8",
+      "title": "wire-approve-project-data (OWNER): apply docs/tasks/settings.json over .claude/settings.json",
+      "deps": [
+        "F5"
       ],
       "status": "parked",
-      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and the proposal test passes against the live file."
+      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code."
     },
     {
       "id": "S8",
