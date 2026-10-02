@@ -29,6 +29,14 @@ from "edited here" (report it, keep it). A project copied by hand before this in
 has no lock; then each file is compared with every version the engine ever had at that path —
 any match is an untouched engine file (replace it), no match is an edit (keep it).
 
+A project's CLAUDE.md starts from the seed in templates/project/: a marked block
+(`<!-- >>> engine: ... -->` ... `<!-- <<< engine -->`) holding the import of the engine's
+standing rules, then the project's own text. engine.py rewrites what is between the markers
+when the ref's seed block differs, and never a byte outside them. An older project whose
+CLAUDE.md still holds the rules inline is reported: an unedited copy is replaced by the seed
+with --reseed-pristine; an edited one is left alone and the report names the import line to
+add and the line ranges that now duplicate .claude/engine-rules.md.
+
 engine.py never commits and never touches a file it does not own: review with `git status`.
 Exit status: 0 done, 1 done but some engine files were held back (see "keep"), 2 error.
 
@@ -61,6 +69,17 @@ BLOCK_END = "# <<< engine"
 EXIT_OK, EXIT_ATTENTION, EXIT_ERROR = 0, 1, 2
 FILE_MODES = ("100644", "100755")
 WRITING_VERBS = ("add", "update", "seed", "reseed")
+# The marked block in a project's CLAUDE.md (package 2b). Between the markers stands the
+# engine's text — today one line, `@.claude/engine-rules.md`, the import of the standing rules.
+# engine.py rewrites what is between the markers when the ref's seed block differs, and never
+# a byte outside them: everything below the end marker is the project's own.
+MD_BLOCK_BEGIN = "<!-- >>> engine:"
+MD_BLOCK_END = "<!-- <<< engine -->"
+RULES_IMPORT = "@.claude/engine-rules.md"
+RULES_FILE = ".claude/engine-rules.md"
+# A run of at least this many consecutive non-blank lines found verbatim in some version of the
+# engine's own CLAUDE.md (or of the seed) is reported as duplicated engine text.
+DUPLICATE_RUN_MIN = 3
 
 # Where a project's own data used to live before package 3c, and where it lives now. `update`
 # (and `install` on a copy without a lock) MOVES each old path that exists to its new place —
@@ -193,6 +212,74 @@ def prune_old_dirs(project: Path) -> None:
 
 class EngineError(Exception):
     """A condition the user has to fix. Printed without a traceback, exit status 2."""
+
+
+# --- the marked block and the duplicate-text report (CLAUDE.md, AGENTS.md) ----------------
+
+
+def marked_block(lines: list[str]) -> tuple[int, int] | None:
+    """(begin, end) line indexes of the engine's marked block, or None when a marker is missing."""
+    begin = next((i for i, line in enumerate(lines) if line.startswith(MD_BLOCK_BEGIN)), None)
+    end = next((i for i, line in enumerate(lines) if line.strip() == MD_BLOCK_END), None)
+    if begin is None or end is None or end <= begin:
+        return None
+    return begin, end
+
+
+def with_block_from(project_text: str, seed_text: str) -> str | None:
+    """The project's text with the engine's block replaced by the seed's; None when nothing
+    changes or either side lacks a complete block."""
+    own, seed = project_text.splitlines(), seed_text.splitlines()
+    own_block, seed_block = marked_block(own), marked_block(seed)
+    if own_block is None or seed_block is None:
+        return None
+    (ob, oe), (sb, se) = own_block, seed_block
+    if own[ob : oe + 1] == seed[sb : se + 1]:
+        return None
+    merged = own[:ob] + seed[sb : se + 1] + own[oe + 1 :]
+    return "\n".join(merged) + ("\n" if project_text.endswith("\n") else "")
+
+
+def duplicated_runs(project_text: str, engine_texts: list[str]) -> list[tuple[int, int, str]]:
+    """(first line, last line, label) of every run of >= DUPLICATE_RUN_MIN consecutive non-blank
+    lines of the project's file that occur verbatim (trailing whitespace ignored) in some version
+    of the engine's own file. Blank lines inside a run are neutral; an import line (`@path`) ends
+    a run — it is the project's wiring, not the engine's text. Line numbers are 1-based."""
+    known: set[str] = set()
+    for text in engine_texts:
+        known.update(line.rstrip() for line in text.splitlines() if line.strip() and not line.startswith("@"))
+
+    def neutral(line: str) -> bool:
+        return not line.strip() or re.fullmatch(r"\|[-:| ]+\|", line.strip()) is not None
+    runs: list[tuple[int, int, str]] = []
+    start: int | None = None
+    last = 0
+    count = 0
+    lines = project_text.splitlines()
+
+    def close() -> None:
+        nonlocal start, count
+        if start is not None and count >= DUPLICATE_RUN_MIN:
+            label = next((line.strip() for line in lines[start - 1 : last] if line.startswith("#")), lines[start - 1].strip())
+            runs.append((start, last, label[:60]))
+        start, count = None, 0
+
+    for number, line in enumerate(lines, 1):
+        if neutral(line):
+            continue
+        if line.rstrip() in known:
+            if start is None:
+                start = number
+            last = number
+            count += 1
+        else:
+            close()
+    close()
+    return runs
+
+
+def format_ranges(runs: list[tuple[int, int, str]]) -> str:
+    return ", ".join(f"lines {a}\u2013{b} ({label})" for a, b, label in runs)
 
 
 # --- ownership ---------------------------------------------------------------------------
@@ -607,9 +694,20 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
         seed_entry = tree[seed_path]
         if target.is_file():
             ids = src.file_ids(target)
-            # A record that MOVED here carries the history of its old path (package 3c).
-            known_blobs = history.get(target_path, set()) | history.get(legacy_path_of(target_path) or "", set())
-            if seed_entry.blob in ids or not ids & known_blobs:
+            # A record that MOVED here carries the history of its old path (package 3c), and a
+            # file seeded from an older version of the seed is pristine too (package 2b).
+            known_blobs = (
+                history.get(target_path, set())
+                | history.get(legacy_path_of(target_path) or "", set())
+                | history.get(seed_path, set())
+            )
+            if seed_entry.blob in ids:
+                continue
+            if not ids & known_blobs:
+                # Edited by the project: never touched outside the marked block. Report what the
+                # project should do about engine text it still carries (package 2b, item 4).
+                if target_path in ("CLAUDE.md", "AGENTS.md"):
+                    plan_root_file(src, plan, history, target_path, seed_path, seed_entry, commit)
                 continue
             if reseed_pristine:
                 plan.actions.append(
@@ -674,14 +772,58 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     if lock is not None and lock.commit != commit and src.is_ancestor(commit, lock.commit):
         plan.notes.append(f"this moves the project BACK from {lock.ref} ({lock.commit[:7]}) to an older engine")
 
-    plan.contents = src.read(blobs_needed)
+    plan.contents = {**plan.contents, **src.read(blobs_needed)}  # keeps a rendered block (plan_root_file)
     return plan
+
+
+def plan_root_file(src: EngineSource, plan: Plan, history: dict[str, set[str]], target_path: str,
+                   seed_path: str, seed_entry: Entry, commit: str) -> None:
+    """A project-edited CLAUDE.md or AGENTS.md: maintain the marked block, else report."""
+    target = plan.project / target_path
+    text = target.read_text(encoding="utf-8", errors="replace")
+    seed_bytes = src.show(commit, seed_path) or b""
+    seed_text = seed_bytes.decode("utf-8", "replace")
+    lines = text.splitlines()
+    has_begin = any(line.startswith(MD_BLOCK_BEGIN) for line in lines)
+    has_end = any(line.strip() == MD_BLOCK_END for line in lines)
+    if target_path == "CLAUDE.md" and (has_begin or has_end):
+        if has_begin and has_end and marked_block(lines) is not None:
+            merged = with_block_from(text, seed_text)
+            if merged is not None:
+                plan.actions.append(Action("block", target_path, "the engine's marked block updated to this ref's seed; text outside the markers untouched"))
+                plan.contents["block:" + target_path] = merged.encode("utf-8")
+            return
+        plan.notes.append(
+            f"{target_path}: the engine's block marker is incomplete "
+            f"({'end' if has_begin else 'begin'} marker missing); left alone — restore "
+            f"`{MD_BLOCK_END if has_begin else MD_BLOCK_BEGIN + ' ... -->'}` so engine.py can maintain the block"
+        )
+        return
+    # An old copy, edited: which of its lines are the engine's text that now lives elsewhere?
+    blobs = history.get(target_path, set()) | history.get(seed_path, set())
+    engine_texts = [data.decode("utf-8", "replace") for data in src.read(blobs).values()]
+    runs = duplicated_runs(text, engine_texts)
+    if target_path == "CLAUDE.md":
+        parts = []
+        if RULES_IMPORT not in text:
+            parts.append(f"add the line `{RULES_IMPORT}` inside a marked block (see {seed_path})")
+        if runs:
+            parts.append(f"delete {format_ranges(runs)} — they duplicate {RULES_FILE}")
+        if parts:
+            plan.notes.append(f"{target_path} is edited by the project and still carries the engine's old rules: " + "; ".join(parts))
+    elif runs:
+        plan.notes.append(
+            f"{target_path} {format_ranges(runs)} are this repository's own text from an old seed; keep only what describes your project"
+        )
 
 
 def apply_plan(plan: Plan) -> None:
     apply_migration(plan.project, plan.actions)  # first: a seed or an add must never land on a moving file
     for action in plan.actions:
         target = plan.project / action.path
+        if action.verb == "block":
+            target.write_bytes(plan.contents["block:" + action.path])
+            continue
         if action.verb in WRITING_VERBS:
             target.parent.mkdir(parents=True, exist_ok=True)
             if target.is_symlink():

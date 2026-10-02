@@ -483,3 +483,15 @@ one; do not reopen the old one in conversation.
 - Evidence: the classifier's refusal of `printf plan > .claude/state/overseer/state` (16:19Z); tests/test_overseer_phase.py shows set → _phase_is_plan True, clear → False.
 - Falsified by: the classifier refusing the script too — then the hook path is the only one and needs a docs/tasks proposal.
 - Status: CLOSED
+
+## 2026-10-02T20:05:00Z — AUTONOMOUS — 2b-D4-D5-D6-claude-md-shape
+- Decision: (D4) the seed CLAUDE.md carries a marked block (`<!-- >>> engine: ... -->` / `<!-- <<< engine -->`) around the one import line, and engine.py rewrites only the text between the markers when the ref's seed block differs — the invariant of item 4 made checkable; (D5) an edited old copy is never touched, the report names the import line and the line ranges duplicating .claude/engine-rules.md (runs ≥ 3 non-blank lines found in the engine's own history, trailing whitespace ignored, import lines end a run, table separators are neutral); (D6) a project file equal to any historical blob of its SEED path is pristine too.
+- Door: two-way
+- Cost to reverse: the block logic is one function pair and one action verb; the report is one function; D6 is one set union.
+- Why not escalated: the owner's two bullets (pristine → reseed, edited → exact report) are met literally; the block maintenance is what "outside a marked block" implies going forward, and it changes nothing in a project that keeps the block as seeded.
+- Evidence: tests/test_claude_md_update.py 29/29; decana --dry-run (read-only) boundaries verified by hand.
+- Falsified by: a project that legitimately edits inside the block — then the block must be compared against the engine's history before rewriting (one more condition).
+- Status: CLOSED
+
+## 2026-10-02T20:05:00Z — FINDING — decana carries the old rules inline, partly edited
+- `engine.py update ~/Documents/GitHub/decana --ref HEAD --dry-run` (read-only): CLAUDE.md is an edited old copy; the report names `@.claude/engine-rules.md` to add and seven ranges to delete (1–11, 37–43, 45–48, 52–92, 111–115, 119–145, 166–176); the gaps are decana's own edits of the rules ("### Commits are yours; the branch and the remote are the human's", a changed ask list, an extra hook row, a parked-queue paragraph). AGENTS.md lines 17–29 are the old seed's active-agents table and pipeline section. Exit 1 only for the three engine files decana edited (plan-slice.md, settings.json, slice-builder/SKILL.md), as in 3c. Nothing was written.
