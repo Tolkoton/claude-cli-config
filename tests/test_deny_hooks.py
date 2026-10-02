@@ -84,24 +84,26 @@ def _pinned_main_repo() -> str:
     green again on main, hiding the branch-dependence entirely. Pin the branch so
     each assertion means what it claims to mean.
     """
-    import tempfile
     root = tempfile.mkdtemp()
-    q = dict(capture_output=True, text=True, cwd=root)
-    subprocess.run(["git", "init", "-q"], **q, check=False)
-    subprocess.run(["git", "config", "user.email", "t@t"], **q, check=False)
-    subprocess.run(["git", "config", "user.name", "t"], **q, check=False)
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], capture_output=True, text=True, cwd=root, check=False)
+
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
     with open(os.path.join(root, "f.txt"), "w") as fh:
         fh.write("x")
-    subprocess.run(["git", "add", "f.txt"], **q, check=False)
-    subprocess.run(["git", "commit", "-qm", "init"], **q, check=False)
-    subprocess.run(["git", "branch", "-M", "main"], **q, check=False)
+    git("add", "f.txt")
+    git("commit", "-qm", "init")
+    git("branch", "-M", "main")
     return root
 
 
 PINNED_MAIN = _pinned_main_repo()
 
 
-def run_block(cmd: str, path_override: str | None = None) -> subprocess.CompletedProcess:
+def run_block(cmd: str, path_override: str | None = None) -> subprocess.CompletedProcess[str]:
     """block-dangerous.sh: exit 2 = block (reason on stderr), exit 0 = allow."""
     env = dict(os.environ, CLAUDE_PROJECT_DIR=PINNED_MAIN)
     if path_override:
@@ -112,7 +114,7 @@ def run_block(cmd: str, path_override: str | None = None) -> subprocess.Complete
         capture_output=True, text=True, env=env, check=False)
 
 
-def run_paths(file_path: str, path_override: str | None = None) -> subprocess.CompletedProcess:
+def run_paths(file_path: str, path_override: str | None = None) -> subprocess.CompletedProcess[str]:
     """protect-paths.sh: emits a JSON permissionDecision on stdout; always exit 0."""
     env = dict(os.environ, CLAUDE_PROJECT_DIR=str(REPO_ROOT))
     if path_override:
@@ -123,7 +125,7 @@ def run_paths(file_path: str, path_override: str | None = None) -> subprocess.Co
         capture_output=True, text=True, env=env, check=False)
 
 
-def decision(res: subprocess.CompletedProcess) -> tuple[str | None, str | None]:
+def decision(res: subprocess.CompletedProcess[str]) -> tuple[str | None, str | None]:
     """Parse a protect-paths decision. Returns (verdict, error).
 
     A deny the caller cannot PARSE is a deny that never happened -- that is the
