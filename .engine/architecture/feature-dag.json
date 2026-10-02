@@ -72,7 +72,8 @@
         "C1",
         "C7"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "engine-limits boundary section + project.env sentence; TEMPLATE-SETUP migration paragraph and directory reference; evals README; test_ownership 60/60; results-package-3c.json 87/87; audit: pre (valid run): matched 19/30 (3 sessions of scenario 10 hit the account usage limit), cost $27.92; post: NOT recorded — the first attempt crashed on a fixture at scenario 10 after nine paid-for scenarios; the re-run (~$28) exceeds the $60 limit and is the owner's call (parked); report docs/plan/package-3c-report.md."
     },
     {
       "id": "C9",
@@ -89,8 +90,9 @@
       "deps": [
         "F5"
       ],
-      "status": "parked",
-      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code."
+      "status": "superseded",
+      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code.",
+      "evidence": "approve-project-data.py retired in package 3c; C9 proposes the removal of its handler instead."
     },
     {
       "id": "S8",

@@ -132,3 +132,19 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Evidence: hook-checks/test_approve_project_data.py 40/40; hook-checks/test_settings_proposal.py 10/10 (the one handler is the only hooks difference); evals/probe_permission_hook.sh — three real headless sessions on Claude Code 2.1.287: with the hook the write to project data went through, without it refused, outside .claude/ refused.
 - Unblocks when: the owner runs, from the repository root, `cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code. No machine-checkable condition; a human moves this entry.
 - Continued with: F6, F7.
+
+## 2026-10-02T13:30:28Z — engine-package-3c / C8b post-move audit run — PARKED
+- Blocked on: money. The plan caps both audit runs at $60; spent so far: $8.93 (contaminated pre-move run) + $27.92 (valid pre-move run) + about $25 (post-move attempt that crashed on a missing fixture at scenario 10 and wrote nothing) ≈ $62. The valid post-move run costs about $28 more.
+- Class: one-way-door
+- Reversibility: money cannot be un-spent; everything else about the run is repeatable.
+- Evidence: evals/baseline/Laos-MacBook-Pro/audit-pre-3c.json (matched 19/27 valid sessions; scenario 10's three sessions hit the account usage limit); the crash cause is fixed (fixture moved, pre-flight check added to the runner).
+- Unblocks when: the owner says to spend it, then: `python3 evals/run_audit_scenarios.py --engine-ref 24abb7d --runs 3 --out evals/baseline/Laos-MacBook-Pro/audit-post-3c.json`, then `python3 <scratchpad>/audit_compare.py` (or by hand: compare matched/valid per scenario against audit-pre-3c.json; a difference counts only if larger than the noise between the two pre-move runs).
+- Continued with: C8 records and the report.
+
+## 2026-10-02T13:30:28Z — engine-package-3c / C9 apply-settings — PARKED
+- Blocked on: applying docs/tasks/settings.json (the approve-project-data handler removed) to .claude/settings.json — protect-paths.sh refuses that path to any agent, by design (D-23).
+- Class: human-input
+- Reversibility: `git checkout -- .claude/settings.json`; tests/test_settings_proposal.py holds on both sides of the apply.
+- Evidence: tests/test_settings_proposal.py 11/11 (the removal is the only hooks difference). Until applied, Claude Code reports the missing script once per Edit/Write/MultiEdit permission request.
+- Unblocks when: the owner runs, from the repository root, `cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code. No machine-checkable condition; a human moves this entry.
+- Continued with: C6–C8.

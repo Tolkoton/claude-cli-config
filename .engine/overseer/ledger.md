@@ -120,3 +120,18 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
   - F7 docs, ownership expectations, baseline, report.
 - Parked for the owner: F8 wire the hook (parked.md, one command), S8 personal layer into ~/.claude, S9 cloud probe.
 - Category: strategy
+
+## 2026-10-02T13:30:28Z — engine-package-3c — PACKAGE_BUILT + 1_PARKED
+- Trigger: the owner's plan (docs/plan/package-3c.md), run through /feature-architect; feature-critic: PREMISE_PROBE_REQUIRED (pristine legacy records across the move) → built as tests/test_legacy_records_survive.py.
+- Evidence: commits 2788357..HEAD on unattended/2026-10-02-package-3c; 28 suites green (tests/run_all.sh); hook scenarios 87/87 identical to results-package-3b-finish.json, recorded as results-package-3c.json; audit before/after: pre (valid run): matched 19/30 (3 sessions of scenario 10 hit the account usage limit), cost $27.92; post: NOT recorded — the first attempt crashed on a fixture at scenario 10 after nine paid-for scenarios; the re-run (~$28) exceeds the $60 limit and is the owner's call (parked); ruff + mypy --strict clean on every Python file of the repository; decana dry run: 17 moves, no loss.
+- Action, one line per slice:
+  - C1 audit-pre-3c.json (re-recorded from a worktree of the plan commit after the first run was contaminated by the move editing the runner mid-run).
+  - C2 the move: records → .engine/, template → .claude/templates/slice-contract.md, machine state → .claude/state/; every reader, seed, scenario, test, doc and the ownership map; legacy project rules; approve-project-data retired.
+  - C3 engine.py MIGRATIONS: old→new by table, conflicts kept and reported, --dry-run, idempotent; tests on v0.10.1, hand copy v0.8.0, conflict, older ref.
+  - C4 contract_fingerprint.py seal/check; plan-slice seals; overseer escalates instead of auditing a changed contract.
+  - C5 proposal drops the retired handler; session-claude.sh --settings; real sessions: SessionStart handlers 2 with and without the flag.
+  - C6 claude-autonomy skill retired; permission-philosophy.md kept and corrected; two stale references deleted.
+  - C7 hook-checks/ → tests/, test_selfref moved, tests/run_all.sh, this repo's TEST_CMD=true.
+  - C8 docs (engine-limits boundary section, TEMPLATE-SETUP migration and directory reference, evals README), ownership expectations, baselines, report.
+- Parked for the owner: C9 (apply the settings proposal), C8b (the post-move audit re-run, ~$28 beyond the $60 limit), S8 (personal layer into ~/.claude), S9 (cloud probe), F8 superseded by C9.
+- Category: strategy

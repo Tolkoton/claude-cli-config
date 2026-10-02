@@ -267,6 +267,18 @@ def shown(run: JsonObj) -> str:
     return str(run["marker"]) + (f"#{run['check']}" if run["check"] is not None else "")
 
 
+def preflight_paths(expected: JsonObj, ids: list[str]) -> list[Path]:
+    """Every scenario file, overlay directory and fixture the selected scenarios will read."""
+    paths: list[Path] = []
+    for scenario_id in ids:
+        expect = expected[scenario_id]
+        paths.append(SCENARIOS / f"{scenario_id}.md")
+        paths.extend(SCENARIOS / "work" / overlay for overlay in expect.get("overlays", []))
+        if expect.get("ledger_fixture"):
+            paths.append(SCENARIOS / str(expect["ledger_fixture"]))
+    return paths
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--engine-ref", default="HEAD", help="tag, branch or commit of this repo")
@@ -287,6 +299,13 @@ def main() -> int:
     ids = [i for i in sorted(expected) if args.only in i]
     if not ids:
         print(f"no scenario id contains {args.only!r}", file=sys.stderr)
+        return 2
+    # Pre-flight: every file a scenario will need must exist BEFORE the first session is paid
+    # for. Package 3c's post-move run crashed on a missing ledger fixture at scenario 10, after
+    # nine scenarios (about $25) had run and nothing had been written.
+    missing = [str(p) for p in preflight_paths(expected, ids) if not p.exists()]
+    if missing:
+        print("refusing to start: these scenario files are missing —\n  " + "\n  ".join(missing), file=sys.stderr)
         return 2
     version = ""
     if shutil.which(args.claude) or Path(args.claude).is_file():
