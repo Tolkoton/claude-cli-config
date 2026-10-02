@@ -15,7 +15,7 @@ push-нуто, нічого не злито. План — `docs/plan/package-3b.
 | 4 | `60300d6` | **S3** політика commit-ів за середовищем: таблиця в hook-у, перемикач `CLOUD_COMMIT_POLICY` (off) у `project.env`, `env-probe.sh`, `commit_checkpoint.sh` (суфіксна гілка, `--staged`, дзеркало хмарного правила) | `test_commit_policy` 20/20, `test_commit_checkpoint` 19/19, `test_env_probe` 15/15; 4 нові сценарії |
 | 5 | `8dfec4c` | **S4** deny-список: точні правила кореня, `-fr` дзеркалить `-rf`, правило `./*` прибрано; у hook-у паритет `-rf`/`-fr`; `evals/permission_rules.py` | `test_root_delete_deny` 37/37; 5 нових сценаріїв |
 | 6 | `179ed43` | **S5** `install.sh` відмовляється від особистої навички з іменем навички/команди двигуна; префікс `my-` | `test_install_collision` 12/12 (разом зі справжнім `install.sh` у тимчасову домівку) |
-| 7 | `6b95cb7` | **S6** `docs/engine-limits.md`, особистий шар у `TEMPLATE-SETUP.md`, застарілий запис escalations закрито, карта власності, `evals/README`, `AGENTS.md`, еталон `evals/baseline/Laos-MacBook-Pro/results-package-3b.json` | `test_ownership` 51/51; еталон 86/86 |
+| 7 | `6b95cb7` | **S6** `docs/engine-limits.md`, особистий шар у `TEMPLATE-SETUP.md`, застарілий запис escalations закрито, карта власності, `evals/README`, `AGENTS.md`, еталон `evals/baseline/Laos-MacBook-Pro/results-package-3b.json` | `test_ownership` 49/49; еталон 86/86 |
 | 8 | (цей) | записи: escalations (часові мітки вирівняно за commit-ами), parked (S7–S9), ledger, цей звіт | — |
 
 Підсумок після останнього commit-а: 22 набори hook-checks зелені (8 нових); сценарії
@@ -157,7 +157,7 @@ commit-и цієї гілки — доказ у дії.
 
 - Карта власності: `user/settings.json` (user), `docs/tasks/`, `docs/engine-limits.md`,
   `evals/settings_parity.py`, `evals/permission_rules.py`, `hook-checks/fixtures/` (project);
-  `env-probe.sh`, `commit_checkpoint.sh` — engine (постачаються). `test_ownership` 51/51.
+  `env-probe.sh`, `commit_checkpoint.sh` — engine (постачаються). `test_ownership` 49/49.
 - `docs/TEMPLATE-SETUP.md` Step 3: таблиця «спільне / особисте / локальне для машини»,
   `install --personal`, префікс `my-`, 9 hook-ів, посилання на обмеження.
 - Еталон `evals/baseline/Laos-MacBook-Pro/results-package-3b.json`: 86/86, macOS 14.8.9

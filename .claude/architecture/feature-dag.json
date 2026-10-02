@@ -52,7 +52,7 @@
         "S5"
       ],
       "status": "done",
-      "evidence": "docs/engine-limits.md (one session one repository; hooks guard tool calls not scripts; fire-once limits; settings levels; the deny list's *; the commit policy table); TEMPLATE-SETUP.md Step 3 describes the personal layer, hook count 9, pointer to the limits doc; the 2026-08-27 commit escalation closed with the commit ids (added 8029d22, removed 63df312); ownership map names every new path (test_ownership 51/51); evals/README lists the two instruments and the macOS baseline; AGENTS.md key paths updated; evals/baseline/Laos-MacBook-Pro/results-package-3b.json 86/86."
+      "evidence": "docs/engine-limits.md (one session one repository; hooks guard tool calls not scripts; fire-once limits; settings levels; the deny list's *; the commit policy table); TEMPLATE-SETUP.md Step 3 describes the personal layer, hook count 9, pointer to the limits doc; the 2026-08-27 commit escalation closed with the commit ids (added 8029d22, removed 63df312); ownership map names every new path (test_ownership 49/49); evals/README lists the two instruments and the macOS baseline; AGENTS.md key paths updated; evals/baseline/Laos-MacBook-Pro/results-package-3b.json 86/86."
     },
     {
       "id": "S7",
