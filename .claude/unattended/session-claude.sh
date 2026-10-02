@@ -59,7 +59,14 @@ trap 'cleanup; exit 143' TERM INT
 # for the orchestrating session, not for these.
 export CLAUDE_UNATTENDED_SESSION=1
 
+# The permission mode is passed EXPLICITLY. Since package 3b, `defaultMode` lives in the
+# owner's personal layer (~/.claude/settings.json), not in the shared .claude/settings.json
+# a project carries; an unattended session must not depend on what the home directory of
+# whatever machine runs the supervisor happens to say. acceptEdits is the mode the whole
+# design assumes: edits to non-protected paths go through, Bash is governed by the
+# allow/ask/deny lists and the hooks, and an ask-gated command is parked, not hung on.
 claude -p "$PROMPT" \
+  --permission-mode acceptEdits \
   --output-format json \
   > "$HERE/logs/last-session.json" 2> "$HERE/logs/last-session.err" &
 CLAUDE_PID=$!
