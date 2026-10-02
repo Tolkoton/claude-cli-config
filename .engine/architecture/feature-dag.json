@@ -5,7 +5,9 @@
     {
       "id": "X1",
       "title": "state-migration: STATE_MIGRATIONS (files, .budget-*.json pattern, logs/ and archive/ dirs); guard on supervisor.lock / fresh heartbeat -> keep + exit 1, data still moves",
-      "deps": [],
+      "deps": [
+        "X2"
+      ],
       "status": "pending"
     },
     {

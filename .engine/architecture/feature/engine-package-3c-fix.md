@@ -55,3 +55,7 @@ and the new .gitignore block no longer ignores the old paths.
   `STALL_TIMEOUT_SEC` defaults to 900 (config.sh) — the freshness threshold.
 - Claude Code 2.1.287 warns at session start that `Write(<path>)` permission rules are not
   matched by file permission checks (observed in C5; recorded as a FINDING).
+
+## Critic
+
+Round 1: REVISE — X1 must depend on X2 (the guard-skip branch leaves old-path state in place, which only the legacy machine rules protect). Applied: dependency added, the lock case asserts no `remove` for state and that the only `keep` lines are the guard's own.
