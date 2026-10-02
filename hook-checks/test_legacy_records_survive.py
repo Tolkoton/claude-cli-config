@@ -82,15 +82,20 @@ def main() -> int:
         r = subprocess.run([sys.executable, str(ENGINE_PY), "update", str(project), "--ref", "HEAD"], capture_output=True, text=True, env=env, check=False)
         t.check("the real update runs", r.returncode in (0, 1), r.stdout + r.stderr)
         after = {rel: (project / rel).read_bytes() for rel in LEGACY if (project / rel).is_file()}
-        migrated = {rel: (project / rel.replace(".claude/overseer/", ".engine/overseer/").replace(".claude/premises/", ".engine/premises/")).is_file() for rel in LEGACY}
-        if all(migrated.values()):
-            # a later slice taught engine.py to MOVE them — the content must have travelled intact
-            moved = {rel: (project / rel.replace(".claude/overseer/", ".engine/overseer/").replace(".claude/premises/", ".engine/premises/")).read_bytes() for rel in LEGACY}
-            t.check("migrated: every record arrived at its new path with the same bytes", moved == before)
-            t.check("migrated: nothing was left behind at the old paths", not after, str(sorted(after)))
-        else:
+
+        def new_path(rel: str) -> Path:
+            return project / rel.replace(".claude/overseer/", ".engine/overseer/").replace(".claude/premises/", ".engine/premises/")
+
+        if not after:
+            # engine.py MOVED them (package 3c, C3): the bytes must have travelled intact
+            moved = {rel: new_path(rel).read_bytes() for rel in LEGACY if new_path(rel).is_file()}
+            t.check("migrated: every record arrived at its new path with the same bytes", moved == before, str(sorted(moved)))
+        elif set(after) == set(LEGACY):
             t.check("not migrated (yet): every legacy record still there, byte for byte", after == before, str(sorted(after)))
-        t.check("no stray `.engine` seed with the OLD record's name was removed either", "remove  .claude/overseer" not in plan)
+        else:
+            t.check("records are either all moved or all left — never half", False, str(sorted(after)))
+        stray = [line for line in plan.splitlines() if line.strip().startswith("remove") and ".claude/overseer/" in line and "_template.md" not in line]
+        t.check("the only thing removed under .claude/overseer/ is the engine's own retired template", not stray, "\n".join(stray))
 
     print(f"\nPASS {t.passed}   FAIL {t.failed}")
     return 1 if t.failed else 0

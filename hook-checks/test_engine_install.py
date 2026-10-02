@@ -332,12 +332,21 @@ with tempfile.TemporaryDirectory(prefix="engine-install-test-") as tmp:
             any("an older engine version, adopted" in line for line in lines),
             r.stdout,
         )
+        old_ledger = (real / ".claude/overseer/ledger.md").read_bytes()
         r = subprocess.run(cmd + ["--reseed-pristine"], capture_output=True, text=True, env=env, check=False)
         check("real v0.8.0: the update applies", r.returncode == 0, r.stdout + r.stderr)
         ledger_seed = (ROOT / "templates/project/.engine/overseer/ledger.md").read_text()
+        # Package 3c: the copy's ledger is first MOVED to its new path intact (a seed never lands on
+        # a moving file); only the next update sees it as an unedited old engine record and reseeds.
         check(
-            "real v0.8.0: the engine's old ledger is replaced by the clean seed",
-            (real / ".engine/overseer/ledger.md").read_text() == ledger_seed,
+            "real v0.8.0: the engine's old ledger moved to .engine/ intact",
+            (real / ".engine/overseer/ledger.md").read_bytes() == old_ledger and not (real / ".claude/overseer/ledger.md").exists(),
+        )
+        r = subprocess.run(cmd + ["--reseed-pristine"], capture_output=True, text=True, env=env, check=False)
+        check(
+            "real v0.8.0: the next --reseed-pristine replaces the moved old record by the clean seed",
+            r.returncode == 0 and (real / ".engine/overseer/ledger.md").read_text() == ledger_seed,
+            r.stdout + r.stderr,
         )
         # The sandbox was installed from HEAD, so its hooks are HEAD's; the working tree's hooks
         # equal them only while nothing under .claude/hooks is uncommitted. Comparing while a

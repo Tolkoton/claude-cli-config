@@ -62,6 +62,82 @@ EXIT_OK, EXIT_ATTENTION, EXIT_ERROR = 0, 1, 2
 FILE_MODES = ("100644", "100755")
 WRITING_VERBS = ("add", "update", "seed", "reseed")
 
+# Where a project's own data used to live before package 3c, and where it lives now. `update`
+# (and `install` on a copy without a lock) MOVES each old path that exists to its new place —
+# file by file for a directory — when the ref's ownership map knows the new layout. A file
+# present in BOTH places is left alone and reported: the engine does not merge a project's
+# records. The old paths stay `project`-owned in the map so nothing else ever touches them.
+MIGRATIONS: tuple[tuple[str, str], ...] = (
+    (".claude/overseer/ledger.md", ".engine/overseer/ledger.md"),
+    (".claude/overseer/audit.md", ".engine/overseer/audit.md"),
+    (".claude/overseer/escalations.md", ".engine/overseer/escalations.md"),
+    (".claude/overseer/parked.md", ".engine/overseer/parked.md"),
+    (".claude/overseer/MEMORY.md", ".engine/overseer/MEMORY.md"),
+    (".claude/overseer/slice/", ".engine/slices/"),
+    (".claude/architecture/", ".engine/architecture/"),
+    (".claude/premises/", ".engine/premises/"),
+    (".claude/artifacts/", ".engine/artifacts/"),
+    ("PROGRESS.md", ".engine/PROGRESS.md"),
+)
+
+
+def legacy_path_of(path: str) -> str | None:
+    """The pre-3c path a new-layout path was moved from, or None."""
+    for old, new in MIGRATIONS:
+        if new.endswith("/") and path.startswith(new):
+            return old + path[len(new) :]
+        if path == new:
+            return old
+    return None
+
+
+def plan_migration(project: Path) -> tuple[list[Action], set[str]]:
+    """Moves for every old path that exists; conflicts as `keep`. Returns (actions, new paths)."""
+    actions: list[Action] = []
+    targets: set[str] = set()
+    for old, new in MIGRATIONS:
+        source = project / old
+        if old.endswith("/"):
+            if not source.is_dir() or source.is_symlink():
+                continue
+            files = sorted(p for p in source.rglob("*") if p.is_file() and not p.is_symlink())
+            pairs = [(old + p.relative_to(source).as_posix(), new + p.relative_to(source).as_posix()) for p in files]
+        else:
+            if not source.is_file() or source.is_symlink():
+                continue
+            pairs = [(old, new)]
+        for old_rel, new_rel in pairs:
+            if (project / new_rel).exists():
+                actions.append(Action("keep", old_rel, f"exists in both places ({new_rel} too); nothing touched — merge by hand"))
+            else:
+                actions.append(Action("move", old_rel, f"-> {new_rel}"))
+                targets.add(new_rel)
+    return actions, targets
+
+
+def apply_migration(project: Path, actions: list[Action]) -> None:
+    for action in actions:
+        if action.verb != "move":
+            continue
+        new_rel = action.detail[len("-> ") :]
+        target = project / new_rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(project / action.path, target)
+
+
+def prune_old_dirs(project: Path) -> None:
+    """An old directory emptied by the moves (and by a retired engine file leaving it) goes
+    too, deepest first; one with anything left in it stays."""
+    roots = {project / old.rstrip("/") if old.endswith("/") else (project / old).parent for old, _new in MIGRATIONS}
+    for root in sorted(roots, key=lambda p: -len(p.parts)):
+        if root == project or not root.is_dir() or root.is_symlink():
+            continue
+        for folder in sorted((d for d in root.rglob("*") if d.is_dir()), key=lambda p: -len(p.parts)):
+            if not any(folder.iterdir()):
+                folder.rmdir()
+        if not any(root.iterdir()):
+            root.rmdir()
+
 
 class EngineError(Exception):
     """A condition the user has to fix. Printed without a traceback, exit status 2."""
@@ -386,6 +462,13 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     def owned(path: str) -> str | None:
         return owner_of(rules, path)
 
+    # 0. The project's own data moves to where this ref keeps it — only when the ref's map knows
+    #    the new layout, so a project updated to an OLDER engine is never half-migrated.
+    migration_targets: set[str] = set()
+    if any(r.pattern.startswith(".engine/") for r in rules):
+        moves, migration_targets = plan_migration(project)
+        plan.actions.extend(moves)
+
     shipped = {p: e for p, e in tree.items() if owned(p) == "engine" and p != LOCK}
     for path, entry in shipped.items():
         if entry.mode not in FILE_MODES:
@@ -463,7 +546,9 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
         seed_entry = tree[seed_path]
         if target.is_file():
             ids = src.file_ids(target)
-            if seed_entry.blob in ids or not ids & history.get(target_path, set()):
+            # A record that MOVED here carries the history of its old path (package 3c).
+            known_blobs = history.get(target_path, set()) | history.get(legacy_path_of(target_path) or "", set())
+            if seed_entry.blob in ids or not ids & known_blobs:
                 continue
             if reseed_pristine:
                 plan.actions.append(
@@ -484,6 +569,8 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
                     else "is an unedited copy of an older engine version"
                 )
                 plan.notes.append(f"{target_path} {what}; --reseed-pristine replaces it with the seed")
+        elif target_path in migration_targets:
+            continue  # the project's own record is about to arrive there; a seed would overwrite it
         elif not target.exists() and target_path not in seeded_before:
             plan.actions.append(
                 Action("seed", target_path, f"from {seed_path}", blob=seed_entry.blob, mode=seed_entry.mode)
@@ -531,6 +618,7 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
 
 
 def apply_plan(plan: Plan) -> None:
+    apply_migration(plan.project, plan.actions)  # first: a seed or an add must never land on a moving file
     for action in plan.actions:
         target = plan.project / action.path
         if action.verb in WRITING_VERBS:
@@ -549,6 +637,8 @@ def apply_plan(plan: Plan) -> None:
         lock_path = plan.project / LOCK
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         lock_path.write_text(plan.lock_text, encoding="utf-8")
+    if any(a.verb == "move" for a in plan.actions):
+        prune_old_dirs(plan.project)
 
 
 def print_plan(plan: Plan, dry_run: bool) -> None:

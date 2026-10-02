@@ -334,3 +334,21 @@ one; do not reopen the old one in conversation.
 - Evidence: test_engine_lint.py: 7 engine-owned Python files, ruff clean, mypy --strict clean; test_selfref.py 10 refused / 8 allowed still.
 - Falsified by: an engine Python file the map misclassifies as project — test_ownership.py would catch the map first.
 - Status: CLOSED
+
+## 2026-10-02T12:06:14Z — AUTONOMOUS — 3c-C2-layout-and-legacy-rules
+- Decision: machine state keeps each file's old name under `.claude/state/<component>/`; `settings.local.json` and `worktrees/` stay where Claude Code puts them; the old record paths get explicit `project` rules before the `.claude/**` catch-all; the live records keep their entries and only the template header a record starts with follows its moved seed; approve-project-data.py is removed with the move (nothing project-owned is left under .claude/ for it to approve).
+- Door: two-way
+- Cost to reverse: the generic path pass in reverse; one commit.
+- Why not escalated: the owner fixed the destinations; file names inside `.claude/state/`, rule order in the map and the header sync are implementation. The legacy rules are what the critic's premise probe demanded (test_legacy_records_survive.py).
+- Evidence: 87/87 scenarios identical to results-package-3b-finish.json after the move; every suite green; the probe 9/9.
+- Falsified by: a project whose records diverge from the seed header — untouched by design, the test tolerates it.
+- Status: CLOSED
+
+## 2026-10-02T12:06:14Z — AUTONOMOUS — 3c-C3-migration-shape
+- Decision: migration is a table in engine.py applied before every other action, only when the ref's map knows `.engine/`; a conflict is `keep` with both files untouched (exit 1); emptied old directories are pruned; stale machine-state files a project still tracks at the old paths are NOT migrated (ephemeral by definition) and fall under the engine's existing retire/keep rule.
+- Door: two-way
+- Cost to reverse: one function and one tuple in engine.py.
+- Why not escalated: the owner specified the table, the conflict rule, --dry-run and the tests; ordering and the machine-state exclusion are implementation. decana's dry run shows the result on real data with no loss.
+- Evidence: test_migration.py 40/40; decana --dry-run: 17 moves, 0 losses.
+- Falsified by: a project that WANTS its tracked machine state carried over — then two rows in the table.
+- Status: CLOSED
