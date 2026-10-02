@@ -79,11 +79,37 @@ MIGRATIONS: tuple[tuple[str, str], ...] = (
     (".claude/artifacts/", ".engine/artifacts/"),
     ("PROGRESS.md", ".engine/PROGRESS.md"),
 )
+# Machine state moved the same way (package 3c put it under .claude/state/). A pattern entry
+# (`*` in the old path) moves every match into the new directory under its own name. State is
+# NOT moved while the unattended supervisor appears to be running — see supervisor_live().
+STATE_MIGRATIONS: tuple[tuple[str, str], ...] = (
+    (".claude/overseer/mode", ".claude/state/overseer/mode"),
+    (".claude/overseer/state", ".claude/state/overseer/state"),
+    (".claude/overseer/.last_audit_sha", ".claude/state/overseer/.last_audit_sha"),
+    (".claude/overseer/.last_continue_sha", ".claude/state/overseer/.last_continue_sha"),
+    (".claude/overseer/.continue_count", ".claude/state/overseer/.continue_count"),
+    (".claude/overseer/.budget-*.json", ".claude/state/overseer/"),
+    (".claude/overseer/complexity-report.md", ".claude/state/overseer/complexity-report.md"),
+    (".claude/unattended/state.json", ".claude/state/unattended/state.json"),
+    (".claude/unattended/cost.json", ".claude/state/unattended/cost.json"),
+    (".claude/unattended/heartbeat", ".claude/state/unattended/heartbeat"),
+    (".claude/unattended/restarts.log", ".claude/state/unattended/restarts.log"),
+    (".claude/unattended/sim-plan.txt", ".claude/state/unattended/sim-plan.txt"),
+    (".claude/unattended/supervisor.lock", ".claude/state/unattended/supervisor.lock"),
+    (".claude/unattended/logs/", ".claude/state/unattended/logs/"),
+    (".claude/unattended/archive/", ".claude/state/unattended/archive/"),
+)
+# The harness's stall timeout (config.sh STALL_TIMEOUT_SEC default): a heartbeat younger than
+# this means a session may be writing state right now.
+STALL_TIMEOUT_S = 900
+SUPERVISOR_STOP_FIRST = "unattended supervisor appears live ({why}): stop it first; the state is not moved"
 
 
 def legacy_path_of(path: str) -> str | None:
     """The pre-3c path a new-layout path was moved from, or None."""
-    for old, new in MIGRATIONS:
+    for old, new in MIGRATIONS + STATE_MIGRATIONS:
+        if "*" in old:
+            continue
         if new.endswith("/") and path.startswith(new):
             return old + path[len(new) :]
         if path == new:
@@ -91,21 +117,47 @@ def legacy_path_of(path: str) -> str | None:
     return None
 
 
-def plan_migration(project: Path) -> tuple[list[Action], set[str]]:
+def supervisor_live(project: Path) -> str | None:
+    """Why the unattended supervisor seems to be running — a lock, or a fresh heartbeat — else None."""
+    for lock in (project / ".claude/unattended/supervisor.lock", project / ".claude/state/unattended/supervisor.lock"):
+        if lock.exists():
+            return f"{lock.relative_to(project).as_posix()} exists"
+    for beat in (project / ".claude/unattended/heartbeat", project / ".claude/state/unattended/heartbeat"):
+        try:
+            age = datetime.now(timezone.utc).timestamp() - beat.stat().st_mtime
+        except OSError:
+            continue
+        if age < STALL_TIMEOUT_S:
+            return f"{beat.relative_to(project).as_posix()} is {int(age)} s old"
+    return None
+
+
+def migration_pairs(project: Path, old: str, new: str) -> list[tuple[str, str]]:
+    """(old path, new path) for everything an entry of a migration table covers right now."""
+    source = project / old
+    if "*" in old:
+        parent = source.parent
+        if not parent.is_dir():
+            return []
+        return [(old.rsplit("/", 1)[0] + "/" + p.name, new + p.name) for p in sorted(parent.glob(source.name)) if p.is_file() and not p.is_symlink()]
+    if old.endswith("/"):
+        if not source.is_dir() or source.is_symlink():
+            return []
+        files = sorted(p for p in source.rglob("*") if p.is_file() and not p.is_symlink())
+        return [(old + p.relative_to(source).as_posix(), new + p.relative_to(source).as_posix()) for p in files]
+    if not source.is_file() or source.is_symlink():
+        return []
+    return [(old, new)]
+
+
+def plan_migration(project: Path, table: tuple[tuple[str, str], ...] = MIGRATIONS) -> tuple[list[Action], set[str]]:
     """Moves for every old path that exists; conflicts as `keep`. Returns (actions, new paths)."""
     actions: list[Action] = []
     targets: set[str] = set()
-    for old, new in MIGRATIONS:
-        source = project / old
-        if old.endswith("/"):
-            if not source.is_dir() or source.is_symlink():
-                continue
-            files = sorted(p for p in source.rglob("*") if p.is_file() and not p.is_symlink())
-            pairs = [(old + p.relative_to(source).as_posix(), new + p.relative_to(source).as_posix()) for p in files]
-        else:
-            if not source.is_file() or source.is_symlink():
-                continue
-            pairs = [(old, new)]
+    for old, new in table:
+        pairs = migration_pairs(project, old, new)
+        if not pairs:
+            continue
         for old_rel, new_rel in pairs:
             if (project / new_rel).exists():
                 actions.append(Action("keep", old_rel, f"exists in both places ({new_rel} too); nothing touched — merge by hand"))
@@ -128,7 +180,7 @@ def apply_migration(project: Path, actions: list[Action]) -> None:
 def prune_old_dirs(project: Path) -> None:
     """An old directory emptied by the moves (and by a retired engine file leaving it) goes
     too, deepest first; one with anything left in it stays."""
-    roots = {project / old.rstrip("/") if old.endswith("/") else (project / old).parent for old, _new in MIGRATIONS}
+    roots = {project / old.rstrip("/") if old.endswith("/") else (project / old).parent for old, _new in MIGRATIONS + STATE_MIGRATIONS}
     for root in sorted(roots, key=lambda p: -len(p.parts)):
         if root == project or not root.is_dir() or root.is_symlink():
             continue
@@ -468,6 +520,15 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     if any(r.pattern.startswith(".engine/") for r in rules):
         moves, migration_targets = plan_migration(project)
         plan.actions.extend(moves)
+        # Machine state follows — unless a supervisor may be writing it this very moment.
+        live = supervisor_live(project)
+        state_moves, state_targets = plan_migration(project, STATE_MIGRATIONS)
+        if live is None:
+            plan.actions.extend(state_moves)
+            migration_targets |= state_targets
+        else:
+            for action in state_moves:
+                plan.actions.append(Action("keep", action.path, SUPERVISOR_STOP_FIRST.format(why=live)))
 
     shipped = {p: e for p, e in tree.items() if owned(p) == "engine" and p != LOCK}
     for path, entry in shipped.items():
