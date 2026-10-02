@@ -31,7 +31,8 @@
       "deps": [
         "C2"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "contract_fingerprint.py seal/check; plan-slice seals after the write; overseer_stop escalates instead of auditing a changed contract; CLAUDE.md protocol bullet; test_contract_fingerprint.py 15/15."
     },
     {
       "id": "C5",

@@ -352,3 +352,12 @@ one; do not reopen the old one in conversation.
 - Evidence: test_migration.py 40/40; decana --dry-run: 17 moves, 0 losses.
 - Falsified by: a project that WANTS its tracked machine state carried over — then two rows in the table.
 - Status: CLOSED
+
+## 2026-10-02T12:09:47Z — AUTONOMOUS — 3c-C4-fingerprint-shape
+- Decision: the fingerprint is `.claude/state/contracts/<slug>.sha256` holding the digest and the contract path; `seal` refuses to overwrite (exit 3) and the planner is told never to delete a fingerprint itself; the overseer finds the active contract by the IN PROGRESS block of .engine/PROGRESS.md (complexity_budget's convention) and, on a mismatch, blocks with an escalation instruction under the same per-message guard as an audit; a contract with no fingerprint is audited as before.
+- Door: two-way
+- Cost to reverse: one hook file, two functions in overseer_stop.py, one paragraph in plan-slice.
+- Why not escalated: the owner specified seal-on-approval, refuse-overwrite, compare-before-audit, escalate-on-change and tests for both cases; the file format, the discovery of the active contract and the no-fingerprint behaviour are implementation. Auditing pre-3c contracts as before avoids blocking every project in flight.
+- Evidence: test_contract_fingerprint.py 15/15 against the real Stop hook.
+- Falsified by: a project whose PROGRESS.md does not mark the slice IN PROGRESS — then there is no active contract and no check; the complexity gate has the same limit.
+- Status: CLOSED

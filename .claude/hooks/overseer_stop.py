@@ -522,6 +522,57 @@ def _record_audit(project_dir: Path, message: str) -> None:
     sha_file.write_text(_message_digest(message) + "\n", encoding="utf-8")
 
 
+CONTRACT_RE = re.compile(r"\.engine/slices/([\w.-]+)\.md")
+SLICE_HEADING_RE = re.compile(r"^##\s+Slice\s+([\w.-]+)", re.MULTILINE)
+CONTRACT_CHANGED_REASON = (
+    "CONTRACT CHANGED AFTER APPROVAL — no audit was run. The active slice contract {contract} "
+    "no longer matches the fingerprint sealed when the planner-critic loop approved it "
+    "({fingerprint}). An audit against a moved goalpost proves nothing, so this turn is "
+    "ESCALATED instead: append an entry to .engine/overseer/escalations.md naming the "
+    "contract, what changed (git diff it), and who changed it; then either restore the "
+    "approved contract, or have the OWNER delete the fingerprint and re-plan the slice with "
+    "/plan-slice. Do not delete the fingerprint yourself. End the turn with OVERSEER_ESCALATE: "
+    '{{"reason": "contract changed after approval", "contract": "{contract}"}}.'
+)
+
+
+def _active_contract(project_dir: Path) -> Path | None:
+    """The contract of the slice .engine/PROGRESS.md marks IN PROGRESS — the convention
+    complexity_budget.py reads too: a `.engine/slices/<slug>.md` path in that block, else
+    the slug from its `## Slice <slug>` heading."""
+    progress = project_dir / ".engine" / "PROGRESS.md"
+    try:
+        text = progress.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for block in re.split(r"(?=^## )", text, flags=re.MULTILINE):
+        if "IN PROGRESS" not in block.upper():
+            continue
+        named = CONTRACT_RE.search(block)
+        heading = SLICE_HEADING_RE.search(block)
+        slug = named.group(1) if named else (heading.group(1) if heading else None)
+        if slug:
+            return project_dir / ".engine" / "slices" / f"{slug}.md"
+    return None
+
+
+def _contract_changed(project_dir: Path) -> tuple[Path, Path] | None:
+    """(contract, fingerprint) when the active contract no longer matches its sealed
+    fingerprint; None when it matches, has no fingerprint, or there is no active slice."""
+    contract = _active_contract(project_dir)
+    if contract is None or not contract.is_file():
+        return None
+    fingerprint = project_dir / ".claude" / "state" / "contracts" / f"{contract.stem}.sha256"
+    if not fingerprint.is_file():
+        return None
+    try:
+        recorded = fingerprint.read_text(encoding="utf-8").split()[0]
+    except (OSError, IndexError):
+        return None
+    actual = hashlib.sha256(contract.read_bytes()).hexdigest()
+    return None if recorded == actual else (contract, fingerprint)
+
+
 def main() -> NoReturn:
     # NOTE — `stop_hook_active`-based Guard 1 was removed (see module
     # docstring "RECURSION GUARDS"). It preempted the per-branch SHA
@@ -590,6 +641,20 @@ def main() -> NoReturn:
     )
     if not tool_signal:
         _stop_or_continue(project_dir)
+
+    # Package 3c: the contract the audit would judge against must be the one that was
+    # approved. Changed since sealing → escalate, never audit (recorded like an audit so the
+    # same message does not fire twice).
+    changed = _contract_changed(project_dir)
+    if changed is not None:
+        contract, fingerprint = changed
+        _record_audit(project_dir, message)
+        _emit_block(
+            CONTRACT_CHANGED_REASON.format(
+                contract=contract.relative_to(project_dir).as_posix(),
+                fingerprint=fingerprint.relative_to(project_dir).as_posix(),
+            )
+        )
 
     _record_audit(project_dir, message)
     _emit_block(AUDIT_REASON)

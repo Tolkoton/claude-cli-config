@@ -135,6 +135,12 @@ To inspect a hook: `cat .claude/hooks/<name>`. To temporarily disable: rename to
   - Attended, `AskUserQuestion` is still the right tool and still cheap. Unattended, never block on it — it waits on a prompt nobody will answer.
 - Address the human only at a surface threshold: nothing unblocked can move, a single one-way door, three parked ratification items, or a falsified premise that invalidates committed work. See `.engine/overseer/parked.md`.
 - Always append the entry the skill prescribes to `.engine/overseer/ledger.md`.
+- **The contract is sealed.** `/plan-slice` records the SHA-256 of the approved contract in
+  `.claude/state/contracts/<slug>.sha256` (`contract_fingerprint.py seal`, which refuses to
+  overwrite). Before injecting an audit the Stop hook compares the active contract with
+  it; a contract changed after approval gets no audit — the turn is blocked with an
+  escalation instruction instead. Re-approving a changed contract is the owner's act
+  (delete the fingerprint on purpose, or plan a new slug); never delete it yourself.
 - **Recursion safety & override.** The hook has **two per-branch SHA-256
   idempotency guards** — `.claude/state/overseer/.last_audit_sha` for the audit-request
   branch (`overseer_stop.py:388-394`) and `.claude/state/overseer/.last_continue_sha`

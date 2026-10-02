@@ -243,6 +243,15 @@ shape of change that can meet the exit criterion, with `base_commit` set to the 
 `python3 .claude/hooks/complexity_budget.py validate .engine/slices/$ARGUMENTS.md`
 and fix what it reports. Include the budget in the owner summary below.
 
+**Seal the contract** — the critic has passed it and it is written, so record what was approved:
+`python3 .claude/hooks/contract_fingerprint.py seal .engine/slices/$ARGUMENTS.md`. The
+fingerprint goes to `.claude/state/contracts/$ARGUMENTS.sha256` (machine state, never
+committed). It refuses to overwrite an existing one: if this is a re-plan of a slug that was
+already sealed, that refusal is the owner's gate — do not delete the fingerprint yourself;
+tell the owner the contract changed after approval and let them delete it or choose a new
+slug. From now on the overseer compares the contract against this fingerprint before every
+audit and escalates instead of auditing when it has changed.
+
 1. `Edit` a ledger entry into `.engine/overseer/ledger.md` (top of entries):
    ```
    ## <ISO timestamp UTC> — $ARGUMENTS — PLANNING_COMPLETE
