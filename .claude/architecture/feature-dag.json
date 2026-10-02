@@ -22,7 +22,8 @@
       "id": "S3",
       "title": "commit-policy-by-environment: env-probe.sh, cloud commit switch (ships off), commit_checkpoint.sh keeps a suffixed branch and commits the index as staged",
       "deps": [],
-      "status": "pending"
+      "status": "done",
+      "evidence": "block-dangerous.sh: environment table in the header, cloud rule behind CLOUD_COMMIT_POLICY (project.env, ships off, read with sed); commit_checkpoint.sh keeps a suffixed unattended/* branch, --staged commits the index, mirrors the cloud rule; .claude/unattended/env-probe.sh prints the facts (names only for env vars, allow-listed values, masked remote URLs) and the policy's verdict here. test_commit_policy.py 20/20, test_commit_checkpoint.py 19/19, test_env_probe.py 15/15; 4 new scenarios (81 total)."
     },
     {
       "id": "S4",

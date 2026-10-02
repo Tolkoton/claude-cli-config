@@ -211,3 +211,28 @@ one; do not reopen the old one in conversation.
 - Falsified by: Claude Code documenting that handlers are deduplicated by resolved script
   path rather than by command string — then the rule is dead weight and comes out.
 - Status: CLOSED
+
+## 2026-10-02T12:10:00Z — AUTONOMOUS — 3b-S3-cloud-switch
+- Decision: the cloud commit switch is `CLOUD_COMMIT_POLICY` in `.claude/project.env`
+  (values `off` | `session-branch`, shipped `off`, absent = off), read with `sed` rather
+  than `source`; "the session's branch" means the branch the cloud session has checked
+  out, any name, except the five protected ones; the switch stays off locally even when
+  the key says `session-branch`; the environment probe lives at
+  `.claude/unattended/env-probe.sh`, prints `key=value` lines, reports environment
+  variables by NAME and prints values only for an allow-list of non-secret ones.
+- Door: two-way
+- Cost to reverse: one key renamed in two project.env files and two scripts; the probe is
+  a stand-alone file.
+- Why not escalated: the owner decided the policy table; what remained was where the
+  switch lives and what it reads. project.env is already the hooks' runtime configuration
+  surface and is a `project` file, so flipping it is a per-project decision that never
+  ships back out of a project. `sed` instead of `source` because a deny hook must not
+  execute a project file to decide a denial. "Any non-protected branch" because the shape
+  of a cloud session's branch is precisely what the probe exists to observe — guessing a
+  prefix (`claude/…`) would encode an unverified premise into a deny control.
+- Evidence: test_commit_policy.py 20/20 (8 environment cases), test_commit_checkpoint.py
+  19/19, test_env_probe.py 15/15 (a planted ANTHROPIC_API_KEY value and a user:token@ in
+  a remote URL never appear in the output); 4 new hook scenarios.
+- Falsified by: the probe showing a cloud session checks out a protected branch name, or
+  that CLAUDE_CODE_REMOTE is not set as documented — then the rule changes on evidence.
+- Status: CLOSED

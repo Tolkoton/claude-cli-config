@@ -278,6 +278,112 @@
         }
       },
       "expect": "block"
+    },
+    {
+      "id": "bd-commit-cloud-switch-off",
+      "why": "A cloud session (CLAUDE_CODE_REMOTE=true) on its own branch may not commit while CLOUD_COMMIT_POLICY is off — the shipped default, until the owner has run env-probe.sh in a real cloud session.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m \"wip\""
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "unattended/<date>"
+    },
+    {
+      "id": "bd-commit-cloud-switch-on",
+      "why": "With CLOUD_COMMIT_POLICY=session-branch in .claude/project.env, a cloud session commits on the branch it checked out.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        },
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m \"wip\""
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-commit-cloud-switch-on-but-main",
+      "why": "The cloud switch never reaches a protected branch: main is refused before the policy is consulted.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m \"wip\""
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "protected branch"
+    },
+    {
+      "id": "bd-commit-local-with-cloud-switch-on",
+      "why": "The switch is for cloud sessions only; locally the same project.env changes nothing — attended, a commit stays the owner's checkpoint.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        },
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        }
+      ],
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m \"wip\""
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "unattended/<date>"
     }
   ]
 }

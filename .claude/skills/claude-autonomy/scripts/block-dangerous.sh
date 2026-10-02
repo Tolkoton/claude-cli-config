@@ -168,30 +168,66 @@ for protected in "${PROTECTED_BRANCHES[@]}"; do
   fi
 done
 
-# Commit policy — owner-ratified 2026-08-27.
+# Commit policy — by environment. Owner-ratified 2026-08-27 (unattended branch) and
+# docs/plan/package-3b.md (the environment table).
 #
-# Commits are allowed on an `unattended/<date>` branch and NOWHERE else. The
-# checkpoint is preserved in the only place it does work: nothing reaches `main`
-# without a human reading the diff. What it buys is that each session in a long
-# run builds on a committed, verified base instead of on top of an unreviewed
-# index it inherited from the session before it -- where one bad change is
-# silently inherited by everything after.
+#   environment                         | commit                       | push
+#   ------------------------------------+------------------------------+------------------------
+#   attended, the owner's machine       | refused: the commit is the   | permissions.ask prompts
+#                                       | owner's review checkpoint    | force push: denied
+#   unattended (supervisor run)         | allowed on unattended/* only | ask → parked by
+#                                       |                              | park-ask-gated.py
+#   cloud session (CLAUDE_CODE_REMOTE)  | allowed on the session's own | permissions.ask
+#                                       | non-protected branch, ONLY   | force push: denied
+#                                       | when CLOUD_COMMIT_POLICY in  |
+#                                       | .claude/project.env says     |
+#                                       | session-branch; ships "off"  |
+#
+# The unattended branch is the opt-in in both local modes: nothing reaches `main` without
+# a human reading the diff, and a long run still builds each session on a committed base
+# instead of an unreviewed index inherited from the session before. The cloud rule is a
+# SWITCH, not a default, because the shape of a cloud session (which branch it checks
+# out, what the remote is) has not been observed yet: .claude/unattended/env-probe.sh
+# prints those facts, the owner runs it in a real cloud session, and only then does the
+# switch move. A cloud session reads the shared .claude/settings.json and so runs this
+# hook; it does not read ~/.claude/settings.json or settings.local.json
+# (code.claude.com/docs/en/claude-code-on-the-web). CLAUDE_CODE_REMOTE is "true" there
+# (code.claude.com/docs/en/env-vars).
 #
 # The pattern is the command-position form from S7: a bare `^` let `cd x && git
 # commit` walk straight past the old check, and `git -C dir commit` hid the
 # subcommand behind a global option. Both are covered here.
+cloud_commit_policy() {
+  # One key, read with sed rather than `source`: a deny hook must not execute a project file.
+  local env_file="${CLAUDE_PROJECT_DIR:-.}/.claude/project.env"
+  [ -f "$env_file" ] || { echo off; return; }
+  local value
+  value=$(sed -nE 's/^[[:space:]]*CLOUD_COMMIT_POLICY=["'"'"']?([A-Za-z-]*)["'"'"']?.*$/\1/p' "$env_file" | tail -1)
+  echo "${value:-off}"
+}
+
 if echo "$CMD" | grep -qE '(^|[;&|(`])[[:space:]]*git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-][^[:space:]]*[[:space:]]+)?)*commit([[:space:]]|$)'; then
   case "$BRANCH" in
     unattended/*)
       : # allowed — an unattended run's own branch
       ;;
     *)
-      echo "BLOCKED: commits are allowed only on an 'unattended/<date>' branch." >&2
-      echo "Current branch: '${BRANCH:-unknown}'." >&2
-      echo "On any other branch a commit is a human review checkpoint: stage with 'git add <files>'," >&2
-      echo "summarise the change, suggest a message, and let the user run the commit themselves." >&2
-      echo "For an unattended run, switch first: git switch -c unattended/\$(date -u +%Y-%m-%d)" >&2
-      exit 2
+      if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ -n "$BRANCH" ] && [ "$(cloud_commit_policy)" = "session-branch" ]; then
+        : # allowed — a cloud session on its own branch; protected branches were refused above
+      else
+        echo "BLOCKED: commits are allowed only on an 'unattended/<date>' branch." >&2
+        echo "Current branch: '${BRANCH:-unknown}'." >&2
+        if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+          echo "This is a cloud session (CLAUDE_CODE_REMOTE=true). Commits on the session's branch are" >&2
+          echo "allowed only when CLOUD_COMMIT_POLICY=\"session-branch\" in .claude/project.env; it is" >&2
+          echo "'$(cloud_commit_policy)'. The owner flips it after running .claude/unattended/env-probe.sh here." >&2
+        else
+          echo "On any other branch a commit is a human review checkpoint: stage with 'git add <files>'," >&2
+          echo "summarise the change, suggest a message, and let the user run the commit themselves." >&2
+          echo "For an unattended run, switch first: git switch -c unattended/\$(date -u +%Y-%m-%d)" >&2
+        fi
+        exit 2
+      fi
       ;;
   esac
 fi
