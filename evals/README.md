@@ -77,6 +77,23 @@ surprising verdict can be understood without paying for another run. Every run i
 sessions on your account (about a dollar on Opus-class models); sandboxes are removed afterwards
 unless `--keep` is given.
 
+The result file is rewritten after **every run** (written beside the target and moved into
+place, so a kill mid-write leaves the previous file whole) and says `"status": "partial"`
+with the `pending` ids until the last run lands. A crash or Ctrl-C therefore keeps what was
+paid for, and
+
+```bash
+python3 evals/run_audit_scenarios.py --runs 3 --out evals/baseline/<machine>/audit-<ref>.json --resume
+```
+
+continues it: recorded runs are kept, only the missing ones are performed. The file carries
+the engine **commit** the ref resolved to, and `--resume` refuses a file recorded against
+another commit, model, settings layers or runs-per-scenario — one file, one measurement.
+Without `--resume` an existing `--out` is refused rather than replaced; to re-record a
+baseline from scratch, remove the file or name a new one. `--only` takes a comma-separated
+list of id fragments (`--only 01,04`). `tests/test_audit_runner_resume.py` exercises all of
+this with a `claude` shim that kills the runner mid-run — no real session.
+
 ## Adding a scenario
 
 Add an object to the matching file in `scenarios/hooks/`. Setup is declarative on purpose

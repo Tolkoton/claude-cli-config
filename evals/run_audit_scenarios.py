@@ -29,6 +29,15 @@ passes --dangerously-skip-permissions and never runs a session inside this repos
 
 COST. Every run is two real sessions on your account. Start with `--runs 1`.
 
+SAVING. With --out, the whole result file is rewritten after EVERY run (to a temporary
+file beside it, then moved into place, so a kill during the write leaves the previous
+file whole). A crash on the tenth scenario keeps the nine already paid for — package 3c
+lost about $25 that way, nine scenarios in memory and nothing on disk. `--resume` continues
+such a file: recorded runs are kept, only the missing ones are performed. It refuses a file
+recorded against a different engine COMMIT (not the ref string: `HEAD` moves), model,
+settings layers or runs-per-scenario, and without `--resume` it refuses to replace an
+existing --out at all. `--only` takes a comma-separated list of id fragments.
+
 Standard library only, Python 3.12+.
 """
 
@@ -36,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -279,12 +289,57 @@ def preflight_paths(expected: JsonObj, ids: list[str]) -> list[Path]:
     return paths
 
 
+def resolve_commit(ref: str) -> str | None:
+    """The commit a ref names in this repository — what make_sandbox.sh builds from."""
+    proc = subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                          capture_output=True, text=True, check=False)
+    return proc.stdout.strip() or None
+
+
+def save_results(path: Path, payload: JsonObj) -> None:
+    """Write the whole file beside the target, then move it into place: a kill during the
+    write leaves the previous file intact, never a truncated one."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def resumable(path: Path, engine_commit: str, model: str, setting_sources: str, runs: int) -> tuple[JsonObj | None, str]:
+    """The existing result file if this invocation may continue it, else (None, why not).
+
+    Same engine COMMIT, model, settings layers and runs per scenario: a file that mixed two
+    of any of these would look like one measurement and be none."""
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return None, f"not readable as JSON ({e})"
+    if not isinstance(previous, dict) or not isinstance(previous.get("scenarios"), list):
+        return None, "not a result file of this runner"
+    if "engine_commit" not in previous:
+        return None, "recorded before --resume existed (no engine_commit); start a new file"
+    for key, mine in (("engine_commit", engine_commit), ("model", model),
+                      ("setting_sources", setting_sources), ("runs_per_scenario", runs)):
+        if previous.get(key) != mine:
+            return None, f"{key} differs: file {previous.get(key)!r}, this run {mine!r}"
+    return previous, ""
+
+
+def refresh(row: JsonObj) -> None:
+    runs = row["runs"]
+    row["matched"] = sum(1 for r in runs if r.get("matched"))
+    row["verdicts"] = dict(Counter(shown(r) for r in runs))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--engine-ref", default="HEAD", help="tag, branch or commit of this repo")
     parser.add_argument("--runs", type=int, default=3, help="sessions per scenario (default 3)")
-    parser.add_argument("--only", default="", help="run scenarios whose id contains this")
-    parser.add_argument("--out", type=Path, help="write machine-readable results here")
+    parser.add_argument("--only", default="", help="run scenarios whose id contains one of these "
+                                                   "comma-separated fragments")
+    parser.add_argument("--out", type=Path, help="write machine-readable results here, after every run")
+    parser.add_argument("--resume", action="store_true",
+                        help="continue the file at --out: keep its recorded runs, perform the missing ones")
     parser.add_argument("--label", default="")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="passed to --model; default: your settings")
@@ -294,9 +349,19 @@ def main() -> int:
     parser.add_argument("--max-turns", type=int, default=AUDIT_MAX_TURNS)
     parser.add_argument("--keep", action="store_true", help="keep the sandboxes for inspection")
     args = parser.parse_args()
+    if args.resume and not args.out:
+        parser.error("--resume needs --out")
+
+    engine_commit = resolve_commit(args.engine_ref)
+    if not engine_commit:
+        print(f"engine ref {args.engine_ref!r} does not name a commit of this repository", file=sys.stderr)
+        return 2
+    model = args.model or "default"
+    setting_sources = args.setting_sources or "default"
 
     expected = json.loads((SCENARIOS / "expected.json").read_text(encoding="utf-8"))
-    ids = [i for i in sorted(expected) if args.only in i]
+    fragments = [f for f in args.only.split(",") if f] or [""]
+    ids = [i for i in sorted(expected) if any(f in i for f in fragments)]
     if not ids:
         print(f"no scenario id contains {args.only!r}", file=sys.stderr)
         return 2
@@ -316,19 +381,62 @@ def main() -> int:
               file=sys.stderr)
         return 2
 
+    previous: JsonObj | None = None
+    if args.out and args.out.exists():
+        if not args.resume:
+            print(f"{args.out} exists — pass --resume to continue it, or choose another --out. "
+                  "It is not replaced: its runs were paid for.", file=sys.stderr)
+            return 2
+        previous, why = resumable(args.out, engine_commit, model, setting_sources, args.runs)
+        if previous is None:
+            print(f"cannot resume {args.out}: {why}", file=sys.stderr)
+            return 2
+        if previous.get("claude_version") != version:
+            print(f"note: the file was recorded with {previous.get('claude_version')!r}, this is {version!r}")
+    elif args.resume:
+        print(f"nothing to resume at {args.out} — starting a new file")
+
+    rows: dict[str, JsonObj] = {str(row["id"]): row for row in (previous or {}).get("scenarios", [])}
+    for scenario_id in ids:
+        rows.setdefault(scenario_id, {"id": scenario_id, "expected": expected[scenario_id],
+                                      "runs": [], "matched": 0, "verdicts": {}})
+    recorded = sum(len(rows[i]["runs"]) for i in ids)
+    to_run = sum(max(0, args.runs - len(rows[i]["runs"])) for i in ids)
+
+    def payload() -> JsonObj:
+        pending = [i for i in sorted(rows) if len(rows[i]["runs"]) < args.runs]
+        all_runs = [r for i in sorted(rows) for r in rows[i]["runs"]]
+        return {
+            "label": args.label or str((previous or {}).get("label", "")),
+            "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "engine_ref": args.engine_ref, "engine_commit": engine_commit, "claude_version": version,
+            "model": model, "setting_sources": setting_sources, "runs_per_scenario": args.runs,
+            "status": "complete" if not pending else "partial", "pending": pending,
+            "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in all_runs), 2),
+            "scenarios": [rows[i] for i in sorted(rows)],
+        }
+
     workdir = Path(tempfile.mkdtemp(prefix="engine-audit-"))
-    print(f"{len(ids)} scenarios x {args.runs} runs = {len(ids) * args.runs * 2} headless sessions"
-          f"  (engine {args.engine_ref}, {version})\nsandboxes: {workdir}\n")
-    report_rows: list[JsonObj] = []
+    print(f"{len(ids)} scenarios x {args.runs} runs = {to_run * 2} headless sessions"
+          f"{f' ({recorded} runs already recorded)' if recorded else ''}"
+          f"  (engine {args.engine_ref} = {engine_commit[:7]}, {version})\nsandboxes: {workdir}\n")
     try:
         for scenario_id in ids:
+            row = rows[scenario_id]
+            if len(row["runs"]) >= args.runs:
+                print(f"  {scenario_id:40} {' '.join(shown(r) for r in row['runs']):34} recorded, skipped")
+                continue
             text = (SCENARIOS / f"{scenario_id}.md").read_text(encoding="utf-8")
-            runs = [run_once(args, scenario_id, expected[scenario_id], text,
-                             workdir / f"{scenario_id}-run{n + 1}") for n in range(args.runs)]
-            hits = sum(1 for r in runs if r.get("matched"))
+            for n in range(len(row["runs"]), args.runs):
+                row["runs"].append(run_once(args, scenario_id, expected[scenario_id], text,
+                                            workdir / f"{scenario_id}-run{n + 1}"))
+                refresh(row)
+                if args.out:
+                    save_results(args.out, payload())
+            runs = row["runs"]
             want = expected[scenario_id]["marker"] + (
                 f"#{expected[scenario_id]['check']}" if "check" in expected[scenario_id] else "")
-            print(f"  {scenario_id:40} {' '.join(shown(r) for r in runs):34} {hits}/{len(runs)}"
+            print(f"  {scenario_id:40} {' '.join(shown(r) for r in runs):34} {row['matched']}/{len(runs)}"
                   f"   expected {want}")
             for r in runs:
                 if "error" in r:
@@ -338,29 +446,25 @@ def main() -> int:
                     why = r.get("ledger_entry") or r.get("verdict_excerpt") or r.get("reply_tail")
                     for line in str(why or "(the session said nothing)").splitlines()[:9]:
                         print(f"      | {line[:150]}")
-            report_rows.append({"id": scenario_id, "expected": expected[scenario_id], "runs": runs,
-                                "matched": hits, "verdicts": dict(Counter(shown(r) for r in runs))})
+    except KeyboardInterrupt:
+        if args.out:
+            print(f"\ninterrupted — the runs finished so far are in {args.out}; continue with --resume")
+        else:
+            print("\ninterrupted — nothing was saved (no --out)")
+        return 130
     finally:
         if not args.keep:
             shutil.rmtree(workdir, ignore_errors=True)
 
-    all_runs = [r for row in report_rows for r in row["runs"]]
+    final = payload()
+    all_runs = [r for row in final["scenarios"] for r in row["runs"]]
     errors = sum(1 for r in all_runs if "error" in r)
-    total_cost = round(sum(r.get("cost_usd", 0.0) for r in all_runs), 2)
-    print(f"\nmatched {sum(row['matched'] for row in report_rows)}/{len(all_runs)} runs, "
-          f"{errors} tooling errors, reported cost ${total_cost}")
+    print(f"\nmatched {sum(row['matched'] for row in final['scenarios'])}/{len(all_runs)} runs, "
+          f"{errors} tooling errors, reported cost ${final['total_cost_usd']}")
     if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps({
-            "label": args.label, "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "engine_ref": args.engine_ref, "claude_version": version,
-            "model": args.model or "default",
-            "setting_sources": args.setting_sources or "default",
-            "runs_per_scenario": args.runs,
-            "total_cost_usd": total_cost, "scenarios": report_rows,
-        }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(f"results written to {args.out}")
-    return 1 if errors == len(all_runs) else 0
+        save_results(args.out, final)
+        print(f"results written to {args.out} ({final['status']})")
+    return 1 if all_runs and errors == len(all_runs) else 0
 
 
 if __name__ == "__main__":
