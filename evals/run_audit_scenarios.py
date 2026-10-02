@@ -27,6 +27,20 @@ WHAT ONE RUN DOES
 It records; it does not judge. Exit code 0 unless the tooling itself failed. It never
 passes --dangerously-skip-permissions and never runs a session inside this repository.
 
+SETTINGS. Both sessions get `--settings <sandbox>/.claude/settings.json`. A sandbox is a
+directory nobody ever trusted, and in such a directory a headless session loads NO project
+settings — not the engine's allow list, not its hooks — whatever --setting-sources says.
+Measured on 2026-10-02 (package 2b): without the flag `uv run pytest` "requires approval"
+and the ledger Edit is refused, so every v0.11.0 audit session blocked for want of evidence
+it was not allowed to gather and wrote no ledger entry; with the flag both succeed. The
+same fix session-claude.sh received in package 3c.
+
+PRE-FLIGHT. Before the first paid session the runner checks every scenario file exists and
+builds ONE throwaway sandbox to check that every path PROGRESS.fixture.md names exists in
+it. Package 3c moved the overseer's contract path to .engine/slices/ and updated that
+PROGRESS fixture, but the contract fixture itself stayed at the old path — every audit
+session at v0.11.0 reported "the slice contract is missing" and nothing caught it.
+
 COST. Every run is two real sessions on your account. Start with `--runs 1`.
 
 SAVING. With --out, the whole result file is rewritten after EVERY run (to a temporary
@@ -76,6 +90,12 @@ ECHO_MAX_TURNS = 4
 # turns here). The cap mostly bounds what a PASS run spends after the hook says "continue".
 AUDIT_MAX_TURNS = 30
 CALL_TIMEOUT_S = 1200
+# What a session answers instead of working when the account's usage limit is reached
+# ("You've hit your session limit · resets 7pm"). Such a run is not a verdict and must not be
+# counted as one; the runner records it as an error, stops (the next sessions would answer the
+# same), and `--resume` performs it again later.
+USAGE_LIMIT_RE = re.compile(r"hit your (?:session|usage|weekly|daily|monthly|\w+) limit|usage limit (?:reached|exceeded)", re.IGNORECASE)
+USAGE_LIMIT_PREFIX = "account usage limit"
 ENTRY_CHARS = 900
 EXCERPT_CHARS = 700
 
@@ -188,6 +208,22 @@ def read_verdict(entries: list[str], reply: str) -> JsonObj:
             "decorated": bool(found.group("deco").strip())}
 
 
+def usage_limit_message(payload: JsonObj | None) -> str | None:
+    """The limit notice a session answered with, if that is what it did instead of working."""
+    if not payload:
+        return None
+    text = str(payload.get("all_text") or payload.get("result") or "")
+    found = USAGE_LIMIT_RE.search(text)
+    if not found:
+        return None
+    line = next((ln.strip() for ln in text.splitlines() if found.group(0) in ln), found.group(0))
+    return f"{USAGE_LIMIT_PREFIX} — the session answered {line[:120]!r} and ran no audit"
+
+
+def is_usage_limit_run(run: JsonObj) -> bool:
+    return str(run.get("error", "")).startswith(USAGE_LIMIT_PREFIX)
+
+
 def excerpt_around_marker(text: str) -> str:
     """The stretch of the session's own words that ends at its verdict line."""
     found = verdict_match(text)
@@ -225,6 +261,9 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     before = ledger_file.read_text(encoding="utf-8") if ledger_file.is_file() else ""
 
     common: list[str] = []
+    settings_file = sandbox / ".claude" / "settings.json"
+    if settings_file.is_file():
+        common += ["--settings", str(settings_file)]
     if args.setting_sources:
         common += ["--setting-sources", args.setting_sources]
     if args.model:
@@ -234,6 +273,9 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
                              ["--max-turns", str(ECHO_MAX_TURNS), *common])
     if not first or not first.get("session_id"):
         return result | {"error": f"prompt A: {err or 'no session_id in the output'}"}
+    limit = usage_limit_message(first)
+    if limit:
+        return result | {"error": limit, "cost_usd": round(cost_of(first), 4)}
     second, err = call_claude(args.claude, fenced_block_after("Prompt B", text), sandbox,
                               ["--resume", str(first["session_id"]),
                                "--max-turns", str(args.max_turns), *common], stream=True)
@@ -242,6 +284,9 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
 
     after = ledger_file.read_text(encoding="utf-8") if ledger_file.is_file() else ""
     entries = new_ledger_entries(before, after)
+    limit = usage_limit_message(second)
+    if limit and not entries:
+        return result | {"error": limit, "cost_usd": round(cost_of(first) + cost_of(second), 4)}
     # Everything the session said during the audit, plus what it wrote into the ledger.
     reply = "\n\n".join([str(second.get("all_text") or second.get("result", "")), *entries])
     verdict = read_verdict(entries, reply)
@@ -287,6 +332,35 @@ def preflight_paths(expected: JsonObj, ids: list[str]) -> list[Path]:
         if expect.get("ledger_fixture"):
             paths.append(SCENARIOS / str(expect["ledger_fixture"]))
     return paths
+
+
+PROGRESS_FIXTURE = SCENARIOS / "fixtures" / "PROGRESS.fixture.md"
+FIXTURE_PATH_RE = re.compile(r"`((?:\.[\w-]+/|[\w-]+/)[\w./-]+)`")
+
+
+def paths_named_in(progress_text: str) -> list[str]:
+    """Every backticked repository path the PROGRESS fixture names (`.engine/slices/x.md`)."""
+    return sorted(set(FIXTURE_PATH_RE.findall(progress_text)))
+
+
+def preflight_sandbox(args: argparse.Namespace) -> list[str]:
+    """Build one throwaway sandbox and return the fixture-named paths missing from it."""
+    if not PROGRESS_FIXTURE.is_file():
+        return [str(PROGRESS_FIXTURE)]
+    named = paths_named_in(PROGRESS_FIXTURE.read_text(encoding="utf-8"))
+    workdir = Path(tempfile.mkdtemp(prefix="engine-audit-preflight-"))
+    sandbox = workdir / "preflight"
+    try:
+        build = subprocess.run(
+            ["bash", str(HERE / "make_sandbox.sh"), args.engine_ref, str(sandbox), "--audit-fixtures", "--no-sync"],
+            capture_output=True, text=True, check=False)
+        if build.returncode != 0:
+            return [f"sandbox build failed: {build.stderr.strip()[:200]}"]
+        where = PROGRESS_FIXTURE.relative_to(HERE.parent) if PROGRESS_FIXTURE.is_relative_to(HERE.parent) else PROGRESS_FIXTURE
+        return [f"{rel} (named in {where}, absent from the sandbox)"
+                for rel in named if not (sandbox / rel).exists()]
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
 
 
 def resolve_commit(ref: str) -> str | None:
@@ -372,6 +446,12 @@ def main() -> int:
     if missing:
         print("refusing to start: these scenario files are missing —\n  " + "\n  ".join(missing), file=sys.stderr)
         return 2
+    # Pre-flight 2: the fixtures must land where the engine of THIS ref looks for them. A
+    # moved path (package 3c) silently turned every audit into "the contract is missing".
+    missing = preflight_sandbox(args)
+    if missing:
+        print("refusing to start: the sandbox lacks what the fixtures promise —\n  " + "\n  ".join(missing), file=sys.stderr)
+        return 2
     version = ""
     if shutil.which(args.claude) or Path(args.claude).is_file():
         probe = subprocess.run([args.claude, "--version"], capture_output=True, text=True, check=False)
@@ -397,6 +477,13 @@ def main() -> int:
         print(f"nothing to resume at {args.out} — starting a new file")
 
     rows: dict[str, JsonObj] = {str(row["id"]): row for row in (previous or {}).get("scenarios", [])}
+    redo = 0
+    for row in rows.values():
+        kept = [r for r in row["runs"] if not is_usage_limit_run(r)]
+        redo += len(row["runs"]) - len(kept)
+        row["runs"] = kept
+    if redo:
+        print(f"{redo} run(s) lost to the account usage limit are performed again")
     for scenario_id in ids:
         rows.setdefault(scenario_id, {"id": scenario_id, "expected": expected[scenario_id],
                                       "runs": [], "matched": 0, "verdicts": {}})
@@ -433,6 +520,11 @@ def main() -> int:
                 refresh(row)
                 if args.out:
                     save_results(args.out, payload())
+                if is_usage_limit_run(row["runs"][-1]):
+                    print(f"\n{row['runs'][-1]['error']}\nstopping: the next sessions would answer the same. "
+                          + (f"When the limit resets, continue with --resume (this run is performed again): {args.out}"
+                             if args.out else "Nothing was saved (no --out)."))
+                    return 3
             runs = row["runs"]
             want = expected[scenario_id]["marker"] + (
                 f"#{expected[scenario_id]['check']}" if "check" in expected[scenario_id] else "")

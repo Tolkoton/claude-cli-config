@@ -65,8 +65,12 @@ if not stream:  # prompt A
                       "result": "echoed", "total_cost_usd": @COST_A@, "duration_ms": 10, "num_turns": 1}))
     sys.exit(0)
 record("prompt-b")
-print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text",
-      "text": "Audit of the last turn.\nAll twelve checks hold.\nOVERSEER_PASS"}]}}))
+with open(log, encoding="utf-8") as fh:
+    b_calls = sum(1 for line in fh if line.startswith("prompt-b"))
+limit_at = int(os.environ.get("SHIM_LIMIT_AT_B", "0"))
+text = ("You've hit your session limit · resets 7pm (Europe/Berlin)" if limit_at and b_calls == limit_at
+        else "Audit of the last turn.\nAll twelve checks hold.\nOVERSEER_PASS")
+print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}))
 print(json.dumps({"type": "result", "subtype": "success", "session_id": argv[argv.index("--resume") + 1],
                   "total_cost_usd": @COST_B@, "duration_ms": 20, "num_turns": 3, "permission_denials": []}))
 '''.replace("@COST_A@", str(COST_A)).replace("@COST_B@", str(COST_B))
@@ -100,10 +104,11 @@ class Harness:
         self.tmp.mkdir()
         self.out = work / "results" / "audit.json"
 
-    def run(self, *extra: str, kill_at_a: int = 0, engine_ref: str = "HEAD", runs: int = 1,
+    def run(self, *extra: str, kill_at_a: int = 0, limit_at_b: int = 0, engine_ref: str = "HEAD", runs: int = 1,
             only: str = ONLY) -> subprocess.CompletedProcess[str]:
         self.log.write_text("", encoding="utf-8")
-        env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_KILL_AT_A=str(kill_at_a), TMPDIR=str(self.tmp))
+        env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_KILL_AT_A=str(kill_at_a),
+                   SHIM_LIMIT_AT_B=str(limit_at_b), TMPDIR=str(self.tmp))
         return subprocess.run(
             [sys.executable, str(RUNNER), "--engine-ref", engine_ref, "--runs", str(runs), "--only", only,
              "--claude", str(self.shim), "--out", str(self.out), *extra],
@@ -178,6 +183,25 @@ def main() -> int:
         print("resume into a file recorded before --resume existed:")
         legacy = h.out.with_name("legacy.json")
         legacy.write_text(json.dumps({"label": "old", "engine_ref": "HEAD", "scenarios": []}), encoding="utf-8")
+        print("the account usage limit: the shim answers the limit notice at prompt B of run 2:")
+        h.out.unlink()
+        r = h.run(limit_at_b=2)
+        check("the runner stops with exit 3 and says how to continue", r.returncode == 3 and "--resume" in r.stdout, f"rc={r.returncode} {r.stdout[-300:]}")
+        check("it ran no further session (2 prompt-A calls, not 3)", h.calls("prompt-a") == 2, h.log.read_text())
+        res = h.results()
+        rows = {row["id"]: row for row in res["scenarios"]}
+        check("run 1 is recorded as a verdict", rows[IDS[0]]["runs"] and rows[IDS[0]]["runs"][0].get("marker") == "PASS", str(rows[IDS[0]]["runs"]))
+        lost = rows[IDS[1]]["runs"]
+        check("run 2 is recorded as a usage-limit error, not as a verdict",
+              len(lost) == 1 and str(lost[0].get("error", "")).startswith("account usage limit") and "marker" not in lost[0], str(lost))
+        check("the file is partial with the third scenario pending", res["status"] == "partial" and res["pending"] == [IDS[2]], str(res.get("pending")))
+        r = h.run("--resume")
+        check("--resume performs the lost run again and the missing one (2 prompt-A calls)", r.returncode == 0 and h.calls("prompt-a") == 2, f"rc={r.returncode} {h.log.read_text()}")
+        res = h.results()
+        rows = {row["id"]: row for row in res["scenarios"]}
+        check("the lost run is replaced by a verdict", rows[IDS[1]]["runs"][0].get("marker") == "PASS" and len(rows[IDS[1]]["runs"]) == 1, str(rows[IDS[1]]["runs"]))
+        check("the file is complete", res["status"] == "complete" and res["pending"] == [], str(res.get("status")))
+
         r = subprocess.run([sys.executable, str(RUNNER), "--only", ONLY, "--claude", str(h.shim), "--out", str(legacy), "--resume"],
                            cwd=ROOT, env=dict(os.environ, SHIM_LOG=str(h.log), TMPDIR=str(h.tmp)), capture_output=True, text=True, check=False)
         check("refused with the reason", r.returncode == 2 and "no engine_commit" in r.stderr, r.stderr[-200:])

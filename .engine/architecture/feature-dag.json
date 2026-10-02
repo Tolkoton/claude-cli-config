@@ -1,121 +1,124 @@
 {
-  "feature": "engine-package-3c-fix",
-  "note": "Owner's fix round on package 3c (docs/plan/package-3c-fix.md): machine state must migrate too. Contract: .engine/architecture/feature/engine-package-3c-fix.md. Parked owner items carried over.",
+  "feature": "engine-package-2b",
+  "note": "Owner's package 2b (docs/plan/package-2b.md): the engine's rules out of CLAUDE.md, a 200-line persistent context, clean seeds, a marked block for existing projects, text hygiene, the two stable overseer defects, before/after audits, a fast Stop gate. Contract: .engine/architecture/feature/engine-package-2b.md. Parked owner items from earlier packages carried over; C9 applied by the owner at 8e46a65.",
   "nodes": [
     {
-      "id": "X1",
-      "title": "state-migration: STATE_MIGRATIONS (files, .budget-*.json pattern, logs/ and archive/ dirs); guard on supervisor.lock / fresh heartbeat -> keep + exit 1, data still moves",
-      "deps": [
-        "X2"
-      ],
-      "status": "done",
-      "evidence": "STATE_MIGRATIONS + supervisor_live guard in engine.py (5295975); test_migration 40/40 unchanged."
-    },
-    {
-      "id": "X2",
-      "title": "ownership-and-ignore: legacy machine rules for the old state paths before engine .claude/**; transitional gitignore lines",
+      "id": "P0a",
+      "title": "instrument: fixture contract moved to .engine/slices/, runner passes --settings, pre-flight checks the sandbox against PROGRESS.fixture.md; README",
       "deps": [],
-      "status": "done",
-      "evidence": "15 legacy machine rules before engine .claude/**; transitional .gitignore lines (39a06f9); test_ownership 60/60."
+      "status": "pending"
     },
     {
-      "id": "X3",
-      "title": "tests: v0.10.1 and hand-copy v0.8.0 with live state; all moved, no remove/keep, exit 0, idempotent; supervisor.lock case; the owner's reproduction",
+      "id": "P0",
+      "title": "audit-before: run_audit_scenarios.py --engine-ref v0.11.0 --runs 3 -> audit-v0.11.0.json on the fixed instrument (cap $35 incl. the stopped run)",
       "deps": [
-        "X1",
-        "X2"
+        "P0a"
       ],
-      "status": "done",
-      "evidence": "tests/test_state_migration.py 31/31 (baab189): reproduction, v0.10.1 and v0.8.0 with live state, lock, fresh/stale heartbeat."
+      "status": "pending"
     },
     {
-      "id": "X4",
-      "title": "decana --dry-run (read-only): state moves listed, no keep/remove for state, exit 0",
-      "deps": [
-        "X1",
-        "X2"
-      ],
-      "status": "done",
-      "evidence": "decana --dry-run: 3 state moves, 0 keep/remove for state; exit 1 only for the 3 project-edited engine files held back (pre-existing)."
-    },
-    {
-      "id": "X5",
-      "title": "proposal drops the 12 Write(...) deny rules; test that each has an Edit twin",
+      "id": "P1",
+      "title": "rules-file: .claude/engine-rules.md, references/{hooks,unattended}.md, this repo's CLAUDE.md/AGENTS.md shortened, tests/test_context_budget.py; TRACER: one headless session proves the @ import loads",
       "deps": [],
-      "status": "done",
-      "evidence": "12 Write(...) deny rules dropped from the proposal, each with its Edit twin (a3ea3fc); test_settings_proposal 13/13."
+      "status": "pending"
     },
     {
-      "id": "X6",
-      "title": "records and report",
+      "id": "P2",
+      "title": "seeds: templates/project/{CLAUDE,AGENTS}.md, ownership seeds, TEMPLATE-SETUP steps 4-5, install test",
       "deps": [
-        "X1",
-        "X2",
-        "X3",
-        "X4",
-        "X5"
+        "P1"
       ],
-      "status": "done",
-      "evidence": "records, report appended; test_root_delete_deny's live-file branch now keys on the rm rules, not on any deny difference."
+      "status": "pending"
+    },
+    {
+      "id": "P3",
+      "title": "existing-projects: engine.py marked-block maintenance, pristine -> reseed, changed -> exact report; tests; decana --dry-run read-only",
+      "deps": [
+        "P2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "P4",
+      "title": "hygiene: four phantom memory commands, jq paragraphs, templates without this repository's records; tests/test_text_hygiene.py",
+      "deps": [
+        "P1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "P5a",
+      "title": "overseer-text-08: SKILL.md #8 returns ADR_REQUIRED with the divergence recorded; no SCOPE_AMENDMENT routing for a contract conflict",
+      "deps": [],
+      "status": "pending"
+    },
+    {
+      "id": "P5b",
+      "title": "overseer-text-01: cause re-derived from P0's fixed-instrument transcripts; SKILL.md changed only as narrowly as they justify",
+      "deps": [
+        "P0"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "P6",
+      "title": "fast-gate: tests/run_all.sh --fast + tests/fast-suites.txt; TEST_CMD; both times measured",
+      "deps": [
+        "P1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "P7",
+      "title": "audit-after: --engine-ref HEAD -> audit-post-2b.json (cap $35); evals/compare_audits.py; noise from the two 3c before-runs",
+      "deps": [
+        "P0a",
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5a",
+        "P5b",
+        "P6"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "P8",
+      "title": "records: report, DAG, ledger, escalations, parked, PROGRESS, memory, evals README",
+      "deps": [
+        "P7"
+      ],
+      "status": "pending"
     },
     {
       "id": "C9",
       "title": "apply-settings (OWNER): docs/tasks/settings.json without the approve-project-data handler",
-      "deps": [
-        "C5"
-      ],
+      "deps": [],
+      "status": "done",
+      "evidence": "Applied by the owner: commit 8e46a65 'settings: apply the proposal without dead Write rules (C9)'."
+    },
+    {
+      "id": "C8b",
+      "title": "post-3c audit run (OWNER, money): --engine-ref 24abb7d -> audit-post-3c.json",
+      "deps": [],
       "status": "parked",
-      "parked_on": "protect-paths.sh refuses .claude/settings.json to the agent by design. Unblocks when the owner runs the one command in docs/tasks/README.md and restarts Claude Code."
+      "parked_on": "Money beyond the 3c cap. Superseded in practice by P0 of this package (v0.11.0 contains 3c); unblocks only if the owner still wants the 24abb7d measurement."
     },
     {
       "id": "S8",
       "title": "apply-personal (OWNER): engine.py install --personal against the real ~/.claude",
-      "deps": [
-        "S1"
-      ],
+      "deps": [],
       "status": "parked",
-      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref unattended/2026-10-02-package-3b` after reading its --dry-run."
+      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref v0.11.0` after reading its --dry-run."
     },
     {
       "id": "S9",
       "title": "cloud-probe (OWNER): run .claude/unattended/env-probe.sh in a real cloud session, then decide CLOUD_COMMIT_POLICY",
-      "deps": [
-        "S3"
-      ],
+      "deps": [],
       "status": "parked",
       "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
-    },
-    {
-      "id": "X7",
-      "title": "own project.env: SOURCE_DIRS = engine code dirs, CODE_EXTENSIONS py sh, TEST_CMD = bash tests/run_all.sh; fix _is_code_path for multi-segment dirs on absolute paths; AGENTS.md; time the suite",
-      "deps": [],
-      "status": "done",
-      "evidence": "b3a8d94 matcher fix + tests/test_source_dirs.py 30/30; ff1e74d project.env, AGENTS.md, test_deny_gaps pinned; gate run by hand: green 102 s, red with a failing suite present; golden set 87/87."
-    },
-    {
-      "id": "X8",
-      "title": "run_audit_scenarios.py: save --out after every run, --resume completes a partial file, refuse mismatched or unflagged overwrite; shim-based test",
-      "deps": [],
-      "status": "done",
-      "evidence": "a6423b4 save after every run (temp+replace), --resume, refusals on commit/model/layers/runs and on an unflagged --out, --only list; tests/test_audit_runner_resume.py 32/32 via a claude shim with SIGKILL."
-    },
-    {
-      "id": "X9",
-      "title": "tests/test_deny_hooks.py clean under mypy --strict, 66 cases unchanged",
-      "deps": [],
-      "status": "done",
-      "evidence": "d11acd1 mypy --strict clean (9 errors, not 45 — the count was output lines); 66 cases unchanged."
-    },
-    {
-      "id": "X10",
-      "title": "records and report (addendum)",
-      "deps": [
-        "X7",
-        "X8",
-        "X9"
-      ],
-      "status": "done",
-      "evidence": "records; run_all.sh re-timed at 31 suites: 143 s and 148 s wall."
     }
   ]
 }

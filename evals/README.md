@@ -17,7 +17,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `scenarios/audit/*.md` | 10 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. |
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |
 | `permission_rules.py` | A reference matcher for Bash permission rules as the docs state them (`*` any text, `:*`, exact, compound commands). What a deny list refuses, before it is applied. |
-| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json` — the everyday reference now; `audit-pre-3c.json` / `audit-post-3c.json` are the audit runs around the move). |
+| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json` — the everyday reference now; `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
 
 ## Quick start
 
@@ -93,6 +93,18 @@ Without `--resume` an existing `--out` is refused rather than replaced; to re-re
 baseline from scratch, remove the file or name a new one. `--only` takes a comma-separated
 list of id fragments (`--only 01,04`). `tests/test_audit_runner_resume.py` exercises all of
 this with a `claude` shim that kills the runner mid-run — no real session.
+
+**Two things the runner does so the measurement is of the engine, not of the sandbox.** Both
+sessions get `--settings <sandbox>/.claude/settings.json`: a sandbox is a directory nobody ever
+trusted, and there a headless session loads no project settings at all — without the flag the
+engine's allow list and hooks are absent, `uv run pytest` "requires approval", the ledger Edit is
+refused, and the overseer blocks for want of evidence it was not allowed to gather (measured on
+v0.11.0, package 2b: `audit-v0.11.0-run1-broken-instrument.json`). And before the first paid
+session the runner builds one throwaway sandbox and checks that every path
+`fixtures/PROGRESS.fixture.md` names exists in it — package 3c moved the overseer's contract
+path to `.engine/slices/` but not the fixture, and every audit session at v0.11.0 reported the
+contract missing. Comparing two result files: `python3 evals/compare_audits.py --before A.json
+--after B.json --noise N1.json N2.json --must-fix 01-clean-pass,08-chat-only-design`.
 
 ## Adding a scenario
 

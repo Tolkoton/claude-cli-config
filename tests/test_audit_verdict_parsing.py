@@ -63,5 +63,46 @@ check_ok = excerpt.endswith("OVERSEER_BLOCK: #1") and "afterthought" not in exce
 print(f"  {'ok  ' if check_ok else 'FAIL'} the excerpt ends at the chosen verdict line")
 PASS, FAIL = (PASS + 1, FAIL) if check_ok else (PASS, FAIL + 1)
 
+
+def ok(name, cond, detail=""):
+    global PASS, FAIL
+    PASS, FAIL = (PASS + 1, FAIL) if cond else (PASS, FAIL + 1)
+    print(f"  {'ok  ' if cond else 'FAIL'} {name}{'' if cond else '   ' + str(detail)[:300]}")
+
+
+# --- the usage-limit notice: a session that answered it ran no audit and is not a verdict ----
+LIMIT = "You've hit your session limit · resets 7pm (Europe/Berlin)"
+msg = runner.usage_limit_message({"all_text": "Audit of the last turn.\n" + LIMIT})
+ok("a limit notice in the session text becomes an error that names it",
+   msg is not None and msg.startswith(runner.USAGE_LIMIT_PREFIX) and "7pm" in msg, msg)
+ok("the usage limit, not only the session limit", runner.usage_limit_message({"result": "You've hit your usage limit."}) is not None)
+ok("an ordinary audit is not a limit", runner.usage_limit_message({"all_text": "The limit of 3 retries holds.\nOVERSEER_PASS"}) is None)
+ok("no payload, no limit", runner.usage_limit_message(None) is None)
+ok("is_usage_limit_run keys on the prefix",
+   runner.is_usage_limit_run({"error": runner.USAGE_LIMIT_PREFIX + " — x"}) and not runner.is_usage_limit_run({"error": "prompt A: timed out"}))
+
+# --- the pre-flight: every path the PROGRESS fixture names must exist in a built sandbox ------
+import argparse
+import tempfile
+
+named = runner.paths_named_in((runner.SCENARIOS / "fixtures" / "PROGRESS.fixture.md").read_text(encoding="utf-8"))
+ok("the PROGRESS fixture names the slice contract at the post-3c path", named == [".engine/slices/ref-tax.md"], named)
+ok("paths_named_in reads backticked repository paths only",
+   runner.paths_named_in("see `src/a.py` and `.engine/x/y.md`, not `pytest -q` nor `HEAD`") == [".engine/x/y.md", "src/a.py"])
+args = argparse.Namespace(engine_ref="HEAD")
+missing = runner.preflight_sandbox(args)
+ok("a sandbox of HEAD holds every path the fixture names (pre-flight passes)", missing == [], missing)
+with tempfile.TemporaryDirectory() as tmp:
+    fake = Path(tmp) / "PROGRESS.fixture.md"
+    fake.write_text("Planning artifact: `.claude/overseer/slice/ref-tax.md` (the pre-3c path).\n", encoding="utf-8")
+    real = runner.PROGRESS_FIXTURE
+    runner.PROGRESS_FIXTURE = fake
+    try:
+        missing = runner.preflight_sandbox(args)
+    finally:
+        runner.PROGRESS_FIXTURE = real
+ok("a fixture naming a path the sandbox lacks is reported (the package-3c defect)",
+   len(missing) == 1 and missing[0].startswith(".claude/overseer/slice/ref-tax.md"), missing)
+
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)
