@@ -63,41 +63,6 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-
-def engine_stand_down() -> bool:
-    """Fire once per event when this hook is wired at two settings levels under DIFFERENT
-    command strings (an identical string already runs once — code.claude.com/docs/en/hooks,
-    "Merging across settings levels"). The project's own copy,
-    $CLAUDE_PROJECT_DIR/.claude/hooks/<name>, always runs; any other copy stands down when
-    the project wires hooks/<name> in .claude/settings.json or settings.local.json, and says
-    so on stderr so a stand-down is never mistaken for an allow. Decided from files only,
-    never from timing or order. ENGINE_HOOK_ALWAYS_RUN=1 skips this — the one override, in
-    the safe direction."""
-    if os.environ.get("ENGINE_HOOK_ALWAYS_RUN") == "1":
-        return False
-    project = os.environ.get("CLAUDE_PROJECT_DIR", "")
-    if not project:
-        return False
-    name = Path(__file__).name
-    mine = Path(project) / ".claude" / "hooks" / name
-    try:
-        if not mine.is_file() or mine.resolve() == Path(__file__).resolve():
-            return False
-        wired = any(
-            f"hooks/{name}" in p.read_text(encoding="utf-8", errors="replace")
-            for p in (Path(project) / ".claude" / "settings.json", Path(project) / ".claude" / "settings.local.json")
-            if p.is_file()
-        )
-    except OSError:
-        return False
-    if not wired:
-        return False
-    print(
-        f"STOOD_DOWN: {name} defers to {mine} (wired by the project; this copy is {Path(__file__).resolve()})",
-        file=sys.stderr,
-    )
-    return True
-
 # `=== UNIT 7 COMPLETE ===` on its own line; surrounding horizontal space is
 # tolerated so the sentinel survives minor formatting.
 UNIT_DONE_RE = re.compile(r"^[ \t]*=== UNIT \d+ COMPLETE ===[ \t]*$", re.MULTILINE)
@@ -568,8 +533,6 @@ def main() -> NoReturn:
 
     if dry_run:
         _emit_block(DRY_RUN_REASON)
-    if engine_stand_down():
-        _passthrough()
 
     message = _str_field(envelope, "last_assistant_message")
 

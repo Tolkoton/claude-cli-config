@@ -201,8 +201,8 @@ def run_scenario(
         if project_dir != sandbox.resolve() and sandbox.resolve() not in project_dir.parents:
             raise SandboxError(f"project_dir escapes the sandbox: {project_dir}")
         # A session started in a subdirectory runs THAT checkout's copy of the hook, as Claude
-        # Code would (`$CLAUDE_PROJECT_DIR/.claude/hooks/<hook>`); the sandbox copy would stand
-        # down there, correctly, because the project it is asked about wires its own copy.
+        # Code would (`$CLAUDE_PROJECT_DIR/.claude/hooks/<hook>`) — unless --hooks-dir names the
+        # directory to measure explicitly.
         if not foreign_hooks and project_dir != sandbox.resolve():
             own = project_dir / ".claude" / "hooks" / hook
             if own.is_file():
@@ -210,13 +210,6 @@ def run_scenario(
         env = dict(os.environ)
         env["CLAUDE_PROJECT_DIR"] = str(project_dir)
         env.pop("CLAUDE_UNATTENDED_SESSION", None)
-        # Measuring a hook directory that is not the sandbox's own (--hooks-dir): the hooks
-        # would stand down in favour of the sandbox's copies and record nothing. Tell them to
-        # run — the override exists for exactly this, and only in that direction.
-        if foreign_hooks:
-            env["ENGINE_HOOK_ALWAYS_RUN"] = "1"
-        else:
-            env.pop("ENGINE_HOOK_ALWAYS_RUN", None)
         env.update(substitute(scenario.get("env", {}), mapping))
         interpreter = [sys.executable] if hook.endswith(".py") else ["bash"]
         envelope = json.dumps(substitute(scenario.get("input", {}), mapping))

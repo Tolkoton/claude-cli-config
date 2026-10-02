@@ -57,7 +57,7 @@ session per DAG node, restarts one that dies, and stops on a terminal state.
 | `CLAUDE.md` | Standing policy: permissions, verdict routing, session contract |
 | `.claude/skills/`, `.claude/commands/` | Agent definitions |
 | `.claude/agents/` | The five critics |
-| `.claude/hooks/` | 9 enforcement hooks, wired in `settings.json`; each fires once per event even when wired at two settings levels |
+| `.claude/hooks/` | 9 enforcement hooks, wired in the project's `settings.json` only — nothing the engine ships puts a hook under `~/.claude/` |
 | `user/` | The owner's own: personal skills (`install.sh`) and `user/settings.json`, the personal settings layer (`engine.py install --personal`). Never ships. |
 | `docs/tasks/` | Proposals the engine may not apply itself (`.claude/settings.json`), each with its test and one apply command |
 | `docs/engine-limits.md` | What the guarantees assume: one session, one repository; hooks guard tool calls, not scripts |

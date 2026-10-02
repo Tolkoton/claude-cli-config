@@ -43,23 +43,24 @@ at top level and runs untouched from a two-line script). Two consequences:
 
 Claude Code runs an identical hook handler defined in two settings files once. The same
 script wired under two **different** command strings — a home-level `~/.claude/hooks/x.sh`
-next to the project's `$CLAUDE_PROJECT_DIR/.claude/hooks/x.sh` — would run twice. Every
-engine hook therefore stands down when it is not the project's own copy and the project
-wires `hooks/<its name>`; it prints `STOOD_DOWN: <name> defers to <project copy>` on stderr
-and exits 0. The limits:
+next to the project's `$CLAUDE_PROJECT_DIR/.claude/hooks/x.sh` — runs twice. The engine
+closes this at the source rather than at run time:
 
-- the decision reads files, never timing: the project's copy runs regardless of which copy
-  Claude Code happens to start first;
-- a stand-down is never silent — an allow is exit 0 with **empty** stderr. In an unattended
-  run the session's stdout and stderr land in `.claude/unattended/logs/session-*.log`, so
-  `grep STOOD_DOWN` there tells a stand-down from an allow after the fact;
-- `ENGINE_HOOK_ALWAYS_RUN=1` makes a hook run anyway (the only override, and only in that
-  direction). `evals/run_hook_scenarios.py --hooks-dir` sets it, otherwise a foreign hook
-  directory measured against a sandbox would record nothing but stand-downs;
-- a project that wires nothing leaves a home-level copy running: the global guard still
-  works in a repository without the engine;
-- the personal layer (`user/settings.json`) must not wire hooks, and `engine.py install
-  --personal` refuses one that does.
+- the engine's hooks live in every repository that installs it and are wired there, by that
+  repository's `.claude/settings.json`, and nowhere else. Nothing the engine ships writes a
+  hook into `~/.claude/`: the claude-autonomy skill's user scope installs a settings file
+  with no `hooks` block and no scripts (`assets/settings.user.json.template`), the personal
+  layer (`user/settings.json`) must not wire hooks, and `engine.py install --personal`
+  refuses one that does. `hook-checks/test_no_home_hook_copies.py` pins all three;
+- the hooks themselves contain **no** "stand down if another copy exists" logic. Package 3b
+  briefly had one (`engine_stand_down()`); it was removed because its test — "does the
+  project's settings text mention `hooks/<name>`" — also matched a mention in an allow rule,
+  a wiring on another event, or a `disableAllHooks` file, so a home copy could go quiet
+  while the project's copy was not running at all, and because it added an exit-0 path to
+  the deny hooks. A deny hook has exactly two outcomes: refuse, or evaluate and allow;
+- if you find a hook copy under `~/.claude/hooks/` on a machine, it predates this rule.
+  Delete it and its wiring in `~/.claude/settings.json`; the repositories that need the
+  guardrails get them from `engine.py install <project>`.
 
 ## Settings levels
 

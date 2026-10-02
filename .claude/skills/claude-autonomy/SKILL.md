@@ -33,15 +33,10 @@ CLAUDE.md                       # Autonomy policy block (appended if file exists
 .gitignore                      # Appends Claude-related entries
 ```
 
-For **user scope** (only settings + hooks, not project-specific files):
+For **user scope** (settings only — no hooks, see step 3 for why):
 ```
 ~/.claude/
-├── settings.json
-└── hooks/
-    ├── block-dangerous.sh
-    ├── protect-paths.sh
-    ├── format-on-edit.sh
-    └── verify-on-stop.sh
+└── settings.json              # permissions, env, mode, additionalDirectories; NO hooks block
 ```
 
 Nothing else. No `plans/`, no implementation conventions, no project scaffolding beyond what's needed for autonomous operation.
@@ -111,9 +106,17 @@ Based on chosen scope, write files to:
 - `scripts/*.sh` → `./.claude/hooks/*.sh` (chmod +x)
 
 **User scope**:
-- `assets/settings.json.template` → `~/.claude/settings.json`
-- `scripts/*.sh` → `~/.claude/hooks/*.sh` (chmod +x)
+- `assets/settings.user.json.template` → `~/.claude/settings.json` — permissions and env
+  only; it carries **no `hooks` block**, and you write **no hook scripts** into `~/.claude/`.
 - (Do NOT touch project-level `CLAUDE.md` or `.gitignore` for user-scope install)
+
+WHY no hooks at user scope: the engine's hooks live in every repository that installs it
+and are wired by that repository's own `.claude/settings.json`. A second copy in
+`~/.claude/hooks/`, wired from the home settings under a different command string, is a
+second handler for the same event — Claude Code runs it too, so every hook fires twice per
+event (tests twice per turn, two audit requests). The home-level copies that used to be
+installed here are exactly how that happened. A machine that wants the guardrails in a
+repository without the engine installs the engine there (`engine.py install <project>`).
 
 ### 4. Detect toolchain and patch settings (project scope only)
 
@@ -134,9 +137,11 @@ For user-scope install: skip toolchain detection. The user-level config should b
 # JSON validity
 python3 -c "import json; json.load(open('<dest>/settings.json'))" && echo "valid"
 
-# Hook scripts executable and syntactically sound
+# Hook scripts executable and syntactically sound (project scope only — user scope has none)
 ls -la <dest>/hooks/
 for f in <dest>/hooks/*.sh; do bash -n "$f" && echo "OK: $f"; done
+# User scope: the settings file must carry NO hooks block
+python3 -c "import json,sys; sys.exit('hooks' in json.load(open('<dest>/settings.json')))" && echo "no hooks: ok"
 ```
 
 If any check fails: STOP and report — do not present a broken setup.
@@ -152,7 +157,7 @@ Output explicitly:
 
 Written:
   <dest>/settings.json
-  <dest>/hooks/             (4 scripts, executable)
+  <dest>/hooks/             (4 scripts, executable — project scope only; user scope installs none)
   <CLAUDE.md and .gitignore if project scope>
 
 ⚠ IMPORTANT — RESTART CLAUDE CODE

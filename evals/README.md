@@ -41,12 +41,8 @@ run against the sandbox, never against that project):
 python3 evals/run_hook_scenarios.py --engine-ref HEAD --hooks-dir ~/.claude/hooks --record-only --out /tmp/home.json
 ```
 
-With `--hooks-dir` the runner sets `ENGINE_HOOK_ALWAYS_RUN=1`: every engine hook stands down
-(exit 0, `STOOD_DOWN:` on stderr) when it is not the project's own copy and the project wires
-`hooks/<its name>`, so a foreign directory measured against a sandbox that wires its own hooks
-would otherwise record nothing but stand-downs. The override only ever makes a hook run, never
-stand down. Without `--hooks-dir`, a scenario that starts the session in a subdirectory
-(`project_dir`, the worktree cases) runs THAT checkout's copy of the hook, as Claude Code would.
+Without `--hooks-dir`, a scenario that starts the session in a subdirectory (`project_dir`, the
+worktree cases) runs THAT checkout's copy of the hook, as Claude Code would.
 
 A sandbox you want to look into afterwards: `evals/make_sandbox.sh <ref> <dir outside this repo>`,
 then `--sandbox <dir>` instead of `--engine-ref`. Delete it yourself when done.

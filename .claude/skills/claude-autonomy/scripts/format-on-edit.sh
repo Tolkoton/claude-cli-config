@@ -9,30 +9,6 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-# --- fire once per event -------------------------------------------------------------------
-# The same hook wired at two settings levels under DIFFERENT command strings runs twice
-# (an identical string already runs once — code.claude.com/docs/en/hooks, "Merging across
-# settings levels"). The project's own copy, $CLAUDE_PROJECT_DIR/.claude/hooks/<name>, always
-# runs; any other copy (a home-level ~/.claude/hooks/<name>, say) stands down when the project
-# wires hooks/<name> in .claude/settings.json or settings.local.json — and says so on stderr,
-# so a stand-down is never mistaken for an allow. Decided from files only, never from timing
-# or order. ENGINE_HOOK_ALWAYS_RUN=1 skips this: the one override, in the safe direction.
-engine_stand_down() {
-  [ "${ENGINE_HOOK_ALWAYS_RUN:-}" = "1" ] && return 1
-  [ -n "${CLAUDE_PROJECT_DIR:-}" ] || return 1
-  local name mine self theirs
-  name="$(basename "${BASH_SOURCE[0]}")"
-  mine="$CLAUDE_PROJECT_DIR/.claude/hooks/$name"
-  [ -f "$mine" ] || return 1
-  self="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)/$name"
-  theirs="$(cd "$(dirname "$mine")" 2>/dev/null && pwd -P)/$name"
-  [ "$self" != "$theirs" ] || return 1
-  grep -qsF "hooks/$name" "$CLAUDE_PROJECT_DIR/.claude/settings.json" \
-    "$CLAUDE_PROJECT_DIR/.claude/settings.local.json" || return 1
-  echo "STOOD_DOWN: $name defers to $mine (wired by the project; this copy is $self)" >&2
-  return 0
-}
-if engine_stand_down; then exit 0; fi
 # Read one string field from the hook envelope: jq when present, python3 otherwise.
 # Exit status 0 = read (the value may be empty, and input that is not JSON reads as empty —
 # pinned by hook-checks ROBUST-*); 97 = no parser on this machine at all.

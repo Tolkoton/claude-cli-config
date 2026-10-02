@@ -13,8 +13,8 @@ any project with one command; the steps after that tailor it. The whole setup ta
 - **9 hooks**: block dangerous commands (with the commit policy by environment), protect
   sensitive paths, format on edit, verify on stop, auto-approve web fetches, trigger the
   overseer audit on unit completion, park ask-gated commands when unattended, the
-  complexity budget, and a session-start check of what the machine lacks. Each fires once
-  per event even when wired at two settings levels (`docs/engine-limits.md`).
+  complexity budget, and a session-start check of what the machine lacks. They are wired by
+  the project's `settings.json` only — never from `~/.claude/` (`docs/engine-limits.md`).
 - **Critic agents**: slice-planner-critic, feature-critic, master-critic — adversarial
   review before implementation begins.
 
@@ -158,8 +158,8 @@ Keys the layer names are set, lists gain only what they lack, every key the file
 and the layer does not name is kept, a backup (`settings.json.engine-backup-<UTC>`) is
 written next to the file before it changes, and a second run changes nothing. `--home DIR`
 or `CLAUDE_CONFIG_DIR` names a different config directory. A layer that wires hooks is
-refused: a hook wired at the user level **and** in a project would fire twice per event (the
-engine's hooks also stand down in that case — `docs/engine-limits.md`). A cloud session does
+refused: a hook wired at the user level **and** in a project would fire twice per event
+(`docs/engine-limits.md`, "One hook, one run per event"). A cloud session does
 not read the user level at all, so the personal layer never reaches it; that is correct, the
 shared file carries everything a project needs.
 
