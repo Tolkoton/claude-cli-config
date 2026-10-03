@@ -35,7 +35,7 @@
         {
           "write": {
             "path": "pyproject.toml",
-            "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+            "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# gate-allow: this scenario drops the exclude on purpose, to show the engine keeps itself out\n# The engine ships# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
           }
         },
         {
@@ -209,6 +209,170 @@
       },
       "expect": "block",
       "expect_detail_contains": "TYPECHECK FAILED"
+    },
+    {
+      "id": "vs-bypass-type-ignore",
+      "why": "Package 7: a type error silenced with an added suppression passes mypy; only the guard sees it.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"  # type: ignore[return-value]\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
+      "id": "vs-bypass-noqa",
+      "why": "Package 7: an unused import silenced with an added noqa passes ruff; only the guard sees it.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nimport os  # noqa: F401\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
+      "id": "vs-bypass-skip",
+      "why": "Package 7: a failing test turned into a skipped one is green for pytest; the guard blocks the skip.",
+      "setup": [
+        {
+          "write": {
+            "path": "tests/test_skipped.py",
+            "content": "import pytest\n\n\n@pytest.mark.skip(reason=\"later\")\ndef test_later() -> None:\n    assert False\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
+      "id": "vs-bypass-xfail",
+      "why": "Package 7: the same with xfail.",
+      "setup": [
+        {
+          "write": {
+            "path": "tests/test_xfailed.py",
+            "content": "import pytest\n\n\n@pytest.mark.xfail\ndef test_later() -> None:\n    assert False\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
+      "id": "vs-bypass-ruff-config",
+      "why": "Package 7: narrowing the linter's rule set makes the lint pass; the guard blocks a changed [tool.ruff].",
+      "setup": [
+        {
+          "write": {
+            "path": "pyproject.toml",
+            "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# gate-allow: this scenario drops the exclude on purpose, to show the engine keeps itself out\n# The engine ships# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\n\n[tool.ruff.lint]\nselect = [\"E\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
+      "id": "vs-bypass-mypy-config",
+      "why": "Package 7: loosening the type checker is the same move; the guard blocks a changed [tool.mypy].",
+      "setup": [
+        {
+          "write": {
+            "path": "pyproject.toml",
+            "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# gate-allow: this scenario drops the exclude on purpose, to show the engine keeps itself out\n# The engine ships# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = false\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
+      "id": "vs-bypass-justified",
+      "why": "Package 7: a suppression with a gate-allow reason beside it is the owner's allowed exception.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef vendor_total() -> int:\n    return \"3\"  # type: ignore[return-value]  # gate-allow: the vendor stub returns str by contract\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "vs-bypass-string-mention",
+      "why": "Package 7: the guard reads syntax, so a docstring that merely mentions the markers is not a finding.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef note() -> str:\n    \"\"\"Never add # type: ignore or # noqa or pytest.mark.skip to pass the gate.\"\"\"\n    return \"# type: ignore\"\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "vs-bypass-counter-escalates",
+      "why": "Package 7: three blocks in a row end in an escalation — the turn may end, the item is parked.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": [
+        "block",
+        "block",
+        "allow"
+      ],
+      "runs": 3
     }
   ]
 }
