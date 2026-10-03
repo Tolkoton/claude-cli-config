@@ -465,7 +465,6 @@ def _write_continue_count(project_dir: Path, value: int) -> None:
     path = _continue_count_file(project_dir)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"{value}\n", encoding="utf-8")
     except OSError:
         pass
