@@ -232,7 +232,7 @@ def bullet(body: str, label: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def collect_parked(root: Path, slice_name: str, queue: bool = True) -> int:
+def collect_parked(root: Path, queue: bool = True) -> int:
     header = re.compile(r"^## (?P<ts>\S+) — (?P<item>.+?) — PARKED[ \t]*$", re.MULTILINE)
     text = read(root / ".engine/overseer/parked.md")
     resumed = set(re.findall(r"^## \S+ — (.+?) — RESUMED[ \t]*$", text, re.MULTILINE))
@@ -266,10 +266,10 @@ def collect(root: Path) -> int:
     slice_name = current_slice(root)
     first = not state_file(root, "seen.json").is_file()
     if first:
-        collect_parked(root, slice_name, queue=False)
+        collect_parked(root, queue=False)
         collect_escalations(root, slice_name, queue=False)
         remember(root, "seeded")
-    return (collect_gate(root, slice_name) + collect_parked(root, slice_name)
+    return (collect_gate(root, slice_name) + collect_parked(root)
             + collect_escalations(root, slice_name))
 
 
