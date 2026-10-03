@@ -1,6 +1,8 @@
 # Simplifier — findings for the owner
 
-Nothing listed here was removed.
+Nothing listed here was removed by the simplifier itself. The 15 `confirm` findings of the first pass
+were approved by the owner and applied in board task 011 (one commit each, trailer
+`Simplifier-Finding`); the 5 `flag_only` findings are untouched.
 
 ## 2026-10-03T17:01:23Z — first pass over the engine: code, .claude/hooks
 
