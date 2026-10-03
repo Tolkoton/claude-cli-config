@@ -196,3 +196,10 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Action: gate.py layer_checks runs the bypass guard before the PROJECT_MARKER check; a missing marker skips only lint, types, tests and the simplifier's signals.
 - Commits: 3801249, 340c270, 759657f.
 - Category: build
+
+## 2026-10-03T18:20:00Z — board 030-baselines-by-environment — TASK_BUILT
+- Trigger: tasks/doing/030-baselines-by-environment.md (the owner's decision is in the task; no audit asked for).
+- Evidence: `bash tests/run_all.sh` 56 suites green (on the tree committed as 418a022); tests/test_baseline_environments.py 43/43 — three checks seen red while the two emptied folders were still on disk; tests/test_release.py 99/99, the two new cases seen red on the engine.py of f9f4806 (97/99); golden hook set 119/119 identical to evals/baseline/linux-ubuntu-22.04/results-task-020.json; ruff --isolated and mypy --strict clean on the new and changed Python; a scan of every tracked file for both machine names: none left outside the test's own pattern.
+- Action: evals/baseline/ folders renamed to linux-ubuntu-22.04, linux-ubuntu-24.04, linux-ubuntu-26.04, macos-14, each record placed by the platform it names; evals/environment.py names the environment, the four runners refuse another environment's folder and record the name, compare.py, compare_audits.py and `engine.py release` mark a cross-environment comparison; paths and machine names rewritten in records, reports and labels (git history keeps them).
+- Commits: 418a022.
+- Category: build
