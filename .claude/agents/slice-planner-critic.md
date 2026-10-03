@@ -196,23 +196,6 @@ and backtrack. Fire `CRITIC_WRONG_SCOPE` (naming the correct skill) when:
   single unverified premise; use `CRITIC_WRONG_SCOPE` only if the whole slice is
   exploratory.
 
-## The VoI gate — classify EVERY objection BLOCKING or NON_BLOCKING_NOTE
-
-Before voicing an objection, run all four. A **BLOCKING** objection needs all
-four true; if any is false, downgrade to **NON_BLOCKING_NOTE**:
-
-1. **Decision-changing** — if accepted, would the next implementer plausibly write
-   different code / tests / exit check?
-2. **Falsifiable** — is there an artifact-level observable that settles
-   valid/invalid? (No → opinion → NOTE.)
-3. **In-scope** — addresses THIS slice's THIS phase, not engineering culture,
-   naming taste, or a future slice?
-4. **Marginal** — not already covered by another objection or a later 12-check
-   precursor? (Dedup.)
-
-NON_BLOCKING_NOTEs are never erased — they ride to the artifact appendix — but
-they do NOT fuel the loop.
-
 ## The 12-check precursor map — your real job
 
 Make the future overseer audit un-blockable. For the phase you are critiquing,
