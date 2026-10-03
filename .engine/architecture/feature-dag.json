@@ -1,67 +1,69 @@
 {
-  "feature": "engine-package-costs",
-  "note": "Program docs/plan/package-costs.md: the overseer sees gate-allow, cheaper audits, models by role, release audit. Contract: .engine/architecture/feature/engine-package-costs.md. Package B (memory) is archived in .engine/architecture/archive/engine-package-memory.json; its parked owner items are carried below.",
+  "feature": "engine-package-board",
+  "note": "Program docs/plan/package-board.md: a task board in files and a runner that works from it. Contract: .engine/architecture/feature/engine-package-board.md. From here on the backlog is the board itself (tasks/todo/); this file records the package that built it. Package costs is archived in .engine/architecture/archive/engine-package-costs.json; the owner's parked items are carried below.",
   "nodes": [
     {
-      "id": "C1",
-      "title": "gate_allows.py: every gate exemption no accepted PASS has seen (code comments, config lines, contract grants in use)",
+      "id": "B1",
+      "title": "tasks/ with four columns, README and template, seeded once; board.py — the board's one reader",
       "deps": [],
       "status": "done",
-      "evidence": "4617b3a; tests/test_gate_allows.py 57 checks"
+      "evidence": "1c0748b; tests/test_board.py 88 checks"
     },
     {
-      "id": "C2",
-      "title": "overseer hook lists the exemptions in OVERSEER_REQUEST and refuses OVERSEER_PASS while the Stop gate's escalation is open; gate.py records the escalation in machine state, closed only by the owner's command",
+      "id": "B2",
+      "title": "board-runner.sh, the thin loop: next → doing (own commit) → fresh claude -p → done (the tracer)",
       "deps": [
-        "C1"
+        "B1"
       ],
       "status": "done",
-      "evidence": "4617b3a; tests/test_gate_allows.py (hook cases), tests/test_gate.py 79"
+      "evidence": "adcd4ab; tests/test_board_runner.py, the tracer case"
     },
     {
-      "id": "C3",
-      "title": "overseer skill: check #4 judges every gate-allow, state step 11; audit scenario 11; fixtures without an unexplained suppression",
+      "id": "B3",
+      "title": "runner: pull --rebase, inbox, unblock, resume, limit wait, cost and budget, push, the two stops, state for the operator",
       "deps": [
-        "C1"
+        "B2"
       ],
       "status": "done",
-      "evidence": "072108c; tests/test_audit_scene_gate_allow.py 22"
+      "evidence": "adcd4ab; tests/test_board_runner.py 73 checks"
     },
     {
-      "id": "C4",
-      "title": "audit tiers (--tier smoke|full), --max-cost, evals/needs_audit.py, the rule in evals/README.md",
-      "deps": [],
-      "status": "done",
-      "evidence": "a36e89c; tests/test_audit_tiers.py 23, tests/test_needs_audit.py 20"
-    },
-    {
-      "id": "C5",
-      "title": "models by role: four critics on the sonnet alias; two critic rounds per plan",
-      "deps": [],
-      "status": "done",
-      "evidence": "a36e89c; tests/test_model_roles.py 25"
-    },
-    {
-      "id": "C6",
-      "title": "golden scenarios for the overseer hook, new everyday reference, ownership, limits, records",
+      "id": "B4",
+      "title": "paid-run gate in run_audit_scenarios.py: the task's «Аудит потрібен: так» or the owner's --owner-approved",
       "deps": [
-        "C1",
-        "C2",
-        "C3",
-        "C4",
-        "C5"
+        "B1"
       ],
       "status": "done",
-      "evidence": "b5ca7d7, 39e7325; 46 suites green; golden 105 identical + 9 new; results-package-costs.json 114/114"
+      "evidence": "977193b; tests/test_paid_run_gate.py 15 checks"
     },
     {
-      "id": "C7",
-      "title": "release audit --tier full at the branch tip -> evals/baseline/claw/audit-v0.12.0.json (limit $35), compared with audit-v0.11.0.json",
+      "id": "B5",
+      "title": "the rules: engine-rules.md (short), tasks/README.md (full), AGENTS, evals/README, limits",
       "deps": [
-        "C6"
+        "B3",
+        "B4"
       ],
       "status": "done",
-      "evidence": "evals/baseline/claw/audit-v0.12.0.json on 39e7325: 30/33 matched, $19.67 of $35; .engine/overseer/audit-costs-compare.md"
+      "evidence": "09bdd22; tests/test_board.py 'the rules for the agent'; tests/test_context_budget.py 199/200"
+    },
+    {
+      "id": "B6",
+      "title": "the owner's seventeen tasks from the inbox into tasks/todo/, verbatim",
+      "deps": [
+        "B3"
+      ],
+      "status": "done",
+      "evidence": "b2681b3; byte-identical to tests/fixtures/board-inbox/"
+    },
+    {
+      "id": "B7",
+      "title": "live check (task 000 through the real claude), full suite, golden set, report, operator instruction, summary",
+      "deps": [
+        "B5",
+        "B6"
+      ],
+      "status": "done",
+      "evidence": "8f2b806..fef334d, 0.277 USD; docs/plan/package-board-report.md"
     },
     {
       "id": "B5",

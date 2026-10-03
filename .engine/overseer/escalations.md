@@ -630,3 +630,84 @@ one; do not reopen the old one in conversation.
 - Evidence: tests/test_audit_scene_gate_allow.py "every other scene's working tree" (fails on the old fixtures: shown in the build log); sandbox run 2026-10-03 (ruff, mypy, pytest, smoke 12.10, gate rc 0).
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K1-K4-one-reader-and-the-task-format
+- Decision: `.claude/unattended/board.py` is the only reader of the board; the task header is the two plain lines the owner already writes (`Залежить від:`, `Аудит потрібен:`), read above the first `##` heading only; a dependency is met only by `tasks/done/NNN-*/`; "answered" means at least one `Відповідь:` line under `## Питання до власника` and none empty; an HTML comment is not read.
+- Door: two-way
+- Cost to reverse: the regular expressions and `Task.answered` at the head of board.py; tests/test_board.py "parsing".
+- Why not escalated: the owner's seventeen tasks fix the format in practice; the template follows them.
+- Evidence: tests/test_board.py (88 checks; the seventeen real files are fixtures), commit 1c0748b.
+- Falsified by: an owner who writes answers on the line below `Відповідь:` — such a task would never unblock.
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K5-the-inbox-moves-and-may-answer
+- Decision: a file taken from the inbox is removed from it; a number in doing/ or done/ is left in the inbox; a number in blocked/ is replaced only by a copy with every answer filled (the agent's addition — it is how an answer arrives without git).
+- Door: two-way
+- Cost to reverse: one branch of `import_inbox` in board.py.
+- Why not escalated: the owner's rule covers todo/, doing/ and done/; blocked/ was unstated, and a copy left in the inbox would resurrect a finished task. The critic's round 1 tightened the blocked case (an unanswered copy must not wipe the questions).
+- Evidence: tests/test_board.py "import-inbox" (9 checks); feature contract R2.
+- Falsified by: the owner wanting to rewrite a blocked task's text, not only answer it — today that file stays in the inbox with a `skipped` event.
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K6-K7-who-moves-and-who-commits
+- Decision: the runner moves a task into doing/ and never out; it commits `tasks/` only, with its own `git commit -- tasks/` on a branch that must match `unattended/*` and be the checked-out one — not through `commit_checkpoint.sh --staged`, as the contract's K7 first said.
+- Door: two-way
+- Cost to reverse: `board_commit` in board-runner.sh (12 lines).
+- Why not escalated: the owner asks for the move to doing/ "окремим commit-ом"; `--staged` commits the whole index and would sweep in whatever a previous session left staged. The branch check the script must carry itself is kept.
+- Evidence: tests/test_board_runner.py "the commit to doing/ holds the move and nothing else", "the runner commits tasks/ — and only tasks/", "BOARD_BRANCH=main is refused"; mutation: sweeping commit → red.
+- Falsified by: —
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K8-R4-resume-by-id-and-counters-of-the-task
+- Decision: a conversation is continued with `--resume <session_id>` from the previous attempt's output (never `-c`); the start time, the no-commit count and the session id are kept per task in `.claude/state/board/costs.json`, so a restarted runner does not give a task twelve more hours or three more attempts; `--retry` is the operator's way to do that on purpose.
+- Door: two-way
+- Cost to reverse: board_state.py; the `--retry` flag.
+- Why not escalated: `-c` continues the most recent conversation in the directory, which is someone else's after any other session ran there; counters of the process would make both of the owner's stops meaningless across restarts (critic, round 1).
+- Evidence: tests/test_board_runner.py "three attempts in a row without a commit" (incl. the restart), "a task older than the limit", "a session that stopped … is continued".
+- Falsified by: —
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-R1-budget-per-task
+- Decision: `BOARD_MAX_USD` caps one task: each call gets `--max-budget-usd <cap minus recorded cost>` and the runner stops with `state=stalled reason=budget` when nothing is left. Cost of a task = sum over its conversations of the highest `total_cost_usd` each reported.
+- Door: two-way
+- Cost to reverse: six lines in `run_task`, `cost_of` in board_state.py.
+- Why not escalated: the owner's 3 USD limit for the live check needed a mechanism (critic round 1, blocking). Whether the flag counts a resumed conversation's earlier spend was not probed — a probe costs money and the program allows one paid action; the chosen reading can only stop early.
+- Evidence: tests/test_board_runner.py "the budget of one task" (3 checks); premise PR-board-02 (accepted-as-risk).
+- Falsified by: a live continuation whose reported figure is NOT a running total — then costs are under-counted; the raw figures in costs.json show it.
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K11-mode-unattended-while-the-runner-lives
+- Decision: the runner writes `unattended` into `.claude/state/overseer/mode` for its lifetime, restores the previous content on exit and heals a leftover from a killed runner; its sessions carry `CLAUDE_UNATTENDED_SESSION=1`.
+- Door: two-way
+- Cost to reverse: `restore_mode` and four lines around it in board-runner.sh.
+- Why not escalated: a board session has nobody to ask; without the mode a planning gate would wait for an answer that never comes.
+- Evidence: tests/test_board_runner.py "the lock and the mode file" (6 checks), "TERM: …the mode file is restored".
+- Falsified by: an owner working interactively in the same checkout while the runner runs — that session is told "unattended" too (docs/engine-limits.md).
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K12-owner-approved-is-refused-in-a-session
+- Decision: `run_audit_scenarios.py --owner-approved` does not count while `CLAUDECODE` is set; the board's «Аудит потрібен: так» works everywhere. The suites that drive the audit runner with a fake `claude` pass `--tasks-dir tests/fixtures/board-audit-yes`.
+- Door: two-way
+- Cost to reverse: one condition in `paid_run_refusal`.
+- Why not escalated: the flag is "для ручного запуску власником"; the same idiom guards `gate.py --close-escalation`. It is a seat belt, said so in docs/engine-limits.md.
+- Evidence: tests/test_paid_run_gate.py (15 checks).
+- Falsified by: the owner wanting to tell an interactive agent "run the audit" without writing a task — today that needs a task or the owner's own terminal.
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-K13-the-manual-is-in-ukrainian
+- Decision: `tasks/README.md` and `tasks/TEMPLATE.md` (and their seeds) are in Ukrainian; the five-line rule in `.claude/engine-rules.md` is in English and quotes the markers literally.
+- Door: two-way
+- Cost to reverse: translating two files; the markers `Залежить від:`, `Аудит потрібен:`, `Відповідь:` are the owner's and stay.
+- Why not escalated: the owner fixed the section names in Ukrainian and writes tasks in it; the owner and the operator are the manual's readers.
+- Evidence: tasks/README.md; tests/test_board.py "the rules for the agent".
+- Falsified by: the engine installed for a team that does not read Ukrainian.
+- Status: CLOSED
+
+## 2026-10-03T14:20:00Z — AUTONOMOUS — board-slices-built-from-the-feature-contract
+- Decision: the slices B1–B6 were built test-first straight from the feature contract (its Decisions, Revisions and CLI contract), without a separate `/plan-slice` contract and planner-critic loop per slice, as packages 2b–costs did.
+- Door: two-way
+- Cost to reverse: none for the code; a per-slice contract can be written after the fact.
+- Why not escalated: the program caps the critic at two rounds for the package, both spent on the plan; every slice's exit criterion is its suite, shown red first or mutation-checked.
+- Evidence: commits 1c0748b, adcd4ab, 977193b, 09bdd22, b2681b3; .engine/architecture/feature/engine-package-board.md.
+- Falsified by: —
+- Status: CLOSED

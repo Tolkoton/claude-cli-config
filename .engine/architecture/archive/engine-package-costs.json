@@ -1,0 +1,96 @@
+{
+  "feature": "engine-package-costs",
+  "note": "Program docs/plan/package-costs.md: the overseer sees gate-allow, cheaper audits, models by role, release audit. Contract: .engine/architecture/feature/engine-package-costs.md. Package B (memory) is archived in .engine/architecture/archive/engine-package-memory.json; its parked owner items are carried below.",
+  "nodes": [
+    {
+      "id": "C1",
+      "title": "gate_allows.py: every gate exemption no accepted PASS has seen (code comments, config lines, contract grants in use)",
+      "deps": [],
+      "status": "done",
+      "evidence": "4617b3a; tests/test_gate_allows.py 57 checks"
+    },
+    {
+      "id": "C2",
+      "title": "overseer hook lists the exemptions in OVERSEER_REQUEST and refuses OVERSEER_PASS while the Stop gate's escalation is open; gate.py records the escalation in machine state, closed only by the owner's command",
+      "deps": [
+        "C1"
+      ],
+      "status": "done",
+      "evidence": "4617b3a; tests/test_gate_allows.py (hook cases), tests/test_gate.py 79"
+    },
+    {
+      "id": "C3",
+      "title": "overseer skill: check #4 judges every gate-allow, state step 11; audit scenario 11; fixtures without an unexplained suppression",
+      "deps": [
+        "C1"
+      ],
+      "status": "done",
+      "evidence": "072108c; tests/test_audit_scene_gate_allow.py 22"
+    },
+    {
+      "id": "C4",
+      "title": "audit tiers (--tier smoke|full), --max-cost, evals/needs_audit.py, the rule in evals/README.md",
+      "deps": [],
+      "status": "done",
+      "evidence": "a36e89c; tests/test_audit_tiers.py 23, tests/test_needs_audit.py 20"
+    },
+    {
+      "id": "C5",
+      "title": "models by role: four critics on the sonnet alias; two critic rounds per plan",
+      "deps": [],
+      "status": "done",
+      "evidence": "a36e89c; tests/test_model_roles.py 25"
+    },
+    {
+      "id": "C6",
+      "title": "golden scenarios for the overseer hook, new everyday reference, ownership, limits, records",
+      "deps": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "status": "done",
+      "evidence": "b5ca7d7, 39e7325; 46 suites green; golden 105 identical + 9 new; results-package-costs.json 114/114"
+    },
+    {
+      "id": "C7",
+      "title": "release audit --tier full at the branch tip -> evals/baseline/claw/audit-v0.12.0.json (limit $35), compared with audit-v0.11.0.json",
+      "deps": [
+        "C6"
+      ],
+      "status": "done",
+      "evidence": "evals/baseline/claw/audit-v0.12.0.json on 39e7325: 30/33 matched, $19.67 of $35; .engine/overseer/audit-costs-compare.md"
+    },
+    {
+      "id": "B5",
+      "title": "stuck counter on Bash results: settings wiring (OWNER)",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "parked.md B-wiring-stuck-bash: python3 docs/tasks/apply-lesson-hooks.py",
+      "evidence": "parked.md B-wiring-stuck-bash: python3 docs/tasks/apply-lesson-hooks.py"
+    },
+    {
+      "id": "C8b",
+      "title": "post-3c audit run (OWNER, money): --engine-ref 24abb7d -> audit-post-3c.json",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "Superseded: v0.11.0 contains 3c and package 2b's audit-v0.11.0.json is the measurement of it on a working instrument; unblocks only if the owner still wants the 24abb7d run."
+    },
+    {
+      "id": "S8",
+      "title": "apply-personal (OWNER): engine.py install --personal against the real ~/.claude",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref v0.11.0` after reading its --dry-run."
+    },
+    {
+      "id": "S9",
+      "title": "cloud-probe (OWNER): run .claude/unattended/env-probe.sh in a real cloud session, then decide CLOUD_COMMIT_POLICY",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
+    }
+  ]
+}

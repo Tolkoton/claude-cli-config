@@ -167,3 +167,9 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Action: SOURCE_DIRS matcher fixed for multi-segment entries on absolute paths; this repository's project.env describes the engine and the Stop gate runs the suite; the audit runner saves per run and resumes; test_deny_hooks.py strictly typed.
 - Still parked for the owner: C8b (post-move audit re-run — now resumable if it crashes), C9 (apply the settings proposal), S8, S9.
 - Category: build
+
+## 2026-10-03T14:20:00Z — feature:engine-package-board — FEATURE_COMPLETE
+- Trigger: /feature-architect (program docs/plan/package-board.md)
+- Evidence: .engine/architecture/feature/engine-package-board.md; `bash tests/run_all.sh` 49 suites green (2026-10-03T14:07Z–14:11Z, at b2681b3); golden hook set 114/114 identical to results-package-costs.json; ruff --isolated and mypy --strict clean on the new and changed Python; live check: task 000-перевірка todo → doing → done through the real `claude`, 0.277 USD of 3 (commits 8f2b806, cbf7b9f, fef334d).
+- Action: 6 slices built (B1 board + board.py, B2+B3 runner, B4 paid-run gate, B5 rules, B6 seventeen tasks in todo/), tracer verified (tests/test_board_runner.py, first case), 2 critic rounds on the plan (REVISE, PASS), 0 interrupts.
+- Category: strategy
