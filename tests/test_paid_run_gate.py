@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""A paid audit starts only when the owner said so (package board, item 4).
+
+evals/run_audit_scenarios.py refuses, before anything else and before any session, unless
+  - the one task in tasks/doing/ says «Аудит потрібен: так», or
+  - the owner runs it by hand with --owner-approved — in their own terminal: inside a Claude
+    Code session (CLAUDECODE set) the flag is refused, like gate.py --close-escalation.
+
+No session is started here. A case that must get PAST the gate asks for a scenario that does
+not exist, so the runner stops at its next check ("no scenario id contains"); a `claude` shim
+that records every call shows that nothing ran in either direction.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+RUNNER = ROOT / "evals" / "run_audit_scenarios.py"
+PASS = FAIL = 0
+REFUSAL = "refusing to start paid sessions"
+PAST_THE_GATE = "no scenario id contains"
+
+
+def check(name: str, ok: bool, detail: object = "") -> None:
+    global PASS, FAIL
+    PASS, FAIL = (PASS + 1, FAIL) if ok else (PASS, FAIL + 1)
+    print(f"  {'ok  ' if ok else 'FAIL'} {name}{'' if ok else '   ' + str(detail)[:600]}")
+
+
+work = Path(tempfile.mkdtemp(prefix="paid-gate-"))
+shim = work / "claude"
+shim.write_text(f"#!/usr/bin/env bash\necho called >> {work}/calls\necho '1.0.0 (shim)'\n")
+shim.chmod(0o755)
+
+
+def board(*doing: tuple[str, str]) -> Path:
+    tasks = Path(tempfile.mkdtemp(prefix="paid-gate-board-", dir=work)) / "tasks"
+    for column in ("todo", "doing", "blocked", "done"):
+        (tasks / column).mkdir(parents=True)
+    for name, audit in doing:
+        (tasks / "doing" / name).write_text(f"# x\n\nЗалежить від: —\nАудит потрібен: {audit}\n\n## Що зробити\n", encoding="utf-8")
+    return tasks
+
+
+def run(*args: str, in_session: bool = False) -> subprocess.CompletedProcess[str]:
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    if in_session:
+        env["CLAUDECODE"] = "1"
+    return subprocess.run([sys.executable, str(RUNNER), "--claude", str(shim), "--only", "no-such-scenario-zz", *args],
+                          capture_output=True, text=True, env=env, check=False)
+
+
+def refused(r: subprocess.CompletedProcess[str]) -> bool:
+    return r.returncode == 2 and REFUSAL in r.stderr and PAST_THE_GATE not in r.stderr
+
+
+def passed(r: subprocess.CompletedProcess[str]) -> bool:
+    return REFUSAL not in r.stderr and PAST_THE_GATE in r.stderr
+
+
+print("the task on the board decides")
+r = run("--tasks-dir", str(board()))
+check("no task in doing/: refused", refused(r), r.stderr)
+check("the refusal names both ways through", "Аудит потрібен: так" in r.stderr and "--owner-approved" in r.stderr, r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "ні"))))
+check("the task says «ні»: refused, and the task is named", refused(r) and "001-a.md" in r.stderr, r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "так"))))
+check("the task says «так»: the runner goes on", passed(r), r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "так"))), in_session=True)
+check("…inside a Claude Code session too: that is how a board task runs its audit", passed(r), r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "так"), ("002-b.md", "так"))))
+check("two tasks in doing/: refused", refused(r), r.stderr)
+yes_in_todo = board()
+(yes_in_todo / "todo" / "001-a.md").write_text("# x\n\nАудит потрібен: так\n", encoding="utf-8")
+check("«так» in todo/ allows nothing", refused(run("--tasks-dir", str(yes_in_todo))))
+
+print("the owner's flag")
+empty = str(board())
+r = run("--tasks-dir", empty, "--owner-approved")
+check("--owner-approved in the owner's own terminal: the runner goes on", passed(r), r.stderr)
+r = run("--tasks-dir", empty, "--owner-approved", in_session=True)
+check("--owner-approved inside a Claude Code session: refused", refused(r), r.stderr)
+check("…and the refusal says why the flag did not count", "CLAUDECODE" in r.stderr, r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "ні"))), "--owner-approved")
+check("the flag outranks a task that says «ні» (a manual run outside the board)", passed(r), r.stderr)
+
+print("the gate comes first and nothing runs")
+r = run("--tasks-dir", empty, "--engine-ref", "no-such-ref-zz")
+check("refused before the engine ref is even resolved", refused(r) and "no-such-ref-zz" not in r.stderr, r.stderr)
+check("the claude executable was never called, in any case above", not (work / "calls").exists())
+r = run()
+real_tasks = ROOT / "tasks"
+real_doing = sorted(p.name for p in (real_tasks / "doing").glob("[0-9]*.md"))
+wants = len(real_doing) == 1 and "Аудит потрібен: так" in (real_tasks / "doing" / real_doing[0]).read_text(encoding="utf-8").split("## ")[0]
+check("without --tasks-dir the board is this repository's tasks/", passed(r) if wants else refused(r), (real_doing, r.stderr))
+fixture = ROOT / "tests/fixtures/board-audit-yes"
+check("the fixture board the other audit suites use says «так»", passed(run("--tasks-dir", str(fixture))))
+
+print(f"\nPASS {PASS}   FAIL {FAIL}")
+sys.exit(0 if FAIL == 0 else 1)

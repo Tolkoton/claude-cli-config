@@ -122,7 +122,8 @@ class Harness:
         env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_KILL_AT_A=str(kill_at_a),
                    SHIM_LIMIT_AT_B=str(limit_at_b), SHIM_REFUSE_AT_A=str(refuse_at_a), TMPDIR=str(self.tmp))
         return subprocess.run(
-            [sys.executable, str(RUNNER), "--engine-ref", engine_ref, "--runs", str(runs), "--only", only,
+            [sys.executable, str(RUNNER), "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"),
+             "--engine-ref", engine_ref, "--runs", str(runs), "--only", only,
              "--claude", str(self.shim), "--out", str(self.out), *extra],
             cwd=ROOT, env=env, capture_output=True, text=True, check=False, timeout=600)
 
@@ -229,7 +230,8 @@ def main() -> int:
         check("the lost run is replaced by a verdict", rows[IDS[1]]["runs"][0].get("marker") == "PASS" and len(rows[IDS[1]]["runs"]) == 1, str(rows[IDS[1]]["runs"]))
         check("the file is complete", res["status"] == "complete" and res["pending"] == [], str(res.get("status")))
 
-        r = subprocess.run([sys.executable, str(RUNNER), "--only", ONLY, "--claude", str(h.shim), "--out", str(legacy), "--resume"],
+        r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"),
+                            "--only", ONLY, "--claude", str(h.shim), "--out", str(legacy), "--resume"],
                            cwd=ROOT, env=dict(os.environ, SHIM_LOG=str(h.log), TMPDIR=str(h.tmp)), capture_output=True, text=True, check=False)
         check("refused with the reason", r.returncode == 2 and "no engine_commit" in r.stderr, r.stderr[-200:])
 

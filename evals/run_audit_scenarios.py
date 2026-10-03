@@ -69,6 +69,7 @@ Standard library only, Python 3.12+.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -544,6 +545,33 @@ def refresh(row: JsonObj) -> None:
     row["verdicts"] = dict(Counter(shown(r) for r in runs))
 
 
+def board_module() -> Any:
+    """The board's one reader, .claude/unattended/board.py — so «audit wanted» is decided once."""
+    path = HERE.parent / ".claude" / "unattended" / "board.py"
+    spec = importlib.util.spec_from_file_location("engine_board", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["engine_board"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) -> str | None:
+    """Why this run may not start a paid session, or None. Owner's rule (tasks/README.md): the
+    audit runs when the one task in tasks/doing/ says «Аудит потрібен: так», or when the owner
+    starts it by hand with --owner-approved. The flag is the owner's: inside a Claude Code
+    session (CLAUDECODE is set in every shell the agent's tools start) it does not count."""
+    reason = board_module().audit_refusal(tasks_dir.resolve())
+    if reason is None or (owner_approved and not in_session):
+        return None
+    flag = (" --owner-approved was given, but inside a Claude Code session (CLAUDECODE is set) it does not "
+            "count: it is the owner's flag, for the owner's own terminal." if owner_approved else "")
+    return (f"refusing to start paid sessions: {reason}.{flag}\n"
+            "Two ways through, both the owner's: write «Аудит потрібен: так» in the task (tasks/README.md, "
+            "«Платні прогони»), or run this by hand with --owner-approved.")
+
+
 def main() -> int:
     global SCENARIOS, PROGRESS_FIXTURE
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
@@ -568,6 +596,12 @@ def main() -> int:
                              "layer out so the engine is measured alone. '' = Claude Code default")
     parser.add_argument("--max-turns", type=int, default=AUDIT_MAX_TURNS)
     parser.add_argument("--keep", action="store_true", help="keep the sandboxes for inspection")
+    parser.add_argument("--owner-approved", action="store_true",
+                        help="the OWNER's word that these paid sessions are wanted, for a run by hand outside "
+                             "the task board; refused inside a Claude Code session")
+    parser.add_argument("--tasks-dir", type=Path, default=HERE.parent / "tasks",
+                        help="the task board whose doing/ task must say «Аудит потрібен: так» (default: this "
+                             "repository's tasks/; the deterministic tests point this at a fixture board)")
     parser.add_argument("--scenarios-dir", type=Path, default=SCENARIOS,
                         help="another directory of audit scenarios (default: evals/scenarios/audit); "
                              "the deterministic tests point this at a broken copy")
@@ -576,6 +610,12 @@ def main() -> int:
         parser.error("--resume needs --out")
     if args.tier and args.runs is not None and args.runs != TIERS[args.tier]:
         parser.error(f"--tier {args.tier} is {TIERS[args.tier]} run(s) per scenario; --runs {args.runs} contradicts it")
+    # The paid-run rule (package board, item 4), before anything else: no session is paid for
+    # unless the owner said so — in the task on the board, or by hand with the flag.
+    refusal = paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 2
     if args.runs is None:
         args.runs = TIERS[args.tier or DEFAULT_TIER]
     if args.runs < 1:

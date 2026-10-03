@@ -62,7 +62,8 @@ class Bench:
     def run(self, *args: str, limit_at_b: int = 0) -> subprocess.CompletedProcess[str]:
         self.log.write_text("", encoding="utf-8")
         env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_LIMIT_AT_B=str(limit_at_b), TMPDIR=str(self.work / "tmp"))
-        return subprocess.run([sys.executable, str(RUNNER), "--engine-ref", "HEAD", "--claude", str(self.shim), *args],
+        return subprocess.run([sys.executable, str(RUNNER), "--engine-ref", "HEAD", "--claude", str(self.shim),
+                               "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"), *args],
                               cwd=ROOT, env=env, capture_output=True, text=True, check=False, timeout=900)
 
     def sessions(self) -> int:
