@@ -99,6 +99,11 @@ every scenario one run instead of costing the last scenarios all of theirs. The 
 dropped on `--resume` (account usage limit) stays counted (`dropped_cost_usd`).
 `tests/test_audit_tiers.py`, `tests/test_needs_audit.py`.
 
+**Do not commit while an audit against `HEAD` is running.** The file records the commit the ref
+resolved to at the start, but every run's sandbox is built from the ref as given; a commit made
+mid-run moves `HEAD` and the later runs measure another engine under the first one's name. Give
+`--engine-ref` a commit or a tag, or leave the branch alone until the run ends.
+
 Each run builds a fresh sandbox, lays the scenario's work over it uncommitted
 (`scenarios/audit/work/`, chosen in `expected.json`) — the code the scripted turn talks about
 really exists and its claims can be checked — then sends prompt A and prompt B. The verdict is

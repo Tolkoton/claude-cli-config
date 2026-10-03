@@ -51,7 +51,8 @@
         "C4",
         "C5"
       ],
-      "status": "working"
+      "status": "done",
+      "evidence": "b5ca7d7, 39e7325; 46 suites green; golden 105 identical + 9 new; results-package-costs.json 114/114"
     },
     {
       "id": "C7",
@@ -59,7 +60,8 @@
       "deps": [
         "C6"
       ],
-      "status": "pending"
+      "status": "done",
+      "evidence": "evals/baseline/claw/audit-v0.12.0.json on 39e7325: 30/33 matched, $19.67 of $35; .engine/overseer/audit-costs-compare.md"
     },
     {
       "id": "B5",

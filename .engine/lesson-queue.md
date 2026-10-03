@@ -20,3 +20,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-03 | escalation | - | FINDING item 9's "45 mypy findings" were 9 #91b75629
 - 2026-10-03 | escalation | - | FINDING a suite can be green by hand and red from the Stop gate #d92e8dfa
 - 2026-10-03 | escalation | - | FINDING decana carries the old rules inline, partly edited #d0ea75d8
+- 2026-10-03 | parked | N0.3-full-audit | N0.3-full-audit: the headless Claude Code sessions of the audit are not logged in on this machine (`claude auth status` → loggedIn false; every run ended "Not logged in · Please run /login"); a creden #563e9aa9

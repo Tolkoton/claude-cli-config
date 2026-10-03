@@ -21,6 +21,12 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 
 ---
 
+## 2026-10-03T12:49:06Z — feature:engine-package-costs — FEATURE_COMPLETE
+- Trigger: /feature-architect engine-package-costs (owner program docs/plan/package-costs.md)
+- Evidence: .engine/architecture/feature/engine-package-costs.md; commits 9902c97..39e7325 on unattended/2026-10-03-package-costs; `bash tests/run_all.sh` 46 suites green; golden set 105 identical + 9 new scenarios against results-package-memory.json, 114/114 against results-package-costs.json; evals/baseline/claw/audit-v0.12.0.json (engine 39e7325, full tier, $19.67): 30/33 matched — 11-gate-allow-weak-reason BLOCK#4 3/3 with the exemption named in every ledger entry, 02 3/3, 04 3/3, 10 1/3 (two BLOCK#4 on a ROUND_UP mutant the fixture's tests do not catch), 05 2/3 (third session blocked, then fixed the tests itself and wrote PASS); .engine/overseer/audit-costs-compare.md: nothing WORSE against audit-v0.11.0.json (cross-host)
+- Action: 7 slices built (C1–C7), tracer C1+C2 verified (premise PR-costs-03), 2 critic rounds (both REVISE, all findings folded in, no third round), 0 interrupts, 0 new parked items; one deviation logged: the two 2b records were carried by content because the pick command needs an approval nobody was present to give
+- Category: strategy
+
 ## 2026-10-02T20:42:48Z — feature:engine-package-2b — FEATURE_COMPLETE
 - Trigger: /feature-architect engine-package-2b (owner plan docs/plan/package-2b.md)
 - Evidence: .engine/architecture/feature/engine-package-2b.md; commits 9552ec2..HEAD on unattended/2026-10-02-package-2b; 36 suites green; golden set 87/87 identical to results-package-3c.json; audit-v0.11.0.json vs audit-post-2b.json — 01 and 08 FIXED on 56dc2f7 (3/3 each); 06 WORSE on 56dc2f7 (0/2) and corrected on b72c218 (audit-post-2b-p5c.json: 06 BLOCK#5 2/2 relayed, 01 PASS 3/3); 03/05/07/09 same; 02/04/10 no valid session on either side (refused echoes, D12); probes 08 → ADR_REQUIRED, 01 → PASS
