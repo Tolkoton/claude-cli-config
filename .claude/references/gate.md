@@ -47,6 +47,9 @@ configuration: the parsed `[tool.ruff]` / `[tool.mypy]` of `pyproject.toml`, any
 comments come from the tokenizer, marks from the AST, configuration from the parsed tables, so a
 string, a docstring or a reformat is not a finding.
 
+The guard calls no tool, so it does not wait for `PROJECT_MARKER`: in a project whose marker file
+does not exist yet the Stop layer skips lint, types and tests, and still runs the guard.
+
 Allowed when the justification stands next to it:
 
 - `# gate-allow: <reason>` on the same line, or on the comment-only line directly above; for a

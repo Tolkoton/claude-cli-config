@@ -42,7 +42,8 @@ keys in project.env) — unless the justification stands next to it:
     gate-allow: <type-ignore|noqa|skip|xfail|config path> — <reason>
 A reason is at least 12 characters and two words. Syntax only: comments come from the tokenizer,
 marks from the AST, configuration from the parsed tables — a string that merely mentions them
-is not a finding.
+is not a finding. The guard calls no tool, so it runs whether or not PROJECT_MARKER exists; a
+missing marker skips only lint, types and tests.
 
 Standard library only; Python 3.11+. The linters are external commands.
 """
@@ -923,16 +924,19 @@ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
         # the guard exists to see; so a config-only turn still reaches the guard.
         if not code and not any(is_config_file(f) for f in files):
             return
-        marker = env.get("PROJECT_MARKER", "")
-        if marker and not (root / marker).exists():
-            report.add(Finding(None, None, "marker", "log",
-                               f"{marker} not found — verification skipped",
-                               "add tooling, or clear PROJECT_MARKER in .claude/project.env"))
-            return
     started = time.perf_counter()
     if layer in ("stop", "pre_commit"):
         bypass_guard(root, layer, files, diff_ref, report)
         report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 1000)
+    if layer == "stop":
+        # The marker stands for "the tooling is installed". The guard above needs no tooling, so
+        # it has already run; only the checks that call a tool wait for the marker.
+        marker = env.get("PROJECT_MARKER", "")
+        if marker and not (root / marker).exists():
+            report.add(Finding(None, None, "marker", "log",
+                               f"{marker} not found — lint, types and tests skipped",
+                               "add tooling, or clear PROJECT_MARKER in .claude/project.env"))
+            return
     if layer != "stop" or code:
         run_checks(root, env, files, full, report)
         simplify_signals(root, env, layer, files, report)

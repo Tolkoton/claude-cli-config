@@ -353,6 +353,30 @@
       "expect": "allow"
     },
     {
+      "id": "vs-bypass-without-marker",
+      "why": "Board 020: PROJECT_MARKER names a file that does not exist, so lint, types and tests are skipped (the tooling is not installed yet). The bypass guard needs no tooling: an added noqa still blocks the turn.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nLINT_CMD=\"\"\nTYPECHECK_CMD=\"\"\nTEST_CMD=\"\"\nTEST_CMD_FULL=\"\"\nGATE_MAX_BLOCKS=\"\"\nFORMAT_CMD=\"\"\nPROJECT_MARKER=\"tooling-not-installed.toml\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nimport os  # noqa: F401\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD"
+    },
+    {
       "id": "vs-bypass-counter-escalates",
       "why": "Package 7: three blocks in a row end in an escalation — the turn may end, the item is parked.",
       "setup": [

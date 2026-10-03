@@ -66,7 +66,7 @@ your project's language and toolchain. Every hook reads this file at runtime.
 | `SOURCE_DIRS` | Dirs that count as "code" for overseer trigger | Any file matching `CODE_EXTENSIONS` |
 | `CODE_EXTENSIONS` | File extensions that are "code files" (space-sep, no dot) | All changed files |
 | `CHECK_CMDS` | Verification command names for overseer trigger (space-sep) | Built-in broad set: `pytest ruff mypy npm jest vitest go cargo swift` |
-| `PROJECT_MARKER` | File that must exist before verification runs | Always verify |
+| `PROJECT_MARKER` | File that must exist before lint, types and tests run (the bypass guard runs without it) | Always verify |
 | `LINT_CMD` | Lint command for verify-on-stop | Python auto-detect (ruff) |
 | `TYPECHECK_CMD` | Type-check command for verify-on-stop | Python auto-detect (mypy) |
 | `TEST_CMD` | Test command for verify-on-stop | Python auto-detect (pytest -x) |
