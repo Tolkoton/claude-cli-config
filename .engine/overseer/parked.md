@@ -155,3 +155,11 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Evidence: `ls ~/engine-night` → "No such file or directory" at 19:55Z and at the end of the run.
 - Unblocks when: the owner creates ~/engine-night/night-1.md (no machine-checkable token: the path is outside the repository); a human moves this entry
 - Continued with: the package-2b records and report.
+
+## 2026-10-03T11:20:00Z — N0.3-full-audit — PARKED
+- Blocked on: the headless Claude Code sessions of the audit are not logged in on this machine (`claude auth status` → loggedIn false; every run ended "Not logged in · Please run /login"); a credential only the owner can supply. The attempt cost $0.00 and recorded 21 tooling errors, so its file was set aside, not committed
+- Class: human-input
+- Reversibility: nothing was spent or changed; the run is resumable
+- Evidence: runner log of the attempt (30 runs, 0 sessions started), `claude auth status`
+- Unblocks when: the owner logs in (`claude auth login`, or sets the usual API key in the environment), then on branch unattended/2026-10-02-package-2b runs `python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 --out evals/baseline/Laos-MacBook-Pro/audit-v0.12.0-candidate.json --label "night 1 item 0.3: final state of engine 2b"` (add `--resume` to continue after an interrupted run; budget $35, about $20 expected), then `python3 evals/compare_audits.py --before evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json --after evals/baseline/Laos-MacBook-Pro/audit-v0.12.0-candidate.json --must-fix 01,08`
+- Continued with: packages A and B, done before this item as the program's order puts item 0.3 last
