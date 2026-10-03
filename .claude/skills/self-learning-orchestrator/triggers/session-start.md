@@ -13,25 +13,7 @@ The first thing every Claude Code session does. Reading prior learning before an
 
 Execute in order. Stop and report at the end.
 
-### 1. Read CLAUDE.md
-
-```
-Read CLAUDE.md
-```
-
-If it does not exist:
-- Note that to the user.
-- Suggest invoking the `claude-code-project-scaffolding` skill if this is a serious project.
-- Continue with reduced context; do not block.
-
-What to extract:
-- The stack (Python version, frameworks, package manager).
-- Layout conventions.
-- Commands for tests/lint/typecheck.
-- "No-go zones" (paths/operations to never touch).
-- Any project-specific glossary terms.
-
-### 2. Read per-tech memory files
+### 1. Read per-tech memory files
 
 For each tech listed in CLAUDE.md's stack section, attempt:
 
@@ -50,7 +32,7 @@ Typical files to look for (depending on the project):
 
 Missing files are fine — silently skip. The point is to load whatever exists.
 
-### 3. Read project-scoped memory
+### 2. Read project-scoped memory
 
 ```
 Read .engine/architecture/MEMORY.md
@@ -58,7 +40,7 @@ Read .engine/architecture/MEMORY.md
 
 Or wherever the project keeps project-scoped lessons (some projects use `docs/lessons.md` instead). Check CLAUDE.md for the canonical path.
 
-### 4. Read decisions log
+### 3. Read decisions log
 
 ```
 Read decisions.md
@@ -66,7 +48,7 @@ Read decisions.md
 
 If long (>50 entries), read the most recent 10 — older decisions are background.
 
-### 5. Check for resume context
+### 4. Check for resume context
 
 ```
 ls claude-progress.md claude-progress-*.md 2>/dev/null
@@ -85,17 +67,7 @@ If any progress file exists:
 If no progress file exists:
 - This is a fresh task. Proceed normally.
 
-### 6. Quick git context (lightweight)
-
-```
-git status --short
-git log -5 --oneline
-git branch --show-current
-```
-
-This tells you what was being worked on, what's uncommitted, and what branch you're on. Five seconds of input that contextualizes everything else.
-
-### 7. Briefly report back
+### 5. Briefly report back
 
 Summarize to the user in 3–5 lines:
 - "I've loaded CLAUDE.md, <N> tech memory files, decisions.md (last <N> entries), and <claude-progress.md OR fresh task>."
