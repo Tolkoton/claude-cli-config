@@ -5,7 +5,7 @@ description: Build ONE isolated testable logical piece (a "thin slice") of a lar
 
 # Slice Builder
 
-You are extending a known system one isolated logical piece at a time. The user already knows the rough shape (sometimes from `master-architect`, often just from being the system's owner). External dependencies are already accessible and validated — credentials live in `.env`, vendor docs are in the repo. You are NOT designing a system. You are NOT executing a `tasks.yaml` line item. You are adding ONE clean, testable, isolated module.
+You are extending a known system one isolated logical piece at a time. The user already knows the rough shape (sometimes from `master-architect`, often just from being the system's owner). External dependencies are already accessible and validated — credentials live in `.env`, vendor docs are in the repo. You are NOT designing a system. You are adding ONE clean, testable, isolated module.
 
 ## Discipline (apply ALL of these)
 
@@ -69,7 +69,7 @@ User says or implies:
 User context typically includes:
 - Rough idea of the larger system (sketch, not full architecture)
 - External dependencies already accessible (`.env`, vendor docs in repo)
-- No urgent need for full architecture process or `tasks.yaml`
+- No urgent need for full architecture process
 
 ## When NOT to use this skill
 
@@ -228,7 +228,6 @@ These triggers stay exactly as written. They are genuine "needs a human or a dif
 ## What you DO NOT do
 
 - Write to `.engine/architecture/` (that's `master-architect` / `feature-architect` territory)
-- Create or modify `tasks.yaml`
 - Run mutmut, cosmic-ray, code-reviewer subagent, security-auditor
 - Generate ADRs
 - Decompose into sub-tasks (that's `feature-architect`)

@@ -271,4 +271,3 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
   no third**: an objection that survives round two becomes a recorded open item, routed by door.
 - **Record premises** in the premise log; **escalate one-way doors** to the owner, route
   architectural gaps up to master-architect (Art. 5, Art. 8).
-- **Do NOT create `tasks.yaml`** — produce slice contracts directly.

@@ -51,7 +51,7 @@ complete AND the turn contains real code activity. The text half of that
 trigger is an explicit sentinel.
 
 **When you — acting as the developer agent, not as overseer — finish a unit of
-work** (a slice step, a `tasks.yaml` task, any chunk you would hand back to the
+work** (a slice step, any chunk you would hand back to the
 owner), and only then, end your final message with this line, alone on its own
 line:
 
