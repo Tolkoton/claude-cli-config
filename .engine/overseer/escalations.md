@@ -372,6 +372,7 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T12:16:38Z — FINDING (no decision) — Write(...) deny rules are inert
 - Claude Code 2.1.287 warns at session start, for every `Write(<path>)` rule in permissions.deny: "not matched by file permission checks — only Edit(path) rules are. Use Edit(<path>) instead (Edit rules cover all file-modifying tools)". The live .claude/settings.json and the proposal carry twelve such rules; protect-paths.sh covers the same paths independently, so nothing is unguarded, but the rules are dead text. Owner-only (settings.json): fold into the next docs/tasks proposal.
+- Status: CLOSED (2026-10-03, board task 004) — folded into the proposal in a3ea3fc `settings proposal: drop the twelve Write(<path>) deny rules Claude Code does not apply`, applied by the owner in 8e46a65.
 
 ## 2026-10-02T12:23:29Z — AUTONOMOUS — 3c-C6-references
 - Decision: of the retired skill's three references, permission-philosophy.md moves to .claude/references/ with two stale sentences corrected (commit is governed by the hook's branch rule, push by the ask rule alone); hooks-reference.md (four of nine hooks) and auto-mode-and-flags.md (guessed flag names, Auto Mode described as a sandbox) are deleted. block-dangerous.sh's message names the engine and the script instead of the skill.
@@ -423,6 +424,7 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T14:21:07Z — FINDING — SOURCE_DIRS with a multi-segment entry was inert on absolute paths
 - overseer_stop._is_code_path matched an entry such as backend/src (the documented monorepo example) or .claude/hooks against a RELATIVE path only; Claude Code sends absolute ones. Every sandbox and scenario uses the single-segment "src", which took a different branch, so nothing caught it. Fixed in X7 (one containment test replaces the segment walk); pinned by tests/test_source_dirs.py.
+- Status: CLOSED (2026-10-03, board task 004) — fixed in b3a8d94 `overseer_stop: a multi-segment SOURCE_DIRS entry now matches the absolute paths Claude Code sends`; tests/test_source_dirs.py.
 
 ## 2026-10-02T14:44:23Z — AUTONOMOUS — 3c-fix-X8-runner-save-shape
 - Decision: run_audit_scenarios.py saves after every RUN (the owner said every scenario; a run is the unit paid for and the cost of saving is the same), writes temp-then-replace, records the resolved engine COMMIT and refuses --resume on a different commit, model, settings layers or runs-per-scenario; an existing --out without --resume is refused rather than replaced; --only takes a comma-separated list.
@@ -435,9 +437,11 @@ one; do not reopen the old one in conversation.
 
 ## 2026-10-02T14:44:23Z — FINDING — item 9's "45 mypy findings" were 9
 - The package 3c report counted the lines of mypy's output: nine errors, each call-overload error followed by six "possible overload variants" notes (6 x 6 = 36), 45 lines. The file had 9 strict errors at v0.10.1 and 9 at the start of the addendum. The report is corrected in place; the plan text keeps the owner's wording.
+- Status: CLOSED (2026-10-03, board task 004) — the nine errors fixed in d11acd1 `tests: test_deny_hooks.py is clean under mypy --strict`; the report corrected in 4960f64.
 
 ## 2026-10-02T14:44:23Z — FINDING — a suite can be green by hand and red from the Stop gate
 - The gate runs TEST_CMD with Claude Code's hook environment, where CLAUDE_PROJECT_DIR names the project. tests/test_deny_gaps.py let block-dangerous.sh read this repository's branch through it, so on an unattended/<date> branch its commit cases came back ALLOWED — only from the gate. Seen on the first gate run of X7; pinned like test_deny_hooks. Any suite that calls a hook without pinning CLAUDE_PROJECT_DIR has the same exposure; the whole set ran green from the gate afterwards (102 s).
+- Status: CLOSED (2026-10-03, board task 004) — tests/test_deny_gaps.py pinned in ff1e74d `this repository's project.env describes the engine; the Stop gate runs the suite`. The general exposure (a new suite that calls a hook without pinning CLAUDE_PROJECT_DIR) is a standing caution, not open work.
 
 ## 2026-10-02T19:40:00Z — AUTONOMOUS — 2b-D7-jq-paragraph
 - Decision: no paragraph names macOS, so the owner's "false jq paragraph" was located by what is false: the unattended README's "REQUIRED: four hooks silently enforce nothing without it" (false since the python3 fallback) and the evals README naming jq alone. Every jq paragraph the model reads now says: jq or python3, refuse with neither, install either with the OS's package manager (.claude/references/hooks.md).

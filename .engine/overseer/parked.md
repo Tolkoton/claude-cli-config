@@ -46,7 +46,7 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 
 ## Parked items
 
-## 2026-08-27T18:45:00Z — S4b — PARKED
+## 2026-08-27T18:45:00Z — S4b — RESUMED
 - Blocked on: permission to launch `.claude/unattended/supervisor.sh`, which spawns `claude` subprocesses in a self-restarting loop. The auto-mode classifier denies it.
 - Class: human-input
 - Reversibility: n/a — nothing built against it
@@ -54,6 +54,7 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Unblocks when: Claude Code is **restarted** so the new permission rule is read, or the owner runs `bash .claude/unattended/supervisor.sh` once themselves.
 - Continued with: S5 (protect-paths exception), then the backlog was exhausted.
 - Note: this is the correct behaviour, not a defect. An agent granting itself the right to run an unbounded loop of agents is exactly the decision a human should make.
+- Closed: 2026-10-03 (board task 004; was PARKED) — the restart happened and the supervisor ran for real; the full account is the `2026-08-27T19:25:00Z — S4b — RESUMED` entry below. Recorded in commit 163da1a (that entry, and DAG node S4b `done`).
 
 ### 2026-08-27T18:52:00Z — S4b — update: rule added, still blocked until restart
 - The owner said "додай сам". Added to `.claude/settings.local.json` (gitignored, machine-local — NOT to `settings.json`, which ships with the template; a template that pre-grants every downstream project the right to auto-launch a loop of agents is a bad default):
@@ -66,13 +67,14 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
   around its intent, not testing it.
 - Still blocked on: a session restart, which only the owner can perform.
 
-## 2026-08-27T18:07:44Z — S3 — PARKED
+## 2026-08-27T18:07:44Z — S3 — RESUMED
 - Blocked on: S3 has no DAG node to plan from — there is no feature artifact defining it, and no S2 to inherit an edge from.
 - Class: human-input
 - Reversibility: n/a — nothing has been built against it
 - Evidence: `.claude/architecture/` does not exist (no domain map, no architecture map, no feature artifacts); `.claude/overseer/slice/` does not exist; no `PROGRESS.md`; a repo-wide grep for `S1|S2|S3`, `slice DAG`, `S2→S3` outside the generic skill/command/doc text returns zero hits; `.claude/premises/premise-log.md` holds only the template placeholder `PR-example-01`.
 - Unblocks when: the owner supplies the feature frame S3 belongs to — what the feature delivers, its acceptance criteria, and where S3 sits in the slice sequence. `/feature-architect <slug>` produces exactly this and would emit S3 as a node with a contract `/plan-slice` can consume.
 - Continued with: queue exhausted — this was the only referent named.
+- Closed: 2026-10-03 (board task 004; was PARKED) — the DAG appeared with S3 as a node and the node was built: `.engine/architecture/archive/harness-hardening.json` has S3 `done` (four defects found in format-on-edit.sh and verify-on-stop.sh, patch applied). Commit 163da1a; the reopening is the `AUTONOMOUS — S3` entry in escalations.md.
 
 ## 2026-08-27T19:25:00Z — S4b — RESUMED
 - Was blocked on: a Claude Code restart so the `settings.local.json` supervisor
@@ -100,13 +102,14 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
     matching a terminal line from an earlier run in the same log (fixed: anchored
     to the last start banner).
 
-## 2026-10-02T08:39:00Z — engine-package-3b / S7 apply-shared-settings — PARKED
+## 2026-10-02T08:39:00Z — engine-package-3b / S7 apply-shared-settings — RESUMED
 - Blocked on: copying docs/tasks/settings.json over .claude/settings.json — protect-paths.sh refuses that path to any agent, by design (D-23).
 - Class: human-input
 - Reversibility: `git checkout -- .claude/settings.json` restores the previous file; the proposal test holds on both sides of the apply.
 - Evidence: hook-checks/test_settings_proposal.py 8/8 (frozen pre-split effective settings, permissions.deny the one intended difference); hook-checks/test_root_delete_deny.py 37/37.
 - Unblocks when: the owner runs, from the repository root: `cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py` (prints "APPLIED"), then restarts Claude Code. No machine-checkable token: the live file always exists, so only a human moves this entry (recheck_parked.py once mis-read a mention of the token syntax here and resumed it).
 - Continued with: S2–S6.
+- Closed: 2026-10-03 (board task 004; was PARKED) — applied by the owner: commit 7abf751 `settings: apply the shared layer of package 3b (S7)`. Today `tests/test_settings_proposal.py` prints APPLIED (13/13): the live file equals the proposal.
 
 ## 2026-10-02T08:39:00Z — engine-package-3b / S8 apply-personal — PARKED
 - Blocked on: a real write under ~/.claude — the run may only dry-run there (plan, step 9).
@@ -124,13 +127,14 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Unblocks when: the owner runs `bash .claude/unattended/env-probe.sh` inside a Claude Code cloud session on this repository and pastes the output back; then, on that evidence, sets `CLOUD_COMMIT_POLICY="session-branch"` in .claude/project.env or leaves it off.
 - Continued with: S4–S6.
 
-## 2026-10-02T10:15:07Z — engine-package-3b-finish / F8 wire-approve-project-data — PARKED
+## 2026-10-02T10:15:07Z — engine-package-3b-finish / F8 wire-approve-project-data — RESUMED
 - Blocked on: adding the PermissionRequest handler for approve-project-data.py to .claude/settings.json — protect-paths.sh refuses that path to any agent, by design (D-23).
 - Class: human-input
 - Reversibility: `git checkout -- .claude/settings.json`; the proposal test holds on both sides of the apply.
 - Evidence: hook-checks/test_approve_project_data.py 40/40; hook-checks/test_settings_proposal.py 10/10 (the one handler is the only hooks difference); evals/probe_permission_hook.sh — three real headless sessions on Claude Code 2.1.287: with the hook the write to project data went through, without it refused, outside .claude/ refused.
 - Unblocks when: the owner runs, from the repository root, `cp docs/tasks/settings.json .claude/settings.json && python3 hook-checks/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code. No machine-checkable condition; a human moves this entry.
 - Continued with: F6, F7.
+- Closed: 2026-10-03 (board task 004; was PARKED) — applied by the owner: commit d9652d5 `settings: wire the project-data approval hook (F8)`. The hook was then retired in package 3c and its handler removed again in 8fdd5b1 (C9), so nothing of F8 remains to do.
 
 ## 2026-10-02T13:30:28Z — engine-package-3c / C8b post-move audit run — PARKED
 - Blocked on: money. The plan caps both audit runs at $60; spent so far: $8.93 (contaminated pre-move run) + $27.92 (valid pre-move run) + about $25 (post-move attempt that crashed on a missing fixture at scenario 10 and wrote nothing) ≈ $62. The valid post-move run costs about $28 more.
@@ -140,21 +144,23 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Unblocks when: the owner says to spend it, then: `python3 evals/run_audit_scenarios.py --engine-ref 24abb7d --runs 3 --out evals/baseline/Laos-MacBook-Pro/audit-post-3c.json`, then `python3 <scratchpad>/audit_compare.py` (or by hand: compare matched/valid per scenario against audit-pre-3c.json; a difference counts only if larger than the noise between the two pre-move runs).
 - Continued with: C8 records and the report.
 
-## 2026-10-02T13:30:28Z — engine-package-3c / C9 apply-settings — PARKED
+## 2026-10-02T13:30:28Z — engine-package-3c / C9 apply-settings — RESUMED
 - Blocked on: applying docs/tasks/settings.json (the approve-project-data handler removed) to .claude/settings.json — protect-paths.sh refuses that path to any agent, by design (D-23).
 - Class: human-input
 - Reversibility: `git checkout -- .claude/settings.json`; tests/test_settings_proposal.py holds on both sides of the apply.
 - Evidence: tests/test_settings_proposal.py 11/11 (the removal is the only hooks difference). Until applied, Claude Code reports the missing script once per Edit/Write/MultiEdit permission request.
 - Unblocks when: the owner runs, from the repository root, `cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code. No machine-checkable condition; a human moves this entry.
 - Continued with: C6–C8.
+- Closed: 2026-10-03 (board task 004; was PARKED) — applied by the owner in two commits: 8fdd5b1 `settings: drop the project-data approval hook, its data left .claude/ (C9)` and 8e46a65 `settings: apply the proposal without dead Write rules (C9)`. Today `tests/test_settings_proposal.py` prints APPLIED (13/13).
 
-## 2026-10-02T20:42:48Z — engine-package-2b / N1 night program — PARKED
+## 2026-10-02T20:42:48Z — engine-package-2b / N1 night program — RESUMED
 - Blocked on: the file ~/engine-night/night-1.md, which the owner named as the program to run after the report; it does not exist on this machine.
 - Class: human-input
 - Reversibility: none needed — nothing was run.
 - Evidence: `ls ~/engine-night` → "No such file or directory" at 19:55Z and at the end of the run.
 - Unblocks when: the owner creates ~/engine-night/night-1.md (no machine-checkable token: the path is outside the repository); a human moves this entry
 - Continued with: the package-2b records and report.
+- Closed: 2026-10-03 (board task 004; was PARKED) — the owner supplied the program inside the repository: commit b9cf3aa `plan: night program 1 verbatim in docs/plan/night-1.md`. It was run: item 0.1–0.2 at 371e02c, package A report at 0e2b0fa, package B report at d6b9947; its item 0.3 is the N0.3 entry below.
 
 ## 2026-10-03T10:30:00Z — B-wiring-stuck-bash — PARKED
 - Blocked on: `.claude/settings.json` is owner-only (protect-paths.sh) and the stuck counter on Bash results needs a PostToolUse / PostToolUseFailure entry for `Bash`
@@ -164,10 +170,11 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Unblocks when: the owner runs `python3 docs/tasks/apply-lesson-hooks.py` (then restarts Claude Code); `python3 tests/test_lesson_hooks_proposal.py` passes before and after
 - Continued with: the rest of package B, which needs no new wiring
 
-## 2026-10-03T11:20:00Z — N0.3-full-audit — PARKED
+## 2026-10-03T11:20:00Z — N0.3-full-audit — RESUMED
 - Blocked on: the headless Claude Code sessions of the audit are not logged in on this machine (`claude auth status` → loggedIn false; every run ended "Not logged in · Please run /login"); a credential only the owner can supply. The attempt cost $0.00 and recorded 21 tooling errors, so its file was set aside, not committed
 - Class: human-input
 - Reversibility: nothing was spent or changed; the run is resumable
 - Evidence: runner log of the attempt (30 runs, 0 sessions started), `claude auth status`
 - Unblocks when: the owner logs in (`claude auth login`, or sets the usual API key in the environment), then on branch unattended/2026-10-02-package-2b runs `python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 --out evals/baseline/Laos-MacBook-Pro/audit-v0.12.0-candidate.json --label "night 1 item 0.3: final state of engine 2b"` (add `--resume` to continue after an interrupted run; budget $35, about $20 expected), then `python3 evals/compare_audits.py --before evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json --after evals/baseline/Laos-MacBook-Pro/audit-v0.12.0-candidate.json --must-fix 01,08`
 - Continued with: packages A and B, done before this item as the program's order puts item 0.3 last
+- Closed: 2026-10-03 (board task 004; was PARKED) — closed by the release audit of the costs package: commit 5a3538c `release audit (C7): audit-v0.12.0.json on 39e7325 — 30/33 matched, 19.67 USD of 35; comparison with v0.11.0`. The full audit ran on a logged-in machine (claw) against the later engine state 39e7325, which contains everything of 2b; result in `evals/baseline/claw/audit-v0.12.0.json`, comparison in `.engine/overseer/audit-costs-compare.md`. The `audit-v0.12.0-candidate.json` file named above was never produced and is no longer needed.
