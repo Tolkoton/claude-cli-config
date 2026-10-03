@@ -117,6 +117,11 @@ write(repo, "tests/test_pricing.py", BASE["tests/test_pricing.py"] + "\n\n" + br
 check("a test file is never measured", "test_huge" not in json.dumps(signals(repo, "--scope", "stop")))
 write(repo, "src/demo/test_inline.py", branchy("test_beside_the_code", 15))
 check("...also when it lives beside the code", "test_beside_the_code" not in json.dumps(signals(repo, "--scope", "stop")))
+write(repo, "src/demo/fixtures/sample.py", branchy("planted_on_purpose", 15))
+write(repo, ".claude/project.env", BASE[".claude/project.env"] + 'SIMPLIFY_EXCLUDE="src/demo/fixtures"\n')
+check("a path in SIMPLIFY_EXCLUDE is never measured", "planted_on_purpose" not in json.dumps(signals(repo, "--scope", "stop")))
+write(repo, ".claude/project.env", BASE[".claude/project.env"])
+check("...and is measured without the exclusion", "planted_on_purpose" in json.dumps(signals(repo, "--scope", "stop")))
 write(repo, "scripts/tool.py", branchy("outside", 15))
 check("a file outside SOURCE_DIRS is never measured", "outside" not in json.dumps(signals(repo, "--scope", "stop")))
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """simplifier.py — everything deterministic around the simplifier agent (.claude/agents/simplifier.md).
 
-    python3 .claude/hooks/simplifier.py request --lens code|requirements|architecture|budget [--paths P ...]
+    python3 .claude/hooks/simplifier.py request --lens code|requirements|architecture|budget ... [--paths P ...]
     python3 .claude/hooks/simplifier.py validate FINDINGS.json [--out FILE]
     python3 .claude/hooks/simplifier.py route VALIDATED.json --title "what was reviewed"
     python3 .claude/hooks/simplifier.py accept --reason "why the excess is needed" --verdict FINDINGS.json
@@ -216,8 +216,9 @@ def validated_file(root: Path, path: Path) -> dict[str, list[Any]]:
 # ------------------------------------------------------------------ the request
 
 
-def request(root: Path, lens: str, paths: list[str] | None) -> str:
+def request(root: Path, lenses: list[str], paths: list[str] | None) -> str:
     env = budget.project_env(root)
+    lens = ", ".join(lenses)
     scope = "stop" if lens == "budget" else "full"
     files = None
     if scope == "stop":
@@ -367,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--paths", nargs="*", default=None)
         if name == "request":
-            p.add_argument("--lens", choices=LENSES, required=True)
+            p.add_argument("--lens", choices=LENSES, nargs="+", required=True)
     for name in ("validate", "route"):
         p = sub.add_parser(name)
         p.add_argument("file", type=Path)

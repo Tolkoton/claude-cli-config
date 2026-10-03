@@ -77,10 +77,13 @@ def run_tool(root: Path, tool: str, *args: str) -> str | None:
 
 
 def production_files(root: Path, env: dict[str, str], paths: list[str] | None) -> list[str]:
-    """Python the project wrote and git knows (tracked or untracked-not-ignored), tests excluded."""
+    """Python the project wrote and git knows (tracked or untracked-not-ignored): inside `paths`
+    (else SOURCE_DIRS), tests excluded, SIMPLIFY_EXCLUDE (fixtures, vendored code) excluded."""
     listed = budget.git(root, "ls-files", "-co", "--exclude-standard", "*.py").splitlines()
     scope = paths or budget.source_dirs_of(env)
-    return sorted(p for p in listed if budget.in_source(p, scope) and not budget.is_test(p) and (root / p).is_file())
+    excluded = [d for d in re.split(r"[\s,]+", env.get("SIMPLIFY_EXCLUDE", "")) if d]
+    return sorted(p for p in listed if budget.in_source(p, scope) and not budget.is_test(p)
+                  and not (excluded and budget.in_source(p, excluded)) and (root / p).is_file())
 
 
 def limits_of(env: dict[str, str]) -> dict[str, int]:

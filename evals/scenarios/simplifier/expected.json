@@ -1,0 +1,145 @@
+{
+  "note": "What was planted in project/ (an overlay on evals/reference-project) and what must be left alone. A finding matches an entry when its target is one of `files` and one of `any` appears in its target, claim or evidence (case-insensitive). Read by evals/run_simplifier_evals.py; kept honest by tests/test_simplifier_evals.py.",
+  "scope": [
+    "src",
+    "docs",
+    "pyproject.toml",
+    ".engine/architecture",
+    ".engine/slices"
+  ],
+  "planted": [
+    {
+      "id": "abstraction-with-one-implementation",
+      "category": "premature_abstraction",
+      "files": [
+        "src/refproj/discounts.py",
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "DiscountPolicy",
+        "PercentDiscount",
+        "policy_for"
+      ]
+    },
+    {
+      "id": "dead-code",
+      "category": "dead_code",
+      "files": [
+        "src/refproj/pricing.py"
+      ],
+      "any": [
+        "_legacy_total_v1"
+      ]
+    },
+    {
+      "id": "unused-dependency",
+      "category": "redundant_dependency",
+      "files": [
+        "pyproject.toml"
+      ],
+      "any": [
+        "requests"
+      ]
+    },
+    {
+      "id": "guard-against-impossible-state",
+      "category": "defensive_for_impossible",
+      "files": [
+        "src/refproj/pricing.py"
+      ],
+      "any": [
+        "factor < 0",
+        "negative",
+        "RuntimeError"
+      ]
+    },
+    {
+      "id": "slice-for-the-future",
+      "category": "speculative_slice",
+      "files": [
+        ".engine/slices/currency-rates.md",
+        ".engine/architecture/feature-dag.json"
+      ],
+      "any": [
+        "currency",
+        "S6"
+      ]
+    },
+    {
+      "id": "invented-requirement",
+      "category": "invented_requirement",
+      "files": [
+        "docs/goals.md"
+      ],
+      "any": [
+        "R6",
+        "audit log",
+        "seven years"
+      ]
+    }
+  ],
+  "traps": [
+    {
+      "id": "input-validation-at-the-edge",
+      "why": "parse_order_line checks what the clerk typed; reserve() repeating the positive-quantity check does not make it redundant",
+      "files": [
+        "src/refproj/orders.py"
+      ],
+      "any": [
+        "parse_order_line",
+        "quantity",
+        "OrderError"
+      ]
+    },
+    {
+      "id": "error-handling-at-the-edge",
+      "why": "load_price_list turns a missing or broken operator file into a message the clerk can act on (R1)",
+      "files": [
+        "src/refproj/orders.py"
+      ],
+      "any": [
+        "load_price_list",
+        "PriceListError",
+        "JSONDecodeError",
+        "OSError",
+        "InvalidOperation"
+      ]
+    },
+    {
+      "id": "security-check",
+      "why": "receipt_path keeps a typed order id inside the receipts directory (path traversal)",
+      "files": [
+        "src/refproj/receipts.py"
+      ],
+      "any": [
+        "receipt_path",
+        "is_relative_to",
+        "resolve"
+      ]
+    },
+    {
+      "id": "contract-field-read-on-a-rare-path",
+      "why": "OrderLine.refund_reference is read only by refund_note (R5, G4)",
+      "files": [
+        "src/refproj/orders.py",
+        "src/refproj/refunds.py"
+      ],
+      "any": [
+        "refund_reference",
+        "refund_note"
+      ]
+    }
+  ],
+  "also_true": [
+    {
+      "id": "reserved-value-has-no-production-caller",
+      "why": "evals/reference-project had it before the overlay: only its test calls reserved_value. True excess, not planted — counts for precision, not for recall. Written down before the first paid run, from the deterministic signal.",
+      "files": [
+        "src/refproj/inventory.py"
+      ],
+      "any": [
+        "reserved_value"
+      ]
+    }
+  ]
+}

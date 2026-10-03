@@ -401,7 +401,7 @@
         {
           "write": {
             "path": ".claude/project.env",
-            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"warn\"\n"
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nLINT_CMD=\"\"\nTYPECHECK_CMD=\"\"\nTEST_CMD=\"\"\nTEST_CMD_FULL=\"\"\nGATE_MAX_BLOCKS=\"\"\nFORMAT_CMD=\"\"\nCOMPLEXITY_GATE=\"warn\"\n"
           }
         },
         {

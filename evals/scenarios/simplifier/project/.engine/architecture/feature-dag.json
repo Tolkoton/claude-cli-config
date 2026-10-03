@@ -1,0 +1,12 @@
+{
+  "feature": "shop-counter",
+  "note": "Goals and requirements: docs/goals.md.",
+  "nodes": [
+    {"id": "S1", "title": "price arithmetic: discount, total", "goals": ["G1"], "deps": [], "status": "done"},
+    {"id": "S2", "title": "stock reservation", "goals": ["G2"], "deps": ["S1"], "status": "done"},
+    {"id": "S3", "title": "order lines from the command line, price list from JSON", "goals": ["G1"], "deps": ["S1"], "status": "done"},
+    {"id": "S4", "title": "receipt files", "goals": ["G3"], "deps": ["S3"], "status": "done"},
+    {"id": "S5", "title": "refund note", "goals": ["G4"], "deps": ["S3"], "status": "done"},
+    {"id": "S6", "title": "currency rates table and conversion layer", "goals": [], "deps": ["S1"], "status": "todo"}
+  ]
+}
