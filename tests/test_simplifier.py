@@ -217,6 +217,19 @@ check("a third one undone by trailer: 30 % — be more careful", "3 of the last 
 check("outside the corridor, --record leaves a note for the owner",
       "outside the corridor" in (repo / ".engine/simplifier/report.md").read_text())
 check("--last narrows the window", "of the last 4 removals" in rate(repo, "--last", "4"), rate(repo, "--last", "4"))
+repo = new_repo()
+twice = repo / "src" / "demo" / "twice.py"
+twice.write_text("def make(path):\n    path.parent.mkdir(parents=True, exist_ok=True)\n    path.parent.mkdir(parents=True, exist_ok=True)\n")
+git(repo, "add", "-A")
+git(repo, "commit", "-q", "-m", "a line written twice")
+twice.write_text("def make(path):\n    path.parent.mkdir(parents=True, exist_ok=True)\n")
+git(repo, "add", "-A")
+git(repo, "commit", "-q", "-m", "simplify: one mkdir\n\nSimplifier-Finding: F-0000000a")
+check("a removed repeat whose twin stayed in the file has not come back", "0 of the last 1" in rate(repo), rate(repo))
+twice.write_text("def make(path):\n    path.parent.mkdir(parents=True, exist_ok=True)\n    path.parent.mkdir(parents=True, exist_ok=True)\n")
+git(repo, "add", "-A")
+git(repo, "commit", "-q", "-m", "the repeat is written again")
+check("the repeat written again has come back", "1 of the last 1" in rate(repo), rate(repo))
 
 print("AGENT-*   the definition matches what the validator enforces")
 text = (ROOT / ".claude/agents/simplifier.md").read_text(encoding="utf-8")

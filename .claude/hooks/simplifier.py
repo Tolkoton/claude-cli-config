@@ -42,6 +42,7 @@ import hashlib
 import json
 import re
 import sys
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -326,8 +327,12 @@ def removal_returned(root: Path, sha: str, ident: str, later: str) -> str:
     total = sum(len(lines) for lines in removed.values())
     back = 0
     for path, lines in removed.items():
-        now = {row.strip() for row in budget.git(root, "show", f"HEAD:{path}").splitlines()}
-        back += sum(line in now for line in lines)
+        # A line is back when the file holds more copies of it than the removal left: the twin of
+        # a removed repeat, or the same text elsewhere in the file, was never gone.
+        left, now = (Counter(row.strip() for row in budget.git(root, "show", f"{ref}:{path}").splitlines())
+                     for ref in (sha, "HEAD"))
+        for line, count in Counter(lines).items():
+            back += min(count, max(0, now[line] - left[line]))
     return "the removed lines are in the file again" if total and back / total >= RETURNED_SHARE else ""
 
 
