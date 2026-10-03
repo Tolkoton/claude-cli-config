@@ -1161,13 +1161,10 @@ def version_key(version: str) -> tuple[int, ...] | None:
 
 def ref_commit(src: EngineSource, ref: str) -> str | None:
     """The commit a ref points at, or None when the ref does not exist."""
-    proc = subprocess.run(
-        ["git", "-C", str(src.root), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return proc.stdout.strip() if proc.returncode == 0 else None
+    try:
+        return src.resolve(ref)
+    except EngineError:
+        return None
 
 
 def require_clean(src: EngineSource, when: str) -> None:
