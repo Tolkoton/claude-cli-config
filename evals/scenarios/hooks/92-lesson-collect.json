@@ -7,12 +7,18 @@
   "scenarios": [
     {
       "id": "lq-collect-parked-item",
-      "why": "A parked item becomes a queue candidate without a model.",
+      "why": "A parked item becomes a queue candidate without a model. (The first collect on a project only seeds history; this one starts from a seeded state.)",
       "setup": [
         {
           "write": {
             "path": ".engine/overseer/parked.md",
             "content": "# Parked\n\n## 2026-10-03T01:00:00Z — S5 — PARKED\n- Blocked on: the owner's cloud session\n- Class: human-input\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/lessons/seen.json",
+            "content": "{\"ids\": [\"seeded\"]}\n"
           }
         }
       ],
@@ -26,6 +32,24 @@
     {
       "id": "lq-collect-nothing-to-collect",
       "why": "No source, no queue file.",
+      "input": {
+        "hook_event_name": "Stop"
+      },
+      "check_file": ".engine/lesson-queue.md",
+      "expect": "allow",
+      "expect_file_changed": false
+    },
+    {
+      "id": "lq-collect-first-run-seeds-history",
+      "why": "The first collect marks what parked.md already holds as seen without queueing it: history is not a lesson.",
+      "setup": [
+        {
+          "write": {
+            "path": ".engine/overseer/parked.md",
+            "content": "# Parked\n\n## 2026-08-27T18:45:00Z — OLD — PARKED\n- Blocked on: history\n"
+          }
+        }
+      ],
       "input": {
         "hook_event_name": "Stop"
       },
