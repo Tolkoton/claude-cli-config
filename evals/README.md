@@ -20,14 +20,14 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `needs_audit.py` | `python3 evals/needs_audit.py <ref>`: has any text the model reads changed since `<ref>`, and which files. Exit 0 = no audit due. |
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |
 | `permission_rules.py` | A reference matcher for Bash permission rules as the docs state them (`*` any text, `:*`, exact, compound commands). What a deny list refuses, before it is applied. |
-| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json`, then `results-package-7.json` (96), then `results-package-memory.json` (105), then `results-package-costs.json` (114 scenarios); the everyday reference now is `claw/results-task-010.json` (118: those plus the simplifier's four, board 010); `gate-evals-package-7.json` holds the gate script's results; `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
+| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json`, then `results-package-7.json` (96), then `results-package-memory.json` (105), then `results-package-costs.json` (114 scenarios); then `claw/results-task-010.json` (118: those plus the simplifier's four, board 010); the everyday reference now is `claw/results-task-020.json` (119: plus `vs-bypass-without-marker`, board 020); `gate-evals-package-7.json` holds the gate script's results; `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
 
 ## Quick start
 
 ```bash
 # The everyday check: one command, temporary sandbox, nothing left behind.
 python3 evals/run_hook_scenarios.py --engine-ref HEAD \
-  --compare evals/baseline/Laos-MacBook-Pro/results-package-costs.json
+  --compare evals/baseline/claw/results-task-020.json
 
 # Two engine versions against each other.
 python3 evals/run_hook_scenarios.py --engine-ref v0.8.0 --record-only --out /tmp/old.json
