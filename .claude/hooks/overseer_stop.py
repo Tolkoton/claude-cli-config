@@ -89,12 +89,6 @@ HALT_MARKER_RE = re.compile(
 )
 # Pass marker — hook re-injects "continue to next unit" (taskmaster pattern)
 PASS_MARKER_RE = re.compile(_MARKER_PREFIX + r"PASS\b", re.MULTILINE)
-# Legacy alias for backward compat — any verdict marker
-OVERSEER_MARKER_RE = re.compile(
-    _MARKER_PREFIX
-    + r"(?:PASS|BLOCK|ESCALATE|ADR_REQUIRED|SLICE_AWAITING_OWNER|SLICE_COMPLETE)\b",
-    re.MULTILINE,
-)
 # File-mutating tools — the other half of the tool signal.
 EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit"})
 
