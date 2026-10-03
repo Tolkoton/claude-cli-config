@@ -20,7 +20,10 @@ the same schema. Settings live in `.claude/project.env` and nowhere else.
 | `pre_commit` | `git commit` | the staged diff: bypass guard, then the full set | yes |
 | `ci` | pipeline | the whole project: `ruff check .`, `mypy .`, `TEST_CMD_FULL` else `TEST_CMD` | yes |
 
-Order inside a layer: bypass guard, lint, types, tests — tests only after a clean lint and types.
+Order inside a layer: bypass guard, lint, types, tests — tests only after a clean lint and types;
+then, unless `COMPLEXITY_GATE` is off, the simplifier's signals (`simplify_signals.py`) as `warn`
+findings with rule `simplify/<kind>` — the changed files at `stop`, the whole repository at
+`pre_commit` and `ci`. A signal never blocks (`.claude/references/simplifier.md`).
 A declared limit of `stop`: it is incremental, so a defect in an untouched file or a test broken by
 a module with no sibling test is for `pre_commit` and `ci`.
 
@@ -39,7 +42,8 @@ A block when the turn's diff **adds** a `# type: ignore`, a `# noqa`, `pytest.ma
 `skipif` / `xfail` (or `pytest.skip()` / `xfail()`), or **changes** the linter's or type checker's
 configuration: the parsed `[tool.ruff]` / `[tool.mypy]` of `pyproject.toml`, any change of
 `ruff.toml`, `.ruff.toml`, `mypy.ini`, `.mypy.ini`, or the values of `LINT_CMD`, `TYPECHECK_CMD`,
-`TEST_CMD`, `TEST_CMD_FULL`, `FORMAT_CMD`, `GATE_MAX_BLOCKS` in `.claude/project.env`. Syntax only:
+`TEST_CMD`, `TEST_CMD_FULL`, `FORMAT_CMD`, `GATE_MAX_BLOCKS`, `COMPLEXITY_MAX_CYCLOMATIC`,
+`COMPLEXITY_MAX_NESTING` in `.claude/project.env`. Syntax only:
 comments come from the tokenizer, marks from the AST, configuration from the parsed tables, so a
 string, a docstring or a reformat is not a finding.
 

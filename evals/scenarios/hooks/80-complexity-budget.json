@@ -369,6 +369,161 @@
       "check_file": ".claude/state/overseer/complexity-report.md",
       "expect": "allow",
       "expect_file_changed": true
+    },
+    {
+      "id": "cb-call-mode-holds-for-the-simplifier",
+      "why": "Board 010: the budget is an expectation. COMPLEXITY_GATE=call holds the turn on an overrun nobody has judged — the reason tells the builder to call the simplifier with the figures.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"call\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".engine/slices/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "max_new_files"
+    },
+    {
+      "id": "cb-accepted-overrun-ends-the-turn",
+      "why": "Board 010: the simplifier found the excess justified and `simplifier.py accept` recorded it (three files against one). The same tree that was held now ends the turn.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"call\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".engine/slices/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/simplifier/accepted-ref-tax.json",
+            "content": "{\"base_commit\": \"{{HEAD}}\", \"entries\": [{\"utc\": \"2026-10-03T00:00:00Z\", \"over\": {\"max_new_files\": 3}, \"reason\": \"the exit criterion names three modules\", \"verdict_sha256\": \"0\"}]}"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "cb-trap-growth-past-the-accepted-figure",
+      "why": "TRAP: an acceptance covers the figure it was given for. Two files were accepted, the tree has three: the simplifier is called again.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"call\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".engine/slices/ref-tax.md",
+            "content": "# Slice ref-tax\n\n## Goal\nAdd with_tax to refproj.pricing.\n\n## Complexity budget\nbase_commit: {{HEAD}}\nmax_new_files: 1\nmax_net_new_lines: 60\nmax_new_public_symbols: 2\nmax_new_abstractions: 0\nmax_new_dependencies: 0\nmax_cyclomatic_per_function: 10\nmax_nesting_depth: 3\njustification: none\n\n## Exit criterion\nTests pass.\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".engine/PROGRESS.md",
+            "content": "# PROGRESS\n\n## Slice ref-tax — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-tax.md`.\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/helpers.py",
+            "content": "HELPER = 1\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/registry.py",
+            "content": "REGISTRY: dict[str, int] = {}\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/strategies.py",
+            "content": "STRATEGIES: list[str] = []\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/simplifier/accepted-ref-tax.json",
+            "content": "{\"base_commit\": \"{{HEAD}}\", \"entries\": [{\"utc\": \"2026-10-03T00:00:00Z\", \"over\": {\"max_new_files\": 2}, \"reason\": \"the exit criterion names three modules\", \"verdict_sha256\": \"0\"}]}"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "block",
+      "expect_detail_contains": "max_new_files"
     }
   ]
 }

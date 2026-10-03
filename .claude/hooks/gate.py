@@ -81,7 +81,8 @@ NO_SLICE = "(none)"
 ESCALATIONS_REL = Path(".claude/state/gate/escalations.json")
 TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 40}
 HEADINGS = {"lint": "LINT FAILED", "typecheck": "TYPECHECK FAILED", "tests": "TESTS FAILED"}
-GATE_KEYS = ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD", "TEST_CMD_FULL", "FORMAT_CMD", "GATE_MAX_BLOCKS")
+GATE_KEYS = ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD", "TEST_CMD_FULL", "FORMAT_CMD", "GATE_MAX_BLOCKS",
+             "COMPLEXITY_MAX_CYCLOMATIC", "COMPLEXITY_MAX_NESTING")
 CONFIG_BASENAMES = ("ruff.toml", ".ruff.toml", "mypy.ini", ".mypy.ini")
 SKIP_NAMES = {
     "pytest.mark.skip": "skip",
@@ -792,6 +793,27 @@ def lessons(root: Path, action: str, text: str = "") -> str:
     return ""
 
 
+def simplify_signals(root: Path, env: dict[str, str], layer: str, files: list[str], report: Report) -> None:
+    """The simplifier's deterministic signals (simplify_signals.py) as `warn` findings: the changed
+    files at stop, the whole repository with its history at pre_commit and ci. Off with
+    COMPLEXITY_GATE off. Best effort, and never a block: a signal is a fact, not a verdict."""
+    if env.get("COMPLEXITY_GATE", "off").lower() in ("", "off"):
+        return
+    started = time.perf_counter()
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import simplify_signals as signals
+
+        scope = "stop" if layer == "stop" else "full"
+        for s in signals.collect(root, env, scope, files, record=scope == "full"):
+            report.add(Finding(s["file"], s["line"], f"simplify/{s['kind']}",
+                               "log" if s["kind"] == "unavailable" else "warn", s["message"],
+                               "a signal for the simplifier (.claude/references/simplifier.md), not a verdict"))
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        report.add(Finding(None, None, "simplify/unavailable", "log", f"the simplifier's signals did not run: {exc}"))
+    report.steps_ms["simplify_signals"] = int((time.perf_counter() - started) * 1000)
+
+
 def summarise(report: Report, limit: int = 8) -> str:
     order = {s: i for i, s in enumerate(SEVERITIES)}
     top = sorted(report.findings, key=lambda f: order[f.severity])[:limit]
@@ -913,6 +935,7 @@ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
         report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 1000)
     if layer != "stop" or code:
         run_checks(root, env, files, full, report)
+        simplify_signals(root, env, layer, files, report)
 
 
 def run_layer(layer: str, root: Path, files: list[str] | None, diff_ref: str | None) -> tuple[Report, str | None]:

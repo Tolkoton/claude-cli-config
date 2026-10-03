@@ -393,6 +393,31 @@
       "expect": "block",
       "expect_detail_contains": "TYPECHECK FAILED",
       "expect_file_changed": true
+    },
+    {
+      "id": "vs-simplify-signal-never-blocks",
+      "why": "Board 010: with COMPLEXITY_GATE=warn the Stop gate also collects the simplifier's signals. A correct, typed change that adds a function of complexity 13 is a `warn` finding (simplify/complexity), and the turn still ends: a signal is a fact for the simplifier, never a block.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "SOURCE_DIRS=\"src\"\nCODE_EXTENSIONS=\"py\"\nCOMPLEXITY_GATE=\"warn\"\n"
+          }
+        },
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef shipping_band(weight: int) -> int:\n    \"\"\"Return the price band for a parcel of `weight` kilograms.\"\"\"\n    if weight == 1:\n        return 10\n    if weight == 2:\n        return 20\n    if weight == 3:\n        return 30\n    if weight == 4:\n        return 40\n    if weight == 5:\n        return 50\n    if weight == 6:\n        return 60\n    if weight == 7:\n        return 70\n    if weight == 8:\n        return 80\n    if weight == 9:\n        return 90\n    if weight == 10:\n        return 100\n    if weight == 11:\n        return 110\n    if weight == 12:\n        return 120\n    return 0\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "expect": "allow",
+      "check_file": ".claude/state/simplifier/signals-stop.json",
+      "expect_file_changed": true
     }
   ]
 }

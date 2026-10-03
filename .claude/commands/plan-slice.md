@@ -237,7 +237,7 @@ Use `Write` to create `.engine/slices/$ARGUMENTS.md` with this structure
 # After writing
 
 **Complexity budget — only when `.claude/project.env` sets `COMPLEXITY_GATE` to `warn` or
-`block`; with `off` (the default) skip this paragraph entirely.** Add a `## Complexity budget`
+`call`; with `off` (the default) skip this paragraph entirely.** Add a `## Complexity budget`
 section to the artifact as `.claude/references/complexity-budget.md` describes: the smallest
 shape of change that can meet the exit criterion, with `base_commit` set to the current
 `git rev-parse HEAD`. Then run

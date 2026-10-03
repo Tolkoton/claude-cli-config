@@ -120,6 +120,15 @@ if round 2 did not end in FEATURE_CRITIC_PASS:
       one-way door or a product decision (Art. 5) → park it; build what does not depend on it.
 ```
 
+**Before the slices are cut — the simplifier.** The step from a plan to slices is one of the
+four signals that call it (`.claude/references/simplifier.md`). After the critic loop and before
+the artifact is written, start the `simplifier` subagent, fresh, once per lens, with the text
+`python3 .claude/hooks/simplifier.py request --lens requirements --paths <the feature frame>`
+and `… --lens architecture --paths <the draft>` print; route each answer with
+`simplifier.py route`. A slice it calls speculative and you cannot trace to an acceptance
+criterion is dropped from the DAG; a finding about an owner requirement stays in the report
+for the owner (Art. 5) and the build goes on.
+
 Convergence is still the critic's `FEATURE_CRITIC_PASS` (Art. 3): the cap bounds what is spent
 asking, it does not turn an open objection into an agreed one. What round two leaves open is
 written down and decided in the open, never dropped.

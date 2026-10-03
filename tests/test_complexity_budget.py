@@ -291,6 +291,92 @@ check("base_commit that is not a commit -> INVALID", code == 1 and "not a commit
 code, out = validate(make_repo(budget=BUDGET.replace("max_new_files: 1\n", "")))
 check("a core limit missing -> INVALID", code == 1 and "max_new_files is missing" in out, out)
 
+print("CALL-*    an overrun calls the simplifier; an accepted overrun ends the turn")
+SIMPLIFIER = ROOT / ".claude" / "hooks" / "simplifier.py"
+CONFIRM = [{"target": "src/demo/a.py", "category": "speculative_slice", "claim": "a.py is not needed by the slice",
+            "evidence": [{"source": "judgement", "ref": "", "detail": "the contract names one file"}],
+            "protected": False, "chesterton_checked": True, "test_safety": "characterization_exists",
+            "proposed_action": "confirm", "traceability": "none", "reversal_risk": "low"}]
+
+
+def accept(repo: Path, reason: str, findings: object, in_session: bool = True) -> tuple[int, str]:
+    (repo / "verdict.json").write_text(json.dumps(findings))
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(repo)}
+    proc = subprocess.run([sys.executable, str(SIMPLIFIER), "accept", "--reason", reason, "--verdict", "verdict.json"],
+                          capture_output=True, text=True, cwd=repo, env=env, check=False)
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+for gate in ("call", "block"):
+    repo = make_repo(gate=gate)
+    add(repo, "src/demo/a.py", "A = 1\n")
+    add(repo, "src/demo/b.py", "B = 1\n")
+    decision, text = run_hook(repo)
+    check(f"COMPLEXITY_GATE='{gate}': the overrun holds the turn and names the simplifier and the figures",
+          decision == "block" and "simplifier" in text and "max_new_files: 2 used, 1 allowed" in text
+          and "simplifier.py accept" in text, text)
+(repo / "tests" / "test_a.py").write_text("from demo import a\n")
+code, out = accept(repo, "two modules keep parsing apart from pricing, as the exit criterion names both", CONFIRM)
+check("accept is refused while the simplifier's verdict still holds a confirm finding", code != 0 and "confirm" in out, out)
+check("...and the turn is still held", run_hook(repo)[0] == "block")
+code, out = accept(repo, "ok", [])
+check("accept is refused without a real reason", code != 0 and "reason" in out, out)
+code, out = accept(repo, "two modules keep parsing apart from pricing, as the exit criterion names both", [])
+check("accept with a clean verdict records the overrun", code == 0, out)
+sidecar = repo / ".engine/slices/overruns/tax.md"
+check("the reason is written next to the contract", sidecar.is_file() and "keep parsing apart" in sidecar.read_text()
+      and "max_new_files: 2" in sidecar.read_text(), sidecar.read_text() if sidecar.is_file() else "absent")
+ledger = repo / ".engine/overseer/ledger.md"
+check("...and in the ledger", ledger.is_file() and "COMPLEXITY_OVERRUN_ACCEPTED" in ledger.read_text()
+      and "keep parsing apart" in ledger.read_text())
+check("the sealed contract itself is untouched", "keep parsing apart" not in (repo / ".engine/slices/tax.md").read_text())
+decision, text = run_hook(repo)
+report_text = (repo / ".claude/state/overseer/complexity-report.md").read_text()
+check("the accepted overrun ends the turn; the report keeps both the excess and the reason",
+      decision == "allow" and "accepted" in report_text and "max_new_files" in report_text, text + report_text)
+add(repo, "src/demo/c.py", "C = 1\n")
+decision, text = run_hook(repo)
+check("growing past the accepted figure calls the simplifier again", decision == "block" and "3 used" in text, text)
+
+repo = make_repo(gate="call")
+check("accept with nothing exceeded has nothing to record", accept(repo, "a reason of two words", [])[0] != 0)
+
+print("DEFAULT-* the project's default limits (project.env) and their calibration")
+NO_FUNCTION_LIMITS = BUDGET.replace("max_cyclomatic_per_function: 5\n", "").replace("max_nesting_depth: 2\n", "")
+repo = make_repo(budget=NO_FUNCTION_LIMITS)
+append(repo, "src/demo/pricing.py", BRANCHY)
+check("no per-function limit in the contract and none in project.env -> allow", run_hook(repo)[0] == "allow")
+append(repo, ".claude/project.env", 'COMPLEXITY_MAX_CYCLOMATIC="6"\n')
+decision, text = run_hook(repo)
+check("the project's default applies where the contract is silent",
+      decision == "block" and "max_cyclomatic_per_function: 6 allowed" in text, text)
+
+
+def budget_cli(repo: Path, *args: str, in_session: bool) -> tuple[int, str]:
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(repo)}
+    if in_session:
+        env["CLAUDECODE"] = "1"
+    proc = subprocess.run([sys.executable, str(HOOK), *args], capture_output=True, text=True, cwd=repo, env=env, check=False)
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+repo = make_repo()
+code, out = budget_cli(repo, "calibrate", in_session=True)
+check("calibrate reads the existing functions and proposes both limits",
+      code == 0 and "2 functions" in out and "COMPLEXITY_MAX_CYCLOMATIC" in out and "set-defaults 7 2" in out, out)
+before = (repo / ".claude/project.env").read_text()
+code, out = budget_cli(repo, "set-defaults", "7", "2", in_session=True)
+check("set-defaults is the owner's command: refused inside a session, nothing written",
+      code == 2 and "owner" in out and (repo / ".claude/project.env").read_text() == before, out)
+code, out = budget_cli(repo, "set-defaults", "7", "2", in_session=False)
+after = (repo / ".claude/project.env").read_text()
+check("in the owner's terminal it writes the two keys",
+      code == 0 and 'COMPLEXITY_MAX_CYCLOMATIC="7"' in after and 'COMPLEXITY_MAX_NESTING="2"' in after, out + after)
+budget_cli(repo, "set-defaults", "9", "3", in_session=False)
+after = (repo / ".claude/project.env").read_text()
+check("a second run replaces the values, never duplicates the keys",
+      after.count("COMPLEXITY_MAX_CYCLOMATIC") == 1 and 'COMPLEXITY_MAX_CYCLOMATIC="9"' in after, after)
+
 for leftover in Path(tempfile.gettempdir()).glob("budget-*"):
     shutil.rmtree(leftover, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")

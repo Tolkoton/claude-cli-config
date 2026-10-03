@@ -4,6 +4,8 @@
     python3 .claude/hooks/complexity_budget.py hook                 # Stop hook (stdin JSON)
     python3 .claude/hooks/complexity_budget.py check                # same measurement, as a report
     python3 .claude/hooks/complexity_budget.py validate <contract>  # at slice-contract approval
+    python3 .claude/hooks/complexity_budget.py calibrate            # propose the default limits
+    python3 .claude/hooks/complexity_budget.py set-defaults C N     # the OWNER's command: apply them
 
 WHY THIS EXISTS. Code written by language models grows faster than the behaviour it adds,
 and the growth ACCUMULATES across checkpoints: an instruction to "keep it simple" lowers the
@@ -29,10 +31,20 @@ turn: ten small turns may not add up to what one turn would have been refused.
 Standard library only (ast, tomllib, git): the gate has to work in cloud sessions and on
 a colleague's machine with no linter installed. Python 3.11+.
 
-THE SWITCH is COMPLEXITY_GATE in .claude/project.env: off (default) | warn | block.
-  warn   never blocks; writes .claude/state/overseer/complexity-report.md and says so
-  block  refuses to end the turn while a limit is exceeded
+THE BUDGET IS AN EXPECTATION, NOT A CEILING (owner, board 010). Going over it does not forbid
+the change; it calls the simplifier (.claude/agents/simplifier.md) with the figures. The
+simplifier rules: justified — the reason is recorded next to the contract and in the ledger
+(`simplifier.py accept`) and the turn ends; not justified — the builder makes the change smaller.
+
+THE SWITCH is COMPLEXITY_GATE in .claude/project.env: off (default) | warn | call.
+  warn   never holds the turn; writes .claude/state/overseer/complexity-report.md and says so
+  call   holds the turn while an overrun has no recorded verdict of the simplifier
+         (`block`, the value before board 010, means the same)
 No active slice, or a contract without a budget section: nothing to enforce, silent.
+
+DEFAULT LIMITS. Where the contract names no per-function limit, COMPLEXITY_MAX_CYCLOMATIC and
+COMPLEXITY_MAX_NESTING of project.env apply. `calibrate` proposes them from the functions the
+project already has; only the owner applies them (`set-defaults`, refused inside a session).
 
 RAISING THE BUDGET is the owner's call. The limits seen FIRST for a slice are remembered
 (.claude/state/overseer/.budget-<slug>.json); if the contract later shows higher numbers, the
@@ -53,6 +65,12 @@ from pathlib import Path, PurePosixPath
 
 import tomllib
 
+ENV_DEFAULTS = {
+    "max_cyclomatic_per_function": "COMPLEXITY_MAX_CYCLOMATIC",
+    "max_nesting_depth": "COMPLEXITY_MAX_NESTING",
+}
+CALIBRATION_FLOOR = {"max_cyclomatic_per_function": 5, "max_nesting_depth": 2}
+ACCEPTED_DIR = Path(".claude/state/simplifier")
 LIMIT_KEYS = (
     "max_new_files",
     "max_net_new_lines",
@@ -104,6 +122,19 @@ class Usage:
     worst_cyclomatic: list[tuple[int, str]] = field(default_factory=list)
     worst_nesting: list[tuple[int, str]] = field(default_factory=list)
     unparseable: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Outcome:
+    """What the hook decides on. `over` is every exceeded limit with the value used; `open` the
+    ones no recorded verdict of the simplifier covers."""
+
+    text: str
+    exceeded: bool
+    slug: str = ""
+    base_commit: str = ""
+    over: dict[str, int] = field(default_factory=dict)
+    lines: list[str] = field(default_factory=list)
 
 
 # ------------------------------------------------------------------ configuration
@@ -418,8 +449,29 @@ def first_seen_limits(root: Path, budget: Budget) -> tuple[dict[str, int], list[
     return in_force, raised
 
 
-def verdict(usage: Usage, limits: dict[str, int]) -> list[str]:
-    """One line per exceeded limit: field, used / allowed, and what counted."""
+def default_limits(env: dict[str, str]) -> dict[str, int]:
+    """The project's own per-function limits (project.env), for a contract that names none."""
+    return {key: int(env[name]) for key, name in ENV_DEFAULTS.items() if env.get(name, "").isdigit()}
+
+
+def accepted_overruns(root: Path, slug: str, base_commit: str) -> list[tuple[dict[str, int], str]]:
+    """Overruns the simplifier ruled justified (`simplifier.py accept` wrote them): per entry,
+    the value accepted for each limit, and the reason."""
+    try:
+        data = json.loads((root / ACCEPTED_DIR / f"accepted-{slug}.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(data, dict) or data.get("base_commit") != base_commit:
+        return []
+    return [
+        ({k: int(v) for k, v in e["over"].items()}, str(e.get("reason", "")))
+        for e in data.get("entries", [])
+        if isinstance(e, dict) and isinstance(e.get("over"), dict)
+    ]
+
+
+def verdict(usage: Usage, limits: dict[str, int]) -> list[tuple[str, int, str]]:
+    """Per exceeded limit: the field, the value used, and a line saying what counted."""
 
     def names(items: list[str]) -> str:
         return ", ".join(items[:6]) + (f" and {len(items) - 6} more" if len(items) > 6 else "")
@@ -432,7 +484,7 @@ def verdict(usage: Usage, limits: dict[str, int]) -> list[str]:
         "max_new_dependencies": (len(usage.new_dependencies), names(usage.new_dependencies)),
     }
     over = [
-        f"{key}: {used[key][0]} used, {limit} allowed ({used[key][1]})"
+        (key, used[key][0], f"{key}: {used[key][0]} used, {limit} allowed ({used[key][1]})")
         for key, limit in limits.items()
         if key in used and used[key][0] > limit
     ]
@@ -445,19 +497,19 @@ def verdict(usage: Usage, limits: dict[str, int]) -> list[str]:
             f"{where} = {value}" for value, where in worst if limit is not None and value > limit
         ]
         if bad:
-            over.append(f"{key}: {limit} allowed, exceeded by {names(bad)}")
+            over.append((key, worst[0][0], f"{key}: {limit} allowed, exceeded by {names(bad)}"))
     return over
 
 
 def report(
-    budget: Budget, usage: Usage, limits: dict[str, int], over: list[str], raised: list[str]
+    budget: Budget, usage: Usage, limits: dict[str, int], over: list[str], raised: list[str],
+    accepted: tuple[str, ...] = (),
 ) -> str:
     # The first line carries the verdict and the fields: it is what a log, a test and a
     # hurried reader see.
     fields = ", ".join(line.split(":", 1)[0] for line in over)
-    lines = [
-        f"COMPLEXITY BUDGET EXCEEDED: {fields}" if over else "Complexity budget: within budget"
-    ]
+    head = "Complexity budget: exceeded, accepted by the simplifier" if accepted else "Complexity budget: within budget"
+    lines = [f"COMPLEXITY BUDGET EXCEEDED: {fields}" if over else head]
     lines += [
         f"slice {budget.slug}, measured from {budget.base_commit[:10]} to the working tree",
         (
@@ -470,45 +522,61 @@ def report(
     ]
     lines += [f"  could not parse: {path}" for path in usage.unparseable]
     lines += [f"  - {line}" for line in over]
+    lines += [f"  - accepted: {line}" for line in accepted]
     if raised:
         lines += ["BUDGET RAISED DURING THE SLICE:"] + [f"  - {line}" for line in raised]
     return "\n".join(lines)
 
 
-BLOCK_ADVICE = (
-    "\n\nMake the change smaller: delete what the slice contract does not require, inline an "
-    "abstraction that has a single user, drop the new dependency, split the function only if "
-    "that removes branches rather than hides them. If the budget itself is wrong for this "
-    "slice, stop and tell the owner which limit and why. Do not edit the budget: the limits "
-    "the slice began with stay in force."
+CALL_ADVICE = (
+    "\n\nThe budget is an expectation, not a ceiling: going over it calls the simplifier. Start "
+    "the `simplifier` subagent (fresh context) with the request "
+    "`python3 .claude/hooks/simplifier.py request --lens budget` prints, and save its JSON answer "
+    "to a file. If it finds nothing to remove or confirm, record its verdict — "
+    "`python3 .claude/hooks/simplifier.py accept --reason \"<why the excess is needed>\" "
+    "--verdict <file>` — and the turn ends. Otherwise make the change smaller: delete what the "
+    "slice contract does not require, inline an abstraction that has a single user, drop the new "
+    "dependency, split the function only if that removes branches rather than hides them. "
+    "Do not edit the budget: the limits the slice began with stay in force."
 )
 
 
-def evaluate(root: Path) -> tuple[str, bool] | None:
-    """(report text, exceeded?) for the active slice; None when there is nothing to enforce."""
+def evaluate(root: Path) -> Outcome | None:
+    """The verdict for the active slice; None when there is nothing to enforce."""
     contract = active_contract(root)
     if contract is None:
         return None
     try:
         budget = parse_budget(contract)
     except BudgetError as exc:
-        return f"Complexity budget of {contract.name} cannot be read: {exc}", True
+        return Outcome(f"Complexity budget of {contract.name} cannot be read: {exc}", True)
     if budget is None:
         return None
     if not git(root, "rev-parse", "--verify", "--quiet", f"{budget.base_commit}^{{commit}}"):
-        return (
-            (
-                f"Complexity budget of {contract.name}: base_commit '{budget.base_commit}' is "
-                "not a commit in this repository"
-            ),
+        return Outcome(
+            f"Complexity budget of {contract.name}: base_commit '{budget.base_commit}' is "
+            "not a commit in this repository",
             True,
         )
     env = project_env(root)
-    source_dirs = [d for d in re.split(r"[\s,]+", env.get("SOURCE_DIRS", "")) if d]
-    usage = measure(root, budget.base_commit, source_dirs)
+    usage = measure(root, budget.base_commit, source_dirs_of(env))
     limits, raised = first_seen_limits(root, budget)
-    over = verdict(usage, limits)
-    return report(budget, usage, limits, over, raised), bool(over)
+    over = verdict(usage, default_limits(env) | limits)
+    entries = accepted_overruns(root, budget.slug, budget.base_commit)
+    open_lines, accepted = [], []
+    for key, used, line in over:
+        reasons = [reason for values, reason in entries if values.get(key, -1) >= used]
+        if reasons:
+            accepted.append(f"{line} — {reasons[-1]}")
+        else:
+            open_lines.append(line)
+    text = report(budget, usage, limits, open_lines, raised, tuple(accepted))
+    return Outcome(text, bool(open_lines), budget.slug, budget.base_commit,
+                   {key: used for key, used, _ in over}, [line for _, _, line in over])
+
+
+def source_dirs_of(env: dict[str, str]) -> list[str]:
+    return [d for d in re.split(r"[\s,]+", env.get("SOURCE_DIRS", "")) if d]
 
 
 # ------------------------------------------------------------------ entry points
@@ -531,7 +599,7 @@ def record_in_gate_format(root: Path, mode: str, text: str, exceeded: bool) -> N
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import gate as gate_module
 
-        severity = ("block" if mode == "block" else "warn") if exceeded else "log"
+        severity = ("warn" if mode == "warn" else "block") if exceeded else "log"
         gate_module.record_findings(
             root, "complexity_budget", "stop",
             [gate_module.Finding(None, None, "complexity-budget", severity, text.splitlines()[0],
@@ -548,12 +616,12 @@ def run_hook() -> int:
         return 0
     root = project_root()
     gate = project_env(root).get("COMPLEXITY_GATE", "off").lower()
-    if gate not in ("warn", "block"):
+    if gate not in ("warn", "call", "block"):
         return 0
     outcome = evaluate(root)
     if outcome is None:
         return 0
-    text, exceeded = outcome
+    text, exceeded = outcome.text, outcome.exceeded
     try:
         (root / REPORT_FILE).parent.mkdir(parents=True, exist_ok=True)
         (root / REPORT_FILE).write_text(text + "\n", encoding="utf-8")
@@ -562,8 +630,8 @@ def run_hook() -> int:
     record_in_gate_format(root, gate, text, exceeded)
     if not exceeded:
         return 0
-    if gate == "block":
-        print(json.dumps({"decision": "block", "reason": text + BLOCK_ADVICE}))
+    if gate != "warn":
+        print(json.dumps({"decision": "block", "reason": text + CALL_ADVICE}))
     else:
         print(
             json.dumps(
@@ -614,14 +682,80 @@ def run_validate(contract: Path) -> int:
     return 1 if problems else 0
 
 
+def percentile(values: list[int], percent: int) -> int:
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, (len(ordered) * percent) // 100)] if ordered else 0
+
+
+def project_functions(root: Path) -> dict[str, tuple[int, int]]:
+    """`path:function` -> (cyclomatic, nesting) for every production function git tracks."""
+    source_dirs = source_dirs_of(project_env(root))
+    found: dict[str, tuple[int, int]] = {}
+    for path in git(root, "ls-files", "*.py").splitlines():
+        if is_test(path) or not in_source(path, source_dirs):
+            continue
+        try:
+            tree = parse_py((root / path).read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            tree = None
+        for name, metrics in (function_metrics(tree) if tree else {}).items():
+            found[f"{path}:{name}"] = metrics
+    return found
+
+
+def run_calibrate(root: Path) -> int:
+    """Propose the default per-function limits from the functions the project already has: the
+    90th percentile, never under the floor. A proposal — `set-defaults` applies it."""
+    functions = project_functions(root)
+    if not functions:
+        print("no production functions found: nothing to calibrate on")
+        return 1
+    print(f"{len(functions)} functions measured (production code git tracks, tests excluded)\n")
+    print("| metric | p50 | p75 | p90 | p95 | max | proposed | functions already above it |")
+    print("|---|---|---|---|---|---|---|---|")
+    proposed = []
+    for index, key in enumerate(ENV_DEFAULTS):
+        values = [metrics[index] for metrics in functions.values()]
+        limit = max(percentile(values, 90), CALIBRATION_FLOOR[key])
+        proposed.append(limit)
+        cells = [percentile(values, p) for p in (50, 75, 90, 95)] + [max(values), limit, sum(v > limit for v in values)]
+        print(f"| {ENV_DEFAULTS[key]} | " + " | ".join(str(c) for c in cells) + " |")
+    print("\nOnly a function a change adds or makes worse is measured against the limit.")
+    print(f"Apply (the owner, in their own terminal):\n\n    python3 .claude/hooks/complexity_budget.py set-defaults {proposed[0]} {proposed[1]}")
+    return 0
+
+
+def run_set_defaults(root: Path, values: list[str]) -> int:
+    """The owner's command. Hooks do not see what a script runs, so the check is here."""
+    if os.environ.get("CLAUDECODE"):
+        print("complexity_budget: set-defaults is the owner's command and is refused inside a Claude "
+              "Code session (CLAUDECODE is set). Run it in your own terminal.", file=sys.stderr)
+        return 2
+    if len(values) != 2 or not all(v.isdigit() and int(v) > 0 for v in values):
+        print("usage: complexity_budget.py set-defaults <max cyclomatic> <max nesting>", file=sys.stderr)
+        return 2
+    path = root / ".claude" / "project.env"
+    names = set(ENV_DEFAULTS.values())
+    kept = [line for line in path.read_text(encoding="utf-8").splitlines()
+            if line.split("=", 1)[0].strip() not in names]
+    kept += [f'{name}="{value}"' for name, value in zip(ENV_DEFAULTS.values(), values, strict=True)]
+    path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    print(f"written to {path.relative_to(root)}: " + ", ".join(kept[-2:]))
+    return 0
+
+
 def main() -> int:
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "hook":
         return run_hook()
     if command == "check":
         outcome = evaluate(project_root())
-        print(outcome[0] if outcome else "no active slice with a complexity budget")
-        return 1 if outcome and outcome[1] else 0
+        print(outcome.text if outcome else "no active slice with a complexity budget")
+        return 1 if outcome and outcome.exceeded else 0
+    if command == "calibrate":
+        return run_calibrate(project_root())
+    if command == "set-defaults":
+        return run_set_defaults(project_root(), sys.argv[2:])
     if command == "validate" and len(sys.argv) == 3:
         return run_validate(Path(sys.argv[2]))
     print((__doc__ or "").split("\n\n")[0], file=sys.stderr)

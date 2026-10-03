@@ -129,6 +129,19 @@ the dependency rules) + an ADR per ratified one-way door.
 
 ---
 
+# Between levels — the simplifier  (after M3's artifacts, before any decomposition)
+
+The step from architecture to features is one of the four signals that call the simplifier
+(`.claude/references/simplifier.md`). Start the `simplifier` subagent twice, fresh each time,
+with the text `python3 .claude/hooks/simplifier.py request --lens requirements --paths <the
+goal and requirement documents>` and `… --lens architecture --paths .engine/architecture`
+print, and nothing of your own reasoning. Save each answer under `.engine/simplifier/` and
+run `python3 .claude/hooks/simplifier.py route <file> --title "<lens>, before M4"`. A finding
+about your own draft that you agree with: apply it before decomposing. A finding about an
+owner requirement or a ratified decision is the owner's (Art. 5): it stays in the report.
+
+---
+
 # Phase M4 — Feature decomposition
 
 Break the product into **features** (each mapping to a bounded context / coherent

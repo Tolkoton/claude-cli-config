@@ -13,7 +13,7 @@
 
 THE QUEUE. `.engine/lesson-queue.md`, one line per candidate:
     - <date UTC> | <source> | <slice> | <essence> #<id>
-source is one of gate, overseer, parked, escalation, agent. A candidate is added once: the id is a
+source is one of gate, overseer, parked, escalation, agent, simplifier. A candidate is added once: the id is a
 hash of source + the normalised essence, and every id ever seen is kept in machine state
 (`.claude/state/lessons/seen.json`), so a candidate that was triaged and removed does not come back
 when its source is scanned again. No model is involved in collecting.
@@ -53,7 +53,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-SOURCES = ("gate", "overseer", "parked", "escalation", "agent")
+SOURCES = ("gate", "overseer", "parked", "escalation", "agent", "simplifier")
 QUEUE_REL = Path(".engine/lesson-queue.md")
 MEMORY_REL = Path(".engine/overseer/MEMORY.md")
 PROPOSALS_REL = Path(".engine/rule-proposals.md")
