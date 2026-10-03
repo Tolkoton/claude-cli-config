@@ -23,6 +23,8 @@
 # Board 010: test_simplifier 4.5 s (in: the validator stands between the agent and the repository);
 # out: test_simplify_signals 14.8 s (vulture and pylint through uvx), test_simplifier_evals 5.1 s
 # (builds the eval project, runs its pytest), test_complexity_budget 6.3 s (was out already).
+# Board 009: test_board_review 6.0 s stays out (about thirty runs of the review on a synthetic
+# repository with a bare origin and a second clone); test_board, which stays in, is unchanged by it.
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

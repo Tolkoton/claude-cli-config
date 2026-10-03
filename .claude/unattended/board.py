@@ -10,7 +10,8 @@ a directory done/NNN-name/ with task.md and report.md. tasks/README.md is the ma
 This module parses a task and makes every move that needs a decision, so that "which task is
 next", "is it answered" and "does it ask for the paid audit" are decided in one place for the
 runner (board-runner.sh), for the audit runner (evals/run_audit_scenarios.py) and for a person.
-It never runs git: staging and committing belong to the runner and to the agent.
+It never runs git: staging and committing belong to the runner and to the agent. The one
+exception reads only: `review` takes the board from the work branch in origin (board_review.py).
 
     board.py next                    the task to work on: the one in doing/, else the first in
                                      todo/ whose dependencies are all in done/.
@@ -30,6 +31,9 @@ It never runs git: staging and committing belong to the runner and to the agent.
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
     board.py summary                 the board in a dozen lines, for the owner
+    board.py review [--since <commit|date>] [--offline]
+                                     the owner's review: one markdown document about the work
+                                     branch in origin; changes nothing (board_review.py)
 
 A GATE QUESTION (board 005) is a task the Stop gate writes itself when it gives up after N
 blocks in a row (`gate_question`, called by .claude/hooks/gate.py): tasks/blocked/9NN-gate-
@@ -54,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -460,6 +465,19 @@ def summary(board: Board) -> list[str]:
     return lines
 
 
+def cmd_review(root: Path, args: argparse.Namespace) -> int:
+    import board_review  # here, not at the top: board_review reads this module's parser
+
+    try:
+        document = board_review.review(root, args.state_dir or root / ".claude/state", args.remote, args.branch,
+                                       args.since, args.offline, datetime.now(UTC))
+    except board_review.ReviewError as refusal:
+        print(f"board: review: {refusal}", file=sys.stderr)
+        return EXIT_REFUSED
+    sys.stdout.write(document)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="The task board in files (tasks/README.md).")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2],
@@ -483,8 +501,16 @@ def main() -> int:
     action_done_parser.add_argument("outcome", choices=sorted(ACTION_OUTCOMES))
     commands.add_parser("action-reject").add_argument("name")
     commands.add_parser("summary")
+    review_parser = commands.add_parser("review")
+    review_parser.add_argument("--since", default=None, help="a commit or a date; default: the newest version tag")
+    review_parser.add_argument("--offline", action="store_true", help="do not ask origin; show the state this clone saw last")
+    review_parser.add_argument("--remote", default=os.environ.get("BOARD_REMOTE", "origin"))
+    review_parser.add_argument("--branch", default=os.environ.get("BOARD_BRANCH", "unattended/work"))
+    review_parser.add_argument("--state-dir", type=Path, default=None, help="the runner's state (default: .claude/state)")
     args = parser.parse_args()
     root: Path = args.root.resolve()
+    if args.command == "review":
+        return cmd_review(root, args)
     board = Board(root / "tasks")
     if args.command == "next":
         return cmd_next(board)

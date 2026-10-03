@@ -76,6 +76,11 @@ What to read, in `.claude/state/board/`: `status` (one line: `state=… task=…
 environment variables listed at the head of the script. `board.py` is the board's one reader
 (`next`, `summary`, …); `board_state.py` keeps what the runner remembers about each task.
 
+The owner's review — `python3 .claude/unattended/board.py review [--since <commit|date>]` — is
+one markdown document about the work branch as origin has it (`board_review.py`). It writes
+nothing, so it may run next to a runner in the middle of a task and from any clone; the
+runner's state files are read when they are there. `/review` walks it with the owner.
+
 ## The decision the supervisor makes
 
 On every session exit, read `state.json`:
