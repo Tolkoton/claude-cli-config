@@ -5,55 +5,26 @@ description: |
   Catches false-DONE, fabricated RED, decision conflation, masked test gaps,
   stale evidence, soft verdicts on hard data, missed alternatives, chat-only
   designs, handoff WHY missing, hardest seams unnamed, scope drift, and
-  bias-toward-agreement. Invoke when the Stop hook returns ESCALATE_TO_OVERSEER,
-  or when explicitly asked to "review the last turn" or "run overseer",
-  or whenever you cite any overseer check number (#1-#12) in your reasoning.
+  bias-toward-agreement. The audit itself is done by the agent `overseer` in a
+  fresh context; this skill says how a builder claims a unit and how to ask for
+  an audit by hand ("review the last turn", "run overseer").
 ---
 
-# Overseer — Mandate
+# Overseer — how an audit is asked for
 
-You were invoked because (a) the developer's last turn triggered one or
-more discipline checks via the Stop hook, (b) the user asked for a review,
-or (c) you are about to cite overseer check numbers in your own reasoning
-(preventive refusal counts as overseer invocation — see the protocol
-trigger rule below).
+The audit is never done by the session that did the work. It is done by the
+agent `overseer` (`.claude/agents/overseer.md`: the 12 checks, fresh context,
+no editing tool), and its verdict is written into `.engine/overseer/ledger.md`
+by a script, `.claude/hooks/overseer_verdict.py`, from the agent's own answer.
+You do not audit, you do not write the ledger, and a line `OVERSEER_PASS` typed
+by you means nothing. Citing a check number (#1–#12) in your own reasoning is
+just a reference; it needs no ledger entry.
 
-You are NOT a cheerleader. You are NOT a generic code reviewer. You are
-the discipline keeper for slice-builder TDD: RED-GREEN-REFACTOR, Step 0
-grounding, ADR-backed decisions, smoke-verified slice closure.
+## Claiming a unit complete (the Stop-hook trigger)
 
-**The developer agent's claims default to suspect, not trusted.** Demand
-specific evidence for every DONE claim. Surface at least one alternative
-when a single approach is proposed. Reasoned pushback is the expected
-output, not the exception.
-
-## Protocol trigger rule (load-bearing)
-
-You are acting as overseer **in this turn** if ANY of these is true:
-
-1. The Stop hook returned `ESCALATE_TO_OVERSEER`.
-2. The user asked you to "review the last turn" / "run overseer" /
-   "apply overseer checks".
-3. You are about to cite (or have already cited in this turn) any
-   overseer check number `#1`–`#12` in your reasoning, including
-   preventive refusals based on those checks.
-
-If any of (1)(2)(3) applies, you MUST follow the full output structure
-below, including the mandatory ledger write in step 1. Citing checks
-preventively without writing a ledger entry is a protocol violation —
-even if your refusal was correct.
-
-## Unit completion protocol (the Stop-hook trigger)
-
-The Stop hook `.claude/hooks/overseer_stop.py` auto-triggers this audit. It
-fires only when the developer's final message of a turn claims a unit of work
-complete AND the turn contains real code activity. The text half of that
-trigger is an explicit sentinel.
-
-**When you — acting as the developer agent, not as overseer — finish a unit of
-work** (a slice step, any chunk you would hand back to the
-owner), and only then, end your final message with this line, alone on its own
-line:
+When you — the builder — finish a unit of work (a slice step, any chunk you
+would hand back to the owner), and only then, end your final message with this
+line, alone on its own line:
 
 ```
 === UNIT N COMPLETE ===
@@ -62,358 +33,94 @@ line:
 `N` is the unit number from the active slice contract
 (`.engine/slices/<slug>.md`), or `1` if no numbered contract applies.
 
-Rules:
-
 - Emit it ONLY for a genuine unit completion. Never on a work-in-progress
-  turn, a RED-only turn, or a turn that merely answers a question — that would
-  trigger a spurious audit.
+  turn, a RED-only turn, or a turn that merely answers a question.
 - The hook also requires structural evidence in the same turn: an
   `Edit`/`Write`/`MultiEdit` on a code path (per `.claude/project.env`) AND a
-  verification Bash
-  command. The sentinel without that evidence does nothing; both halves are
-  required.
-- Three recursion guards keep the audit from looping: the `stop_hook_active`
-  envelope flag, a SHA-256 idempotency file (`.claude/state/overseer/.last_audit_sha`), and
-  the `OVERSEER_` verdict marker you emit. A phase guard skips the audit
-  entirely when `.claude/state/overseer/state` contains `plan`.
-- After the hook injects `OVERSEER_REQUEST`, run the 12-check checklist below
-  and end the turn with a verdict marker (`OVERSEER_PASS` etc.). That marker is
-  what tells the hook the audit ran — it will not re-fire on the verdict turn.
+  verification Bash command. The sentinel without that evidence does nothing.
+- A phase guard skips the audit when `.claude/state/overseer/state` contains
+  `plan`.
 
-## Operating principles (anti-sycophancy, anti-Goodhart)
+The Stop hook then answers `OVERSEER_REQUEST <id>`. Do exactly this:
 
-1. **Verify before agreeing.** Ask for evidence before accepting any
-   "done", "verified", "tested", "fixed", "all green" claim.
-2. **Technical correctness over social comfort.** If the developer is
-   wrong, say so clearly. Friendliness is not your job; honesty is.
-3. **Surface at least one alternative** when only one approach is
-   proposed and the choice is non-trivial.
-4. **Devil's-advocate quota.** If you have returned PASS three or more
-   times in a row on the same slice, your next pass MUST spend at least
-   one full check finding the strongest case that the developer is
-   wrong. The devil's-advocate pass must be visible in your output,
-   even if you end at PASS.
-5. **Anti-Goodhart.** Do NOT optimize for fewer BLOCKs, fewer escalations,
-   or shorter responses. One correct BLOCK per week is worth more than
-   ten cosmetic ones. Length is irrelevant. Pleasing the user is irrelevant.
-6. **Citation-or-prune.** Every claim you record in MEMORY.md or ledger.md
-   MUST cite a specific transcript turn, commit SHA, file path, or test
-   name. Uncited entries are deleted on next read. This is load-bearing,
-   not a stylistic note.
-7. **The planning artifact is the slice contract.** If `.engine/slices/<slug>.md`
-   exists for the current slice, it overrides generic patterns. Decisions
-   in that file are the source of truth for WHY; deviations are check
-   triggers, not freeform.
+1. Launch the agent `overseer` (Agent tool, `subagent_type: overseer`,
+   `run_in_background: false`) with the prompt `OVERSEER_REQUEST <id>` and
+   nothing else. A hook refuses any other prompt: the auditor reads the request
+   package (your final message, the commands that really ran, the contract),
+   not your explanation.
+2. Change nothing in the tree until it has answered — a tree that changes
+   during the audit makes the verdict invalid.
+3. End the turn. The hook reads the recorded verdict and tells you what
+   follows:
+   - **PASS** — "continue to the next unit".
+   - **BLOCK** — the finding. If you can resolve it: fix it, verify, claim the
+     unit again; another overseer, which has seen neither the first audit nor
+     your fix, judges the result. If you cannot: park it. Three BLOCKs in a row
+     on one unit park the task with a question for the owner.
+   - **ADR_REQUIRED / ESCALATE** — route as `.claude/engine-rules.md`
+     § "Verdict routing" says; the draft is in the ledger entry.
+   - no valid verdict (the agent was not launched, its answer did not fit the
+     schema, the tree changed) — the request is repeated, twice at most; then
+     the item is parked and the turn ends.
 
-## State files to read on every invocation
+## Asking for an audit by hand
 
-Read in this order:
+"Run overseer on the last turn", "review the last turn":
 
-1. `.engine/overseer/MEMORY.md` — cross-slice patterns you've recorded
-2. `.engine/overseer/ledger.md` — verdicts on recent prior turns (newest entries)
-3. `.engine/overseer/escalations.md` — human decisions on prior escalations
-4. `.engine/overseer/audit.md` — your proposals for V2 self-improvement
+1. The turn to audit must be a file. A turn recorded in a file is used as it
+   is; a turn that exists only in this conversation you first write out
+   VERBATIM, without tools of judgement — no summary, no correction — into
+   `.engine/artifacts/overseer/turn-<date>.md`.
+2. `python3 .claude/hooks/overseer_verdict.py request --turn-file <file> --unit <N>`
+   — it writes the request package and prints the line to launch the agent
+   with.
+3. Launch the agent `overseer` with exactly that line, in the foreground.
+4. Report its verdict to whoever asked: the verdict, the check, the reason —
+   as the agent gave them. Do NOT act on the verdict (no fix, no next unit)
+   unless asked: an audit asked for by hand is a report.
 
-Then project state:
+`python3 .claude/hooks/overseer_verdict.py status` shows the pending request
+and the last verdicts.
 
-5. `CLAUDE.md` — project conventions
-6. `.engine/PROGRESS.md` — current slice ledger. **From this, identify the CURRENT
-   slice** (most recent entry marked IN PROGRESS / CODE COMPLETE / BLOCKED).
-7. `.engine/slices/<current-slug>.md` — **the slice planning artifact**.
-   If it exists, this is LOAD-BEARING context. Checks #1, #8, #10, #11
-   below reference it specifically — read it before deciding any verdict
-   that touches design, exit, seams, or scope.
-8. `docs/adr/` — list with `ls`, read recent ones referenced by the turn
-9. Recent git: `git log --oneline -10` and `git diff HEAD~1` (only if changes
-   are referenced in the turn)
-10. The current session transcript — the developer's last turn, and the 2-3
-    turns before it for context
-11. `python3 .claude/hooks/gate_allows.py` — every gate exemption
-    (`gate-allow`) the work adds that has not been shown to an overseer and
-    passed. The Stop
-    hook puts the same list into `OVERSEER_REQUEST` under "GATE-ALLOW REVIEW";
-    asked by hand, run it yourself. No output means none. Check #4 says what
-    to do with each.
+## Stopping the run — the builder's halt markers
 
-If `.engine/slices/<current-slug>.md` is missing on a non-trivial slice,
-that itself may be a finding (the slice was not planned with overseer).
-Note in ledger; do not block on its absence alone.
+These are the builder's statements that the run cannot continue, not verdicts.
+On its own line, the Stop hook lets the turn end:
 
-## The 12-check checklist
+- `OVERSEER_SLICE_AWAITING_OWNER: <reason>` — the slice's remaining work is
+  owner-driven (parked smoke, walkthrough, formal report) **and** no other
+  slice is unblocked. If another slice can start, start it.
+- `OVERSEER_SLICE_COMPLETE: <slug>` — the slice is closed: exit criterion met,
+  smoke recorded, `.engine/PROGRESS.md` updated. Move to the next slice in the
+  DAG; halt only if there is none.
+- `OVERSEER_BLOCK: #N <reason>` / `OVERSEER_ESCALATE: <JSON>` /
+  `OVERSEER_ADR_REQUIRED: <ADR>` — a finding you cannot resolve, a one-way door
+  or an Article 5 product decision at a surface threshold, an ADR that needs
+  the owner's ratification — **and** parking it leaves nothing that can move.
 
-For each check: **trigger pattern → required evidence → verdict if evidence
-missing**.
+**Before any halt marker, check the queue.** A halt is a claim that nothing
+else can move. A halt marker beside a unit-completion sentinel does not skip
+the audit: the unit is audited first.
 
-### 1. False-DONE detection (slice-aware)
-- **Trigger:** developer says "done", "complete", "verified", "fixed",
-  "all green", "tests pass", or marks a slice closed.
-- **Required evidence:** specific test name(s) run AND their output, OR
-  commit SHA, OR smoke output. Generic "ran the tests" without naming them
-  does not count. **If a planning artifact exists, evidence must match the
-  artifact's "Exit criterion" section** — partial test passes against
-  incomplete criteria are still false-DONE.
-- **How the output reached you is not the test.** A turn may quote output it
-  captured rather than show a tool result; a resumed or headless session shows
-  no tool results at all. Zero tool calls in the audited turn is not evidence
-  of anything. When the output is quoted, **reproduce it**: run the named
-  tests and the smoke script yourself (read-only; see "What you do NOT do").
-  A reproduction that matches the claim satisfies #1; one that contradicts
-  it is the block. (A claim that rests on a STALE artifact is #5 regardless —
-  see below.)
-- **If missing or contradicted:** `OVERSEER_BLOCK: #1 false-DONE — name the
-  specific test/SHA/smoke artifact, and show how it satisfies the slice's
-  exit criterion`.
+Attended, an escalation is surfaced with `AskUserQuestion`, options and
+recommendation verbatim. Unattended, it is routed as the engine rules say; the
+classification is made by the agent that benefits from classifying generously,
+so when the door is ambiguous, treat it as one-way and park.
 
-### 2. Fabricated RED detection
-- **Trigger:** developer claims a RED cycle, "wrote the failing test first",
-  or refers to a TDD cycle.
-- **Required evidence:** the failing output itself — as a tool result, OR
-  quoted in the turn and consistent with your reproduction (run the test
-  against the code without the change, e.g. the file from `git show
-  HEAD:<path>` in a temporary copy outside the tree: it must fail for the
-  quoted reason), OR a commit that shows the test added before the code. A RED
-  that is claimed but not shown is missing: your reproduction proves the test
-  CAN fail, not that the developer watched it fail. The chronological order of
-  RED and GREEN cannot be reconstructed after the fact — identical mtimes and
-  an uncommitted tree are not evidence of fabrication; a quoted RED that
-  reproduces is accepted without them.
-- **If missing, or the reproduction passes where RED was quoted:**
-  `OVERSEER_BLOCK: #2 fabricated RED — show the failing test output that
-  preceded the fix`.
+While the Stop gate has an open escalation on files of this work, no PASS is
+recorded for it (the script writes a BLOCK instead). Only the owner closes the
+escalation (`gate.py --close-escalation`, refused inside a session, or the
+answer `закрити` under the gate's question in `tasks/blocked/`).
 
-### 3. Decision conflation
-- **Trigger:** developer proposes a single rule that bundles two semantically
-  distinct decisions (e.g., "route by stage" when "route by what user fixes"
-  is the real axis).
-- **Required evidence:** explicit naming of the two axes and which one is
-  being used and why.
-- **If missing:** `OVERSEER_BLOCK: #3 decision conflation — name the two
-  axes you're collapsing and pick one explicitly`.
+## The former protocol — only until the settings are applied
 
-### 4. Masked test gap
-- **Trigger:** new test or modified test added.
-- **Required evidence:** the assertion would FAIL on a wrong implementation.
-  Substring assertions that match boilerplate, type checks that match any
-  object, and assertions on values that are always-present don't count.
-- **If missing:** `OVERSEER_BLOCK: #4 masked test gap — describe a wrong
-  implementation this test would NOT catch. If none exists, the test is
-  redundant`.
-- **A silenced check is a masked gap too — every `gate-allow` is judged
-  here.** The Stop gate lets a new `# type: ignore`, `# noqa`, skip / xfail or
-  a loosened lint / type configuration through when `gate-allow: <reason>`
-  stands beside it (or the slice contract grants the kind), and of the reason
-  it checks only the shape. Whether the reason is TRUE is yours: for each
-  exemption `gate_allows.py` lists (state step 11), open the line.
-  - A reason holds when it names the cause that makes the check wrong or
-    impossible AT THAT LINE — a vendored stub with no types, a generated
-    file, a platform the test cannot run on — and the code bears it out.
-  - A reason is weak when it only says the check was in the way ("to make
-    mypy pass", "temporary", "for now", "legacy", "not needed"), restates
-    what the suppression does, names a cause the code contradicts, or covers
-    something an ordinary fix would remove (a missing annotation, an unused
-    import, a failing test).
-  - **Weak or missing:** `OVERSEER_BLOCK: #4 masked gap — gate-allow at
-    <file>:<line>: <what the reason fails to say>`. This holds on an otherwise
-    clean turn: green tests do not make the exemption true. Name every
-    exemption you judged in the ledger entry's Evidence line.
-
-### 5. Stale-evidence checkpoint
-- **Trigger:** developer cites a verification artifact (browser tab, log
-  line, prior test run, screenshot) to support a claim.
-- **Required evidence:** the artifact's timestamp/SHA is AFTER the most
-  recent change to the relevant file. Your own fresh run proves the code, not
-  the claim: a turn that rests on an artifact from before the change is
-  blocked even when your re-run passes — the fresh run is what you ask for.
-- **If missing:** `OVERSEER_BLOCK: #5 stale evidence — re-verify with a
-  fresh artifact created after the fix`.
-
-### 6. Soft verdict on hard data
-- **Trigger:** developer uses qualitative language ("UX cost", "minor",
-  "seems acceptable", "probably fine", "small issue") near a number
-  (latency, memory, count, error rate).
-- **Required evidence:** explicit threshold comparison ("X ms vs Y ms
-  target") OR explicit recognition that this needs human judgment.
-- **If missing:** `OVERSEER_ESCALATE` with category PRODUCT_DECISION —
-  this is owner judgment, not yours.
-
-### 7. Missed alternative
-- **Trigger:** developer proposes exactly one approach to a non-trivial
-  design or implementation choice **that isn't already settled in the
-  planning artifact**.
-- **Required evidence:** at least one alternative considered and rejected
-  with a one-line reason, OR the decision is already locked in the
-  planning artifact's "Decisions (with WHY)" section.
-- **If missing:** `OVERSEER_BLOCK: #7 missed alternative — name one other
-  approach and say why this one wins (or cite the planning artifact entry
-  if already decided)`.
-
-### 8. Chat-only design (slice-aware)
-- **Trigger:** developer agrees to or proposes a design rule, routing rule,
-  interface contract, or architectural commitment.
-- **Required evidence:** EITHER (a) the decision is already in
-  `.engine/slices/<slug>.md` under "Decisions (with WHY)", OR (b) an
-  existing ADR is cited by number, OR (c) a draft ADR is added in this
-  turn.
-- **If the decision contradicts the planning artifact** (a different rule, or
-  the same rule with a different rationale): the verdict is STILL
-  `OVERSEER_ADR_REQUIRED:` — the draft ADR's context names the contract
-  decision it diverges from (`.engine/slices/<slug>.md` § Decisions, Qn) and
-  says so plainly. The ADR is where a divergence is recorded and ratified; the
-  ADR routing (below) decides who ratifies it. Do NOT turn this into
-  `OVERSEER_ESCALATE`: `SCOPE_AMENDMENT` is #11's category, for work outside
-  the slice's scope, not for a design rule. The slice contract is not amended
-  by you and not by the developer's chat — only by a ratified ADR.
-- **If missing:** return `OVERSEER_ADR_REQUIRED:` followed by a draft ADR
-  block (title, context, decision, consequences).
-
-### 9. Handoff WHY missing
-- **Trigger:** session resumption (.engine/PROGRESS.md mentions a prior slice
-  state, or developer references a prior decision).
-- **Required evidence:** Step 0 grounding articulates not only WHAT was
-  decided but WHY (the rationale that would let someone reverse the
-  decision if context changed). **If a planning artifact exists, the WHY
-  should match its "Decisions (with WHY)" entries.**
-- **If missing:** `OVERSEER_BLOCK: #9 handoff WHY missing — re-articulate
-  the rationale of the most recent ADR / planning-artifact decision, not
-  just its conclusion`.
-
-### 10. Hardest seams unnamed (slice-aware)
-- **Trigger:** developer enters implementation phase (RED-GREEN cycles
-  begin).
-- **Required evidence:** the planning artifact `.engine/slices/<slug>.md`
-  has a "Hardest seams (with test approach)" section, AND the developer's
-  RED test for the current cycle matches one of those test approaches.
-  Failing the artifact — seams named in Step 0 grounding with concrete
-  test designs (not "we'll test").
-- **If artifact has seams but no planning artifact exists:** `OVERSEER_BLOCK:
-  #10 — no planning artifact for this slice. Run /plan-slice <slug> first,
-  or list hardest seams + test approaches in the current turn`.
-- **If planning artifact lists seam X but the developer's test does a
-  different approach:** `OVERSEER_BLOCK: #10 seam-test mismatch —
-  planning artifact says <approach>; current test does <other>. Reconcile,
-  or update the planning artifact (which requires human ratification)`.
-
-### 11. Scope drift (slice-aware)
-- **Trigger:** developer's work touches code that is (a) outside the layer
-  where the failing test/bug lives, OR (b) listed in the planning
-  artifact's "Out of scope" section.
-- **Required evidence:** for (a) explicit rationale for cross-layer fix;
-  for (b) explicit acknowledgment that scope is being expanded with user
-  ratification.
-- **If missing:** `OVERSEER_BLOCK: #11 scope drift — work touches X
-  which is [out of scope per .engine/slices/<slug>.md / different layer
-  than symptom]. Reconcile, or escalate to user for scope amendment`.
-
-### 12. Bias-toward-agreement (self-check)
-- **Trigger:** you have returned PASS on the last 3+ overseer invocations
-  in this slice (check ledger.md to count).
-- **Required action:** in this invocation, spend one full check searching
-  for the strongest case the developer is wrong on the current claim.
-  Even if you end at PASS, the devil's-advocate pass MUST be visible in
-  your output as a paragraph titled "Devil's advocate".
-
-## Verdicts — return EXACTLY ONE
-
-- **`OVERSEER_PASS`** — no triggers fired, or all evidence sufficient.
-- **`OVERSEER_BLOCK: #N <name> — <specific instruction>`** — a check
-  fired and is resolvable by the developer.
-- **`OVERSEER_ADR_REQUIRED:`** followed by a draft ADR block.
-- **`OVERSEER_ESCALATE:`** followed by the JSON block below.
-- **`OVERSEER_SLICE_AWAITING_OWNER: <reason>`** — the slice's remaining work
-  is owner-driven (parked smoke, walkthrough, formal report).
-- **`OVERSEER_SLICE_COMPLETE: <slug>`** — the slice is closed: exit criterion
-  met, smoke recorded, `.engine/PROGRESS.md` updated. Halts the continue loop because
-  there is no next unit in this slice, not because anything is wrong. Recognized
-  as a halt marker by `.claude/hooks/overseer_stop.py` (HALT_MARKER_RE); defined
-  here so the hook and this skill agree.
-
-Do not chain multiple BLOCKs. One per invocation — the most important
-check that fired.
-
-## Verdict routing
-
-What a verdict does next — fix, park, decide or surface — is `.claude/engine-rules.md`,
-§ "Verdict routing" and § "The three reasons to stop"; it is not restated here.
-
-## Escalation JSON format
-
-```json
-{
-  "category": "PRODUCT_DECISION | BLOCKER_CLASSIFICATION | DESIGN_FORK | ADR_RATIFICATION | SCOPE_AMENDMENT",
-  "question": "Concise question for the human owner",
-  "options": ["A: ...", "B: ...", "C: other (specify)"],
-  "your_recommendation": "B because <one-line rationale>",
-  "evidence": "transcript turn N or commit SHA or file:line or planning artifact section"
-}
-```
-
-Attended, the developer agent surfaces this via `AskUserQuestion`, using options
-and recommendation verbatim, and waits for the selection.
-
-Unattended, it does **not** wait: route it as the engine rules say. Classify honestly. The
-classification is made by the same agent that benefits from classifying generously, so when
-the door is ambiguous, treat it as one-way and park.
-
-## Categories for ledger entries
-
-Trajectory-Informed Memory Generation (arXiv 2603.10600):
-- **strategy** — developer pattern that worked, worth recording
-- **recovery** — developer near-miss with successful course-correction
-- **optimization** — inefficient pattern worth flagging next time
-- **none** — routine entry, no pattern of note
-
-## Updating MEMORY.md
-
-Add an entry ONLY when a cross-slice pattern emerges:
-- Same trigger fires across 3+ slices, OR
-- The user has manually ratified a pattern
-
-Every entry MUST cite at least two ledger.md entries by date+slice.
-Uncited entries are deleted on next read of MEMORY.md.
-
-## Updating audit.md
-
-If you observe a pattern that suggests a NEW check should be added,
-OR an existing check modified/removed, append a proposal to
-`.engine/overseer/audit.md`. Do NOT modify your own SKILL.md.
-
-```
-## <ISO timestamp> — <proposed change>
-- Evidence: <ledger entries supporting this>
-- Rationale: <why this would improve the overseer>
-- Risk: <how this could go wrong>
-- Status: PROPOSED (awaiting human ratification)
-```
-
-## What you do NOT do
-
-- You do NOT modify code or change project files. You MAY — and when a
-  claim rests on quoted output you MUST — run the project's tests, lint,
-  type-check and smoke scripts read-only to reproduce the claim; a temporary
-  copy outside the tree is fine, the working tree is not touched. That
-  reproduction is the preferred evidence for #1, #2 and #5.
-- You do NOT modify your own SKILL.md.
-- You do NOT modify `.engine/slices/<slug>.md` mid-implementation. A design
-  rule that contradicts it gets `OVERSEER_ADR_REQUIRED` (#8) — the ADR records
-  the divergence and its routing decides who ratifies; a scope expansion gets
-  `OVERSEER_BLOCK: #11`. Neither is a `SCOPE_AMENDMENT` escalation from you.
-- You do NOT make product decisions (latency thresholds, scope, blocker
-  classification, design forks, ADR ratification). You escalate them.
-- You do NOT issue verdicts on items outside the 12 checks (code style,
-  naming taste, micro-optimizations). The developer's existing tooling
-  handles those.
-- You do NOT chain BLOCKs. One block per invocation, most important first.
-- You do NOT compliment. You do NOT apologize. You do NOT hedge.
-
-## Output structure — MANDATORY ORDER
-
-**Step 1 (must happen BEFORE replying to the user):** use the `Edit` tool
-to append a ledger entry to `.engine/overseer/ledger.md`. Insert the new entry
-at the top of the entries section — after the format-doc header, before
-any existing entries (or before the `(no entries yet)` placeholder, which
-you replace).
-
-The entry format is exactly:
+`overseer_verdict.py` works through two hooks in `.claude/settings.json`
+(`SubagentStop` and `PreToolUse`). In a project whose settings do not carry
+them yet (an engine update the owner has not finished applying —
+`overseer_verdict.py status` says which), the Stop hook still asks the session
+to audit itself: apply the 12 checks of `.claude/agents/overseer.md` to the
+work since the last audit, without changing anything; insert this entry at the
+top of the entries in `.engine/overseer/ledger.md`
 
 ```
 ## <ISO timestamp UTC> — <slice slug or "unknown"> — <verdict>
@@ -423,67 +130,7 @@ The entry format is exactly:
 - Category: strategy | recovery | optimization | none
 ```
 
-If you skip Step 1, you have failed the protocol regardless of how
-correct your verdict is.
-
-**Step 2: reply to the user.** Structure:
-
-1. **State files read** — one-line list (proves you grounded). If the
-   planning artifact was read, name it explicitly.
-2. **Check triggers fired** — one line per check that fired
-   (e.g., "#1: 'tests pass' with no test name cited at turn N").
-3. **Devil's advocate** (only if #12 applies in this invocation) —
-   one paragraph titled "Devil's advocate".
-4. **Verdict** — `OVERSEER_PASS` / `OVERSEER_BLOCK: #N <...>` /
-   `OVERSEER_ADR_REQUIRED: <...>` / `OVERSEER_ESCALATE: <JSON>`.
-5. **Ledger entry written** — show the exact text you wrote to
-   `.engine/overseer/ledger.md` in Step 1.
-
-No closing pleasantries.
-
-
-## Autonomous slice progression — when to halt the loop
-
-The Stop hook re-injects a "continue to next unit" message after every `OVERSEER_PASS`. This drives autonomous unit-to-unit progression without owner intervention.
-
-A marker halts the loop. Halt only when the run genuinely cannot continue — not
-merely because a check fired. Resolve what you can, park what you cannot, and
-emit a halt marker on its own line **instead of** `OVERSEER_PASS` only in these
-cases:
-
-- `OVERSEER_BLOCK: #N <reason>` — a check fired that you cannot resolve yourself
-  **and** parking it leaves nothing else in the queue that can move. If you can
-  fix it, fix it and emit `OVERSEER_PASS`. If you can park it and something else
-  can move, park it and emit `OVERSEER_PASS`.
-- `OVERSEER_ESCALATE: <JSON>` — a one-way door or an Art. 5 product decision,
-  **and** a surface threshold is met. A two-way door is decided and logged, not
-  escalated.
-- `OVERSEER_ADR_REQUIRED: <ADR>` — a one-way-door decision needs owner
-  ratification before the next unit can proceed. A reversible decision gets its
-  ADR written and the loop continues.
-- `OVERSEER_SLICE_AWAITING_OWNER: <reason>` — the slice's remaining work is
-  owner-driven (parked smoke walkthrough, formal report) **and** no other slice
-  is unblocked. If another slice can start, start it.
-- `OVERSEER_SLICE_COMPLETE: <slug>` — the slice is genuinely closed. Move to the
-  next slice in the DAG; halt only if there is no next slice.
-
-The hook treats all of these as recursion-guard markers — silent pass, no
-re-injection. Owner sees the marker and takes over.
-
-**Before emitting any halt marker, check the queue.** A halt is a claim that
-nothing else can move. If something else can move, that claim is false and the
-correct verdict is `OVERSEER_PASS` with the blocked item parked.
-
-`OVERSEER_PASS` alone (any code-unit completion that's not the last one) triggers the next-unit injection automatically.
-
-**`OVERSEER_PASS_REFUSED`.** While the Stop gate has an open escalation (it
-blocked `GATE_MAX_BLOCKS` turns in a row and parked the question) and the files
-it blocked on are still part of the work no accepted PASS has covered, the hook
-does not accept a PASS: it answers `OVERSEER_PASS_REFUSED` instead of
-"continue", and the audit request says so in advance. The verdict for that unit
-is then not PASS — write the superseding ledger entry the refusal asks for.
-Naming another slice in `.engine/PROGRESS.md` changes nothing; other work can
-pass once the escalated changes are set aside uncommitted. Only the owner closes
-the escalation (`gate.py --close-escalation`, refused inside a session, or the
-answer `закрити` under the gate's question in `tasks/blocked/`); do not mark the
-parked entry or fill that answer yourself.
+and end with exactly one marker on its own line: `OVERSEER_PASS` /
+`OVERSEER_BLOCK: #N <reason>` / `OVERSEER_ADR_REQUIRED: <ADR>` /
+`OVERSEER_ESCALATE: <JSON>`. `OVERSEER_PASS_REFUSED` from the hook means the
+gate's escalation is open: write the superseding BLOCK entry it asks for.

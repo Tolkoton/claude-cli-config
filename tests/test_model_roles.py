@@ -32,7 +32,7 @@ CRITICS = ("critic-core", "feature-critic", "master-critic", "slice-planner-crit
 DEFINITION_DIRS = (CLAUDE / "agents", CLAUDE / "skills", CLAUDE / "commands", ROOT / "templates", ROOT / "user")
 SETTINGS = (CLAUDE / "settings.json", ROOT / "user" / "settings.json", ROOT / "templates" / "project" / ".claude" / "settings.json")
 STRONGEST = (
-    "skills/overseer/SKILL.md", "skills/slice-builder/SKILL.md", "commands/feature-architect.md",
+    "agents/overseer.md", "skills/overseer/SKILL.md", "skills/slice-builder/SKILL.md", "commands/feature-architect.md",
     "commands/master-architect.md", "commands/plan-slice.md", "commands/mvp-architect.md",
 )
 ALLOWED = re.compile(r"^(sonnet|opus|haiku|fable|inherit|claude-[a-z0-9-]+)$")

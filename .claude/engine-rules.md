@@ -35,19 +35,19 @@ supervisor's session contract, the park queue in full).
 the turn on a failure. Read the actual error, fix minimally, re-run. After three different
 fixes, stop trying: park the item with the three attempts and the exact output, continue with
 the next unblocked item. A `gate-allow` is not a way through: the overseer reads every reason
-(#4), and while the gate's escalation is open its hook refuses `OVERSEER_PASS` for that work.
+(#4), and while the gate's escalation is open no PASS is recorded for that work.
 
 ## Overseer protocol
-- `overseer_stop.py` injects `OVERSEER_REQUEST` only when a turn claims a unit complete: the
+- `overseer_stop.py` injects `OVERSEER_REQUEST <id>` only when a turn claims a unit complete: the
   sentinel `=== UNIT N COMPLETE ===` alone on its own line AND, in the same turn, an edit under
   a code path (`.claude/project.env`) plus a verification command. Emit the sentinel only for a
   genuine unit — `N` from `.engine/slices/<slug>.md`, else `1` — never on a work-in-progress,
   RED-only or question-answering turn.
-- On `OVERSEER_REQUEST`: read `.claude/skills/overseer/SKILL.md`, apply the 12 checks, append
-  the prescribed entry to `.engine/overseer/ledger.md` BEFORE replying, and end with exactly
-  one marker on its own line: `OVERSEER_PASS` / `OVERSEER_BLOCK: #N <reason>` /
-  `OVERSEER_ADR_REQUIRED: <ADR>` / `OVERSEER_ESCALATE: <JSON>`. Citing a check number
-  (#1–#12) in your own reasoning counts as an invocation and needs the same ledger entry.
+- On `OVERSEER_REQUEST <id>`: launch the agent `overseer` (fresh context, no editing tool) with
+  exactly that line as its prompt, change nothing until it answers, then end the turn. You never
+  audit or write a verdict: `overseer_verdict.py` writes the ledger from the agent's answer, and
+  `OVERSEER_PASS` typed by you is ignored. After a BLOCK you fix and claim again — another
+  overseer judges it; three BLOCKs on one unit park the task (`.claude/skills/overseer/SKILL.md`).
 - Planning stands the overseer down: `python3 .claude/hooks/overseer_phase.py set plan` before
   drafting a contract, `… clear` when done. Never write `.claude/state/` with your own tools —
   it is the state of hooks and scripts; the named scripts are the only sanctioned path.

@@ -23,7 +23,7 @@ project receives (`templates/project/`) still says `src` and `py`. The backlog i
 ## Active agents and pipeline
 
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
-`/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit, auto-triggered
+`/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit by a fresh agent, requested
 by the Stop hook). Also `/mvp-architect` (the cheapest thing that answers one question),
 `self-learning-orchestrator` (memory), `documentation` (docs), `simplifier` (what can go; on a signal only). Critics in
 `.claude/agents/` (`master-`, `feature-`, `slice-planner-`, `mvp-critic`, all inheriting

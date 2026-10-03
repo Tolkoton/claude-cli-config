@@ -43,7 +43,7 @@ TEXT_FILES = frozenset({
     "templates/project/CLAUDE.md", "templates/project/AGENTS.md", "templates/project/.engine/rules.md",
 })
 MAYBE_FILES = frozenset({
-    ".claude/hooks/overseer_stop.py", ".claude/hooks/gate_allows.py", ".claude/hooks/lesson_queue.py",
+    ".claude/hooks/overseer_stop.py", ".claude/hooks/overseer_verdict.py", ".claude/hooks/gate_allows.py", ".claude/hooks/lesson_queue.py",
     ".claude/hooks/gate.py", ".claude/hooks/env-check.sh",
 })
 

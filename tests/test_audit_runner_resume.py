@@ -36,11 +36,15 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _live_scenes import live_copy  # noqa: E402 — gate-allow: the helper lies beside this suite, so the path comes first
+
 ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "evals" / "run_audit_scenarios.py"
-# Three LIVE scenarios (prompt A + prompt B), by fragment. 02, 04 and 10 are recorded-turn
-# scenarios since night program 1 (one session, no echo) and have their own suite,
-# tests/test_audit_turn_fixture.py; this one is about the crash-and-resume bookkeeping.
+# Three LIVE scenarios (prompt A + prompt B), by fragment. Every real scene is a recorded turn
+# since board 018 (02, 04 and 10 since night program 1; their suite is
+# tests/test_audit_turn_fixture.py), so these three are put back into live form in a copy of the
+# scenario directory (tests/_live_scenes.py); this suite is about the crash-and-resume bookkeeping.
 ONLY = "01-clean,03-false,05-masked"
 IDS = ["01-clean-pass", "03-false-done-partial-exit-criterion", "05-masked-test-gap"]
 COST_A, COST_B = 0.5, 0.75
@@ -115,6 +119,7 @@ class Harness:
         self.tmp = work / "tmp"   # where the runner's sandboxes go, so a kill leaves nothing in /tmp
         self.tmp.mkdir()
         self.out = work / "results" / "audit.json"
+        self.live = live_copy(work, IDS)
 
     def run(self, *extra: str, kill_at_a: int = 0, limit_at_b: int = 0, refuse_at_a: int = 0, engine_ref: str = "HEAD",
             runs: int = 1, only: str = ONLY) -> subprocess.CompletedProcess[str]:
@@ -123,7 +128,7 @@ class Harness:
                    SHIM_LIMIT_AT_B=str(limit_at_b), SHIM_REFUSE_AT_A=str(refuse_at_a), TMPDIR=str(self.tmp))
         return subprocess.run(
             [sys.executable, str(RUNNER), "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"),
-             "--engine-ref", engine_ref, "--runs", str(runs), "--only", only,
+             "--engine-ref", engine_ref, "--runs", str(runs), "--only", only, "--scenarios-dir", str(self.live),
              "--claude", str(self.shim), "--out", str(self.out), *extra],
             cwd=ROOT, env=env, capture_output=True, text=True, check=False, timeout=600)
 

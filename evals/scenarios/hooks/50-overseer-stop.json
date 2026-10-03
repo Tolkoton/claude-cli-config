@@ -1,6 +1,6 @@
 {
   "hook": "overseer_stop.py",
-  "event": "Stop",
+  "event": "Stop — the FORMER protocol (the session audits itself): every scenario pins a settings file without overseer_verdict.py, which is what a project has between an engine update and the owner applying the settings (board 018)",
   "scenarios": [
     {
       "id": "os-unit-complete-triggers-audit",
@@ -91,7 +91,15 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "block"
+      "expect": "block",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-same-message-is-not-audited-twice",
@@ -186,6 +194,14 @@
       "expect": [
         "block",
         "allow"
+      ],
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
       ]
     },
     {
@@ -217,7 +233,15 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-tool-signal-without-sentinel",
@@ -308,7 +332,15 @@
         "last_assistant_message": "Added with_tax; 8 tests pass. Continuing with the next behaviour.",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-sentinel-inside-a-sentence",
@@ -399,7 +431,15 @@
         "last_assistant_message": "I will print === UNIT 3 COMPLETE === once the smoke script passes.",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-edit-outside-source-dirs",
@@ -490,7 +530,15 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-no-verification-command",
@@ -581,7 +629,15 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-pass-marker-continues",
@@ -672,7 +728,15 @@
         "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "block"
+      "expect": "block",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-pass-marker-inside-prose",
@@ -763,7 +827,15 @@
         "last_assistant_message": "The Stop hook re-injects a continue instruction when it sees OVERSEER_PASS in the final message.",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-halt-marker-passes-through",
@@ -854,12 +926,26 @@
         "last_assistant_message": "OVERSEER_BLOCK: #1 false-DONE — name the specific test and show its output.\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow"
+      "expect": "allow",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        }
+      ]
     },
     {
       "id": "os-planning-phase-suppresses-audit",
       "why": "Phase guard: while planning there are no units to audit.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": ".claude/state/overseer/state",
@@ -961,6 +1047,12 @@
       "setup": [
         {
           "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
+        {
+          "write": {
             "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
@@ -1006,6 +1098,12 @@
       "setup": [
         {
           "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
+        {
+          "write": {
             "path": ".claude/state/overseer/mode",
             "content": "unattended\n"
           }
@@ -1049,6 +1147,12 @@
       "id": "os-spawned-session-may-end",
       "why": "A session the supervisor spawned must be able to exit so a fresh one can start.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": ".claude/state/overseer/mode",
@@ -1097,6 +1201,12 @@
       "id": "os-gate-allow-listed-in-audit-request",
       "why": "Package costs: the gate accepts a gate-allow by the shape of its reason; the overseer must see it. The audit request lists every exemption no accepted PASS has seen, with file, line and reason.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": "src/refproj/extra.py",
@@ -1198,6 +1308,12 @@
       "id": "os-gate-allow-committed-is-still-listed",
       "why": "A checkpoint commit must not hide an exemption: 'new' is measured from the last accepted PASS (here: none, so from where the branch left main), not from HEAD.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "git": [
             "switch",
@@ -1327,6 +1443,12 @@
       "setup": [
         {
           "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
+        {
+          "write": {
             "path": "src/refproj/extra.py",
             "content": "VALUE = 1\n"
           }
@@ -1431,6 +1553,12 @@
       "id": "os-pass-refused-whatever-slice-is-declared",
       "why": "The lock is keyed on the escalated files, not on the slice's name: .engine/PROGRESS.md is the agent's own file, and declaring another slice active must open nothing.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": "src/refproj/extra.py",
@@ -1545,6 +1673,12 @@
       "setup": [
         {
           "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
+        {
+          "write": {
             "path": "src/refproj/extra.py",
             "content": "VALUE = 1\n"
           }
@@ -1649,6 +1783,12 @@
       "id": "os-pass-accepted-after-the-owner-closed-it",
       "why": "A closed escalation (gate.py --close-escalation, the owner's command) locks nothing.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": "src/refproj/extra.py",
@@ -1757,6 +1897,12 @@
       "setup": [
         {
           "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
+        {
+          "write": {
             "path": ".engine/overseer/parked.md",
             "content": "# Parked queue\n\n## 2026-09-01T00:00:00Z — gate stop layer — PARKED\n- Blocked on: the Stop gate blocked 3 turns in a row and was not satisfied\n- Class: human-input\n"
           }
@@ -1855,6 +2001,12 @@
       "id": "os-audit-request-warns-of-open-escalation",
       "why": "The overseer is told before it audits that its verdict cannot be PASS.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": "src/refproj/extra.py",
@@ -1962,6 +2114,12 @@
       "id": "os-escalation-without-files-covers-all-work",
       "why": "An escalation that recorded no file (an older state file, a failure the gate could not place) holds for everything: when the range cannot be told, the lock holds rather than opens.",
       "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.json",
+            "content": "{}\n"
+          }
+        },
         {
           "write": {
             "path": ".claude/state/gate/escalations.json",

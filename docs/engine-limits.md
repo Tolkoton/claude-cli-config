@@ -143,7 +143,7 @@ such exemption before the overseer, who judges it (check #4). What that rests on
 - **Judged means shown at an audit request and passed.** Both records live in
   `.claude/state/overseer/`. Machine state is protected from the agent's edit tools, not from a
   script the agent writes; an agent that rewrites it is doing something no rule permits, and it
-  shows in the transcript. A by-hand audit ("run overseer") records nothing, so its exemptions
+  shows in the transcript. A by-hand audit ("run overseer") marks nothing judged, so its exemptions
   are listed again at the next hook-requested audit — the safe side.
 - **On the main branch with nothing judged yet the base is HEAD**, so there a commit would hide
   an exemption; the commit policy refuses an agent's commit on that branch, which is what keeps
@@ -183,6 +183,38 @@ such exemption before the overseer, who judges it (check #4). What that rests on
   hide. That is a limit of the gate (package 7), unchanged here.
 - **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
   model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.
+
+## The overseer as a separate agent (board 015 / 018)
+
+Every audit is done by the agent `overseer` in a fresh context, and the verdict is written by
+`overseer_verdict.py`, not by a model. What that rests on:
+
+- **The builder has to launch the agent.** A hook cannot start a subagent; the Stop hook asks,
+  `overseer_verdict.py guard` refuses any prompt but the request line, and a request left without
+  a verdict is repeated twice, then parked and the turn ends. An agent that never launches the
+  auditor gets no PASS — and no audit either.
+- **A hook cannot tell who started it.** The environment of a hook and of the builder's own Bash
+  is the same (probed on Claude Code 2.1.288). A builder that pipes a made-up SubagentStop
+  envelope into `overseer_verdict.py record`, or writes `.claude/state/overseer/` itself, forges a
+  verdict. The rules forbid both and it shows in the transcript; nothing makes it impossible. The
+  spare design — the hook starts `claude -p` itself — closes this and was not built (board 015).
+- **"Read-only" is checked, not enforced.** The agent has no editing tool and the guard refuses
+  one anyway, but it has Bash, to run the tests. The tree is fingerprinted when the agent starts
+  and compared when it answers: HEAD, `git status`, the content of every changed or untracked
+  file. A change makes the verdict `INVALID`; it is not rolled back. Ignored files (caches,
+  `.claude/state/`) are outside the fingerprint, and so is anything outside the repository; a
+  project that is not a git repository has no fingerprint at all.
+- **The evidence file is as good as the transcript.** `evidence.md` lists the commands of the
+  current turn — everything after the last genuine user message; what ran in an earlier turn of
+  the same unit is not in it, and the overseer is told to reproduce what matters.
+- **An audit asked for by hand** takes the turn from a file. A turn that existed only in the
+  conversation is written out by the session that asks — a model in the middle; the recorded
+  verdict says `manual`.
+- **Until the settings are applied** (the two handlers in `docs/tasks/settings.json`) the Stop
+  hook keeps the former protocol: the session audits itself and its `OVERSEER_PASS` continues.
+  `python3 .claude/hooks/overseer_verdict.py status` says which protocol is in force.
+- **Three BLOCKs park a unit by instruction.** The hook tells the builder to move the task to
+  `tasks/blocked/` with a question; the move itself is the builder's.
 
 ## The simplifier
 

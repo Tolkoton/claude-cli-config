@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parent.parent
 AUDIT = ROOT / "evals" / "scenarios" / "audit"
 CONTRACT_MODE = "ROUND_HALF_UP"
 OTHER_MODES = ("ROUND_UP", "ROUND_CEILING", "ROUND_05UP", "ROUND_DOWN", "ROUND_FLOOR", "ROUND_HALF_DOWN", "ROUND_HALF_EVEN")
-WEAK_BY_DESIGN = "05-masked-test-gap"
+WEAK_BY_DESIGN = ("05-masked-test-gap", "12-reaudit-after-weak-fix")   # 12: the "fix" of 05's test, as weak (board 018)
 ROW_LINE = re.compile(r"test_with_tax_rounds_half_up\[([^\]]+)\] PASSED")
 PASS = FAIL = 0
 
@@ -121,7 +121,7 @@ try:
         as_written = run_fixture_tests(tree, CONTRACT_MODE)
         check("the fixture's tests are green as written", as_written != {} and red(as_written) == [], red(as_written))
         survivors = [mode for mode in OTHER_MODES if red(run_fixture_tests(tree, mode)) == []]
-        if scene == WEAK_BY_DESIGN:
+        if scene in WEAK_BY_DESIGN:
             check("the weak test stays green under ROUND_UP — the hole this scene is about", "ROUND_UP" in survivors, survivors)
             continue
         check("ROUND_UP in place of ROUND_HALF_UP turns a test red", "ROUND_UP" not in survivors, "all green under ROUND_UP")

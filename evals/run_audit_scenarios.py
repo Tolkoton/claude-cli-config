@@ -44,6 +44,16 @@ claims in `turn_fixture.must_contain` / `must_not_contain`, and the pre-flight c
 against them before the first paid session: a scene that lost its claim measures nothing.
 Such a run is recorded with `"echo": "fixture"`.
 
+THE OVERSEER IS A SEPARATE AGENT (board 018). Every scene is a recorded turn now: the session
+that gets prompt B makes the audit request from the turn's file (`overseer_verdict.py request`)
+and launches the agent `overseer`; `overseer_verdict.py record` writes the ledger entry from the
+agent's answer, and the runner reads the verdict there, as before. An entry the script wrote ends
+with `- Auditor: overseer agent` — a run records who wrote its verdict (`auditor`: `agent`, or
+`session` when the session typed the entry itself, which a wired engine does not ask for). A
+verdict the script refused is `INVALID` (the tree changed during the audit, the answer was off
+the schema): it is shown as such and matches nothing. The agent's own tool calls are kept apart
+(`auditor_tools`); «дії після вердикту» counts what the SESSION did after the agent was launched.
+
 It records; it does not judge. Exit code 0 unless the tooling itself failed. It never
 passes --dangerously-skip-permissions and never runs a session inside this repository.
 
@@ -106,7 +116,9 @@ MARKER_RE = re.compile(r"OVERSEER_([A-Z_]+)")
 # flagged (`marker_decorated`), because the hook would have missed it.
 VERDICT_LINE_RE = re.compile(r"^(?P<deco>[ \t>*_`#-]*)OVERSEER_(?P<marker>[A-Z_]+)", re.MULTILINE)
 # A ledger header that names the verdict without the OVERSEER_ prefix.
-BARE_VERDICT_RE = re.compile(r"\b(ADR_REQUIRED|ESCALATE|BLOCK|PASS)\b")
+BARE_VERDICT_RE = re.compile(r"\b(ADR_REQUIRED|ESCALATE|BLOCK|PASS|INVALID)\b")
+AGENT_ENTRY_MARK = "- Auditor: overseer agent"   # the last line of an entry overseer_verdict.py wrote
+OVERSEER_AGENT = "overseer"
 CHECK_RE = re.compile(r"#(\d{1,2})\b")
 # The four verdicts, as against every other OVERSEER_ marker a session may type (a halt marker,
 # the hook's own OVERSEER_REQUEST quoted back). A list bullet is not a verdict line: that is
@@ -231,6 +243,7 @@ def parse_stream(stdout: str) -> JsonObj | None:
     `events` what the session said and did, in order: {"text": ...} or {"tool": ..., "input": ...}."""
     texts: list[str] = []
     events: list[JsonObj] = []
+    agent_tools: Counter[str] = Counter()
     final: JsonObj | None = None
     for line in stdout.splitlines():
         try:
@@ -239,7 +252,12 @@ def parse_stream(stdout: str) -> JsonObj | None:
             continue
         if not isinstance(event, dict):
             continue
-        if event.get("type") == "assistant":
+        if event.get("type") == "assistant" and event.get("parent_tool_use_id"):
+            # A subagent's message (the overseer agent at work): its tool calls are the auditor's,
+            # not the session's, and its words are not the session's reply.
+            agent_tools.update(str(block.get("name", "")) for block in (event.get("message") or {}).get("content") or []
+                               if isinstance(block, dict) and block.get("type") == "tool_use")
+        elif event.get("type") == "assistant":
             for block in (event.get("message") or {}).get("content") or []:
                 if isinstance(block, dict) and block.get("type") == "text":
                     texts.append(str(block.get("text", "")))
@@ -252,7 +270,7 @@ def parse_stream(stdout: str) -> JsonObj | None:
             final = event
     if final is None:
         return None
-    return final | {"all_text": "\n\n".join(texts), "events": events}
+    return final | {"all_text": "\n\n".join(texts), "events": events, "agent_tools": dict(agent_tools)}
 
 
 def call_claude(binary: str, prompt: str, cwd: Path, extra: list[str],
@@ -351,13 +369,18 @@ def writes_ledger(event: JsonObj) -> bool:
     return tool == "Bash" and LEDGER.name in command and ">" in command
 
 
+def launches_overseer(event: JsonObj) -> bool:
+    return event.get("tool") in ("Agent", "Task") and (event.get("input") or {}).get("subagent_type") == OVERSEER_AGENT
+
+
 def verdict_point(events: list[JsonObj], source: str) -> int | None:
-    """Where in the session the first verdict was given: the first write of the ledger when the
-    verdict was read from it (the protocol writes the entry, then replies), else the first
-    message with a verdict line. None when the stream shows neither."""
+    """Where in the session the first verdict was given: when it was read from the ledger, the
+    launch of the overseer agent (the script writes the entry when the agent ends) or the
+    session's own first write of the ledger (the former protocol: the entry, then the reply);
+    else the first message with a verdict line. None when the stream shows none of these."""
     if source == "ledger":
         for index, event in enumerate(events):
-            if writes_ledger(event):
+            if writes_ledger(event) or launches_overseer(event):
                 return index
     return next((i for i, e in enumerate(events) if "text" in e and OWN_VERDICT_RE.search(e["text"])), None)
 
@@ -551,6 +574,8 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
         # The entry the verdict was read from: the FIRST one the session wrote, not the newest.
         "ledger_entry": (str(verdict["entry"]) or "".join(in_written_order(entries)[:1]))[:ENTRY_CHARS],
         "after_verdict": actions_after_verdict(events, verdict, sandbox),
+        "auditor": ("agent" if AGENT_ENTRY_MARK in str(verdict["entry"]) else "session") if verdict["source"] == "ledger" else None,
+        "auditor_tools": second.get("agent_tools") or {},
         "verdict_excerpt": excerpt_around_marker(first_verdict_message(messages) or str(second.get("all_text") or "")),
         "marker_decorated": verdict["decorated"],
         # No verdict at all: keep the end of what the session said, to see why.

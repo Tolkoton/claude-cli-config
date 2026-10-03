@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _live_scenes import live_copy
 from test_audit_runner_resume import COST_A, COST_B, SHIM
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,6 +54,7 @@ class Bench:
         self.shim.chmod(0o755)
         self.log = self.work / "calls.log"
         (self.work / "tmp").mkdir()
+        self.live = live_copy(self.work, ["01-clean-pass", "03-false-done-partial-exit-criterion"])   # the two live scenes of the cost cases
         self.n = 0
 
     def out(self) -> Path:
@@ -63,7 +65,8 @@ class Bench:
         self.log.write_text("", encoding="utf-8")
         env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_LIMIT_AT_B=str(limit_at_b), TMPDIR=str(self.work / "tmp"))
         return subprocess.run([sys.executable, str(RUNNER), "--engine-ref", "HEAD", "--claude", str(self.shim),
-                               "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"), *args],
+                               "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"),
+                               "--scenarios-dir", str(self.live), *args],
                               cwd=ROOT, env=env, capture_output=True, text=True, check=False, timeout=900)
 
     def sessions(self) -> int:

@@ -99,6 +99,31 @@ cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings
 If your Claude Code version has no `PostToolUseFailure` event the `PostToolUse` group alone still
 counts non-zero exit codes it can see; the unknown event is ignored.
 
+## `settings.json` — the overseer as a separate agent (board 015 / 018)
+
+Every audit is done by the agent `overseer` in a fresh context, and its verdict is written by a
+script. That script, `.claude/hooks/overseer_verdict.py`, works through two handlers the proposal
+adds — and through nothing else:
+
+- `PreToolUse`, matcher `Agent|Task|Edit|Write|MultiEdit|NotebookEdit`: `overseer_verdict.py guard`.
+  Starts the agent `overseer` only for the pending audit request and only with the prompt
+  `OVERSEER_REQUEST <id>`; inside that agent refuses every editing tool. For every other call it
+  decides nothing.
+- `SubagentStop`, matcher `overseer`: `overseer_verdict.py record`. Checks the agent's answer
+  (schema, the tree's fingerprint, the contract's sha256, the gate's open escalation) and writes
+  the ledger entry.
+
+Until this is applied the Stop hook keeps the former protocol — the session audits itself and
+its `OVERSEER_PASS` continues — so nothing is left without an audit in between;
+`python3 .claude/hooks/overseer_verdict.py status` says which protocol is in force. Once applied,
+`OVERSEER_PASS` typed by the builder is refused. `tests/test_settings_proposal.py` lists the two
+handlers as the intended difference and allows no other; `tests/test_overseer_fresh.py` shows every
+protection with its negative case. Apply, from the repository root, then restart Claude Code:
+
+```bash
+cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
+```
+
 ## `complexity-thresholds.md` — the default complexity limits (board 010)
 
 The simplifier's signals and the complexity budget measure new and worsened functions against

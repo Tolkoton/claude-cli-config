@@ -29,6 +29,8 @@
 # Board 013: test_second_opinion 4.5 s is in (the lowering table stands between a second model and an automatic
 # removal; a local fake Gemini, real waits for the timeout case); out: test_second_opinion_evals 5.5 s (builds both
 # eval projects, one of them from a git archive of the engine).
+# Board 018: test_overseer_fresh 13 s stays out (about 130 runs of the two overseer hooks on copies of a
+# synthetic repository); its deterministic twin on the gate is the hook scenarios of the golden set.
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

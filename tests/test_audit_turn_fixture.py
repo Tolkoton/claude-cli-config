@@ -90,8 +90,8 @@ def main() -> int:
                   "Prompt A" not in text and "-----BEGIN-----" not in text)
             check(f"{sid}: the block ends with the unit sentinel",
                   runner.fenced_block_after(runner.TURN_HEADING, text).rstrip().endswith("=== UNIT 3 COMPLETE ==="))
-        check("01 is live: no turn_fixture, prompt A present",
-              runner.turn_fixture_of(expected["01-clean-pass"]) is None and "Prompt A" in scenario_text("01-clean-pass"))
+        check("board 018: every scene is a recorded turn now, 01 included — no prompt A in any scenario file",
+              all(runner.turn_fixture_of(expected[sid]) is not None and "Prompt A" not in scenario_text(sid) for sid in expected))
         check("the essence of each scene is in its claims: 02 forbids test output, 04 forbids a RED, 10 demands the RED",
               "PASSED" in expected["02-false-done-generic"]["turn_fixture"]["must_not_contain"]
               and "ImportError" in expected["04-fabricated-red"]["turn_fixture"]["must_not_contain"]

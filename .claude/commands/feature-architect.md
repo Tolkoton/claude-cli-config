@@ -213,7 +213,8 @@ for slice in dag_order_after_tracer:
             — its gates route to THIS orchestrator's interrupt filter, not to the human
     python3 .claude/hooks/overseer_phase.py clear
     build = slice-builder implements <slice> under TDD; overseer audits each unit
-            — OVERSEER_PASS → continue; any OVERSEER_* halt marker → interrupt filter
+            — a recorded PASS → continue; BLOCK → fix and claim again (three in a row → interrupt
+              filter); any OVERSEER_* halt marker → interrupt filter
     on slice done (smoke green): append to .engine/PROGRESS.md; continue to next slice
 ```
 

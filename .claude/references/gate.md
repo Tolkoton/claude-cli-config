@@ -69,8 +69,8 @@ is empty; a notice when the collector failed), and the overseer skill's check #4
 missing reason.
 
 **Judged means shown and passed.** At an audit request the hook records what the request listed and
-the commit (`.claude/state/overseer/gate-allows-pending.json`); only an accepted `OVERSEER_PASS`
-that follows promotes exactly that (`gate-allows-judged.json`) and moves the base to that commit. A
+the commit (`.claude/state/overseer/gate-allows-pending.json`); only a recorded PASS of the overseer
+agent that follows (`overseer_verdict.py record`) promotes exactly that (`gate-allows-judged.json`) and moves the base to that commit. A
 PASS with no request behind it, an exemption added after the request, a BLOCK, a refused PASS —
 none marks anything judged, and running the script by hand records nothing. With nothing judged yet
 the base is the active contract's `base_commit`, else the merge-base with the main branch, else
@@ -81,8 +81,9 @@ is a new exemption.
 
 The `GATE_MAX_BLOCKS`th block also records the escalation in `.claude/state/gate/escalations.json`:
 the files it blocked on (every file it looked at, when the failure named none). While it is open,
-`overseer_stop.py` answers an `OVERSEER_PASS` with `OVERSEER_PASS_REFUSED` as long as any of those
-files is in the range no accepted PASS has covered. The lock is keyed on the files, not on the
+`overseer_verdict.py` records a BLOCK ("gate escalation open") in place of the overseer's PASS as long as
+any of those files is in the range no accepted PASS has covered (under the former protocol, before the
+settings are applied, `overseer_stop.py` answers the session's `OVERSEER_PASS` with `OVERSEER_PASS_REFUSED`). The lock is keyed on the files, not on the
 slice's name — `.engine/PROGRESS.md` is the agent's own file. Other work passes once the escalated
 changes are set aside uncommitted (`git stash push -- <files>`).
 

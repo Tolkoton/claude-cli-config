@@ -1,0 +1,346 @@
+{
+ "hook": "overseer_stop.py",
+ "event": "Stop — the overseer as a separate agent (board 018): every scenario wires overseer_verdict.py in .claude/settings.local.json",
+ "scenarios": [
+  {
+   "id": "osf-unit-complete-requests-the-agent",
+   "why": "Sentinel + code edit + verification command: the builder is told to launch the overseer agent with the request line — it does not audit itself.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    }
+   ],
+   "transcript": [
+    {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": "Add with_tax to pricing and finish unit 3."
+     }
+    },
+    {
+     "type": "assistant",
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "t0",
+        "name": "Edit",
+        "input": {
+         "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+         "old_string": "a",
+         "new_string": "b"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": [
+       {
+        "type": "tool_result",
+        "tool_use_id": "t0",
+        "content": "ok"
+       }
+      ]
+     }
+    },
+    {
+     "type": "assistant",
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "type": "tool_use",
+        "id": "t1",
+        "name": "Bash",
+        "input": {
+         "command": "uv run pytest -x -q"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "type": "user",
+     "message": {
+      "role": "user",
+      "content": [
+       {
+        "type": "tool_result",
+        "tool_use_id": "t1",
+        "content": "ok"
+       }
+      ]
+     }
+    },
+    {
+     "type": "assistant",
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "type": "text",
+        "text": "(final message)"
+       }
+      ]
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "Launch the agent `overseer`"
+  },
+  {
+   "id": "osf-builder-pass-is-ignored",
+   "why": "The owner's answer 5 (board 015): OVERSEER_PASS typed by the builder no longer continues anything.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "OVERSEER_PASS IGNORED"
+  },
+  {
+   "id": "osf-recorded-pass-continues",
+   "why": "The run continues only on a PASS that overseer_verdict.py recorded for the pending request.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/verdicts.jsonl",
+      "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\"}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "The overseer agent answered PASS.",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "OVERSEER_PASS recorded"
+  },
+  {
+   "id": "osf-recorded-block-goes-back-to-the-builder",
+   "why": "A BLOCK is handed back with its check and reason: the builder fixes, another overseer judges.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/verdicts.jsonl",
+      "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "The overseer agent answered BLOCK.",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "BLOCK 1 of 3"
+  },
+  {
+   "id": "osf-third-block-parks-for-the-owner",
+   "why": "The owner's answer 4: three BLOCKs in a row on one unit — the task is parked with a question, no fourth attempt.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/verdicts.jsonl",
+      "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "The overseer agent answered BLOCK.",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "third in a row"
+  },
+  {
+   "id": "osf-no-verdict-asks-again",
+   "why": "The builder ended the turn without launching the agent (and typed its own PASS): the request is repeated, nothing continues.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 0}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "I checked it myself, all good.\n\nOVERSEER_PASS\n",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "the agent was not launched"
+  },
+  {
+   "id": "osf-invalid-verdict-asks-again",
+   "why": "The tree changed during the audit: the verdict is INVALID, and the audit is asked for again instead of continuing.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/verdicts.jsonl",
+      "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"INVALID\", \"reason\": \"tree changed during audit: tests/test_pricing.py\"}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "The overseer agent answered.",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "block",
+   "expect_detail_contains": "tree changed during audit"
+  },
+  {
+   "id": "osf-unanswered-request-ends-the-turn",
+   "why": "A request repeated twice without a valid verdict is parked and the turn ends: the hook cannot make the builder launch the agent, and must not loop.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 3, \"schema_errors\": 0, \"launched\": 0}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "Still here.",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "allow"
+  },
+  {
+   "id": "osf-verdict-asked-by-hand-is-a-report",
+   "why": "An audit asked for by hand is a report to whoever asked: the Stop hook adds no 'continue' and no 'fix it'.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"manual\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/verdicts.jsonl",
+      "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"manual\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "The overseer blocked the turn: #4.",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "allow"
+  },
+  {
+   "id": "osf-halt-marker-passes-through",
+   "why": "The builder's halt markers are statements that the run cannot continue, not verdicts: they still end the turn.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/settings.local.json",
+      "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "Stop",
+    "last_assistant_message": "OVERSEER_SLICE_AWAITING_OWNER: smoke and G4 are owner-driven; awaiting owner walkthrough.\n",
+    "transcript_path": "{{TRANSCRIPT}}"
+   },
+   "expect": "allow"
+  }
+ ]
+}

@@ -16,7 +16,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `scenarios/hooks/*.json` | The hook scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
 | `run_gate_evals.py` | Measures `.claude/hooks/gate.py` (package 7) with real ruff, mypy and pytest: planted defects that must be caught, clean files that must not be blocked, one documented limit, every layer timed. Cases: `scenarios/gate/cases.json`; reference: `baseline/linux-ubuntu-22.04/gate-evals-package-7.json`. |
 | `run_audit_scenarios.py` | Runs the audit scenarios in headless Claude Code sessions and records the verdicts. |
-| `scenarios/audit/*.md` | 11 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. Seven are relayed by a live session (prompt A); 02, 04, 10 and 11 are recorded turns the runner writes into the sandbox as a fixture (see below). |
+| `scenarios/audit/*.md` | 12 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. Since board 018 every one is a recorded turn the runner writes into the sandbox as a fixture (see below): the audit is done by the agent `overseer` in a fresh context, so a live relay of the turn adds nothing. 12 is the repeat audit — a fix after BLOCK #4 that is as weak as what it replaced. |
 | `run_simplifier_evals.py` | Measures the `simplifier` agent (board 010): `scenarios/simplifier/project/` laid over the reference project plants six kinds of excess and four traps (`expected.json`); each run is a real headless session scored for recall, precision and traps touched. Paid — only on a task's «Платні прогони» line or the owner's `--owner-approved`; `--score FILE` and `--sandbox DIR` are free. Results: `baseline/linux-ubuntu-22.04/simplifier-evals-2026-10-03.json`. |
 | `run_second_opinion_evals.py` | Measures the second opinion (board 013): `scenarios/second-opinion/cases.json` holds 33 simplifier findings with a known truth — 21 correct (the six planted, the fifteen the owner approved, judged on the engine as it was before board 011) and 12 false (the four traps, eight typical mistakes whose code is `scenarios/second-opinion/project/`). Each goes, with the request the hook builds in real use, to Gemini and to a fresh Claude without tools (the control). Caught, false alarms, the owner's thresholds. Paid — the task's «Платні прогони» line or `--owner-approved`, and the key `GEMINI_API_KEY_SIMPLIFIER`; `--list` and `--score FILE` are free. |
 | `needs_audit.py` | `python3 evals/needs_audit.py <ref>`: has any text the model reads changed since `<ref>`, and which files. Exit 0 = no audit due. |
@@ -142,9 +142,19 @@ the tests itself and recorded a PASS on top, and the top entry used to be read. 
 did after its verdict — tool calls, files edited, later ledger entries — is kept per run under
 `after_verdict` and printed as its own line, `> дії після вердикту (run N, after BLOCK#4): …`;
 `compare_audits.py` lists the sessions that changed something. It marks an overseer acting
-outside its role, whatever the verdict was. `tests/test_audit_first_verdict.py` covers both cases. Every run is two real
-sessions on your account (about a dollar on Opus-class models); sandboxes are removed afterwards
-unless `--keep` is given.
+outside its role, whatever the verdict was. `tests/test_audit_first_verdict.py` covers both cases.
+
+**Since board 018 the overseer is a separate agent.** The session that gets prompt B makes the
+audit request from the recorded turn (`overseer_verdict.py request`) and launches the agent
+`overseer`; the script writes the ledger entry from the agent's answer, and the runner reads the
+verdict there as before. A run records who wrote its verdict (`auditor`: `agent`, or `session`
+when the session typed the entry itself) and the agent's own tool calls (`auditor_tools`);
+`after_verdict` now counts what the session did after it launched the agent — an audit asked for
+by hand is a report, so the line should stay empty. A verdict the script refused (the tree changed
+during the audit, the answer was off the schema) is recorded as `INVALID` and matches nothing.
+Every run is one real session with one subagent (the runner still supports a live scene — prompt
+A relayed, prompt B in the same session — and `tests/_live_scenes.py` keeps that path checked);
+sandboxes are removed afterwards unless `--keep` is given.
 
 The result file is rewritten after **every run** (written beside the target and moved into
 place, so a kill mid-write leaves the previous file whole) and says `"status": "partial"`

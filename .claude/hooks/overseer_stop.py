@@ -44,6 +44,16 @@ RECURSION GUARDS — per-branch, by design:
 PHASE GUARD: `.claude/state/overseer/state` containing `plan` suppresses the audit — the
 developer is designing, not completing units of work.
 
+WHO AUDITS (board 015 / 018). Once `overseer_verdict.py` is wired in the project's settings, the
+audit is never the builder's: on the trigger above this hook writes a request package and tells
+the builder to launch the agent `overseer` (fresh context, no editing tool) with the prompt
+`OVERSEER_REQUEST <id>`. The verdict is recorded by `overseer_verdict.py record` from the agent's
+own answer; this hook continues, hands back a BLOCK or routes an ADR / escalation only on that
+record (`_main_fresh`). `OVERSEER_PASS` typed by the builder is refused. Everything said above
+about the PASS marker and the "Audit-request branch" describes the FORMER protocol — the session
+audits itself — which stays in force only until the settings are applied, so an engine update
+never leaves a project without an audit.
+
 Output: `{"decision":"block","reason":...}` on stdout (exit 0) injects the audit
 request and continues the turn; empty stdout (exit 0) passes the turn through.
 
@@ -244,13 +254,64 @@ CONTINUE_REASON = (
 AUDIT_REASON = (
     "OVERSEER_REQUEST (auto-triggered by the Stop hook on a unit-completion "
     "claim). Before yielding control to the owner:\n"
-    "1. Read .claude/skills/overseer/SKILL.md and apply the full 12-check "
-    "checklist to the work since your last audit.\n"
+    "1. Read .claude/skills/overseer/SKILL.md (§ The former protocol) and apply the full 12-check "
+    "checklist of .claude/agents/overseer.md to the work since your last audit.\n"
     "2. Append the prescribed entry to .engine/overseer/ledger.md before replying.\n"
     "3. Output a verdict on its own line, exactly one of: OVERSEER_PASS | "
     "OVERSEER_BLOCK: #N <reason> | OVERSEER_ESCALATE: <JSON> | "
     "OVERSEER_ADR_REQUIRED: <ADR>. Emitting any OVERSEER_ verdict marker is "
     "what stops this hook re-firing on the next turn."
+)
+# --- the fresh-context protocol (board 018): the texts the builder gets -----------------------
+UNIT_NUMBER_RE = re.compile(r"^[ \t]*=== UNIT (\d+) COMPLETE ===[ \t]*$", re.MULTILINE)
+FRESH_REQUEST_REASON = (
+    "OVERSEER_REQUEST {id} (auto-triggered by the Stop hook on a unit-completion claim). The audit is "
+    "not yours to do: a separate agent in a fresh context does it.\n"
+    "Launch the agent `overseer` (Agent tool, subagent_type `overseer`, run_in_background false) with "
+    "exactly this prompt and nothing else:\n"
+    "OVERSEER_REQUEST {id}\n"
+    "Add nothing to the prompt — a hook refuses any other text. Do not audit the work yourself and do "
+    "not write a verdict: `OVERSEER_PASS` typed by you means nothing, and the ledger is written by a "
+    "script from the agent's answer. Change nothing in the tree until the agent has answered — a tree "
+    "that changes during the audit makes the verdict invalid. When it has answered, end the turn: this "
+    "hook reads the recorded verdict and says what follows."
+)
+FRESH_REQUEST_AGAIN_REASON = (
+    "OVERSEER_REQUEST {id} — still without a valid verdict ({why}); request {asks} of {limit}. Launch "
+    "the agent `overseer` (subagent_type `overseer`, run_in_background false) with exactly this prompt "
+    "and nothing else:\nOVERSEER_REQUEST {id}\n"
+    "Leave the tree as it is until the agent has answered, then end the turn."
+)
+FRESH_BLOCK_REASON = (
+    "OVERSEER_BLOCK (request {id}; BLOCK {count} of {limit} on this unit): {finding}\n"
+    "The verdict is the overseer agent's and is recorded in .engine/overseer/ledger.md. Route it as "
+    ".claude/engine-rules.md § \"Verdict routing\" says. If you can resolve it: fix it, verify, and "
+    "claim the unit again (`=== UNIT N COMPLETE ===`) — another overseer, which has seen neither this "
+    "audit nor your fix, will judge the result. If you cannot: park the item in "
+    ".engine/overseer/parked.md and take the next unblocked one. Do not record a verdict yourself."
+)
+FRESH_THREE_BLOCKS_REASON = (
+    "OVERSEER_BLOCK — the third in a row on one unit ({unit}; request {id}): {finding}\n"
+    "Three overseers refused this unit, so it is no longer yours to retry: it is parked for the owner. "
+    "On the task board: write the question under «Питання до власника» in the task (what was refused "
+    "three times, the three reasons from the ledger, what you tried), leave `Відповідь:` empty and move "
+    "the task to tasks/blocked/. Without a board task: append a PARKED entry to "
+    ".engine/overseer/parked.md (Class: human-input). Then take the next unblocked item, or end the "
+    "turn with `OVERSEER_SLICE_AWAITING_OWNER: three BLOCKs on {unit}` on its own line."
+)
+FRESH_ROUTE_REASON = (
+    "OVERSEER_{verdict} (request {id}): {finding}\n"
+    "The draft ADR or the escalation is in the newest entry of .engine/overseer/ledger.md. Route it as "
+    ".claude/engine-rules.md § \"Verdict routing\" says: reversible — write the ADR in docs/adr/, or "
+    "log the AUTONOMOUS entry in .engine/overseer/escalations.md, and continue; a one-way door or an "
+    "Article 5 product decision — park it and take the next unblocked item."
+)
+FRESH_PASS_IGNORED_REASON = (
+    "OVERSEER_PASS IGNORED. A verdict typed by the builder means nothing: every audit is done by the "
+    "agent `overseer` in a fresh context and recorded by a script (.claude/hooks/overseer_verdict.py). "
+    "If a unit is complete, end the message with `=== UNIT N COMPLETE ===` on its own line, after the "
+    "code edit and its verification, and the audit will be requested. To stop for real, emit an "
+    "OVERSEER_ halt marker naming the reason. Otherwise carry on with the work."
 )
 MAX_UNATTENDED_CONTINUES = 25
 
@@ -691,6 +752,126 @@ def _contract_changed(project_dir: Path) -> tuple[Path, Path] | None:
     return None if recorded == actual else (contract, fingerprint)
 
 
+def _lesson_request(project_dir: Path) -> str:
+    """The triage request a recorded PASS adds to "continue" (the queue itself was fed when the
+    verdict was recorded). Best effort."""
+    try:
+        import lesson_queue
+
+        lesson_queue.collect(project_dir)
+        request = lesson_queue.review_request(project_dir, track=True)
+        return f"\n\n{request}" if request else ""
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        return ""
+
+
+def _claimed_unit(project_dir: Path, envelope: dict[str, object], message: str) -> str | None:
+    """The unit number when this message is a NEW completion claim: the sentinel, not yet answered,
+    and — since the last overseer audit of this turn — a code edit plus a verification command."""
+    import overseer_verdict
+
+    found = UNIT_NUMBER_RE.search(message)
+    if not found or _already_audited(project_dir, message):
+        return None
+    cfg = _load_project_env(project_dir)
+    source_dirs, code_extensions = _build_source_dirs(cfg), _build_code_extensions(cfg)
+    check_cmd_re = _build_check_cmd_re(cfg)
+    events = overseer_verdict.since_last_audit(overseer_verdict.turn_events(_str_field(envelope, "transcript_path")))
+    edited = any(e["tool"] in EDIT_TOOLS and _is_code_path(str(e["input"].get("file_path", "")), source_dirs, code_extensions)
+                 for e in events)
+    checked = any(e["tool"] == "Bash" and check_cmd_re.search(str(e["input"].get("command", ""))) for e in events)
+    return found.group(1) if edited and checked else None
+
+
+def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str, waiting: dict[str, object]) -> str | None:
+    """A request is waiting. Returns the text that hands its verdict to the builder, or None when
+    the verdict ends the matter without a word (a manual audit: the report is the human's).
+    Does not return when the request must be repeated, waits for a running agent, or is parked."""
+    import overseer_verdict as ov
+
+    request_id = str(waiting["id"])
+    row = ov.verdict_for(project_dir, request_id)
+    if row is None or row.get("verdict") == ov.INVALID:
+        if HALT_MARKER_RE.search(message):   # the builder stops for real: the request dies with the turn
+            ov.drop_pending(project_dir)
+            _settle_request(project_dir, accepted=False)
+            _passthrough()
+        if row is None and waiting.get("launched") and envelope.get("background_tasks"):
+            _passthrough()   # the agent runs in the background; its end re-invokes the session
+        asks = int(str(waiting.get("asks", 1)))
+        why = str(row["reason"]) if row else ("the agent left no verdict" if waiting.get("launched") else "the agent was not launched")
+        if asks >= ov.MAX_ASKS:
+            ov.park(project_dir, str(waiting.get("unit_key") or request_id),
+                    f"audit request {request_id} got no valid verdict in {asks} requests: {why}",
+                    (ov.REQUESTS_REL / request_id).as_posix())
+            ov.drop_pending(project_dir)
+            _settle_request(project_dir, accepted=False)
+            _passthrough()
+        ov.write_json(project_dir / ov.PENDING_REL, dict(waiting) | {"asks": asks + 1, "schema_errors": 0})
+        _emit_block(FRESH_REQUEST_AGAIN_REASON.format(id=request_id, why=why[:300], asks=asks + 1, limit=ov.MAX_ASKS))
+    ov.drop_pending(project_dir)
+    if waiting.get("origin") == "manual":
+        return None
+    verdict, check = str(row["verdict"]), row.get("check")
+    finding = (f"#{check} " if check else "") + str(row.get("reason", ""))
+    if verdict == "PASS":
+        return CONTINUE_REASON + _lesson_request(project_dir)
+    if verdict == "BLOCK":
+        unit = str(row.get("unit_key", ""))
+        count = ov.blocks_in_a_row(project_dir, unit)
+        if count >= ov.MAX_BLOCKS:
+            # The row restarts the count: after the owner's answer the unit gets three attempts again.
+            ov.append_row(project_dir, {"utc": ov.utc_now(), "request": request_id, "unit_key": unit, "verdict": "PARK",
+                                        "reason": f"{count} BLOCKs in a row"})
+            _record_audit(project_dir, message)
+            _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding))
+        return FRESH_BLOCK_REASON.format(id=request_id, count=count, limit=ov.MAX_BLOCKS, finding=finding)
+    return FRESH_ROUTE_REASON.format(verdict=verdict, id=request_id, finding=finding)
+
+
+def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
+    """The protocol with the overseer as a separate agent (see the module docstring, WHO AUDITS)."""
+    import overseer_verdict as ov
+
+    message = _str_field(envelope, "last_assistant_message")
+    waiting = ov.pending(project_dir)
+    answer = _answer_pending(project_dir, envelope, message, waiting) if waiting is not None else None
+    if waiting is not None and answer is None:
+        _passthrough()
+
+    # A new claim is audited whatever else the message says — a halt marker beside the sentinel
+    # does not buy the unit out of its audit.
+    unit = None if _phase_is_plan(project_dir) else _claimed_unit(project_dir, envelope, message)
+    if unit is not None:
+        _record_audit(project_dir, message)
+        changed = _contract_changed(project_dir)
+        if changed is not None:
+            contract, fingerprint = changed
+            _emit_block(CONTRACT_CHANGED_REASON.format(contract=contract.relative_to(project_dir).as_posix(),
+                                                       fingerprint=fingerprint.relative_to(project_dir).as_posix()))
+        escalation = _open_gate_escalation(project_dir)
+        request = ov.make_request(
+            project_dir, message, origin="hook", unit=unit, transcript_path=_str_field(envelope, "transcript_path"),
+            gate_allows_text=_gate_allow_review(project_dir),
+            gate_escalation=f"{escalation[0]}: {escalation[1]}" if escalation else "")
+        text = FRESH_REQUEST_REASON.format(id=request["id"])
+        if escalation is not None:
+            text += GATE_OPEN_NOTICE.format(stamp=escalation[0], scope=escalation[1])
+        _emit_block((f"{answer}\n\nYour message already claims the unit again, so the next audit is requested now.\n\n"
+                     if answer and "OVERSEER_PASS recorded" not in answer else "") + text)
+    if answer is not None:
+        _emit_block(answer)
+
+    if HALT_MARKER_RE.search(message):
+        _settle_request(project_dir, accepted=False)
+        _passthrough()
+    if PASS_MARKER_RE.search(message) and not _same_continue_message(project_dir, message):
+        _emit_block(FRESH_PASS_IGNORED_REASON)
+    if _phase_is_plan(project_dir):
+        _passthrough()
+    _stop_or_continue(project_dir)
+
+
 def main() -> NoReturn:
     # NOTE — `stop_hook_active`-based Guard 1 was removed (see module
     # docstring "RECURSION GUARDS"). It preempted the per-branch SHA
@@ -705,6 +886,16 @@ def main() -> NoReturn:
     if dry_run:
         _emit_block(DRY_RUN_REASON)
 
+    try:
+        import overseer_verdict
+
+        fresh = overseer_verdict.wired(_get_project_dir())
+    except ImportError:
+        fresh = False
+    if fresh:
+        _main_fresh(envelope, _get_project_dir())
+
+    # --- the former protocol: the session audits itself (until the settings are applied) ---
     message = _str_field(envelope, "last_assistant_message")
 
     # Package costs: a PASS is not accepted while the Stop gate's escalation for this slice is
