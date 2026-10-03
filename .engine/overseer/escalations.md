@@ -141,7 +141,7 @@ one; do not reopen the old one in conversation.
 - Status: CLOSED
 
 ## 2026-10-02T08:37:00Z — AUTONOMOUS — 3b-baseline-alias
-- Decision: `evals/baseline/clean-ubuntu-24.04/results-push-policy.json` is created as a copy
+- Decision: `evals/baseline/linux-ubuntu-24.04/results-push-policy.json` is created as a copy
   of `results-package-3a.json` with a label saying so, instead of being recorded afresh.
 - Door: two-way
 - Cost to reverse: delete one file.
@@ -284,7 +284,7 @@ one; do not reopen the old one in conversation.
 - Status: CLOSED
 
 ## 2026-10-02T09:14:00Z — AUTONOMOUS — 3b-S6-baseline-name
-- Decision: the new reference results live at `evals/baseline/Laos-MacBook-Pro/results-package-3b.json`
+- Decision: the new reference results live at `evals/baseline/macos-14/results-package-3b.json`
   (the machine's LocalHostName; the plan says `<назва цієї машини>`), recorded from the S5
   commit (179ed43): S6 changes documents, the ownership map and tests, no hook, so the hook
   outcomes at S6 are those at S5 and the final run re-confirms it against this file.

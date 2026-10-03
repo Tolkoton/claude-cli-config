@@ -1,10 +1,10 @@
 # Audit baseline — record sheet
 
-Copy this file to `evals/baseline/audit-<engine-ref>-<machine>-<date>.md` and fill it in.
+Copy this file to `evals/baseline/<environment>/audit-<engine-ref>-<date>.md` (`<environment>` as `python3 evals/environment.py` prints it) and fill it in.
 One row per scenario, three fresh sessions per row: a model's verdict varies, a single run proves little.
 
 - Engine ref:
-- Machine / OS:
+- Environment (`python3 evals/environment.py`):
 - Claude Code version (`claude --version`):
 - Main model / subagent model:
 - Settings layers in effect: `project,local` only / including `user`

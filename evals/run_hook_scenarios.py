@@ -43,6 +43,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
+import environment
+
 # Why 240 s: the slowest scenarios run ruff + mypy + pytest through `uv run` on a
 # cold cache; that is ~20 s here and gets a 10x margin for slow disks and CI.
 DEFAULT_TIMEOUT_S = 240
@@ -279,11 +282,14 @@ def main() -> int:
     parser.add_argument("--sandbox", type=Path, help="an existing sandbox (kept afterwards)")
     parser.add_argument("--engine-ref", help="build a temporary sandbox from this tag, branch "
                                              "or commit, and delete it afterwards")
-    parser.add_argument("--compare", type=Path, help="diff the outcome against this results "
-                                                     "file (evals/compare.py)")
+    parser.add_argument("--compare", type=environment.baseline_path,
+                        help="diff the outcome against this results file (evals/compare.py); "
+                             "@env in the path is this environment's folder")
     parser.add_argument("--hooks-dir", type=Path, help="default: <sandbox>/.claude/hooks")
     parser.add_argument("--scenarios", type=Path, default=here / "scenarios" / "hooks")
-    parser.add_argument("--out", type=Path, help="write machine-readable results here")
+    parser.add_argument("--out", type=environment.out_path,
+                        help="write machine-readable results here; a baseline goes to "
+                             "evals/baseline/@env/ (@env = this environment, evals/environment.py)")
     parser.add_argument("--label", default="", help="free text stored with the results")
     parser.add_argument("--only", default="", help="run scenarios whose id contains this")
     parser.add_argument("--record-only", action="store_true",
@@ -379,6 +385,7 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
             "sandbox": json.loads(info_file.read_text(encoding="utf-8")),
             "hooks_dir": str(hooks_dir).replace(str(sandbox), "<SANDBOX>"),
             "environment": {
+                "name": environment.environment_name(),
                 "platform": platform.platform(),
                 "python": platform.python_version(),
                 "bash": tool_version("bash", "--version"),

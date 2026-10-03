@@ -9,7 +9,9 @@ legitimately differ between engine versions. Pass --details to print it anyway.
 
 Exit code 0: identical behaviour. 1: differences (listed). 2: unusable input.
 A difference is not a verdict — it is a change that someone has to explain:
-either a fix that was intended, or a regression that was not.
+either a fix that was intended, or a regression that was not. When the two files were
+recorded in different environments (evals/environment.py) the report says so in a line
+of its own, CROSS-ENVIRONMENT COMPARISON: the environment is then a third explanation.
 
 Standard library only, Python 3.12+.
 """
@@ -21,6 +23,8 @@ import json
 import sys
 from pathlib import Path
 from typing import Any
+
+import environment
 
 JsonObj = dict[str, Any]
 
@@ -49,6 +53,7 @@ def describe(report: JsonObj, path: Path) -> str:
     parts = [
         f"engine {sandbox.get('engine_ref', '?')} ({str(sandbox.get('engine_commit', '?'))[:7]})",
         f"hooks {report.get('hooks_dir', '?')}",
+        f"environment {environment.recorded_in(report, path)}",
         f"jq: {env.get('jq', '?')}",
         f"python {env.get('python', '?')}",
     ]
@@ -58,8 +63,8 @@ def describe(report: JsonObj, path: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("base", type=Path)
-    parser.add_argument("candidate", type=Path)
+    parser.add_argument("base", type=environment.baseline_path)
+    parser.add_argument("candidate", type=environment.baseline_path)
     parser.add_argument("--details", action="store_true", help="also print each side's reason")
     args = parser.parse_args()
 
@@ -67,6 +72,9 @@ def main() -> int:
     cand_report, cand = load(args.candidate)
     print("BASE      " + describe(base_report, args.base))
     print("CANDIDATE " + describe(cand_report, args.candidate))
+    note = environment.cross_note(environment.recorded_in(base_report, args.base), environment.recorded_in(cand_report, args.candidate))
+    if note:
+        print(note)
     print()
 
     ids = list(base) + [i for i in cand if i not in base]
@@ -87,9 +95,9 @@ def main() -> int:
 
     same = len(ids) - differences
     if differences:
-        print(f"\n{differences} scenario(s) differ, {same} identical")
+        print(f"\n{differences} scenario(s) differ, {same} identical" + (" — across two environments, see above" if note else ""))
         return 1
-    print(f"identical behaviour in all {same} scenarios")
+    print(f"identical behaviour in all {same} scenarios" + (" (across two environments)" if note else ""))
     return 0
 
 

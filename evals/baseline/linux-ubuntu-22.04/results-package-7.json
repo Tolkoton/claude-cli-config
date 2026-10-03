@@ -1,5 +1,5 @@
 {
-  "label": "package 7 — gate.py behind the two hook wrappers; Linux (lao@gcp), jq present, sandbox installed by engine.py; the 87 scenarios of results-package-3c.json plus 9 bypass-guard scenarios (vs-bypass-*)",
+  "label": "package 7 — gate.py behind the two hook wrappers; Linux (Ubuntu 22.04), jq present, sandbox installed by engine.py; the 87 scenarios of results-package-3c.json plus 9 bypass-guard scenarios (vs-bypass-*)",
   "recorded_utc": "2026-10-03T09:24:41Z",
   "sandbox": {
     "engine_ref": "HEAD",

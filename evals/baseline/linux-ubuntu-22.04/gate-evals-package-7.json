@@ -1,5 +1,5 @@
 {
-  "label": "package 7 — gate.py on defective and clean files; Linux (lao@gcp), real ruff/mypy/pytest through uv; 3 runs per case and layer",
+  "label": "package 7 — gate.py on defective and clean files; Linux (Ubuntu 22.04), real ruff/mypy/pytest through uv; 3 runs per case and layer",
   "recorded_utc": "2026-10-03T09:19:23Z",
   "sandbox": {
     "engine_ref": "HEAD",

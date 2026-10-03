@@ -13,7 +13,7 @@ critic»). Вимоги власника — `docs/plan/package-7.md`, досл�
 | 3 | Шари | `post_write` (форматування + швидкий `ruff check`, ніколи не блокує, лише `additionalContext` і лише коли щось змінилось); `stop` (інкрементально, `stop_hook_active` читається першим, лічильник → ескалація); `pre_commit` і `ci` (повний набір; жодного файла workflow — команди й документація в `.claude/references/gate.md`). |
 | 4 | Тонкі shell-хуки; решта скриптів | `format-on-edit.sh` і `verify-on-stop.sh` — по ~15 рядків, імена збережено, тому `settings.json` не чіпали. `complexity_budget.py` і `contract_fingerprint.py` лишились окремо — обґрунтування нижче (D8); вони пишуть у тій самій схемі в `<source>-report.json`. |
 | 5 | Захист від обходу | Див. «Захист від обходу». |
-| 6 | Евалуації воріт | `evals/run_gate_evals.py` + `evals/scenarios/gate/cases.json`; еталон `evals/baseline/Laos-MacBook-Pro/gate-evals-package-7.json`: **12/12 дефектів упіймано, 0 хибних блоків на 7 чистих випадках**, 1 задокументоване обмеження, час кожного шару записано. |
+| 6 | Евалуації воріт | `evals/run_gate_evals.py` + `evals/scenarios/gate/cases.json`; еталон `evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json`: **12/12 дефектів упіймано, 0 хибних блоків на 7 чистих випадках**, 1 задокументоване обмеження, час кожного шару записано. |
 | 7 | Золотий набір | 87 початкових сценаріїв тотожні `results-package-3c.json`; 9 нових (`vs-bypass-*`); новий еталон `results-package-7.json` (96/96, порівняння із самим собою — тотожне). |
 
 ## Рішення і терміни

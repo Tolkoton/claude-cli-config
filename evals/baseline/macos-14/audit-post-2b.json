@@ -1,5 +1,5 @@
 {
-  "label": "package 2b, AFTER: engine HEAD = 56dc2f7 (P0a..P9 incl. P5a/P5b overseer text), runner at e7b89c4 instrument (fixture at .engine/slices/, --settings passed), macOS Laos-MacBook-Pro, default model, setting sources project,local | echo annotated from the transcripts of engine-audit-lbzmkq92 (evals/annotate_echo.py): 10 refused",
+  "label": "package 2b, AFTER: engine HEAD = 56dc2f7 (P0a..P9 incl. P5a/P5b overseer text), runner at e7b89c4 instrument (fixture at .engine/slices/, --settings passed), macOS 14, default model, setting sources project,local | echo annotated from the transcripts of engine-audit-lbzmkq92 (evals/annotate_echo.py): 10 refused",
   "recorded_utc": "2026-10-02T20:41:50Z",
   "engine_ref": "HEAD",
   "engine_commit": "56dc2f7f191e6cb009cb2b9e603cf5f8bbfe5381",

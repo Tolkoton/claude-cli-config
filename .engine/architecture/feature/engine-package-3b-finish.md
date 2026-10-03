@@ -18,9 +18,9 @@ fix the small things the last report listed.
 ## Acceptance criteria (the plan's "ГОТОВО, КОЛИ")
 
 1. Every hook-checks suite green, the new ones included.
-2. The scenario set identical to `evals/baseline/Laos-MacBook-Pro/results-package-3b.json`
+2. The scenario set identical to `evals/baseline/macos-14/results-package-3b.json`
    except for intended, listed differences; the new reference recorded as
-   `evals/baseline/Laos-MacBook-Pro/results-package-3b-finish.json`.
+   `evals/baseline/macos-14/results-package-3b-finish.json`.
 3. `uvx ruff check` and `uvx mypy --strict` clean on every Python file touched.
 4. The ownership map knows every new file.
 

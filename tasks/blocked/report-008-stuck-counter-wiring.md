@@ -66,7 +66,7 @@ owner-action: the owner's actions are refused inside a Claude Code session (CLAU
 - Повний набір, один раз наприкінці: `bash tests/run_all.sh` — 51 набір зелений (було 52: набір
   `test_lesson_hooks_proposal` прибрано разом зі скриптом, його перевірки hook-ів перейшли в
   `test_settings_proposal`).
-- Золотий набір проти `evals/baseline/Laos-MacBook-Pro/results-package-costs.json`: однакова
+- Золотий набір проти `evals/baseline/linux-ubuntu-22.04/results-package-costs.json`: однакова
   поведінка в усіх 114 сценаріях.
 - ruff і `mypy --strict` на змінених Python-файлах — чисто.
 - Тест пропозиції бачив червоним: одразу після додавання hook-ів у пропозицію (до правки тесту) і

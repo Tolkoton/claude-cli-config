@@ -119,4 +119,4 @@ No file under `.github/workflows/` is shipped; add the step to your pipeline you
 
 `python3 evals/run_gate_evals.py --engine-ref HEAD` — defective files that must be caught, clean
 files that must not be blocked, every layer timed. `bash tests/run_all.sh` runs `tests/test_gate.py`
-and `tests/test_gate_evals.py`. Reference results: `evals/baseline/Laos-MacBook-Pro/gate-evals-package-7.json`.
+and `tests/test_gate_evals.py`. Reference results: `evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json`.

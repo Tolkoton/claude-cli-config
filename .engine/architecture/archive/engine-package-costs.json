@@ -56,12 +56,12 @@
     },
     {
       "id": "C7",
-      "title": "release audit --tier full at the branch tip -> evals/baseline/claw/audit-v0.12.0.json (limit $35), compared with audit-v0.11.0.json",
+      "title": "release audit --tier full at the branch tip -> evals/baseline/linux-ubuntu-22.04/audit-v0.12.0.json (limit $35), compared with audit-v0.11.0.json",
       "deps": [
         "C6"
       ],
       "status": "done",
-      "evidence": "evals/baseline/claw/audit-v0.12.0.json on 39e7325: 30/33 matched, $19.67 of $35; .engine/overseer/audit-costs-compare.md"
+      "evidence": "evals/baseline/linux-ubuntu-22.04/audit-v0.12.0.json on 39e7325: 30/33 matched, $19.67 of $35; .engine/overseer/audit-costs-compare.md"
     },
     {
       "id": "B5",

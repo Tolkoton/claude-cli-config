@@ -125,7 +125,7 @@ trusted») — тому зонд передає підключення чере�
 ### 2.7 Критерії «ГОТОВО»
 - Усі набори зелені — так (25).
 - Золотий набір тотожний еталону 3б, крім перелічених 3 відмінностей; новий еталон
-  `evals/baseline/Laos-MacBook-Pro/results-package-3b-finish.json` — 87/87.
+  `evals/baseline/macos-14/results-package-3b-finish.json` — 87/87.
 - ruff і mypy --strict чисті.
 - Карта власності знає про нові файли: `approve-project-data.py` і `settings.user.json.template`
   — engine (постачаються); `probe_permission_hook.sh`, `test_engine_lint.py` — project;

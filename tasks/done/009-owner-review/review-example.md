@@ -445,7 +445,7 @@ Complexity budget: exceeded, accepted by the simplifier
 - **Додав лінзу «інструкції»** і ключ `SIMPLIFY_EXCLUDE` (фікстури двигуна не міряються як його код).
 - **Дозвіл на платну евалуацію** — рядок «Платні прогони:» з лімітом у доларах у задачі, за зразком платного аудиту.
 - **Задачу не ділив на зрізи через `/feature-architect`:** його перший крок — розмова з власником, а всі рішення вже були в задачі. Будував тестами наперед, чотирма commit-ами.
-- **Еталон золотого набору тепер `claw/results-task-010.json`;** посилання в `AGENTS.md` оновив.
+- **Еталон золотого набору тепер `linux-ubuntu-22.04/results-task-010.json`;** посилання в `AGENTS.md` оновив.
 
 **Витрати**
 
@@ -637,7 +637,7 @@ Complexity budget: exceeded, accepted by the simplifier
 **Відкладене**
 
 Ці записи не зроблено, тому вони лишилися відкритими:
-- **S8 apply-personal** — запис у ваш `~/.claude` на вашому комп'ютері. Звідси перевірити неможливо: на цій машині (claw) резервної копії `settings.json.engine-backup-*` немає, тобто тут команду не запускали. Якщо ви вже зробили це на своєму Mac — запис можна закрити.
+- **S8 apply-personal** — запис у ваш `~/.claude` на вашому комп'ютері. Звідси перевірити неможливо: на цій машині (сервер) резервної копії `settings.json.engine-backup-*` немає, тобто тут команду не запускали. Якщо ви вже зробили це на своєму Mac — запис можна закрити.
 - **S9 cloud-probe** — `CLOUD_COMMIT_POLICY` досі `off`, виводу `env-probe.sh` з хмарної сесії в репозиторії немає.
 - **C8b аудит після 3c** — файла `audit-post-3c.json` немає, прогін на `24abb7d` не відбувся. Пізніші аудити (v0.11.0 на `8e46a65`, v0.12.0 на `39e7325`) міряли вже стани після переїзду 3c, тож питання «чи зіпсував переїзд наглядача» по суті знято. Але це гроші й ваше рішення: я запис не закривав. Якщо згодні — його можна закрити як застарілий без прогону. Вузол `C8b` у `feature-dag.json` теж лишився `parked`.
 - **B-wiring-stuck-bash** — hook-и лічильника в живому `settings.json` не підключено; це задача 008 у `todo/`.
@@ -658,7 +658,7 @@ Complexity budget: exceeded, accepted by the simplifier
 
 - **Захист від агента — пасок, а не замок.** Команда відрізняє вас від агента за змінною `CLAUDECODE`, яку бачить кожна команда агента. Агент, що навмисно її прибере, зможе зробити реліз, і hook цього не побачить, бо push іде зсередини скрипта. Це видно в журналі розмови, але зупинить таке лише захист гілок `main` і `stable` на GitHub. Раджу його ввімкнути; це робите ви в налаштуваннях репозиторію. Те саме записано в `docs/engine-limits.md`.
 - **Реліз триватиме кілька хвилин:** повний набір тестів і золотий набір запускаються щоразу.
-- **Еталон золотого набору лежить у теці іншої машини** (`Laos-MacBook-Pro`). На цьому сервері (`claw`) він сьогодні дає тотожний результат, тож реліз звідси пройде. Якщо колись результати машин розійдуться, знадобиться `--baseline` або еталон для цієї машини (задача 030 про це).
+- **Еталон золотого набору лежить у теці іншої машини** (з задачі 030 — `macos-14`). На цьому сервері він сьогодні дає тотожний результат, тож реліз звідси пройде. Якщо колись результати машин розійдуться, знадобиться `--baseline` або еталон для цієї машини (задача 030 про це).
 - **Платний аудит перед міткою** (`evals/README.md`) команда не запускає: це окреме ваше рішення.
 - Зміна, що додає сценарії до золотого набору, мусить записати новий еталон, інакше реліз зупиниться на «не тотожний». Це задумано, але варто знати.
 
@@ -708,8 +708,8 @@ Complexity budget: exceeded, accepted by the simplifier
 
 ## Здоров'я
 
-- Останній повний прогін тестів, за записом у ledger («2026-10-03T17:20:00Z — board 010-simplifier — TASK_BUILT»): Evidence: `bash tests/run_all.sh` 54 suites (53 green, one red on a record exemption, fixed and re-run green: tests/test_no_home_hook_copies.py 21/21); golden hook set 118/118 meeting expectations, 114 identical to results-package-costs.json, 4 new (evals/baseline/claw/results-task-010.json); ruff --isolated and mypy --strict clean (tests/test_engine_lint.py); 17 deliberate breakages, each seen red after two test gaps were closed.
-- Золотий набір, найновіший запис `evals/baseline/claw/results-task-010.json` (2026-10-03T17:09:25Z): 118 із 118 сценаріїв відповідають очікуванням.
+- Останній повний прогін тестів, за записом у ledger («2026-10-03T17:20:00Z — board 010-simplifier — TASK_BUILT»): Evidence: `bash tests/run_all.sh` 54 suites (53 green, one red on a record exemption, fixed and re-run green: tests/test_no_home_hook_copies.py 21/21); golden hook set 118/118 meeting expectations, 114 identical to results-package-costs.json, 4 new (evals/baseline/linux-ubuntu-22.04/results-task-010.json); ruff --isolated and mypy --strict clean (tests/test_engine_lint.py); 17 deliberate breakages, each seen red after two test gaps were closed.
+- Золотий набір, найновіший запис `evals/baseline/linux-ubuntu-22.04/results-task-010.json` (2026-10-03T17:09:25Z): 118 із 118 сценаріїв відповідають очікуванням.
 - Постійний контекст (CLAUDE.md і все, що він імпортує): 199 із 200 рядків, файлів: 4.
 - Витрати за період, за записами виконавця: $34.42 — 000-перевірка $0.28, 001-critics-strongest-model $0.69, 002-audit-scene-10-fixture $1.16, 003-audit-first-verdict $1.79, 004-parked-cleanup $1.13, 005-escalation-via-board $2.46, 006-push-without-ask $1.20, 007-release-and-stable $1.82, 008-stuck-counter-wiring $2.99, 010-simplifier $19.69, 012-simplifier-gemini-second-opinion $1.21.
 

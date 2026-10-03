@@ -179,6 +179,28 @@ def main() -> int:
         (repo.work / "left-behind.txt").unlink()
         refused("the checks left a file behind", repo, proc, before, "not clean", checks_ran=True)
 
+        print("the baseline of this environment comes first")
+        repo = fresh(base, "environment")
+        write(repo.work / "evals/environment.py", 'print("home")\n')
+        write(repo.work / "evals/baseline/home/results-mine.json", "{}\n")
+        git(repo.work, "add", "-A")
+        git(repo.work, "commit", "-q", "-m", "this environment's baseline")
+        write(repo.work / "evals/baseline/other/results-newer.json", "{}\n")
+        git(repo.work, "add", "-A")
+        git(repo.work, "commit", "-q", "-m", "a newer baseline of another environment")
+        proc = repo.release("v0.2.0", "--owner-approved", FAKE_GOLDEN_RC="1")
+        check("own environment: its baseline is compared, not the newer one of another",
+              repo.ran()[-1].endswith("--compare evals/baseline/home/results-mine.json") and "CROSS-ENVIRONMENT" not in proc.stdout,
+              str(repo.ran()) + proc.stdout)
+        repo.log.unlink(missing_ok=True)
+        write(repo.work / "evals/environment.py", 'print("elsewhere")\n')
+        git(repo.work, "add", "-A")
+        git(repo.work, "commit", "-q", "-m", "an environment without a baseline")
+        proc = repo.release("v0.2.0", "--owner-approved", FAKE_GOLDEN_RC="1")
+        check("no baseline of this environment: the newest of any, and the release says it is cross-environment",
+              repo.ran()[-1].endswith("--compare evals/baseline/other/results-newer.json")
+              and "CROSS-ENVIRONMENT" in proc.stdout and "elsewhere" in proc.stdout, str(repo.ran()) + proc.stdout)
+
         print("fast-forward only")
         repo = fresh(base, "diverged")
         other = base / "diverged" / "other"

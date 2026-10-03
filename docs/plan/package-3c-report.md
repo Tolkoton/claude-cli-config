@@ -20,7 +20,7 @@
 
 Підсумок: **28 наборів зелені**; золотий набір **87/87 тотожно** `results-package-3b-finish.json`
 (жодної відмінності — переїзд змінив лише шляхи у сценаріях, не рішення hook-ів); новий еталон
-`evals/baseline/Laos-MacBook-Pro/results-package-3c.json`; `uvx ruff check --isolated` і
+`evals/baseline/macos-14/results-package-3c.json`; `uvx ruff check --isolated` і
 `uvx mypy --strict` чисті на всьому Python двигуна (`test_engine_lint`, 9 файлів) і на кожному
 Python-файлі, якого торкнувся пакет; decana `--dry-run` без втрат.
 

@@ -48,7 +48,7 @@ check("setup writes stay inside the sandbox", all(
     not Path(s["write"]["path"]).is_absolute() and ".." not in Path(s["write"]["path"]).parts
     for c in CASES for s in c["setup"] if "write" in s))
 
-baseline = ROOT / "evals/baseline/Laos-MacBook-Pro/gate-evals-package-7.json"
+baseline = ROOT / "evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json"
 if baseline.is_file():
     rec = json.loads(baseline.read_text())
     s = rec["summary"]

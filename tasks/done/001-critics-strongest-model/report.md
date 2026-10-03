@@ -22,7 +22,7 @@ git show --stat 73c9bc2
 ## Перевірка
 - Тест спершу червоний: до зміни агентів — 5 FAIL, рівно на чотирьох критиках із `sonnet`; після — PASS 38, FAIL 0.
 - Негативні випадки всередині тесту: критика з `sonnet`, `haiku`, `opus` чи повним ідентифікатором відхилено, з `inherit` або без поля — прийнято; налаштування з `CLAUDE_CODE_SUBAGENT_MODEL=claude-sonnet-5` відхилено.
-- Золотий набір: 114 із 114 тотожні `evals/baseline/Laos-MacBook-Pro/results-package-costs.json`, прогін на commit-і `73c9bc2`.
+- Золотий набір: 114 із 114 тотожні `evals/baseline/linux-ubuntu-22.04/results-package-costs.json`, прогін на commit-і `73c9bc2`.
 - Повний набір тестів, один раз наприкінці: 49 наборів зелені. Швидкий набір: 25 зелені.
 
 ## Витрати

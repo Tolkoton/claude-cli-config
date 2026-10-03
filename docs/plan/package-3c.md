@@ -7,7 +7,7 @@
 4. Запусти /feature-architect engine-package-3c. Усі пункти нижче — вимоги власника. Критик перевіряє, як ти їх виконав, але самих вимог не переглядає.
 5. Один зріз = один commit. Повідомлення англійською, з поясненням, чому зроблено саме так. Після кожного зрізу прогони:
    - усі набори тестів;
-   - золотий набір проти evals/baseline/Laos-MacBook-Pro/results-package-3b-finish.json;
+   - золотий набір проти evals/baseline/macos-14/results-package-3b-finish.json;
    - ruff і mypy --strict через uvx.
 6. Час у записах пиши лише в UTC, з date -u.
 7. Решта правил із docs/plan/package-3b.md діє й тут.

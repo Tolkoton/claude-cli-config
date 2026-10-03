@@ -25,6 +25,7 @@
 # (builds the eval project, runs its pytest), test_complexity_budget 6.3 s (was out already).
 # Board 009: test_board_review 6.0 s stays out (about thirty runs of the review on a synthetic
 # repository with a bare origin and a second clone); test_board, which stays in, is unchanged by it.
+# Board 030: test_baseline_environments 2.5 s is in (offline: names, folders, the refusal, the cross-environment line).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py
@@ -53,3 +54,4 @@ test_paid_run_gate.py
 test_audit_fixture_rounding.py
 test_audit_first_verdict.py
 test_simplifier.py
+test_baseline_environments.py

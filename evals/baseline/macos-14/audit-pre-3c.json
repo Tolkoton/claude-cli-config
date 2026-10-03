@@ -1,5 +1,5 @@
 {
-  "label": "package 3c, BEFORE the move: engine AND runner at the plan commit 2788357 (run from a worktree of that commit, so the move could not leak into the runner mid-run), macOS Laos-MacBook-Pro, default model, setting sources project,local | echo annotated from the transcripts of engine-audit-12gnhmnq (evals/annotate_echo.py): 7 refused",
+  "label": "package 3c, BEFORE the move: engine AND runner at the plan commit 2788357 (run from a worktree of that commit, so the move could not leak into the runner mid-run), macOS 14, default model, setting sources project,local | echo annotated from the transcripts of engine-audit-12gnhmnq (evals/annotate_echo.py): 7 refused",
   "recorded_utc": "2026-10-02T13:10:52Z",
   "engine_ref": "2788357",
   "claude_version": "2.1.287 (Claude Code)",

@@ -8,7 +8,7 @@
 5. Один зріз = один commit на цій гілці. Повідомлення англійською, з поясненням, ЧОМУ зроблено саме так (як у всій історії репозиторію).
 6. Після кожного зрізу прогони явно:
    - усі hook-checks/test_*.py;
-   - python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/clean-ubuntu-24.04/results-push-policy.json;
+   - python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-24.04/results-push-policy.json;
    - ruff і mypy --strict через uvx для змінених Python-файлів.
    На ворота Stop не покладайся: власний project.env цього репозиторію не вказує на його код.
 7. Рішення, які легко відкотити, ухвалюй сам і записуй у .claude/overseer/escalations.md у форматі AUTONOMOUS. Усе, що «лише за мною», відклади: вузол графа позначай parked разом із точною інструкцією, що його розблокує, і продовжуй решту.

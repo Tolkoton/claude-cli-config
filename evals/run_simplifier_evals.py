@@ -36,7 +36,6 @@ import argparse
 import importlib.util
 import json
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -45,6 +44,9 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
+import environment
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -191,7 +193,7 @@ def summary(runs: list[JsonObj]) -> JsonObj:
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--runs", type=int, default=3)
-    parser.add_argument("--out", type=Path)
+    parser.add_argument("--out", type=environment.out_path, help="a baseline goes to evals/baseline/@env/")
     parser.add_argument("--score", type=Path, help="score a saved answer (a JSON list of findings) and stop; free")
     parser.add_argument("--sandbox", type=Path, help="build the project here, print the request and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
@@ -232,7 +234,7 @@ def main() -> int:
                                          f"missed {row['missed']}, {len(row['unexpected'])} unexpected")
             print(f"run {number}: {shown}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})")
     report: JsonObj = {
-        "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "host": platform.node(),
+        "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
         "planted": [e["id"] for e in expected["planted"]], "traps": [e["id"] for e in expected["traps"]],
         "summary": summary(runs), "runs": runs,

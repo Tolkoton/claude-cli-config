@@ -1,5 +1,5 @@
 {
-  "label": "package 3b fix round, macOS 14 (Darwin 23.6.0) on Laos-MacBook-Pro, jq present, sandbox installed by engine.py; 87 scenarios: results-package-3b.json with bd-push-on-main and bd-push-on-protected-branch-in-worktree flipped to allow (push is governed by the settings file) and bd-commit-on-unattended-branch-in-worktree added",
+  "label": "package 3b fix round, macOS 14 (Darwin 23.6.0), jq present, sandbox installed by engine.py; 87 scenarios: results-package-3b.json with bd-push-on-main and bd-push-on-protected-branch-in-worktree flipped to allow (push is governed by the settings file) and bd-commit-on-unattended-branch-in-worktree added",
   "recorded_utc": "2026-10-02T10:13:07Z",
   "sandbox": {
     "engine_ref": "HEAD",

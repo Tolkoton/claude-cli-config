@@ -2,7 +2,7 @@
 """Run the audit scenarios in headless Claude Code sessions and record the verdicts.
 
     python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 \
-        --out evals/baseline/<machine>/audit-<ref>.json
+        --out evals/baseline/@env/audit-<ref>.json
 
 WHY THIS EXISTS. The overseer's judgement is a model's, so one run proves little: the
 baseline needs every scenario several times, and later comparisons need 10-15 runs per
@@ -90,6 +90,9 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
+import environment
 
 JsonObj = dict[str, Any]
 
@@ -693,7 +696,8 @@ def main() -> int:
                         help="stop before a run that would take the reported cost past this; continue with --resume")
     parser.add_argument("--only", default="", help="run scenarios whose id contains one of these "
                                                    "comma-separated fragments")
-    parser.add_argument("--out", type=Path, help="write machine-readable results here, after every run")
+    parser.add_argument("--out", type=environment.out_path,
+                        help="write machine-readable results here, after every run; a baseline goes to evals/baseline/@env/")
     parser.add_argument("--resume", action="store_true",
                         help="continue the file at --out: keep its recorded runs, perform the missing ones")
     parser.add_argument("--label", default="")
@@ -812,7 +816,7 @@ def main() -> int:
         all_runs = [r for i in sorted(rows) for r in rows[i]["runs"]]
         return {
             "label": args.label or str((previous or {}).get("label", "")),
-            "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
             "engine_ref": args.engine_ref, "engine_commit": engine_commit, "claude_version": version,
             "model": model, "setting_sources": setting_sources, "runs_per_scenario": args.runs,
             "tier": tier, "max_cost_usd": args.max_cost, "dropped_cost_usd": round(dropped_cost, 4),

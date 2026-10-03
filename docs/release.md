@@ -46,7 +46,8 @@ session the flag does not count.
 
 - `--baseline FILE` — the golden-set results to compare with. Default: the
   `evals/baseline/*/results-*.json` file committed last, which is what the plans call "the
-  newest baseline". A change that adds or alters hook scenarios must record a new baseline
+  newest baseline" — of this environment's folder (`python3 evals/environment.py`) when it has
+  one; otherwise the newest of any, and the release says the comparison is cross-environment. A change that adds or alters hook scenarios must record a new baseline
   before it can be released; otherwise the golden set differs and the release stops.
 - `--remote NAME` — default `origin`.
 - `--message TEXT` — the tag's message.

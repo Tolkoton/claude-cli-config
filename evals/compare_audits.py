@@ -35,6 +35,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
+import environment
+
 JsonObj = dict[str, Any]
 USAGE_LIMIT_MARK = "usage limit"
 # Files recorded before the runner flagged a usage-limit answer hold such a session as a run
@@ -218,7 +221,8 @@ def header(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], paths: li
     def one(name: str, data: JsonObj, path: str) -> str:
         commit = str(data.get("engine_commit") or "?")[:7]
         return (
-            f"- {name}: `{path}` — engine {data.get('engine_ref')} ({commit}), {data.get('claude_version')}, "
+            f"- {name}: `{path}` — environment {environment.recorded_in(data, Path(path))}, "
+            f"engine {data.get('engine_ref')} ({commit}), {data.get('claude_version')}, "
             f"model {data.get('model')}, settings {data.get('setting_sources')}, "
             f"{data.get('runs_per_scenario')} runs/scenario, cost ${data.get('total_cost_usd')}, "
             f"status {data.get('status', 'complete')}"
@@ -227,14 +231,17 @@ def header(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], paths: li
     rows = [one("before", before, paths[0]), one("after", after, paths[1])]
     for i, data in enumerate(noise_runs):
         rows.append(one(f"noise run {i + 1}", data, paths[2 + i]))
+    note = environment.cross_note(environment.recorded_in(before, Path(paths[0])), environment.recorded_in(after, Path(paths[1])), ("before", "after"))
+    if note:
+        rows += ["", f"**{note}**"]
     return "\n".join(rows)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    parser.add_argument("--before", type=Path, required=True)
-    parser.add_argument("--after", type=Path, required=True)
-    parser.add_argument("--noise", type=Path, nargs="*", default=[], help="two result files of ONE engine")
+    parser.add_argument("--before", type=environment.baseline_path, required=True)
+    parser.add_argument("--after", type=environment.baseline_path, required=True)
+    parser.add_argument("--noise", type=environment.baseline_path, nargs="*", default=[], help="two result files of ONE engine")
     parser.add_argument("--must-fix", default="", help="comma-separated scenario ids that must be FIXED")
     parser.add_argument("--out", type=Path, help="write the markdown here as well as printing it")
     parser.add_argument("--title", default="Audit comparison")

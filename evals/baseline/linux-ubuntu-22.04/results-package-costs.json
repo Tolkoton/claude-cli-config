@@ -1,5 +1,5 @@
 {
-  "label": "package costs — the overseer hook lists gate exemptions and refuses a PASS on an open gate escalation; Linux (lao@claw); results-package-memory.json plus os-gate-allow-* (2), os-pass-* (4), os-parked-entry-alone-locks-nothing, os-audit-request-warns-of-open-escalation, os-escalation-without-files-covers-all-work",
+  "label": "package costs — the overseer hook lists gate exemptions and refuses a PASS on an open gate escalation; Linux (Ubuntu 22.04); results-package-memory.json plus os-gate-allow-* (2), os-pass-* (4), os-parked-entry-alone-locks-nothing, os-audit-request-warns-of-open-escalation, os-escalation-without-files-covers-all-work",
   "recorded_utc": "2026-10-03T11:57:19Z",
   "sandbox": {
     "engine_ref": "HEAD",

@@ -18,8 +18,8 @@ commit-и нові, через `commit_checkpoint.sh`. Час — UTC.
 
 1. **Пункт 0.3, повний платний аудит — не виконано.** Сесії Claude Code на цій машині не залогінені
    (`claude auth status`: `loggedIn: false`); спроба коштувала $0.00. Команда (на гілці 2б, після логіну):
-   `python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 --out evals/baseline/Laos-MacBook-Pro/audit-v0.12.0-candidate.json --label "night 1 item 0.3"` (`--resume` після обриву; ≈ $20, ліміт $35),
-   далі `python3 evals/compare_audits.py --before evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json --after evals/baseline/Laos-MacBook-Pro/audit-v0.12.0-candidate.json --must-fix 01,08`.
+   `python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 --out evals/baseline/macos-14/audit-v0.12.0-candidate.json --label "night 1 item 0.3"` (`--resume` після обриву; ≈ $20, ліміт $35),
+   далі `python3 evals/compare_audits.py --before evals/baseline/macos-14/audit-v0.11.0.json --after evals/baseline/macos-14/audit-v0.12.0-candidate.json --must-fix 01,08`.
    Тому вердикти 02/04/10 проти очікуваних досі не виміряні.
 2. **Лічильник «застряг» на результатах Bash** потребує запису в `.claude/settings.json`:
    `python3 docs/tasks/apply-lesson-hooks.py --dry-run`, потім без `--dry-run`, перезапуск Claude Code

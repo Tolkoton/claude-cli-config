@@ -1,7 +1,7 @@
-# v0.11.0 (Laos-MacBook-Pro, macOS) vs v0.12.0 candidate 39e7325 (claw, Linux) — cross-host
+# v0.11.0 (macos-14) vs v0.12.0 candidate 39e7325 (linux-ubuntu-22.04) — cross-environment
 
-- before: `evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json` — engine v0.11.0 (8e46a65), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $20.17, status complete
-- after: `evals/baseline/claw/audit-v0.12.0.json` — engine HEAD (39e7325), 2.1.288 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $19.67, status complete
+- before: `evals/baseline/macos-14/audit-v0.11.0.json` — engine v0.11.0 (8e46a65), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $20.17, status complete
+- after: `evals/baseline/linux-ubuntu-22.04/audit-v0.12.0.json` — engine HEAD (39e7325), 2.1.288 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $19.67, status complete
 
 | scenario | expected | before | after | diff | noise | real? | judgement |
 |---|---|---|---|---|---|---|---|

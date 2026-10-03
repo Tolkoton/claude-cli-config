@@ -37,6 +37,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import environment
 from run_hook_scenarios import SandboxError, apply_setup, git, reset_sandbox
 
 JsonObj = dict[str, Any]
@@ -147,7 +148,7 @@ def main() -> int:
     parser.add_argument("--engine-ref")
     parser.add_argument("--runs", type=int, default=3, help="repetitions per case and layer, for the timings")
     parser.add_argument("--cases", type=Path, default=HERE / "scenarios" / "gate" / "cases.json")
-    parser.add_argument("--out", type=Path)
+    parser.add_argument("--out", type=environment.out_path, help="a baseline goes to evals/baseline/@env/")
     parser.add_argument("--only", default="")
     parser.add_argument("--label", default="")
     args = parser.parse_args()
@@ -194,7 +195,7 @@ def main() -> int:
     if args.out:
         report = {
             "label": args.label, "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "sandbox": info, "environment": {"platform": platform.platform(), "python": platform.python_version()},
+            "sandbox": info, "environment": {"name": environment.environment_name(), "platform": platform.platform(), "python": platform.python_version()},
             "summary": summary, "timings_ms": timings, "results": results,
         }
         args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

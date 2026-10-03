@@ -1,9 +1,9 @@
 # Package 2b — audit before (v0.11.0) / after (HEAD)
 
-- before: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json` — engine v0.11.0 (8e46a65), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $20.17, status complete
-- after: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/Laos-MacBook-Pro/audit-post-2b.json` — engine HEAD (56dc2f7), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $20.31, status complete
-- noise run 1: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/Laos-MacBook-Pro/audit-pre-3c-run1-contaminated.json` — engine 2788357 (?), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $8.93, status complete
-- noise run 2: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/Laos-MacBook-Pro/audit-pre-3c.json` — engine 2788357 (?), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $27.92, status complete
+- before: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/macos-14/audit-v0.11.0.json` — engine v0.11.0 (8e46a65), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $20.17, status complete
+- after: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/macos-14/audit-post-2b.json` — engine HEAD (56dc2f7), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $20.31, status complete
+- noise run 1: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/macos-14/audit-pre-3c-run1-contaminated.json` — engine 2788357 (?), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $8.93, status complete
+- noise run 2: `/Users/lao/Documents/GitHub/claude-cli-config-next/evals/baseline/macos-14/audit-pre-3c.json` — engine 2788357 (?), 2.1.287 (Claude Code), model default, settings project,local, 3 runs/scenario, cost $27.92, status complete
 
 | scenario | expected | before | after | diff | noise | real? | judgement |
 |---|---|---|---|---|---|---|---|

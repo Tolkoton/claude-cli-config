@@ -1,5 +1,5 @@
 {
-  "label": "package costs, release audit: engine at the tip of unattended/2026-10-03-package-costs (39e7325), --tier full, limit 35 USD, Linux claw, default model, setting sources project,local",
+  "label": "package costs, release audit: engine at the tip of unattended/2026-10-03-package-costs (39e7325), --tier full, limit 35 USD, Linux (Ubuntu 22.04), default model, setting sources project,local",
   "recorded_utc": "2026-10-03T12:47:55Z",
   "engine_ref": "HEAD",
   "engine_commit": "39e7325de79d4e229246f1dc0203598598874688",

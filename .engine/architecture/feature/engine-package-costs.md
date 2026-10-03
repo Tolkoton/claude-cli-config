@@ -155,7 +155,7 @@ section, this section is the contract.
 - **K10 (N10).** `PREMISE_PROBE_REQUIRED` and `ESCALATE` are answers to a round, not extra rounds:
   the probe or the ruling is folded in and the next critic call is round two. `feature-critic.md`
   accepts `phase: plan`.
-- **C7 (N11).** The baseline of v0.11.0 lives under `Laos-MacBook-Pro/`; this host is `claw`
+- **C7 (N11).** The baseline of v0.11.0 lives under `macos-14/`; this host is Linux (`linux-ubuntu-22.04`)
   (Linux). The comparison is cross-host and the report says so.
 
 ## Revisions after the critic (round 2 of 2: FEATURE_CRITIC_REVISE on the BUILT C1–C5; no third round)

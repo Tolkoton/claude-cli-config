@@ -11,29 +11,47 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `reference-project/` | A tiny, fully typed Python project (uv, ruff, mypy, pytest). Real code for the hooks to act on. |
 | `make_sandbox.sh` | Builds a disposable git repository: the reference project + the engine from ONE git ref, installed by `engine.py install` — the path a real project takes. A ref older than `engine.py` is installed the way its own `docs/TEMPLATE-SETUP.md` said, so both sides of the change stay comparable. |
 | `run_hook_scenarios.py` | Feeds each hook the JSON envelope Claude Code would send and records what the hook decided. Deterministic, no model involved. |
-| `compare.py` | Diffs two result files. The differences are what changed between two engine versions, two machines, or two hook directories. |
+| `compare.py` | Diffs two result files. The differences are what changed between two engine versions, two environments, or two hook directories. Files recorded in different environments get a line of their own: `CROSS-ENVIRONMENT COMPARISON: …`. |
+| `environment.py` | Names the environment a result is recorded in — the operating system and its version (`linux-ubuntu-22.04`, `macos-14`), never the machine. Prints the name; every script that writes or reads a baseline uses it (see "Baselines by environment"). |
 | `scenarios/hooks/*.json` | The hook scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
-| `run_gate_evals.py` | Measures `.claude/hooks/gate.py` (package 7) with real ruff, mypy and pytest: planted defects that must be caught, clean files that must not be blocked, one documented limit, every layer timed. Cases: `scenarios/gate/cases.json`; reference: `baseline/Laos-MacBook-Pro/gate-evals-package-7.json`. |
+| `run_gate_evals.py` | Measures `.claude/hooks/gate.py` (package 7) with real ruff, mypy and pytest: planted defects that must be caught, clean files that must not be blocked, one documented limit, every layer timed. Cases: `scenarios/gate/cases.json`; reference: `baseline/linux-ubuntu-22.04/gate-evals-package-7.json`. |
 | `run_audit_scenarios.py` | Runs the audit scenarios in headless Claude Code sessions and records the verdicts. |
 | `scenarios/audit/*.md` | 11 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. Seven are relayed by a live session (prompt A); 02, 04, 10 and 11 are recorded turns the runner writes into the sandbox as a fixture (see below). |
-| `run_simplifier_evals.py` | Measures the `simplifier` agent (board 010): `scenarios/simplifier/project/` laid over the reference project plants six kinds of excess and four traps (`expected.json`); each run is a real headless session scored for recall, precision and traps touched. Paid — only on a task's «Платні прогони» line or the owner's `--owner-approved`; `--score FILE` and `--sandbox DIR` are free. Results: `baseline/claw/simplifier-evals-2026-10-03.json`. |
+| `run_simplifier_evals.py` | Measures the `simplifier` agent (board 010): `scenarios/simplifier/project/` laid over the reference project plants six kinds of excess and four traps (`expected.json`); each run is a real headless session scored for recall, precision and traps touched. Paid — only on a task's «Платні прогони» line or the owner's `--owner-approved`; `--score FILE` and `--sandbox DIR` are free. Results: `baseline/linux-ubuntu-22.04/simplifier-evals-2026-10-03.json`. |
 | `needs_audit.py` | `python3 evals/needs_audit.py <ref>`: has any text the model reads changed since `<ref>`, and which files. Exit 0 = no audit due. |
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |
 | `permission_rules.py` | A reference matcher for Bash permission rules as the docs state them (`*` any text, `:*`, exact, compound commands). What a deny list refuses, before it is applied. |
-| `baseline/` | Recorded results. `clean-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `Laos-MacBook-Pro/` on the author's macOS machine (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json`, then `results-package-7.json` (96), then `results-package-memory.json` (105), then `results-package-costs.json` (114 scenarios); then `claw/results-task-010.json` (118: those plus the simplifier's four, board 010); the everyday reference now is `claw/results-task-020.json` (119: plus `vs-bypass-without-marker`, board 020); `gate-evals-package-7.json` holds the gate script's results; `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
+| `baseline/` | Recorded results, one folder per environment. `linux-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `linux-ubuntu-26.04/` holds the v0.8.0–v0.9.0 runs and the home-hooks run; `macos-14/` the packages recorded on macOS (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json`; `linux-ubuntu-22.04/` everything since: `results-package-7.json` (96), then `results-package-memory.json` (105), then `results-package-costs.json` (114 scenarios); then `results-task-010.json` (118: those plus the simplifier's four, board 010); the everyday reference now is `results-task-020.json` (119: plus `vs-bypass-without-marker`, board 020), `gate-evals-package-7.json` the gate script's results, `audit-v0.12.0.json` the release audit; in `macos-14/`, `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
 
 ## Quick start
 
 ```bash
 # The everyday check: one command, temporary sandbox, nothing left behind.
 python3 evals/run_hook_scenarios.py --engine-ref HEAD \
-  --compare evals/baseline/claw/results-task-020.json
+  --compare evals/baseline/linux-ubuntu-22.04/results-task-020.json
 
 # Two engine versions against each other.
 python3 evals/run_hook_scenarios.py --engine-ref v0.8.0 --record-only --out /tmp/old.json
 python3 evals/run_hook_scenarios.py --engine-ref HEAD   --record-only --out /tmp/new.json
 python3 evals/compare.py /tmp/old.json /tmp/new.json --details
 ```
+
+### Baselines by environment (board 030)
+
+A folder under `baseline/` is named after the environment — the operating system and its version,
+as `python3 evals/environment.py` prints it — and never after a machine or its owner.
+
+- **Writing.** `@env` in a path is this environment's folder: `--out evals/baseline/@env/results-x.json`.
+  A script refuses (exit 2) to record into another environment's folder, and the file it writes
+  carries the name (`environment.name`; `environment` in an audit or simplifier file).
+- **Reading.** `--compare evals/baseline/@env/…` reads this environment's file. A file names its
+  environment itself; one recorded before board 030 is taken to be of the folder it lies in.
+- **Across environments.** `compare.py` and `compare_audits.py` name the environment of each side
+  and print `CROSS-ENVIRONMENT COMPARISON: …` when they differ — a difference may then be the
+  environment's, not the engine's. `engine.py release` compares with the newest baseline of its own
+  environment and, having none, says that the comparison is cross-environment.
+
+`tests/test_baseline_environments.py` checks the names, the folders and the three behaviours.
 
 `expect` values describe the current engine, so an older ref is recorded with `--record-only`.
 Any directory of hooks can be measured, not only a sandbox's own — for example the user-level
@@ -69,8 +87,8 @@ judgement is a model's, so it is measured in real headless sessions, several run
 
 ```bash
 python3 evals/needs_audit.py v0.11.0                              # is an audit due at all?
-python3 evals/run_audit_scenarios.py --tier smoke --out evals/baseline/<machine>/audit-<ref>.json
-python3 evals/run_audit_scenarios.py --tier full --max-cost 35 --out evals/baseline/<machine>/audit-<tag>.json
+python3 evals/run_audit_scenarios.py --tier smoke --out evals/baseline/@env/audit-<ref>.json
+python3 evals/run_audit_scenarios.py --tier full --max-cost 35 --out evals/baseline/@env/audit-<tag>.json
 python3 evals/run_audit_scenarios.py --runs 1 --only 02          # a targeted re-run
 ```
 
@@ -133,7 +151,7 @@ with the `pending` ids until the last run lands. A crash or Ctrl-C therefore kee
 paid for, and
 
 ```bash
-python3 evals/run_audit_scenarios.py --runs 3 --out evals/baseline/<machine>/audit-<ref>.json --resume
+python3 evals/run_audit_scenarios.py --runs 3 --out evals/baseline/@env/audit-<ref>.json --resume
 ```
 
 continues it: recorded runs are kept, only the missing ones are performed. The file carries

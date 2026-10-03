@@ -7,7 +7,7 @@
 4. Запусти /feature-architect engine-package-3b-finish. Усі пункти нижче — вимоги власника. Критик перевіряє, як ти їх виконав, але самих вимог не переглядає.
 5. Один зріз = один commit. Повідомлення англійською, з поясненням, чому зроблено саме так. Після кожного зрізу прогони:
    - усі hook-checks/test_*.py;
-   - золотий набір проти evals/baseline/Laos-MacBook-Pro/results-package-3b.json;
+   - золотий набір проти evals/baseline/macos-14/results-package-3b.json;
    - ruff і mypy --strict через uvx для змінених Python-файлів.
 6. Час у записах пиши лише в UTC, з date -u.
 7. Решта правил із docs/plan/package-3b.md діє й тут.
@@ -24,7 +24,7 @@
    - Повідомлення про блокування має називати підкоманду, а не друге слово команди.
    - Перепоною для push лишається правило ask у settings.json, force push заборонено. Закріпи це тестом у test_commit_policy.py: Bash(git push:*) є в ask, а Bash(git push --force*) і Bash(git push -f *) є в deny.
    - Сценарії: bd-push-on-main і bd-push-on-protected-branch-in-worktree тепер чекають allow. Додай bd-commit-on-unattended-branch-in-worktree з очікуванням allow, щоб визначення гілки у worktree лишилось під тестом.
-   - Файл evals/baseline/clean-ubuntu-24.04/results-push-policy.json у цій гілці — це копія результатів 3а під чужим іменем. Перейменуй його відповідно до вмісту й онови посилання.
+   - Файл evals/baseline/linux-ubuntu-24.04/results-push-policy.json у цій гілці — це копія результатів 3а під чужим іменем. Перейменуй його відповідно до вмісту й онови посилання.
 3. Сесії без нагляду: session-claude.sh передає режим явно, --permission-mode acceptEdits. Після S7 defaultMode лежить лише в особистому шарі, і сесії без нагляду не повинні від нього залежати. Додай тест на рядок запуску.
 4. Особистий шар user/settings.json:
    - defaultMode "auto" замість acceptEdits;

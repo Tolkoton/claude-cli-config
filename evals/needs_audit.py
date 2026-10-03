@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None, root: Path | None = None) -> int:
         print(f"{head} — hook files whose own strings reach the model (read the diff: words or only logic?):")
         for line in maybe:
             print(f"  {line}")
-    print("next: python3 evals/run_audit_scenarios.py --tier smoke --out evals/baseline/$(hostname)/audit-<ref>.json"
+    print("next: python3 evals/run_audit_scenarios.py --tier smoke --out evals/baseline/@env/audit-<ref>.json"
           "   (the full tier only before a version tag)")
     return 1
 

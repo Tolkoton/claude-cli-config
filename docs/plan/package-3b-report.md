@@ -15,7 +15,7 @@ push-нуто, нічого не злито. План — `docs/plan/package-3b.
 | 4 | `60300d6` | **S3** політика commit-ів за середовищем: таблиця в hook-у, перемикач `CLOUD_COMMIT_POLICY` (off) у `project.env`, `env-probe.sh`, `commit_checkpoint.sh` (суфіксна гілка, `--staged`, дзеркало хмарного правила) | `test_commit_policy` 20/20, `test_commit_checkpoint` 19/19, `test_env_probe` 15/15; 4 нові сценарії |
 | 5 | `8dfec4c` | **S4** deny-список: точні правила кореня, `-fr` дзеркалить `-rf`, правило `./*` прибрано; у hook-у паритет `-rf`/`-fr`; `evals/permission_rules.py` | `test_root_delete_deny` 37/37; 5 нових сценаріїв |
 | 6 | `179ed43` | **S5** `install.sh` відмовляється від особистої навички з іменем навички/команди двигуна; префікс `my-` | `test_install_collision` 12/12 (разом зі справжнім `install.sh` у тимчасову домівку) |
-| 7 | `6b95cb7` | **S6** `docs/engine-limits.md`, особистий шар у `TEMPLATE-SETUP.md`, застарілий запис escalations закрито, карта власності, `evals/README`, `AGENTS.md`, еталон `evals/baseline/Laos-MacBook-Pro/results-package-3b.json` | `test_ownership` 49/49; еталон 86/86 |
+| 7 | `6b95cb7` | **S6** `docs/engine-limits.md`, особистий шар у `TEMPLATE-SETUP.md`, застарілий запис escalations закрито, карта власності, `evals/README`, `AGENTS.md`, еталон `evals/baseline/macos-14/results-package-3b.json` | `test_ownership` 49/49; еталон 86/86 |
 | 8 | (цей) | записи: escalations (часові мітки вирівняно за commit-ами), parked (S7–S9), ledger, цей звіт | — |
 
 Підсумок після останнього commit-а: 22 набори hook-checks зелені (8 нових); сценарії
@@ -160,7 +160,7 @@ commit-и цієї гілки — доказ у дії.
   `env-probe.sh`, `commit_checkpoint.sh` — engine (постачаються). `test_ownership` 49/49.
 - `docs/TEMPLATE-SETUP.md` Step 3: таблиця «спільне / особисте / локальне для машини»,
   `install --personal`, префікс `my-`, 9 hook-ів, посилання на обмеження.
-- Еталон `evals/baseline/Laos-MacBook-Pro/results-package-3b.json`: 86/86, macOS 14.8.9
+- Еталон `evals/baseline/macos-14/results-package-3b.json`: 86/86, macOS 14.8.9
   (Darwin 23.6.0), jq 1.8.2, Python 3.12.3, записаний з commit-а S5 (S6 hook-ів не чіпає);
   фінальний HEAD проти нього — тотожний.
 - Задумані відмінності від `results-push-policy.json` (усі — нові id): `bd-commit-cloud-switch-off`,
@@ -179,7 +179,7 @@ commit-и цієї гілки — доказ у дії.
 | `3b-S3-cloud-switch` | перемикач у `project.env`, читається `sed`; «гілка сесії» — будь-яка незахищена; зонд друкує імена змінних, значення — за allow-list | `project.env` — наявна поверхня конфігурації hook-ів; префікс хмарної гілки — саме те, що зонд має спостерегти, а не вгадувати |
 | `3b-S4-dot-slash-rule` | прибрано і правило `./*`; `~/*`, `$HOME*`, `--recursive *` лишено | той самий дефект, що й у кореня (`rm -rf ./build` заборонявся); інші нічого спостережуваного не змінили б |
 | `3b-S5-collision-scope` | збіг перевіряється з навичками **і** командами, не з агентами; префікс `my-`; відмова цілком, не пропуск одного | навички й команди ділять простір `/<ім'я>`; напівзадеплоєний набір непомітніший за жоден |
-| `3b-S6-baseline-name` | тека `Laos-MacBook-Pro` (LocalHostName); запис із commit-а S5 | S6 hook-ів не чіпає |
+| `3b-S6-baseline-name` | тека за LocalHostName машини (з задачі 030 — `macos-14`); запис із commit-а S5 | S6 hook-ів не чіпає |
 
 Відхилення від контракту феатур-критика (раунд 1, O1 — «прибери stand-down») зафіксоване як
 рішення; його валідну половину (O5 — exit 0 без маркера невідрізнимий від allow) прийнято.

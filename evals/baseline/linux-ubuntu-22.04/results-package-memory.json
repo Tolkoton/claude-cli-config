@@ -1,22 +1,22 @@
 {
-  "label": "package 3c, macOS 14 (Darwin 23.6.0) on Laos-MacBook-Pro, jq present, sandbox installed by engine.py; the layout after the move (.engine/, .claude/state/); same 87 scenarios as results-package-3b-finish.json with their paths updated",
-  "recorded_utc": "2026-10-02T12:25:04Z",
+  "label": "package B (memory) — lesson queue carried by the Stop gate, the overseer hook and env-check.sh; Linux (Ubuntu 22.04); results-package-7.json plus lq-* (8) and vs-block-reaches-the-lesson-queue",
+  "recorded_utc": "2026-10-03T09:41:25Z",
   "sandbox": {
     "engine_ref": "HEAD",
-    "engine_commit": "24abb7dc365b6b6209f4174442ef9dcfd3164617",
+    "engine_commit": "7accd9755d9bc1389b247d46ab9b931eba457d8f",
     "shipped_supervision_mode": "absent",
-    "installed_by": "evals/make_sandbox.sh: engine.py install --ref 24abb7dc365b6b6209f4174442ef9dcfd3164617",
+    "installed_by": "evals/make_sandbox.sh: engine.py install --ref 7accd9755d9bc1389b247d46ab9b931eba457d8f",
     "audit_fixtures": false,
-    "created_utc": "2026-10-02T12:24:03Z"
+    "created_utc": "2026-10-03T09:40:54Z"
   },
   "hooks_dir": "<SANDBOX>/.claude/hooks",
   "environment": {
-    "platform": "macOS-14.8.9-x86_64-i386-64bit",
-    "python": "3.12.3",
-    "bash": "GNU bash, version 3.2.57(1)-release (x86_64-apple-darwin23)",
-    "jq": "jq-1.8.2",
-    "uv": "uv 0.12.6 (Homebrew 2026-08-25 x86_64-apple-darwin)",
-    "git": "git version 2.39.5 (Apple Git-154)"
+    "platform": "Linux-6.8.0-1070-gcp-x86_64-with-glibc2.35",
+    "python": "3.12.13",
+    "bash": "GNU bash, version 5.1.16(1)-release (x86_64-pc-linux-gnu)",
+    "jq": "jq-1.6",
+    "uv": "uv 0.10.12 (x86_64-unknown-linux-gnu)",
+    "git": "git version 2.34.1"
   },
   "results": [
     {
@@ -429,7 +429,7 @@
       "outcomes": [
         "allow"
       ],
-      "detail": "",
+      "detail": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"gate: src/refproj/scratch.py was rewritten by the formatter; re-read it before your next edit.\"}}",
       "file_changed": true,
       "expect_file_changed": true,
       "pass": true
@@ -453,7 +453,7 @@
       "outcomes": [
         "allow"
       ],
-      "detail": "",
+      "detail": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"gate: src/refproj/scratch.py was rewritten by the formatter; re-read it before your next edit.\"}}",
       "file_changed": true,
       "expect_file_changed": true,
       "pass": true
@@ -465,7 +465,7 @@
       "outcomes": [
         "allow"
       ],
-      "detail": "",
+      "detail": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"gate: data/sample.json was rewritten by the formatter; re-read it before your next edit.\"}}",
       "file_changed": true,
       "expect_file_changed": true,
       "pass": true
@@ -509,7 +509,7 @@
       "outcomes": [
         "allow"
       ],
-      "detail": "✓ verify-on-stop: all checks passed",
+      "detail": "",
       "pass": true
     },
     {
@@ -519,7 +519,7 @@
       "outcomes": [
         "allow"
       ],
-      "detail": "✓ verify-on-stop: all checks passed",
+      "detail": "",
       "pass": true
     },
     {
@@ -530,7 +530,7 @@
       "outcomes": [
         "block"
       ],
-      "detail": "TYPECHECK FAILED (mypy):",
+      "detail": "TYPECHECK FAILED (uv run mypy src/refproj/pricing.py):",
       "pass": true
     },
     {
@@ -541,7 +541,7 @@
       "outcomes": [
         "block"
       ],
-      "detail": "TYPECHECK FAILED (mypy):",
+      "detail": "TYPECHECK FAILED (uv run mypy src/refproj/pricing.py):",
       "pass": true
     },
     {
@@ -552,7 +552,7 @@
       "outcomes": [
         "block"
       ],
-      "detail": "LINT FAILED (ruff check):",
+      "detail": "LINT FAILED (uv run ruff check --force-exclude src/refproj/pricing.py):",
       "pass": true
     },
     {
@@ -563,7 +563,7 @@
       "outcomes": [
         "block"
       ],
-      "detail": "TESTS FAILED (pytest):",
+      "detail": "TESTS FAILED (uv run pytest -x --no-header -q tests/test_pricing.py):",
       "pass": true
     },
     {
@@ -594,7 +594,7 @@
       "outcomes": [
         "block"
       ],
-      "detail": "TYPECHECK FAILED (mypy):",
+      "detail": "TYPECHECK FAILED (uv run mypy src/refproj/newmod.py):",
       "pass": true
     },
     {
@@ -605,7 +605,122 @@
       "outcomes": [
         "block"
       ],
-      "detail": "TYPECHECK FAILED (mypy):",
+      "detail": "TYPECHECK FAILED (uv run mypy src/refproj/pricing.py):",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-type-ignore",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BYPASS GUARD src/refproj/pricing.py:29 [bypass/type-ignore] the diff adds a type-ignore — the gate is passed by silencing it, not by fixing the code. fix the cause; or put `# gate-allow: <why, two wor",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-noqa",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BYPASS GUARD src/refproj/pricing.py:3 [bypass/noqa] the diff adds a noqa — the gate is passed by silencing it, not by fixing the code. fix the cause; or put `# gate-allow: <why, two words at least>` o",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-skip",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BYPASS GUARD tests/test_skipped.py:4 [bypass/skip] the diff adds a skip — the gate is passed by silencing it, not by fixing the code. fix the cause; or put `# gate-allow: <why, two words at least>` on",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-xfail",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BYPASS GUARD tests/test_xfailed.py:4 [bypass/xfail] the diff adds a xfail — the gate is passed by silencing it, not by fixing the code. fix the cause; or put `# gate-allow: <why, two words at least>` ",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-ruff-config",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BYPASS GUARD pyproject.toml [bypass/config] the diff changes the [tool.ruff] / [tool.mypy] settings — a gate that can be re-tuned by the work it judges proves nothing. if the change is meant: add a li",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-mypy-config",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "BYPASS GUARD",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "BYPASS GUARD pyproject.toml [bypass/config] the diff changes the [tool.ruff] / [tool.mypy] settings — a gate that can be re-tuned by the work it judges proves nothing. if the change is meant: add a li",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-justified",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-string-mention",
+      "hook": "verify-on-stop.sh",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "vs-bypass-counter-escalates",
+      "hook": "verify-on-stop.sh",
+      "expect": [
+        "block",
+        "block",
+        "allow"
+      ],
+      "outcomes": [
+        "block",
+        "block",
+        "allow"
+      ],
+      "detail": "gate[stop] 1 finding(s), exit 2",
+      "pass": true
+    },
+    {
+      "id": "vs-block-reaches-the-lesson-queue",
+      "hook": "verify-on-stop.sh",
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED",
+      "outcomes": [
+        "block"
+      ],
+      "detail": "TYPECHECK FAILED (uv run mypy src/refproj/pricing.py):",
+      "file_changed": true,
+      "expect_file_changed": true,
       "pass": true
     },
     {
@@ -918,6 +1033,111 @@
       "detail": "{\"systemMessage\": \"Complexity budget exceeded (warn mode, not blocking) \\u2014 see .claude/state/overseer/complexity-report.md\"}",
       "file_changed": true,
       "expect_file_changed": true,
+      "pass": true
+    },
+    {
+      "id": "lq-digest-empty-is-silent",
+      "hook": "lesson_queue.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "lq-digest-names-the-queue",
+      "hook": "lesson_queue.py",
+      "expect": "allow",
+      "expect_detail_contains": "## lessons",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "## lessons",
+      "pass": true
+    },
+    {
+      "id": "lq-stuck-twice-is-quiet",
+      "hook": "lesson_queue.py",
+      "expect": [
+        "allow",
+        "allow"
+      ],
+      "expect_detail_contains": "",
+      "outcomes": [
+        "allow",
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "lq-stuck-third-gives-the-protocol",
+      "hook": "lesson_queue.py",
+      "expect": [
+        "allow",
+        "allow",
+        "allow"
+      ],
+      "expect_detail_contains": "STUCK PROTOCOL",
+      "outcomes": [
+        "allow",
+        "allow",
+        "allow"
+      ],
+      "detail": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUseFailure\", \"additionalContext\": \"STUCK PROTOCOL: the same failure has now happened 3 times in a row (Bash pytest -x :: AssertionError: 3 != 4). Stop",
+      "pass": true
+    },
+    {
+      "id": "lq-stuck-success-resets",
+      "hook": "lesson_queue.py",
+      "expect": [
+        "allow",
+        "allow",
+        "allow"
+      ],
+      "outcomes": [
+        "allow",
+        "allow",
+        "allow"
+      ],
+      "detail": "",
+      "pass": true
+    },
+    {
+      "id": "lq-collect-parked-item",
+      "hook": "lesson_queue.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "1 new candidate(s)",
+      "file_changed": true,
+      "expect_file_changed": true,
+      "pass": true
+    },
+    {
+      "id": "lq-collect-nothing-to-collect",
+      "hook": "lesson_queue.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "0 new candidate(s)",
+      "file_changed": false,
+      "expect_file_changed": false,
+      "pass": true
+    },
+    {
+      "id": "lq-collect-first-run-seeds-history",
+      "hook": "lesson_queue.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "0 new candidate(s)",
+      "file_changed": false,
+      "expect_file_changed": false,
       "pass": true
     }
   ]

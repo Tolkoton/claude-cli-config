@@ -134,6 +134,7 @@ RELEASE_VERSION = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 RELEASE_TESTS = ("bash", "tests/run_all.sh")
 RELEASE_GOLDEN = "evals/run_hook_scenarios.py"
 RELEASE_BASELINES = "evals/baseline/*/results-*.json"
+RELEASE_ENVIRONMENT = "evals/environment.py"
 SUPERVISOR_STOP_FIRST = "unattended supervisor appears live ({why}): stop it first; the state is not moved"
 
 
@@ -1199,12 +1200,28 @@ def check_fast_forward(src: EngineSource, head: str, remote: str) -> None:
                 )
 
 
+def release_environment(src: EngineSource) -> str | None:
+    """The name of the folder this environment's baselines live in, as the evals name it."""
+    script = src.root / RELEASE_ENVIRONMENT
+    if not script.is_file():
+        return None
+    res = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, check=False)
+    return res.stdout.strip() or None if res.returncode == 0 else None
+
+
 def newest_baseline(src: EngineSource) -> str:
-    """The golden-set results file committed last: the baseline the task plans call "the newest"."""
+    """The golden-set results file committed last — of THIS environment when it has one. A
+    baseline of another environment is the fallback, and the release says so."""
     added = git(src.root, "log", "--diff-filter=A", "--format=", "--name-only", "HEAD", "--", RELEASE_BASELINES).decode().split("\n")
-    for path in added:
-        if path and (src.root / path).is_file():
+    present = [path for path in added if path and (src.root / path).is_file()]
+    here = release_environment(src)
+    for path in present:
+        if here and Path(path).parent.name == here:
             return path
+    if present:
+        if here:
+            print(f"  note    no golden-set baseline was recorded on {here}; comparing with {present[0]} — a CROSS-ENVIRONMENT comparison")
+        return present[0]
     raise EngineError(f"no golden-set baseline ({RELEASE_BASELINES}) in this repository; pass --baseline FILE")
 
 
@@ -1328,7 +1345,7 @@ def build_parser() -> argparse.ArgumentParser:
     release.add_argument(
         "--baseline",
         metavar="FILE",
-        help=f"the golden-set results to compare with (default: the {RELEASE_BASELINES} committed last)",
+        help=f"the golden-set results to compare with (default: the {RELEASE_BASELINES} committed last, this environment's first)",
     )
     release.add_argument("--remote", default="origin", help="the remote to push to (default: origin)")
     release.add_argument("--message", metavar="TEXT", help="the tag's message (default: `engine <version>`)")

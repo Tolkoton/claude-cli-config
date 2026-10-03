@@ -19,7 +19,7 @@ working: the overseer's records, slice contracts, architecture, premises, spikes
 
 1. Every test suite green.
 2. Scenario set identical to `results-package-3b-finish.json` except intended, listed
-   differences; new reference `evals/baseline/Laos-MacBook-Pro/results-package-3c.json`.
+   differences; new reference `evals/baseline/macos-14/results-package-3c.json`.
 3. The audit behaves the same after the move as before (`audit-pre-3c.json` vs
    `audit-post-3c.json`); every difference explained. Budget for both runs: $60.
 4. `engine.py update --dry-run` on the real `~/Documents/GitHub/decana` (read-only) shows

@@ -5,12 +5,12 @@
 2. Лише нові commit-и, нічого не відкочуй.
 3. Збережи цей текст дослівно в docs/plan/package-2b.md і закоміть першим. Якщо текст обривається, зупинись і скажи.
 4. Запусти /feature-architect engine-package-2b. Пункти нижче — вимоги власника. Критик перевіряє виконання, але не самі вимоги.
-5. Один зріз = один commit. Після кожного прогони усі набори тестів і золотий набір проти evals/baseline/Laos-MacBook-Pro/results-package-3c.json. Час — у UTC.
+5. Один зріз = один commit. Після кожного прогони усі набори тестів і золотий набір проти evals/baseline/macos-14/results-package-3c.json. Час — у UTC.
 6. Решта правил — із docs/plan/package-3c.md.
 
 ЩО ЗРОБИТИ
 0. Аудит на v0.11.0, ще до будь-якої зміни тексту:
-   python3 evals/run_audit_scenarios.py --engine-ref v0.11.0 --runs 3 --out evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json
+   python3 evals/run_audit_scenarios.py --engine-ref v0.11.0 --runs 3 --out evals/baseline/macos-14/audit-v0.11.0.json
    Якщо прогін обірветься, продовж його з --resume. Це водночас перевірка пакета 3в і база «до» для цього пакета. Ліміт — 35 доларів.
 1. Правила двигуна виносяться з CLAUDE.md в окремий файл у .claude/. Він належить двигуну, тож оновлюється через engine.py. CLAUDE.md лише імпортує його через @.
 2. Постійний контекст — CLAUDE.md, AGENTS.md і все, що вони імпортують, — разом не більше 200 рядків. Рідко потрібні розділи (hook-и в деталях, робота без нагляду) переїжджають у довідки .claude/references/, які читаються на вимогу. Тест рахує рядки.

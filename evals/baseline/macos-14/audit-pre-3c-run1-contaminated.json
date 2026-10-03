@@ -1,5 +1,5 @@
 {
-  "label": "package 3c, BEFORE the move: engine at the plan commit 2788357 (== v0.10.1 + docs/plan/package-3c.md), macOS Laos-MacBook-Pro, default model, setting sources project,local | echo annotated from the transcripts of engine-audit-bjyx5crb (evals/annotate_echo.py): 0 refused",
+  "label": "package 3c, BEFORE the move: engine at the plan commit 2788357 (== v0.10.1 + docs/plan/package-3c.md), macOS 14, default model, setting sources project,local | echo annotated from the transcripts of engine-audit-bjyx5crb (evals/annotate_echo.py): 0 refused",
   "recorded_utc": "2026-10-02T11:26:10Z",
   "engine_ref": "2788357",
   "claude_version": "2.1.287 (Claude Code)",

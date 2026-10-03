@@ -23,7 +23,7 @@ by hand.
 ## Acceptance criteria (the owner's, from the program's "ГОТОВО, КОЛИ")
 
 - Every suite green (`bash tests/run_all.sh`); the golden set identical to the newest reference
-  (`evals/baseline/Laos-MacBook-Pro/results-package-costs.json`) except what this package means to
+  (`evals/baseline/linux-ubuntu-22.04/results-package-costs.json`) except what this package means to
   change (nothing is meant to change: no hook is touched).
 - The live check passed: a task `000-перевірка` goes `todo → doing → done` with a report through
   the real `claude`, driven by the runner, for at most 3 USD.

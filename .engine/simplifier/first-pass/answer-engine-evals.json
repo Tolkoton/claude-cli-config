@@ -21,7 +21,7 @@
       },
       {
         "source": "grep",
-        "ref": "evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json:2",
+        "ref": "evals/baseline/macos-14/audit-v0.11.0.json:2",
         "detail": "all seven audit-*.json files under evals/baseline/ contain \"echo\" fields (6-33 each); the five pre-2b files carry the label 'echo annotated from the transcripts ... (evals/annotate_echo.py)', the two later ones were recorded by the checking runner"
       },
       {

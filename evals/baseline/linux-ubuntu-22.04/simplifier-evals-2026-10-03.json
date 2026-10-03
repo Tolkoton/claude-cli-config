@@ -1,6 +1,6 @@
 {
   "recorded_utc": "2026-10-03T16:50:01Z",
-  "host": "claw",
+  "environment": "linux-ubuntu-22.04",
   "engine_commit": "e9158e1099b355911264f1c2a143ec8d20703a3e",
   "planted": [
     "abstraction-with-one-implementation",

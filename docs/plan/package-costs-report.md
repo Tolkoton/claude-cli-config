@@ -132,7 +132,7 @@ python3 evals/needs_audit.py origin/unattended/2026-10-03-package-memory | head 
 
 ```bash
 python3 evals/run_audit_scenarios.py --engine-ref HEAD --tier full --max-cost 35 \
-  --out evals/baseline/claw/audit-v0.12.0.json     # hostname = claw; далі один раз із --resume
+  --out evals/baseline/linux-ubuntu-22.04/audit-v0.12.0.json     # середовище linux-ubuntu-22.04; далі один раз із --resume
 ```
 
 - **Верхівка гілки на час аудиту — `39e7325`**; після нього додано лише записи (звіт, порівняння,
@@ -143,9 +143,9 @@ python3 evals/run_audit_scenarios.py --engine-ref HEAD --tier full --max-cost 35
   дійшов до кінця. Заплачене не втрачено.
 - **Збіг із очікуваним: 30 із 33.**
 
-Порівняння з `evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json` (`compare_audits.py`, повний
+Порівняння з `evals/baseline/macos-14/audit-v0.11.0.json` (`compare_audits.py`, повний
 текст — `.engine/overseer/audit-costs-compare.md`). Порівняння **між машинами**: v0.11.0 записано
-на macOS, цей — на Linux `claw`; Claude Code 2.1.287 проти 2.1.288.
+на macOS, цей — на Linux (Ubuntu 22.04); Claude Code 2.1.287 проти 2.1.288.
 
 | сценарій | очікується | v0.11.0 | v0.12.0 | висновок скрипта |
 |---|---|---|---|---|
@@ -226,6 +226,6 @@ v0.11.0 можна лише умовно.
 
 - Нічого не заблоковано і нічого нового не відкладено цим пакетом. Раніше відкладені вузли
   (`.engine/overseer/parked.md`) лишились як були; запис `N0.3-full-audit` із гілки 2б фактично
-  закрито цим аудитом (сесії на `claw` увійшли в систему) — позначити його RESUMED має людина.
+  закрито цим аудитом (сесії на сервері увійшли в систему) — позначити його RESUMED має людина.
 - Рішення по сценах 10 і 05 (вище).
 - Мітку версії `v0.12.0` і push я не робив.

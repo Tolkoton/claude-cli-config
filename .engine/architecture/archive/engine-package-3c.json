@@ -7,7 +7,7 @@
       "title": "audit-pre: run_audit_scenarios --runs 3 on the plan commit 2788357 -> audit-pre-3c.json (started before any skill text changed)",
       "deps": [],
       "status": "done",
-      "evidence": "evals/baseline/Laos-MacBook-Pro/audit-pre-3c.json recorded on the plan commit 2788357 (--runs 3): matched 2/30, 16 tooling errors, $8.93 — see the report for what that says about the runner, not the move."
+      "evidence": "evals/baseline/macos-14/audit-pre-3c.json recorded on the plan commit 2788357 (--runs 3): matched 2/30, 16 tooling errors, $8.93 — see the report for what that says about the runner, not the move."
     },
     {
       "id": "C2",

@@ -268,7 +268,7 @@ escalations — без «ratified 2026-08-27 (see audit.md)» і «node S3»; ш
   поява файла — тоді `cat ~/engine-night/night-1.md` і виконання за його правилами.
 - **Повний прогін «після» на одному commit-і** (b72c218 або пізнішому): ~$20 поверх ліміту
   пункту 7. Команда: `python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 --out
-  evals/baseline/Laos-MacBook-Pro/audit-post-2b-full.json`, потім `evals/compare_audits.py`
+  evals/baseline/macos-14/audit-post-2b-full.json`, потім `evals/compare_audits.py`
   з тими самими аргументами, що в `.engine/overseer/audit-2b-compare.md`. Клас: гроші.
 - **Загартувати промпт сценаріїв** (щоб сесія переказувала хід замість відмовлятись —
   наприклад, назвати його відтворенням записаного ходу для вправи аудиту): змінює
