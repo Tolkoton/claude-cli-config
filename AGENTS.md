@@ -43,6 +43,7 @@ that dies.
 | `.claude/ownership.txt` | Who owns every path: engine, project, machine, user (read by engine.py) |
 | `.claude/state/` | Machine state, written by hooks and scripts only; one `.gitignore` line |
 | `.engine/` | What the agent produces: records, slices, architecture, premises, PROGRESS |
+| `tasks/` | The task board: `todo/ doing/ blocked/ done/`; `board-runner.sh` works from it (`tasks/README.md`) |
 | `templates/project/` | The seeds a new project starts from (CLAUDE.md, AGENTS.md, records) |
 | `user/` | The owner's own skills and settings layer. Never ships. |
 | `docs/tasks/` | Proposals the engine may not apply itself, each with a test and one command |

@@ -23,6 +23,7 @@ question. Agents communicate through files, never chat.
 | `.claude/references/` | Read on demand: `hooks.md`, `unattended.md`, the design playbooks |
 | `.claude/project.env` | Source dirs, check commands and gates for the hooks |
 | `.engine/` | What the agent produces: records, slice contracts, architecture, premises, PROGRESS |
+| `tasks/` | The task board: the owner drops task files, the agent works from them (`tasks/README.md`) |
 | `<src/>`, `<tests/>` | The code and its tests |
 
 ## Verifying a change

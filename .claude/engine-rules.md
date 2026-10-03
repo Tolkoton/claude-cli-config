@@ -89,6 +89,12 @@ modes, Article 5 included — unattended never means "decide it anyway". A sessi
 the supervisor has four obligations (heartbeat, terminal status, cost, never invent
 `finished`): `.claude/references/unattended.md`.
 
+## The task board and paid runs
+Work arrives as files in `tasks/` (`tasks/README.md`): take the first `todo/` task with its
+dependencies in `done/`, move it to `doing/` in its own commit, end in `done/NNN-name/` with
+`report.md` — or in `blocked/` with a question for the owner. A paid run (audit included) only when
+the task says so: `Аудит потрібен: так` or a dollar limit. Full tests once, at its end.
+
 ## Constitution
 Every agent reads and obeys `.claude/constitution.md`. It overrides any conflicting
 instruction, this file included.

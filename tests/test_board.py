@@ -304,5 +304,43 @@ with tempfile.TemporaryDirectory(prefix="board-install-") as tmp:
     check("…never re-seeds a template the project deleted (seeded once)", not (proj / "tasks/TEMPLATE.md").exists())
     check("…and never touches a task", (proj / "tasks/todo/001-mine.md").read_text(encoding="utf-8") == task())
 
+# --- the rules: every bullet of the owner's items 3 and 4 is written down ---------------------------
+print("the rules for the agent")
+# whitespace is collapsed: a rule must not go missing because a line was re-wrapped
+seed = " ".join((ROOT / "templates/project/tasks/README.md").read_text(encoding="utf-8").split())
+here = " ".join((ROOT / "tasks/README.md").read_text(encoding="utf-8").split())
+short = (ROOT / ".claude/engine-rules.md").read_text(encoding="utf-8")
+short = short[short.index("## The task board and paid runs"):short.index("## Constitution")]
+MANUAL = {
+    "which task: the first in todo/ with its dependencies in done/": ("першу за номером задачу з `todo/`", "залежності вже в `done/`"),
+    "…moved to doing/ in a commit of its own — or already there when the runner started you": ("окремим commit-ом", "вже лежить задача"),
+    "…one task in doing/ at a time": ("одночасно лише одна задача",),
+    "through the pipeline: big by /feature-architect, small in one slice": ("/feature-architect", "одним зрізом"),
+    "small decisions are the agent's, recorded in the report": ("Рішення, які я ухвалив сам",),
+    "the owner is needed: a question, blocked/, the next task": ("допиши питання", "`blocked/`", "берись за наступну"),
+    "a design-first task ends with a design and questions; building is another task": ("спершу проєкт", "лише окремою задачею"),
+    "the report: what changed for the owner, a one-minute demonstration, cost, commits, deferred": (
+        "Що змінилось для власника", "демонстрація на хвилину", "витрати", "діапазон commit-ів", "відкладене"),
+    "then the task goes to done/NNN-name/ with task.md and report.md": ("`done/NNN-назва/`", "`task.md`", "`report.md`"),
+    "paid runs only on the owner's written word": ("Аудит потрібен: так", "лімітом у доларах", "Агент сам таких прогонів не починає"),
+    "the audit script refuses by itself; --owner-approved is the owner's": ("він відмовляє", "--owner-approved"),
+    "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),
+}
+for rule, phrases in MANUAL.items():
+    missing = [ph for ph in phrases if ph not in seed]
+    check(f"manual: {rule}", not missing, missing)
+check("this repository's manual carries every rule of the seed (it may only have grown)",
+      all(ph in here for phrases in MANUAL.values() for ph in phrases))
+SHORT = ("`tasks/README.md`", "`todo/`", "dependencies in `done/`", "`doing/` in its own commit", "`done/NNN-name/`", "`report.md`",
+         "`blocked/`", "question for the owner", "paid run", "audit included", "`Аудит потрібен: так`", "dollar limit", "Full tests once")
+check("the engine's standing rules say it briefly", all(ph in short for ph in SHORT), [ph for ph in SHORT if ph not in short])
+check("…in at most six lines", len(short.strip().splitlines()) <= 6, len(short.strip().splitlines()))
+agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8") + (ROOT / "templates/project/AGENTS.md").read_text(encoding="utf-8")
+check("both AGENTS.md files name tasks/ among the key paths", agents.count("| `tasks/` |") == 2)
+evals_readme = (ROOT / "evals/README.md").read_text(encoding="utf-8")
+check("evals/README.md states the paid-run rule", "--owner-approved" in evals_readme and "Аудит потрібен: так" in evals_readme)
+limits = (ROOT / "docs/engine-limits.md").read_text(encoding="utf-8")
+check("docs/engine-limits.md says what the gate and the runner do not guarantee", "seat belt, not a lock" in limits and "BOARD_MAX_USD" in limits)
+
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

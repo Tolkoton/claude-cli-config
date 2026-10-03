@@ -75,6 +75,13 @@ python3 evals/run_audit_scenarios.py --runs 1 --only 02          # a targeted re
 
 ### When to audit — the rule (package costs)
 
+0. **Never without the owner's word (package board).** `run_audit_scenarios.py` starts no session
+   unless the one task in `tasks/doing/` says `Аудит потрібен: так`; it refuses before anything
+   else, exit 2. The owner, running it by hand outside the board, passes `--owner-approved` — in
+   their own terminal: inside a Claude Code session the flag does not count. An agent never
+   starts a paid run on its own judgement, this one or any other (`tasks/README.md`, «Платні
+   прогони»). `--tasks-dir` names another board; the deterministic suites use a fixture.
+
 1. **No audit unless text the model reads changed.** A verdict is a model's reading of words; a
    change to a test, an instrument, the installer or a record cannot move it. `needs_audit.py
    <ref>` answers the question from the diff between `<ref>` and the working tree (committed,

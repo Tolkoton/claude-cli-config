@@ -41,6 +41,34 @@ On the Linux server, prefer the unit: `sudo cp claude-unattended.service
 .claude/unattended/supervisor.sh --reset     # clear state for a fresh run (keeps cost)
 ```
 
+## The board runner — work from task files instead of a DAG
+
+`board-runner.sh` is the second way to run unattended: it takes its work from `tasks/` (manual:
+`tasks/README.md`) instead of the feature DAG, one task at a time, each in a fresh conversation.
+
+```bash
+bash .claude/unattended/board-runner.sh            # until nothing can move, then stop with a summary
+bash .claude/unattended/board-runner.sh --once     # one task
+bash .claude/unattended/board-runner.sh --status   # the status line and the board; runs nothing
+bash .claude/unattended/board-runner.sh --retry    # after `stalled` or `deadline`: a fresh clock and count
+```
+
+Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
+from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, and returns
+answered tasks from `tasks/blocked/`. It moves the task to `doing/` in its own commit and starts
+`claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
+A session that ends with the task still open is continued (`--resume`); a usage-limit notice
+waits 15 minutes. When the agent has moved the task to `done/` or `blocked/` the runner pushes
+the branch and takes the next one. It stops — always with `.claude/state/board/summary.md` —
+when `todo/` is empty or everything left waits for the owner (exit 0), after three attempts in a
+row without a commit, after twelve hours on one task, or when the task's budget
+(`BOARD_MAX_USD`) is spent (exit 1).
+
+What to read, in `.claude/state/board/`: `status` (one line: `state=… task=… since=<UTC>
+[reason=…]`), `events.log`, `costs.json`, `summary.md`, `logs/`. The numbers and paths are
+environment variables listed at the head of the script. `board.py` is the board's one reader
+(`next`, `summary`, …); `board_state.py` keeps what the runner remembers about each task.
+
 ## The decision the supervisor makes
 
 On every session exit, read `state.json`:

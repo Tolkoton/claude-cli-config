@@ -166,3 +166,32 @@ such exemption before the overseer, who judges it (check #4). What that rests on
   hide. That is a limit of the gate (package 7), unchanged here.
 - **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
   model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.
+
+## The task board, its runner and the paid-run gate
+
+- **The paid-run gate is a seat belt, not a lock.** `run_audit_scenarios.py` refuses unless the
+  task in `tasks/doing/` says `Аудит потрібен: так`, and `--owner-approved` does not count while
+  `CLAUDECODE` is set. The task file is the project's and an agent can edit it; an agent can
+  clear the variable or point `--tasks-dir` at another board. Each is a deliberate act that shows
+  in the diff or the transcript — the gate stops drift, not intent. Only that one script is
+  gated; for any other paid run the rule is text.
+- **The runner sees files and commits, nothing else.** A task is closed when it left
+  `tasks/doing/` for `done/` or `blocked/`. The runner does not read the report and does not
+  judge the work; a task moved to `done/` with nothing done is "done" to it. The overseer and
+  the Stop gate inside the session are what judge.
+- **The runner's own commits are made from a script**, where no hook sees them. It carries the
+  check itself: the work branch must match `unattended/*`, the checkout must be on it at every
+  commit, and it commits `tasks/` only. Its push goes to that one branch, never forced.
+- **Cost is what the sessions report.** A continued conversation is taken to report its running
+  total (seen in the operator's log, never proved with a paid probe); every attempt's raw figure
+  is kept in `.claude/state/board/costs.json`, so the other reading can be recomputed. A session
+  killed before it printed its result reports nothing, and its cost is not counted.
+- **`BOARD_MAX_USD` errs toward stopping early.** Each call gets `--max-budget-usd` with what the
+  task has left. Whether Claude Code counts that against the call or against a resumed
+  conversation's total was not probed; under the second reading a continuation stops sooner than
+  the cap, never later.
+- **The usage-limit notice is recognised by its wording** (a short reply containing "hit your …
+  limit"). A notice worded differently counts as an attempt without a commit; three of those
+  stop the runner, which is the safe side.
+- **The mode file is shared.** While the runner lives, `.claude/state/overseer/mode` says
+  `unattended` for every session in the repository, an interactive one included.
