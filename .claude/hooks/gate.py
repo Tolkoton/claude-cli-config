@@ -75,6 +75,8 @@ STEP_TIMEOUT_S = 900
 REPORT_REL = Path(".claude/state/gate/last-report.json")
 COUNT_REL = Path(".claude/state/gate/stop-count.json")
 PARKED_REL = Path(".engine/overseer/parked.md")
+NO_SLICE = "(none)"
+ESCALATIONS_REL = Path(".claude/state/gate/escalations.json")
 TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 40}
 HEADINGS = {"lint": "LINT FAILED", "typecheck": "TYPECHECK FAILED", "tests": "TESTS FAILED"}
 GATE_KEYS = ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD", "TEST_CMD_FULL", "FORMAT_CMD", "GATE_MAX_BLOCKS")
@@ -373,8 +375,9 @@ def justified(line: int, comments: dict[int, str], source_lines: list[str]) -> b
     return False
 
 
-def contract_allowances(root: Path) -> dict[str, str]:
-    allowed: dict[str, str] = {}
+def contract_grants(root: Path) -> dict[str, tuple[str, str]]:
+    """What the SEALED slice contracts exempt: kind or path -> (contract file name, reason)."""
+    grants: dict[str, tuple[str, str]] = {}
     for contract in sorted((root / ".engine" / "slices").glob("*.md")):
         # Only a SEALED contract speaks: the fingerprint written at approval must match, so the
         # party the guard judges cannot grant itself an exemption by editing a slice file.
@@ -388,8 +391,12 @@ def contract_allowances(root: Path) -> dict[str, str]:
             continue
         for match in CONTRACT_ALLOW_RE.finditer(text):
             if valid_reason(match["reason"].strip()):
-                allowed[match["what"].lower()] = contract.name
-    return allowed
+                grants[match["what"].lower()] = (contract.name, match["reason"].strip())
+    return grants
+
+
+def contract_allowances(root: Path) -> dict[str, str]:
+    return {what: name for what, (name, _reason) in contract_grants(root).items()}
 
 
 def guard_python(
@@ -626,16 +633,104 @@ def write_count(root: Path, session: str, count: int) -> None:
         pass
 
 
+def active_slice(root: Path) -> str | None:
+    """The slug of the slice .engine/PROGRESS.md marks IN PROGRESS (the convention overseer_stop.py
+    and complexity_budget.py read): a `.engine/slices/<slug>.md` path in that block, else the slug
+    of its `## Slice <slug>` heading. None when no slice is active."""
+    try:
+        text = (root / ".engine" / "PROGRESS.md").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    for block in re.split(r"(?=^## )", text, flags=re.MULTILINE):
+        if "IN PROGRESS" not in block.upper():
+            continue
+        named = re.search(r"\.engine/slices/([\w.-]+)\.md", block)
+        heading = re.search(r"^##\s+Slice\s+([\w.-]+)", block, re.MULTILINE)
+        found = named or heading
+        if found:
+            return found.group(1)
+    return None
+
+
+def read_escalations(root: Path) -> dict[str, Any]:
+    """The Stop gate's escalations: {"open": [...], "closed": [...], "refusals": [...]}."""
+    try:
+        data = json.loads((root / ESCALATIONS_REL).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    for key in ("open", "closed", "refusals"):
+        if not isinstance(data.get(key), list):
+            data[key] = []
+    return data
+
+
+def open_escalation(root: Path, stamp: str, report: Report) -> None:
+    """Machine state beside the parked entry: overseer_stop.py refuses an OVERSEER_PASS while an
+    escalation of the slice is open. In .claude/state/, which no agent tool may write — the park
+    queue is the agent's own file and could not carry a lock on the agent."""
+    data = read_escalations(root)
+    files = sorted({f.file for f in report.findings if f.severity == "block" and f.file})
+    head = git(root, "rev-parse", "-q", "--verify", "HEAD").stdout.strip()
+    data["open"].append({"stamp": stamp, "slice": active_slice(root) or NO_SLICE, "files": files,
+                         "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]})
+    try:
+        write_json(root / ESCALATIONS_REL, data)
+    except OSError as exc:
+        print(f"gate: cannot record the escalation in {ESCALATIONS_REL}: {exc}", file=sys.stderr)
+
+
+def close_escalation(root: Path, which: str) -> int:
+    """`gate.py --close-escalation <stamp|all>` — a HUMAN's answer to a parked gate question.
+
+    Refuses inside a Claude Code session (CLAUDECODE is set in every shell the agent's tools
+    start): hooks do not see a command a script runs, so this script carries the check itself.
+    The party the gate judged does not get to close the gate's question."""
+    if os.environ.get("CLAUDECODE"):
+        print("gate: --close-escalation is the owner's command and is refused inside a Claude Code "
+              "session (CLAUDECODE is set). Run it in your own terminal.", file=sys.stderr)
+        return 2
+    data = read_escalations(root)
+    closing = [e for e in data["open"] if which == "all" or e.get("stamp") == which]
+    if not closing:
+        stamps = ", ".join(str(e.get("stamp")) for e in data["open"]) or "none"
+        print(f"gate: no open escalation '{which}' (open: {stamps})", file=sys.stderr)
+        return 1
+    data["open"] = [e for e in data["open"] if e not in closing]
+    data["closed"].extend(e | {"closed_utc": utc_now()} for e in closing)
+    write_json(root / ESCALATIONS_REL, data)
+    path = root / PARKED_REL
+    try:
+        text = path.read_text(encoding="utf-8")
+        for entry in closing:
+            text = text.replace(f"## {entry['stamp']} — gate stop layer — PARKED",
+                                f"## {entry['stamp']} — gate stop layer — RESUMED", 1)
+        path.write_text(text, encoding="utf-8")
+    except OSError:
+        pass
+    for entry in closing:
+        print(f"gate: escalation {entry['stamp']} ({entry.get('slice')}) closed")
+    return 0
+
+
 def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> None:
+    stamp = utc_now()
+    open_escalation(root, stamp, report)
     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
     entry = (
-        f"\n## {utc_now()} — gate stop layer — PARKED\n"
+        f"\n## {stamp} — gate stop layer — PARKED\n"
         f"- Blocked on: the Stop gate blocked {blocks} turns in a row and was not satisfied\n"
         "- Class: human-input\n"
+        # While the escalation is open (.claude/state/gate/escalations.json) overseer_stop.py does
+        # not accept an OVERSEER_PASS for this slice (package costs).
+        f"- Slice: {active_slice(root) or NO_SLICE}\n"
         "- Reversibility: nothing was decided; the work is on disk and uncommitted\n"
         f"- Evidence: {report_path.relative_to(root) if report_path.is_relative_to(root) else report_path}\n"
         f"{top}\n"
-        "- Unblocks when: a human reads the report and fixes or accepts the finding\n"
+        "- Unblocks when: a human reads the report, fixes or accepts the finding, and runs in their "
+        f"own terminal `python3 .claude/hooks/gate.py --close-escalation {stamp}` (refused inside a "
+        "Claude Code session; until then no OVERSEER_PASS is accepted for this slice)\n"
         "- Continued with: the turn was allowed to end\n"
     )
     path = root / PARKED_REL
@@ -868,12 +963,18 @@ def emit_stop(report: Report, root: Path, hook: bool, session: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    parser.add_argument("--layer", required=True, choices=LAYERS)
+    parser.add_argument("--layer", choices=LAYERS)
+    parser.add_argument("--close-escalation", metavar="STAMP|all", default=None,
+                        help="the owner's command: close a parked Stop-gate escalation")
     parser.add_argument("--files", nargs="*", default=None, help="files to check (default: the diff)")
     parser.add_argument("--diff", dest="diff_ref", default=None, help="diff base (default: HEAD)")
     parser.add_argument("--hook", action="store_true", help="speak Claude Code's hook protocol")
     args = parser.parse_args(argv)
     root = project_root()
+    if args.close_escalation:
+        return close_escalation(root, args.close_escalation)
+    if not args.layer:
+        parser.error("--layer is required")
     files: list[str] | None = args.files
     session = "cli"
     try:

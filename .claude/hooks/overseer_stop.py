@@ -294,6 +294,116 @@ def _lesson_review(project_dir: Path, message: str) -> str:
     return ""
 
 
+PASS_REFUSED_REASON = (
+    "OVERSEER_PASS_REFUSED. The Stop gate has an open escalation for {scope} (parked {stamp} in "
+    ".engine/overseer/parked.md): it blocked several turns in a row, was not satisfied, and handed "
+    "the question to a human. Until the owner closes it (`python3 .claude/hooks/gate.py "
+    "--close-escalation {stamp}`, refused inside a Claude Code session), a PASS for this work is "
+    "not accepted — the gate's finding is unanswered, whatever the audit found.\n"
+    "Do NOT proceed to the next unit of this slice, do NOT run that command and do NOT mark the "
+    "parked entry yourself. Append a superseding ledger entry for this unit (`— OVERSEER_BLOCK`, "
+    "Trigger: gate escalation {stamp} open), then either take the next unblocked item of ANOTHER "
+    "slice, or — if nothing else can move — end the turn with `OVERSEER_SLICE_AWAITING_OWNER: gate "
+    "escalation {stamp} open` on its own line."
+)
+GATE_OPEN_NOTICE = (
+    "\n\nGATE ESCALATION OPEN for {scope} (parked {stamp} in .engine/overseer/parked.md). "
+    "OVERSEER_PASS will not be accepted for this work until the owner closes it: audit as usual, "
+    "but the verdict cannot be PASS."
+)
+COLLECTOR_FAILED_NOTICE = (
+    "\n\nGATE-ALLOW REVIEW — the collector failed ({error}), so this request does NOT show the "
+    "gate exemptions the diff adds. Run `python3 .claude/hooks/gate_allows.py` yourself, or read "
+    "the diff for `gate-allow:` markers, and judge every reason before the verdict (check #4)."
+)
+NO_SLICE = "(none)"
+
+
+def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
+    """(timestamp, scope text) of the Stop gate's open escalation that covers the work a verdict
+    would now speak for, or None.
+
+    Package costs. When gate.py gives up after GATE_MAX_BLOCKS blocks in a row it records the
+    escalation in .claude/state/gate/escalations.json (and parks an entry for the human). Machine
+    state, not the park queue: the queue is the agent's own file, and its template tells the agent
+    to mark entries RESUMED. Only `gate.py --close-escalation`, which refuses inside a Claude Code
+    session, takes an escalation out of `open`.
+
+    Covers: an escalation raised inside a slice covers that slice while it is the active one. One
+    raised outside any slice covers the files the gate blocked on (all work, when the gate named
+    none) for as long as they are part of the range no accepted PASS has covered yet."""
+    try:
+        data = json.loads(
+            (project_dir / ".claude" / "state" / "gate" / "escalations.json").read_text(encoding="utf-8")
+        )
+        entries = [e for e in data.get("open", []) if isinstance(e, dict)]
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not entries:
+        return None
+    contract = _active_contract(project_dir)
+    active = contract.stem if contract is not None else NO_SLICE
+    unit: set[str] | None = None
+    for entry in entries:
+        stamp, scope = str(entry.get("stamp", "?")), str(entry.get("slice", NO_SLICE))
+        if scope != NO_SLICE:
+            if scope == active:
+                return stamp, f"slice `{active}`"
+            continue
+        if active != NO_SLICE:
+            continue
+        files = {str(f) for f in entry.get("files") or []}
+        if not files:
+            return stamp, "the work outside any slice"
+        if unit is None:
+            try:
+                import gate_allows
+
+                unit = gate_allows.unit_files(project_dir)
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+                unit = set(files)  # cannot tell the range: the lock holds rather than opens
+        if files & unit:
+            return stamp, "the files " + ", ".join(sorted(files & unit)[:5])
+    return None
+
+
+def _note_refusal(project_dir: Path, stamp: str, message: str) -> None:
+    """Keep the refusal where the next reader looks: beside the escalation. Best effort."""
+    try:
+        import gate
+
+        data = gate.read_escalations(project_dir)
+        data["refusals"].append({"stamp": stamp, "utc": gate.utc_now(), "message_sha": _message_digest(message)[:16]})
+        data["refusals"] = data["refusals"][-200:]
+        gate.write_json(project_dir / gate.ESCALATIONS_REL, data)
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+
+
+def _gate_allow_review(project_dir: Path) -> str:
+    """Package costs: the gate exemptions no accepted PASS has seen yet, for the overseer to judge.
+
+    Empty when there are none, so the request text is unchanged for every turn that silenced
+    nothing. A collector that fails says so in the request: silence there would read as "none"."""
+    try:
+        import gate_allows
+
+        listing = gate_allows.render(gate_allows.collect(project_dir))
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        return COLLECTOR_FAILED_NOTICE.format(error=f"{type(exc).__name__}: {exc}"[:160])
+    return f"\n\n{listing}" if listing else ""
+
+
+def _record_accepted_pass(project_dir: Path) -> None:
+    """An accepted PASS moves the collector's base: what it listed has now been judged."""
+    try:
+        import gate_allows
+
+        gate_allows.record_pass(project_dir)
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+
+
 DRY_RUN_REASON = (
     "DRY-RUN: would have blocked — the overseer Stop hook is wired and live. "
     "No real unit-completion was evaluated; this is a smoke-test injection."
@@ -532,6 +642,24 @@ def _record_audit(project_dir: Path, message: str) -> None:
     sha_file.write_text(_message_digest(message) + "\n", encoding="utf-8")
 
 
+def _same_continue_message(project_dir: Path, message: str) -> bool:
+    """The PASS branch's recursion guard: True when this exact message already got its answer
+    (continue, or refused); otherwise records it and returns False."""
+    sha_file = project_dir / ".claude" / "state" / "overseer" / ".last_continue_sha"
+    digest = _message_digest(message)
+    try:
+        if sha_file.read_text(encoding="utf-8").strip() == digest:
+            return True
+    except OSError:
+        pass
+    try:
+        sha_file.parent.mkdir(parents=True, exist_ok=True)
+        sha_file.write_text(digest + "\n", encoding="utf-8")
+    except OSError:
+        pass
+    return False
+
+
 CONTRACT_RE = re.compile(r"\.engine/slices/([\w.-]+)\.md")
 SLICE_HEADING_RE = re.compile(r"^##\s+Slice\s+([\w.-]+)", re.MULTILINE)
 CONTRACT_CHANGED_REASON = (
@@ -599,6 +727,17 @@ def main() -> NoReturn:
 
     message = _str_field(envelope, "last_assistant_message")
 
+    # Package costs: a PASS is not accepted while the Stop gate's escalation for this slice is
+    # open. Decided BEFORE the lesson review — a refused PASS closes no unit, so it triggers no
+    # triage. Enforced here, not only asked for in the skill text: the verdict is a model's.
+    if PASS_MARKER_RE.search(message) and not HALT_MARKER_RE.search(message):
+        escalation = _open_gate_escalation(_get_project_dir())
+        if escalation is not None:
+            if _same_continue_message(_get_project_dir(), message):
+                _passthrough()
+            _note_refusal(_get_project_dir(), escalation[0], message)
+            _emit_block(PASS_REFUSED_REASON.format(stamp=escalation[0], scope=escalation[1]))
+
     lesson_text = _lesson_review(_get_project_dir(), message)
 
     # Halt markers — owner takes over, hook silent-passes.
@@ -607,18 +746,9 @@ def main() -> NoReturn:
 
     # PASS marker — re-inject "continue to next unit" (taskmaster pattern: keep blocking until slice done)
     if PASS_MARKER_RE.search(message):
-        sha_file = (
-            _get_project_dir() / ".claude" / "state" / "overseer" / ".last_continue_sha"
-        )
-        digest = _message_digest(message)
-        try:
-            if sha_file.read_text(encoding="utf-8").strip() == digest:
-                _passthrough()
-        except OSError:
-            pass
-        sha_file.parent.mkdir(parents=True, exist_ok=True)
-        sha_file.parent.mkdir(parents=True, exist_ok=True)
-        sha_file.write_text(digest + "\n", encoding="utf-8")
+        if _same_continue_message(_get_project_dir(), message):
+            _passthrough()
+        _record_accepted_pass(_get_project_dir())
         print(json.dumps({"decision": "block", "reason": CONTINUE_REASON + lesson_text}))
         sys.exit(0)
 
@@ -669,7 +799,11 @@ def main() -> NoReturn:
         )
 
     _record_audit(project_dir, message)
-    _emit_block(AUDIT_REASON)
+    request = AUDIT_REASON + _gate_allow_review(project_dir)
+    escalation = _open_gate_escalation(project_dir)
+    if escalation is not None:
+        request += GATE_OPEN_NOTICE.format(stamp=escalation[0], scope=escalation[1])
+    _emit_block(request)
 
 
 if __name__ == "__main__":
