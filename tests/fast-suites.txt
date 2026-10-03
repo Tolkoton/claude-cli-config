@@ -9,7 +9,8 @@
 # test_audit_runner_resume 7.1 (real sandboxes; 29 s on the night of 2026-10-02 with 05 in its set),
 # test_audit_turn_fixture 11.2 (night 1: real sandboxes, the claude shim), test_commit_policy 5.6,
 # test_commit_checkpoint 3.9, test_audit_verdict_parsing ~3 (two sandboxes),
-# test_env_probe 2.8, test_personal_layer 2.7, test_project_seeds ~2.5.
+# test_env_probe 2.8, test_personal_layer 2.7, test_project_seeds ~2.5; package costs:
+# test_gate_allows 9.5, test_audit_scene_gate_allow 9.3, test_audit_tiers 25 (real sandboxes).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py
@@ -31,3 +32,5 @@ test_selfref.py
 test_decision_logged.py
 test_context_budget.py
 test_text_hygiene.py
+test_needs_audit.py
+test_model_roles.py

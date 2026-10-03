@@ -82,16 +82,17 @@ After this round, the owner is not prompted again except for the critical interr
 
 # Phases 2-4 — AUTOMATED decompose → contracts → sequence
 
-For EACH phase in [`decompose`, `contracts`, `sequence`]:
+Draft all three phases, then put the WHOLE plan before the critic. **A plan gets at most two
+critic rounds** — in total, not per phase (owner's rule, package costs: the critic runs on a
+cheaper model, and a third round on the same plan has never paid for itself).
 
 ```
-round = 0
-draft = YOU (as architect) draft this phase
+draft = YOU (as architect) draft decompose, then contracts, then sequence
         — read the maps + existing slices READ-ONLY; write ONLY the feature draft;
           NEVER code, NEVER a slice's internal plan (that's the slice-planner's job)
-loop:
-  # Spawn the critic fresh; pass ONLY {phase, draft, feature_frame, slug}. Stay blind.
-  verdict = Task(agent="feature-critic", input={phase, draft, feature_frame, slug})
+for round in (1, 2):
+  # Spawn the critic fresh; pass ONLY {phase: plan, draft, feature_frame, slug}. Stay blind.
+  verdict = Task(agent="feature-critic", input={phase: "plan", draft, feature_frame, slug})
   case verdict:
     FEATURE_CRITIC_WRONG_SCOPE →
         STOP. Tell the owner this isn't a feature; name the level (master-architect for
@@ -99,23 +100,29 @@ loop:
         OVERSEER_SLICE_AWAITING_OWNER. Write no feature artifact.
     FEATURE_CRITIC_PREMISE_PROBE_REQUIRED →
         go to the TRACER-BULLET GATE below with the critic's tracer chain; HUMAN may
-        accept the integration risk instead; once resolved, regenerate draft, restart.
+        accept the integration risk instead; once resolved, regenerate the draft.
     FEATURE_CRITIC_ESCALATE →
         if route_to=master-architect → hand the architectural gap up (master-architect
         + human ratify); else AskUserQuestion with the critic's category/options/
-        recommendation VERBATIM. Record in escalations.md. Fold the decision in; continue.
+        recommendation VERBATIM. Record in escalations.md. Fold the decision in.
     FEATURE_CRITIC_PASS →
         break.        # convergence: the critic finds no surviving BLOCKING objection
     FEATURE_CRITIC_REVISE →
-        revise draft to resolve ONLY the single BLOCKING objection (NOTEs → appendix).
-  round += 1
-  if round == 4:
-      AskUserQuestion(category=DESIGN_FORK, "Feature phase <p> oscillating after 4
-      rounds — owner ruling"); emit OVERSEER_SLICE_AWAITING_OWNER; stop.
+        revise the draft: resolve the BLOCKING objection, and every NOTE marked must-fix;
+        the other NOTEs go to the artifact's appendix.
+# A probe or an escalation is an ANSWER to a round, not a free extra round: the next critic
+# call after it is round 2, and there is no round 3.
+if round 2 did not end in FEATURE_CRITIC_PASS:
+    record what is still open under "Open items requiring human decision" in the artifact,
+    with the critic's words, and route it by the door test:
+      two-way door  → take your own recommendation, log it AUTONOMOUS in escalations.md with
+                      its cost-to-reverse, and build;
+      one-way door or a product decision (Art. 5) → park it; build what does not depend on it.
 ```
 
-Convergence is the critic's `FEATURE_CRITIC_PASS`. No diff detector; round 4 is only a
-circuit-breaker.
+Convergence is still the critic's `FEATURE_CRITIC_PASS` (Art. 3): the cap bounds what is spent
+asking, it does not turn an open objection into an agreed one. What round two leaves open is
+written down and decided in the open, never dropped.
 
 ---
 
@@ -213,7 +220,8 @@ Resolve everything else autonomously. Pause and surface to the owner ONLY when:
    Phase 1 did not pre-answer and cannot be derived from the build parameters.
 4. **Wrong scope** — a slice cannot be built as scoped, or the feature turns out
    project-scale (→ master-architect + human).
-5. A loop **cannot converge** — oscillation past a round cap, or the integration cannot
+5. A loop **cannot converge** — a one-way-door objection still open after the two critic
+   rounds, or the integration cannot
    be made to compose after a retry.
 6. Proceeding would require **violating the constitution**.
 
@@ -247,11 +255,11 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
   for the critical-interrupt set; batch any interrupts into a single pass.
 - **The critic is BLIND and FRESH** (Art. 6): pass it only the draft + feature frame.
 - **Honor markers.** Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause (acceptance
-  ratification, tracer-bullet failure, a critical interrupt, up-to-master, oscillation).
+  ratification, tracer-bullet failure, a critical interrupt, up-to-master, a parked one-way door).
 - **The tracer bullet is the integration gate** (Art. 1): do not build the full DAG on
   an unverified integration premise without explicit owner risk-acceptance from Phase 1.
-- **Convergence is the critic's PASS, not friction** (Art. 3). Round 4 is a
-  circuit-breaker only.
+- **Convergence is the critic's PASS, not friction** (Art. 3). **Two critic rounds per plan,
+  no third**: an objection that survives round two becomes a recorded open item, routed by door.
 - **Record premises** in the premise log; **escalate one-way doors** to the owner, route
   architectural gaps up to master-architect (Art. 5, Art. 8).
 - **Do NOT create `tasks.yaml`** — produce slice contracts directly.

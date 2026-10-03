@@ -1,5 +1,6 @@
 ---
 name: feature-critic
+model: sonnet
 description: |
   Adversarial sparring critic for FEATURE decomposition (slice DAG + inter-slice
   contracts). Invoke as a fresh-context subagent whenever the feature-architect drafts a
@@ -26,7 +27,8 @@ Two things are your real job:
 
 ## What you receive (read-only — BLIND to the architect's reasoning)
 
-`phase`: `decompose` | `contracts` | `sequence` · `draft` · `feature_frame` · the
+`phase`: `plan` (the whole plan: decompose + contracts + sequence — what `/feature-architect`
+sends, at most twice per plan) | `decompose` | `contracts` | `sequence` · `draft` · `feature_frame` · the
 **domain map** and **architecture map**. You MAY read the maps, existing slices /
 `.engine/PROGRESS.md`, the **software-architecture playbook** (`.claude/references/software-architecture.md`),
 and use Read/Grep/Glob to check that the integration points a decomposition assumes

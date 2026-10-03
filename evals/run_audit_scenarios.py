@@ -100,6 +100,12 @@ ECHO_MAX_TURNS = 4
 # Why 30: an audit reads a handful of state files and writes one ledger entry (about 10
 # turns here). The cap mostly bounds what a PASS run spends after the hook says "continue".
 AUDIT_MAX_TURNS = 30
+# Two tiers (package costs). A full audit is three runs of every scenario and costs about as much
+# as a working day of sessions; most changes do not touch a word the model reads. So: no audit
+# unless evals/needs_audit.py says such text changed, then `smoke`; `full` only before a tag.
+TIERS = {"smoke": 1, "full": 3}
+DEFAULT_TIER = "full"  # what a bare invocation always was: three runs
+EXIT_BUDGET = 4
 CALL_TIMEOUT_S = 1200
 # What a session answers instead of working when the account's usage limit is reached
 # ("You've hit your session limit · resets 7pm"). Such a run is not a verdict and must not be
@@ -540,7 +546,13 @@ def main() -> int:
     global SCENARIOS, PROGRESS_FIXTURE
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--engine-ref", default="HEAD", help="tag, branch or commit of this repo")
-    parser.add_argument("--runs", type=int, default=3, help="sessions per scenario (default 3)")
+    parser.add_argument("--tier", choices=sorted(TIERS), default=None,
+                        help="smoke = one run per scenario (the everyday audit, after a change of text "
+                             "the model reads); full = three (before a version tag only)")
+    parser.add_argument("--runs", type=int, default=None,
+                        help="runs per scenario, for a targeted re-run with --only (default: the tier's, else 3)")
+    parser.add_argument("--max-cost", type=float, default=None, metavar="USD",
+                        help="stop before a run that would take the reported cost past this; continue with --resume")
     parser.add_argument("--only", default="", help="run scenarios whose id contains one of these "
                                                    "comma-separated fragments")
     parser.add_argument("--out", type=Path, help="write machine-readable results here, after every run")
@@ -560,6 +572,13 @@ def main() -> int:
     args = parser.parse_args()
     if args.resume and not args.out:
         parser.error("--resume needs --out")
+    if args.tier and args.runs is not None and args.runs != TIERS[args.tier]:
+        parser.error(f"--tier {args.tier} is {TIERS[args.tier]} run(s) per scenario; --runs {args.runs} contradicts it")
+    if args.runs is None:
+        args.runs = TIERS[args.tier or DEFAULT_TIER]
+    if args.runs < 1:
+        parser.error("--runs must be at least 1")
+    tier = args.tier or next((name for name, runs in TIERS.items() if runs == args.runs), "custom")
     SCENARIOS = args.scenarios_dir.resolve()
     PROGRESS_FIXTURE = SCENARIOS / "fixtures" / "PROGRESS.fixture.md"
 
@@ -622,9 +641,12 @@ def main() -> int:
 
     rows: dict[str, JsonObj] = {str(row["id"]): row for row in (previous or {}).get("scenarios", [])}
     redo = 0
+    # What a dropped run cost stays spent: the limit below is on money, not on kept runs.
+    dropped_cost = float((previous or {}).get("dropped_cost_usd", 0.0) or 0.0)
     for row in rows.values():
         kept = [r for r in row["runs"] if not is_usage_limit_run(r)]
         redo += len(row["runs"]) - len(kept)
+        dropped_cost += sum(float(r.get("cost_usd", 0.0)) for r in row["runs"] if is_usage_limit_run(r))
         row["runs"] = kept
     if redo:
         print(f"{redo} run(s) lost to the account usage limit are performed again")
@@ -643,10 +665,40 @@ def main() -> int:
             "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "engine_ref": args.engine_ref, "engine_commit": engine_commit, "claude_version": version,
             "model": model, "setting_sources": setting_sources, "runs_per_scenario": args.runs,
+            "tier": tier, "max_cost_usd": args.max_cost, "dropped_cost_usd": round(dropped_cost, 4),
             "status": "complete" if not pending else "partial", "pending": pending,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in all_runs), 2),
             "scenarios": [rows[i] for i in sorted(rows)],
         }
+
+    def spent() -> float:
+        return dropped_cost + sum(float(r.get("cost_usd", 0.0)) for i in rows for r in rows[i]["runs"])
+
+    def dearest() -> float:
+        return max((float(r.get("cost_usd", 0.0)) for i in rows for r in rows[i]["runs"]), default=0.0)
+
+    def report_row(scenario_id: str) -> None:
+        row, runs = rows[scenario_id], rows[scenario_id]["runs"]
+        want = expected[scenario_id]["marker"] + (
+            f"#{expected[scenario_id]['check']}" if "check" in expected[scenario_id] else "")
+        print(f"  {scenario_id:40} {' '.join(shown(r) for r in runs):34} {row['matched']}/{len(runs)}"
+              f"   expected {want}")
+        for r in runs:
+            if "error" in r:
+                print(f"      ! {r['error']}")
+            elif not r.get("matched"):
+                # Show WHY straight away — understanding a verdict must not cost a re-run.
+                why = r.get("ledger_entry") or r.get("verdict_excerpt") or r.get("reply_tail")
+                for line in str(why or "(the session said nothing)").splitlines()[:9]:
+                    print(f"      | {line[:150]}")
+
+    # The order of the runs. Without a cost limit: scenario by scenario, as always. With one:
+    # round-robin (run 1 of every scenario, then run 2, ...), so a cut-off costs every scenario
+    # one run instead of costing the last scenarios all of theirs.
+    if args.max_cost is None:
+        queue = [(i, n) for i in ids for n in range(len(rows[i]["runs"]), args.runs)]
+    else:
+        queue = [(i, n) for n in range(args.runs) for i in ids if len(rows[i]["runs"]) <= n]
 
     workdir = Path(tempfile.mkdtemp(prefix="engine-audit-"))
     print(f"{len(ids)} scenarios x {args.runs} runs = {to_run} runs, {sessions} headless sessions"
@@ -657,32 +709,32 @@ def main() -> int:
             row = rows[scenario_id]
             if len(row["runs"]) >= args.runs:
                 print(f"  {scenario_id:40} {' '.join(shown(r) for r in row['runs']):34} recorded, skipped")
-                continue
-            text = (SCENARIOS / f"{scenario_id}.md").read_text(encoding="utf-8")
-            for n in range(len(row["runs"]), args.runs):
-                row["runs"].append(run_once(args, scenario_id, expected[scenario_id], text,
-                                            workdir / f"{scenario_id}-run{n + 1}"))
-                refresh(row)
+        texts: dict[str, str] = {}
+        for scenario_id, n in queue:
+            row = rows[scenario_id]
+            if args.max_cost is not None and spent() + dearest() > args.max_cost:
+                # Checked BEFORE the run, with the dearest run so far as the estimate: a session
+                # cannot be stopped at a price, so the overshoot is bounded by one run.
                 if args.out:
                     save_results(args.out, payload())
-                if is_usage_limit_run(row["runs"][-1]):
-                    print(f"\n{row['runs'][-1]['error']}\nstopping: the next sessions would answer the same. "
-                          + (f"When the limit resets, continue with --resume (this run is performed again): {args.out}"
-                             if args.out else "Nothing was saved (no --out)."))
-                    return 3
-            runs = row["runs"]
-            want = expected[scenario_id]["marker"] + (
-                f"#{expected[scenario_id]['check']}" if "check" in expected[scenario_id] else "")
-            print(f"  {scenario_id:40} {' '.join(shown(r) for r in runs):34} {row['matched']}/{len(runs)}"
-                  f"   expected {want}")
-            for r in runs:
-                if "error" in r:
-                    print(f"      ! {r['error']}")
-                elif not r.get("matched"):
-                    # Show WHY straight away — understanding a verdict must not cost a re-run.
-                    why = r.get("ledger_entry") or r.get("verdict_excerpt") or r.get("reply_tail")
-                    for line in str(why or "(the session said nothing)").splitlines()[:9]:
-                        print(f"      | {line[:150]}")
+                print(f"\ncost limit: ${spent():.2f} reported so far, the dearest run cost ${dearest():.2f}, the limit is "
+                      f"${args.max_cost:.2f} — stopping before {scenario_id} run {n + 1}. "
+                      + (f"Raise --max-cost and continue with --resume: {args.out}" if args.out else "Nothing was saved (no --out)."))
+                return EXIT_BUDGET
+            if scenario_id not in texts:
+                texts[scenario_id] = (SCENARIOS / f"{scenario_id}.md").read_text(encoding="utf-8")
+            row["runs"].append(run_once(args, scenario_id, expected[scenario_id], texts[scenario_id],
+                                        workdir / f"{scenario_id}-run{n + 1}"))
+            refresh(row)
+            if args.out:
+                save_results(args.out, payload())
+            if is_usage_limit_run(row["runs"][-1]):
+                print(f"\n{row['runs'][-1]['error']}\nstopping: the next sessions would answer the same. "
+                      + (f"When the limit resets, continue with --resume (this run is performed again): {args.out}"
+                         if args.out else "Nothing was saved (no --out)."))
+                return 3
+            if len(row["runs"]) >= args.runs:
+                report_row(scenario_id)
     except KeyboardInterrupt:
         if args.out:
             print(f"\ninterrupted — the runs finished so far are in {args.out}; continue with --resume")

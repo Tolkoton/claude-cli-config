@@ -1,5 +1,6 @@
 ---
 name: master-critic
+model: sonnet
 description: |
   Adversarial sparring critic for PROJECT ARCHITECTURE. Invoke as a fresh-context
   subagent whenever the master-architect drafts a domain model, an architecture
