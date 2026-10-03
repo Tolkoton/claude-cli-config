@@ -53,16 +53,8 @@ that dies.
 
 ## Rules that bite
 
-- **Never `git commit`** outside an `unattended/<date>` branch; `block-dangerous.sh` matches
-  the whole command text, so a message that mentions a dangerous command goes through `-F`.
 - **Never edit `.claude/constitution.md` or `.claude/settings.json`**; propose in `audit.md`
   or `docs/tasks/`.
-- **`*.env` is unwritable** except `.claude/project.env`; name new config files `.sh`.
-- **Hooks guard tool calls, not scripts** — a script you write must carry the check itself
-  (`.claude/references/hooks.md`).
-- **Hooks need `jq` or `python3`**; with neither the deny hooks refuse every call.
-- **Three legitimate stops only**: a human-only input, a falsified premise behind committed
-  work, an empty unblocked queue.
 
 ## Verifying a change
 
