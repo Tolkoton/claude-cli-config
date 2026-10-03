@@ -500,7 +500,7 @@ def verdict(usage: Usage, limits: dict[str, int]) -> list[tuple[str, int, str]]:
 
 
 def report(
-    budget: Budget, usage: Usage, limits: dict[str, int], over: list[str], raised: list[str],
+    budget: Budget, usage: Usage, over: list[str], raised: list[str],
     accepted: tuple[str, ...] = (),
 ) -> str:
     # The first line carries the verdict and the fields: it is what a log, a test and a
@@ -568,7 +568,7 @@ def evaluate(root: Path) -> Outcome | None:
             accepted.append(f"{line} — {reasons[-1]}")
         else:
             open_lines.append(line)
-    text = report(budget, usage, limits, open_lines, raised, tuple(accepted))
+    text = report(budget, usage, open_lines, raised, tuple(accepted))
     return Outcome(text, bool(open_lines), budget.slug, budget.base_commit,
                    {key: used for key, used, _ in over}, [line for _, _, line in over])
 
