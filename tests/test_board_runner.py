@@ -13,6 +13,9 @@ and then does what its script for that call says — the things tasks/README.md 
     idle            do nothing
     limit           answer with a usage-limit notice
     garbage         print something that is not JSON
+
+FAKE_STOP_AT=<n> makes call n ask for a soft stop while it runs — through the runner's own
+`--stop-after-task`, or (FAKE_STOP_HOW=file) by creating the flag file itself.
     gateq           the Stop gate gave up during the session: a gate question appears in blocked/,
                     uncommitted, and the task stays in doing/
 
@@ -53,6 +56,12 @@ with calls.open("a") as f:
                         "mode": mode.read_text().strip() if mode.exists() else "(absent)"}, ensure_ascii=False) + "\n")
 plan = (home / "plan").read_text().split()
 step = plan[n] if n < len(plan) else "done"
+if os.environ.get("FAKE_STOP_AT") == str(n):   # the operator asks for a soft stop during this call
+    if os.environ.get("FAKE_STOP_HOW") == "file":
+        Path(".claude/state/board/stop-after-task").touch()
+    else:
+        asked = subprocess.run(["bash", os.environ["FAKE_RUNNER"], "--stop-after-task"], capture_output=True, text=True)
+        (home / "stop-asked").write_text(f"{asked.returncode}\n{asked.stdout}{asked.stderr}")
 session = argv[argv.index("--resume") + 1] if "--resume" in argv else f"s{n + 1}"
 costs = json.loads((home / "costs").read_text()) if (home / "costs").exists() else {}
 costs[session] = costs.get(session, 0.0) + float(os.environ.get("FAKE_COST", "1"))
@@ -152,7 +161,7 @@ class World:
         full = {**{k: v for k, v in os.environ.items() if not k.startswith("BOARD_")},
                 "CLAUDE_PROJECT_DIR": str(self.repo), "BOARD_CLAUDE": str(self.fake),
                 "BOARD_INBOX": str(self.inbox), "BOARD_PAUSE_SEC": "0", "BOARD_LIMIT_WAIT_SEC": "0",
-                "FAKE_HOME": str(self.home)}
+                "FAKE_HOME": str(self.home), "FAKE_RUNNER": str(RUNNER)}
         # The suite itself may run inside a Claude Code session; the runner under test is the
         # owner's process unless a case says otherwise (CLAUDECODE="1").
         for name in ("CLAUDE_UNATTENDED_SESSION", "CLAUDECODE"):
@@ -942,6 +951,75 @@ w = World("done")
 w.put("todo", "017-ordinary.md", ATTENDED_017.replace("Потрібна присутність власника: так", "Потрібна присутність власника: ні").replace("Залежить від: 016", "Залежить від: —"))
 r = w.run()
 check("the negative case: the same task with «ні» IS taken", len(w.calls()) == 1 and w.has("tasks/done/017-ordinary/report.md"), w.status() + r.stderr)
+
+# --- the soft stop (board 019) ---------------------------------------------------------------------------------------------
+print("the soft stop: --stop-after-task")
+w = World("done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+flag = w.state / "stop-after-task"
+r = w.run(FAKE_STOP_AT="0")
+asked = (w.home / "stop-asked").read_text(encoding="utf-8")
+check("the command, given while a task is running, exits 0 and says the runner will stop", asked.startswith("0\n") and "001-first" in asked, asked)
+check("the current task is finished, the next one is not started", r.returncode == 0 and len(w.calls()) == 1
+      and w.has("tasks/done/001-first/report.md") and w.has("tasks/todo/002-second.md"), r.stdout + r.stderr)
+check("state=stopped, the task named, reason=stop-after-task", "state=stopped task=001-first" in w.status()
+      and "reason=stop-after-task" in w.status(), w.status())
+check("the flag is removed", not flag.exists())
+check("the finished task was pushed, the lock released, the stop is in the events and the summary", w.origin_head() == w.head()
+      and not (w.state / "lock").exists() and " stop stopped stop-after-task 001-first" in events(w)
+      and " stop-requested " in events(w) and "stopped" in (w.state / "summary.md").read_text(encoding="utf-8"), events(w))
+r = w.run()
+check("the next start is an ordinary one: the second task is done", r.returncode == 0 and len(w.calls()) == 2
+      and w.has("tasks/done/002-second/report.md") and "state=idle" in w.status(), w.status() + r.stdout + r.stderr)
+
+w = World("work idle done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run(FAKE_STOP_AT="0", FAKE_STOP_HOW="file")
+check("the flag file alone is enough, and a task still open is continued to its end: three calls, then stopped",
+      r.returncode == 0 and len(w.calls()) == 3 and w.has("tasks/done/001-first/report.md") and w.has("tasks/todo/002-second.md")
+      and "state=stopped task=001-first" in w.status() and not (w.state / "stop-after-task").exists(), w.status() + r.stdout + r.stderr)
+check("the work of the task is all committed: nothing is lost", sh(w.repo, "git", "status", "--porcelain").stdout == ""
+      and "work 0" in w.log(), sh(w.repo, "git", "status", "--porcelain").stdout)
+
+w = World("block done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run(FAKE_STOP_AT="0")
+check("a task that ends in blocked/ is a finished task too: stopped, the next one not started", r.returncode == 0 and len(w.calls()) == 1
+      and w.has("tasks/blocked/001-first.md") and w.has("tasks/todo/002-second.md") and "state=stopped task=001-first" in w.status(), w.status())
+
+w = World("done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run()
+check("the negative case: no flag — both tasks are done, state=idle", r.returncode == 0 and len(w.calls()) == 2 and "state=idle" in w.status(), w.status())
+
+w = World("done")
+w.put("todo", "001-first.md")
+r = w.run("--stop-after-task")
+check("no runner is working: the command refuses (exit 1), says so, and leaves no flag", r.returncode == 1
+      and "no runner" in r.stderr and not (w.state / "stop-after-task").exists() and len(w.calls()) == 0, r.stdout + r.stderr)
+w.state.mkdir(parents=True, exist_ok=True)
+dead = subprocess.Popen(["true"])
+dead.wait()
+(w.state / "lock").write_text(f"{dead.pid}\n")
+r = w.run("--stop-after-task")
+check("…the same with the lock of a runner that died", r.returncode == 1 and not (w.state / "stop-after-task").exists(), r.stdout + r.stderr)
+(w.state / "stop-after-task").touch()
+r = w.run()
+check("a flag left over from a runner that died does not stop the new one: removed at the start, the task is done",
+      r.returncode == 0 and len(w.calls()) == 1 and w.has("tasks/done/001-first/report.md") and "state=idle" in w.status()
+      and not (w.state / "stop-after-task").exists() and " stop-flag-stale" in events(w), w.status() + events(w))
+
+for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
+    words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
+    check(f"{manual} tells the operator to stop the runner this way only, and not to kill it",
+          "як зупинити виконавця" in words and "Лише так" in words and "board-runner.sh --stop-after-task" in words
+          and "не вбивайте" in words and ".claude/state/board/stop-after-task" in words)
+check("the runner's own head and the unattended README name the option",
+      "--stop-after-task" in runner_text.split("set -uo pipefail")[0] and "--stop-after-task" in (ROOT / ".claude/unattended/README.md").read_text(encoding="utf-8"))
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

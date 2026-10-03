@@ -6,6 +6,8 @@
 #   bash .claude/unattended/board-runner.sh --no-push  never push (somebody else sends the branch)
 #   bash .claude/unattended/board-runner.sh --retry    give the task in doing/ a fresh clock and count
 #   bash .claude/unattended/board-runner.sh --status   print the status line and the summary, run nothing
+#   bash .claude/unattended/board-runner.sh --stop-after-task   ask the working runner to stop once
+#                                                      its current task is closed; run nothing
 #
 # WHAT IT DOES, in the order it does it (tasks/README.md is the board's manual):
 #   before every task   fetch and `pull --rebase` the work branch — new tasks and the owner's
@@ -20,6 +22,12 @@
 #   it stops            three attempts in a row without a new commit; a task older than twelve
 #                       hours; the task's budget spent; todo/ empty or everything left waiting
 #                       for the owner — always with a summary
+#
+# STOPPING IT (board 019). Never by killing the process: the agent then loses the uncommitted
+# work of its task. `--stop-after-task` puts the flag .claude/state/board/stop-after-task; the
+# runner looks at it between tasks only, so the current task is finished and pushed first, then
+# it stops with state=stopped reason=stop-after-task and removes the flag. With no runner working
+# the command sets nothing; a flag left by a runner that died is removed when the next one starts.
 #
 # WHAT THE OPERATOR READS, in .claude/state/board/:
 #   status      one line: state=<running|waiting-limit|idle|waiting-owner|stopped|stalled|deadline|error>
@@ -61,13 +69,14 @@
 
 set -uo pipefail
 
-ONCE=0; PUSH=1; RETRY=0; STATUS_ONLY=0
+ONCE=0; PUSH=1; RETRY=0; STATUS_ONLY=0; STOP_REQUEST=0
 for arg in "$@"; do
   case "$arg" in
     --once) ONCE=1 ;;
     --no-push) PUSH=0 ;;
     --retry) RETRY=1 ;;
     --status) STATUS_ONLY=1 ;;
+    --stop-after-task) STOP_REQUEST=1 ;;
     *) echo "board-runner: unknown option '$arg' (see the head of this file)" >&2; exit 2 ;;
   esac
 done
@@ -90,6 +99,7 @@ STATE="$PROJECT_ROOT/.claude/state/board"
 MODE_FILE="$PROJECT_ROOT/.claude/state/overseer/mode"
 MODE_BEFORE="$STATE/mode.before"
 LOCK="$STATE/lock"
+STOP_FLAG="$STATE/stop-after-task"
 GATE_PY="$HERE/../hooks/gate.py"
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
 board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
@@ -108,6 +118,19 @@ if [ "$STATUS_ONLY" -eq 1 ]; then
   exit 0
 fi
 
+# --- the soft stop is asked for here and taken between tasks, at the foot of the main loop. -----
+if [ "$STOP_REQUEST" -eq 1 ]; then
+  HOLDER=$(cat "$LOCK" 2>/dev/null || echo "")
+  if [ -z "$HOLDER" ] || ! kill -0 "$HOLDER" 2>/dev/null; then
+    echo "board-runner: no runner is working here; nothing to stop" >&2
+    exit 1
+  fi
+  touch "$STOP_FLAG" || exit 1
+  event "stop-requested pid=$HOLDER"
+  say "the runner (pid $HOLDER) will stop after its current task: $(cat "$STATE/status" 2>/dev/null)"
+  exit 0
+fi
+
 mkdir -p "$STATE/logs" "$(dirname "$MODE_FILE")"
 
 # --- one runner at a time. The lock holds the PID; a lock whose PID is gone is reclaimed. -------
@@ -120,6 +143,8 @@ if [ -f "$LOCK" ]; then
   event "lock-reclaimed pid=${HOLDER:-unknown}"
 fi
 echo $$ > "$LOCK"
+# A stop flag that is here before this runner took a task was meant for a runner that is gone.
+if [ -f "$STOP_FLAG" ]; then rm -f "$STOP_FLAG"; event "stop-flag-stale removed"; fi
 
 # --- nobody is watching: say so for the lifetime of the runner, and put it back afterwards. -----
 # A planning gate then parks instead of asking, and an ask-gated command is parked, not hung on.
@@ -167,6 +192,7 @@ finish() {
     echo
     memo report 2>&1 | sed 's/^/- /'
   } > "$STATE/summary.md"
+  rm -f "$STOP_FLAG"   # whatever the reason, the runner has stopped: the request is answered
   status "$state" "$task" "$reason"
   event "stop $state $reason $task"
   say "$state ($reason): $sentence"
@@ -454,6 +480,9 @@ while :; do
   push_branch
   if [ "$ONCE" -eq 1 ]; then
     finish stopped "$TASK_NAME" once "one task was asked for (--once); it ended in $OUTCOME/"
+  fi
+  if [ -f "$STOP_FLAG" ]; then
+    finish stopped "$TASK_NAME" stop-after-task "a stop was asked for (--stop-after-task); the task ended in $OUTCOME/ and no other was started"
   fi
   TASK_NAME="-"
 done

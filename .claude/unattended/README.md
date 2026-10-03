@@ -51,7 +51,14 @@ bash .claude/unattended/board-runner.sh            # until nothing can move, the
 bash .claude/unattended/board-runner.sh --once     # one task
 bash .claude/unattended/board-runner.sh --status   # the status line and the board; runs nothing
 bash .claude/unattended/board-runner.sh --retry    # after `stalled` or `deadline`: a fresh clock and count
+bash .claude/unattended/board-runner.sh --stop-after-task   # the only way to stop a working runner
 ```
+
+To stop a runner, never kill it — the agent loses the uncommitted work of its task. `--stop-after-task`
+puts the flag `.claude/state/board/stop-after-task`; the runner looks at it between tasks, so the
+current task is finished and pushed, then the runner stops with `state=stopped
+reason=stop-after-task` and removes the flag. With no runner working the command sets nothing
+and says so; a flag left by a runner that died is removed when the next one starts.
 
 Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
 from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, and returns
