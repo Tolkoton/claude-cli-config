@@ -287,9 +287,9 @@ def _lesson_review(project_dir: Path, message: str) -> str:
         lesson_queue.add_from_verdict(project_dir, message)
         if PASS_MARKER_RE.search(message):
             lesson_queue.collect(project_dir)
-            request = lesson_queue.review_request(project_dir)
+            request = lesson_queue.review_request(project_dir, track=True)
             return f"\n\n{request}" if request else ""
-    except (ImportError, OSError, ValueError):
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
         pass
     return ""
 

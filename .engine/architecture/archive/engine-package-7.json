@@ -1,0 +1,78 @@
+{
+  "feature": "engine-package-7",
+  "note": "Night program 1, package A (docs/plan/package-7.md): one gate script. Contract: .engine/architecture/feature/engine-package-7.md. Item 0.3 (the paid full audit) runs last. Package 2b's DAG is archived in .engine/architecture/archive/engine-package-2b.json; its parked owner items are carried here.",
+  "nodes": [
+    {
+      "id": "A1",
+      "title": "gate.py: report format, project.env reader, changed-file discovery, layers, counter + escalation, bypass guard (A1a-c, A2 built together)",
+      "deps": [],
+      "status": "done",
+      "evidence": "4d3f83f: .claude/hooks/gate.py; tests/test_gate.py 79 checks"
+    },
+    {
+      "id": "A3",
+      "title": "format-on-edit.sh and verify-on-stop.sh thin calls; test_format_on_edit moves to 3 formatter calls and an additionalContext report on purpose",
+      "deps": [],
+      "status": "done",
+      "evidence": "4d3f83f: test_format_on_edit 23/23, test_verify_on_stop 5/5"
+    },
+    {
+      "id": "A4",
+      "title": "complexity_budget / contract_fingerprint report in the shared schema",
+      "deps": [],
+      "status": "done",
+      "evidence": "4d3f83f: their suites 32/32 and 15/15; tests/test_gate.py shared-schema case"
+    },
+    {
+      "id": "A5",
+      "title": "evals/run_gate_evals.py + corpus + timings baseline",
+      "deps": [],
+      "status": "done",
+      "evidence": "gate-evals-package-7.json: 12/12 defects caught, 0 false blocks over 7 clean cases; tests/test_gate_evals.py"
+    },
+    {
+      "id": "A6",
+      "title": "golden set: 9 new scenarios, new reference results-package-7.json",
+      "deps": [],
+      "status": "done",
+      "evidence": "87 original scenarios identical to 3c; see the package report"
+    },
+    {
+      "id": "A7",
+      "title": "ownership map, project.env keys (+ seed), references/gate.md + hooks.md, report",
+      "deps": [],
+      "status": "done",
+      "evidence": "docs/plan/package-7-report.md"
+    },
+    {
+      "id": "C8b",
+      "title": "post-3c audit run (OWNER, money): --engine-ref 24abb7d -> audit-post-3c.json",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "Superseded: v0.11.0 contains 3c and package 2b's audit-v0.11.0.json is the measurement of it on a working instrument; unblocks only if the owner still wants the 24abb7d run."
+    },
+    {
+      "id": "S8",
+      "title": "apply-personal (OWNER): engine.py install --personal against the real ~/.claude",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref v0.11.0` after reading its --dry-run."
+    },
+    {
+      "id": "S9",
+      "title": "cloud-probe (OWNER): run .claude/unattended/env-probe.sh in a real cloud session, then decide CLOUD_COMMIT_POLICY",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
+    },
+    {
+      "id": "N1",
+      "title": "night program (OWNER): ~/engine-night/night-1.md did not exist on 2026-10-02",
+      "deps": [
+        "P8"
+      ],
+      "status": "done",
+      "evidence": "The owner supplied the program as docs/plan/night-1.md (b9cf3aa); executed by its own rules, item 0.1-0.2 at 371e02c."
+    }
+  ]
+}

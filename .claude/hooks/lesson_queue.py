@@ -75,8 +75,15 @@ QUEUE_HEADER = (
     "`python3 .claude/hooks/lesson_queue.py resolve <id> --to memory|rule|engine|discard`; a "
     "resolved line is removed. Never loaded into the persistent context.\n\n"
 )
+AT_RE = re.compile(r"(?:(?<=\s)|^)@\S")
 LINE_RE = re.compile(
     r"^- (?P<date>\d{4}-\d{2}-\d{2}) \| (?P<source>\w+) \| (?P<slice>[^|]*?) \| (?P<essence>.*) #(?P<id>[0-9a-f]{8})$"
+)
+PROPOSAL_REVIEW = (
+    "Run the overseer on each (read .claude/skills/overseer/SKILL.md; is it a standing rule, is it true, "
+    "does it already exist) and append a ledger entry headed `## <time> — rule-proposal <id> — <verdict>` "
+    "with the verdict marker alone on its own line, OVERSEER_PASS or OVERSEER_BLOCK: #N <reason>; "
+    "then `python3 .claude/hooks/lesson_queue.py promote <id>`."
 )
 STUCK_TEXT = (
     "STUCK PROTOCOL: the same failure has now happened {n} times in a row ({what}). Stop retrying the "
@@ -140,7 +147,7 @@ def remember(root: Path, ident: str) -> None:
     ids = seen_ids(root)
     if ident not in ids:
         ids.append(ident)
-    write(state_file(root, "seen.json"), json.dumps({"ids": ids[-2000:]}) + "\n")
+    write(state_file(root, "seen.json"), json.dumps({"ids": ids[-20000:]}) + "\n")
 
 
 # ------------------------------------------------------------------ the queue
@@ -171,14 +178,18 @@ def clean_essence(text: str) -> str:
     return one[:ESSENCE_LIMIT]
 
 
-def add(root: Path, source: str, slice_name: str, essence: str) -> str | None:
-    """Append one candidate. Returns its id, or None when it is empty or already known."""
+def add(root: Path, source: str, slice_name: str, essence: str, queue: bool = True) -> str | None:
+    """Append one candidate. Returns its id, or None when it is empty or already known.
+    queue=False only marks it seen (the seeding pass)."""
     essence = clean_essence(essence)
     if source not in SOURCES or not essence:
         return None
     ident = item_id(source, essence)
     if ident in seen_ids(root) or any(e["id"] == ident for e in entries(root)):
         return None
+    if not queue:
+        remember(root, ident)
+        return ident
     text = read(root / QUEUE_REL) or QUEUE_HEADER
     if not text.endswith("\n"):
         text += "\n"
@@ -212,30 +223,43 @@ def bullet(body: str, label: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def collect_parked(root: Path, slice_name: str) -> int:
+def collect_parked(root: Path, slice_name: str, queue: bool = True) -> int:
     header = re.compile(r"^## (?P<ts>\S+) — (?P<item>.+?) — PARKED[ \t]*$", re.MULTILINE)
+    text = read(root / ".engine/overseer/parked.md")
+    resumed = set(re.findall(r"^## \S+ — (.+?) — RESUMED[ \t]*$", text, re.MULTILINE))
     added = 0
-    for match, body in blocks(read(root / ".engine/overseer/parked.md"), header):
-        if add(root, "parked", match["item"], f"{match['item']}: {bullet(body, 'Blocked on') or 'parked'}"):
+    for match, body in blocks(text, header):
+        if match["item"] in resumed:
+            continue
+        if add(root, "parked", match["item"], f"{match['item']}: {bullet(body, 'Blocked on') or 'parked'}", queue):
             added += 1
     return added
 
 
-def collect_escalations(root: Path, slice_name: str) -> int:
+def collect_escalations(root: Path, slice_name: str, queue: bool = True) -> int:
     header = re.compile(r"^## (?P<ts>\S+) — (?P<kind>[A-Z_]+)(?: \([^)]*\))? — (?P<title>.+?)[ \t]*$", re.MULTILINE)
     added = 0
     for match, body in blocks(read(root / ".engine/overseer/escalations.md"), header):
-        if match["kind"] == "AUTONOMOUS":
+        if match["kind"] == "AUTONOMOUS" or re.search(r"^- Status:\s*(CLOSED|RESUMED|RESOLVED)", body, re.MULTILINE):
             continue
         detail = bullet(body, "Decision") or bullet(body, "Why not escalated")
-        if add(root, "escalation", slice_name, f"{match['kind']} {match['title']}" + (f": {detail}" if detail else "")):
+        if add(root, "escalation", slice_name, f"{match['kind']} {match['title']}" + (f": {detail}" if detail else ""), queue):
             added += 1
     return added
 
 
 def collect(root: Path) -> int:
-    """Scan every automatic source. No model, no network; safe to call on every Stop."""
+    """Scan every automatic source. No model, no network; safe to call on every Stop.
+
+    The first call on a project (no seen-ids file yet) only SEEDS: what the sources already hold
+    is history, not a lesson from an event, so it is marked seen without being queued. The queue
+    holds what happens from then on."""
     slice_name = current_slice(root)
+    first = not state_file(root, "seen.json").is_file()
+    if first:
+        collect_parked(root, slice_name, queue=False)
+        collect_escalations(root, slice_name, queue=False)
+        remember(root, "seeded")
     return (collect_gate(root, slice_name) + collect_parked(root, slice_name)
             + collect_escalations(root, slice_name))
 
@@ -254,10 +278,36 @@ def add_from_verdict(root: Path, message: str) -> int:
 # ------------------------------------------------------------------ the review
 
 
-def review_request(root: Path) -> str:
+def pending_proposals(root: Path) -> list[str]:
+    return re.findall(r"^## RP-(\w+) — \S+ — PROPOSED", read(root / PROPOSALS_REL), re.MULTILINE)
+
+
+def review_request(root: Path, track: bool = False) -> str:
+    """The triage request; with track=True (the overseer hook) it repeats only when the queue or the
+    proposals changed since it was last made, or on every third PASS, so an item the agent cannot
+    triage does not cost tokens forever."""
     queue = entries(root)
-    if not queue:
+    proposals = pending_proposals(root)
+    if not queue and not proposals:
         return ""
+    if track:
+        key = sorted(e["id"] for e in queue) + sorted(proposals)
+        state = load_json(state_file(root, "review.json"))
+        passes = int(state.get("passes", 0)) if isinstance(state.get("passes", 0), int) else 0
+        if state.get("key") == key and passes < 2:
+            write(state_file(root, "review.json"), json.dumps({"key": key, "passes": passes + 1}) + "\n")
+            return ""
+        write(state_file(root, "review.json"), json.dumps({"key": key, "passes": 0}) + "\n")
+    return _request_text(queue, proposals)
+
+
+def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
+    if not queue:
+        return (
+            f"RULE_PROPOSALS_PENDING — {len(proposals)} proposal(s) in .engine/rule-proposals.md await the overseer: "
+            + ", ".join(f"RP-{p}" for p in proposals)
+            + ". " + PROPOSAL_REVIEW
+        )
     shown = "\n".join(f"  #{e['id']}  {e['date']}  [{e['source']}] {e['slice']}: {e['essence'][:110]}" for e in queue[:12])
     more = f"\n  … and {len(queue) - 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""
     return (
@@ -269,6 +319,7 @@ def review_request(root: Path) -> str:
         "rule; needs --text and --why), engine (feedback for the engine's own repository; --text) or "
         "discard. A resolved candidate leaves the queue. A rule proposal reaches the persistent context only "
         "after the overseer passes it (`promote`); never edit CLAUDE.md for it."
+        + (f"\nRULE_PROPOSALS_PENDING: {', '.join('RP-' + p for p in proposals)}. {PROPOSAL_REVIEW}" if proposals else "")
     )
 
 
@@ -295,6 +346,8 @@ def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: st
             return False, "memory needs --text and at least two --cite ledger entries (date + slice): the file's citation-or-prune rule"
         append(root / MEMORY_REL, f"\n## {today()} — {text.splitlines()[0][:90]}\n\n{text}\n\nCited: {'; '.join(cite)}. Origin: {origin}.\n")
     elif to == "rule":
+        if text and AT_RE.search(text):
+            return False, "a rule text may not contain an @path (CLAUDE.md would load it as an import)"
         if not text or not why:
             return False, "a rule proposal needs --text (the rule, imperative, one line) and --why"
         append(root / PROPOSALS_REL, f"\n## RP-{ident} — {today()} — PROPOSED\n- Rule: {text.splitlines()[0]}\n- Why: {why}\n- From: {origin}\n"
@@ -343,10 +396,15 @@ def promote(root: Path, ident: str) -> tuple[bool, str]:
         return False, f"RP-{ident} is already {match['state']}"
     body = proposals[match.end():].split("\n## ", 1)[0]
     rule = bullet(body, "Rule")
-    passed = any(re.search(rf"rule-proposal {ident}\b", chunk) and "OVERSEER_PASS" in chunk
-                 for chunk in re.split(r"(?m)^(?=## )", read(root / LEDGER_REL)))
+    if AT_RE.search(rule):
+        return False, "the rule text contains an @path, which CLAUDE.md would load as an import"
+    passed = any(
+        re.match(rf"## [^\n]*rule-proposal {ident}\b", chunk)
+        and re.search(r"(?m)^[-\s]*(?:Verdict:\s*)?OVERSEER_PASS\s*$", chunk)
+        for chunk in re.split(r"(?m)^(?=## )", read(root / LEDGER_REL))
+    )
     if not passed:
-        return False, f"the ledger has no overseer entry naming `rule-proposal {ident}` with OVERSEER_PASS — the overseer reviews proposals first"
+        return False, f"the ledger has no entry headed `rule-proposal {ident}` with OVERSEER_PASS alone on a line — the overseer reviews proposals first"
     rules_path = root / RULES_REL
     before = read(rules_path) or "# Rules approved from lessons\n\nPromoted by `lesson_queue.py promote` after an overseer PASS. Each line is a standing rule.\n\n"
     new_text = before.rstrip("\n") + f"\n- {rule} (RP-{ident}, {today()})\n"
@@ -426,9 +484,12 @@ def failure_key(text: str) -> str:
 
 def note_failure(root: Path, text: str) -> str:
     """Count an identical failure in a row. Returns the stuck protocol text on the third one."""
+    if not text.strip():
+        return ""
     key = failure_key(text)
     state = load_json(state_file(root, "stuck.json"))
-    count = int(state.get("count", 0)) + 1 if state.get("key") == key else 1
+    previous = state.get("count", 0)
+    count = (previous if isinstance(previous, int) else 0) + 1 if state.get("key") == key else 1
     if count >= STUCK_AT:
         write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": 0}) + "\n")
         return STUCK_TEXT.format(n=count, what=clean_essence(text)[:90])

@@ -90,6 +90,11 @@ check("the file says it is never loaded into the persistent context", "persisten
 # ---------------------------------------------------------------- the collectors
 print("the collectors: gate, parked, escalation, overseer — no model")
 r = project()
+(r / ".engine/overseer").mkdir(parents=True)
+(r / ".engine/overseer/parked.md").write_text("## 2026-08-27T18:45:00Z — OLD — PARKED\n- Blocked on: history\n")
+(r / ".engine/overseer/escalations.md").write_text("## 2026-08-27T18:45:00Z — FINDING — old finding\n- Decision: history\n")
+lq(r, "collect")
+check("the first collect only SEEDS: history in parked.md and escalations.md is not queued", queue(r) == [], queue(r))
 (r / ".claude/state/gate").mkdir(parents=True)
 report = {"layer": "stop", "result": "block", "findings": [
     {"file": "mod.py", "line": 3, "rule": "typecheck", "severity": "block", "message": "bad type"},
@@ -102,21 +107,24 @@ lq(r, "collect")
 check("collecting again adds nothing", len(queue(r)) == 1)
 report["result"] = "pass"
 (r / ".claude/state/gate/last-report.json").write_text(json.dumps(report))
-(r / ".engine/overseer").mkdir(parents=True)
 (r / ".engine/overseer/parked.md").write_text(
-    "# Parked\n\n## 2026-10-03T01:00:00Z — S5 — PARKED\n- Blocked on: the owner's cloud session\n- Class: human-input\n\n"
-    "## 2026-10-03T02:00:00Z — S5 — RESUMED\n- Blocked on: the owner's cloud session\n")
+    "# Parked\n\n## 2026-08-27T18:45:00Z — OLD — PARKED\n- Blocked on: history\n\n## 2026-10-03T01:00:00Z — S5 — PARKED\n- Blocked on: the owner's cloud session\n- Class: human-input\n\n"
+    "## 2026-10-03T02:00:00Z — S5 — RESUMED\n- Blocked on: the owner's cloud session\n\n"
+    "## 2026-10-03T03:00:00Z — S6 — PARKED\n- Blocked on: a credential\n")
 (r / ".engine/overseer/escalations.md").write_text(
+    "## 2026-08-27T18:45:00Z — FINDING — old finding\n- Decision: history\n\n"
+    "## 2026-10-03T00:50:00Z — FINDING — a closed one\n- Decision: x\n- Status: CLOSED\n\n"
     "## 2026-10-03T01:00:00Z — AUTONOMOUS — some-decision\n- Decision: taken\n\n"
     "## 2026-10-03T01:05:00Z — FINDING — the hook swallowed stderr\n- Decision: it needs 2>&1\n\n"
     "## 2026-10-03T01:10:00Z — ESCALATE — a one-way door\n- Why not escalated: n/a\n")
 lq(r, "collect")
 joined = "\n".join(queue(r))
-check("a PARKED entry is collected, its RESUMED twin is not", "| parked | S5 |" in joined and joined.count("| parked |") == 1, joined)
+check("a PARKED entry is collected, its RESUMED twin is not", "| parked | S6 |" in joined and joined.count("| parked |") == 1, joined)
 check("escalation entries are collected, AUTONOMOUS decisions are not",
       "FINDING the hook swallowed stderr" in joined and "ESCALATE a one-way door" in joined and "some-decision" not in joined, joined)
 lq(r, "collect")
 check("a second scan of every source adds no duplicate", len(queue(r)) == 4, queue(r))
+check("a CLOSED escalation is not a lesson, and seeded history stays out", "closed one" not in joined and "old finding" not in joined and "history" not in joined, joined)
 before = len(queue(r))
 lq(r, "resolve", ids(r)[-1], "--to", "discard")
 lq(r, "collect")
@@ -155,7 +163,7 @@ check("a rule becomes a PROPOSAL, status PROPOSED", f"## RP-{b} —" in props an
 lq(r, "resolve", c, "--to", "engine", "--text", "the gate report could list the exact re-run command")
 check("engine feedback goes to .engine/engine-feedback.md", "exact re-run command" in (r / ".engine/engine-feedback.md").read_text() and c not in ids(r))
 lq(r, "resolve", d, "--to", "discard")
-check("the queue is empty after the triage and asks for nothing more", ids(r) == [] and lq(r, "review-request").stdout.strip() == "")
+check("the queue is empty after the triage; only the pending proposal is still asked about", ids(r) == [] and "LESSON_REVIEW" not in lq(r, "review-request").stdout and "RULE_PROPOSALS_PENDING" in lq(r, "review-request").stdout)
 check("a missing id is an error", lq(r, "resolve", "deadbeef", "--to", "discard").returncode == 1)
 check("nothing in the persistent context changed: CLAUDE.md and .engine/rules.md are untouched",
       (r / "CLAUDE.md").read_text() == claude_before and (r / ".engine/rules.md").read_text() == "# Rules approved from lessons\n")
@@ -184,6 +192,50 @@ check("promotion that would pass 200 lines of persistent context is refused and 
 check("a ledger entry that names the proposal but holds no PASS does not approve it",
       lq(r, "promote", "bbbbbbbb").returncode == 1 and "A rule the overseer blocked" not in (r / ".engine/rules.md").read_text())
 
+
+print("review: proposals, repetition, quoting, corrupt state, @path")
+r = project()
+lq(r, "add", "--source", "agent", "--slice", "s", "lesson one")
+overseer_env = {"last_assistant_message": "x\nOVERSEER_PASS\n"}
+def pass_reason(n: int) -> str:
+    sha = r / ".claude/state/overseer/.last_continue_sha"
+    if sha.exists():
+        sha.unlink()
+    out = run(r, OVERSEER, stdin={"last_assistant_message": f"turn {n}\nOVERSEER_PASS\n"})
+    return str(json.loads(out.stdout)["reason"])
+first_r, second_r, third_r, fourth_r = (pass_reason(i) for i in range(4))
+check("the review request is made once for an unchanged queue, then reminded only every third PASS",
+      "LESSON_REVIEW" in first_r and "LESSON_REVIEW" not in second_r and "LESSON_REVIEW" not in third_r and "LESSON_REVIEW" in fourth_r,
+      [("LESSON_REVIEW" in x) for x in (first_r, second_r, third_r, fourth_r)])
+lq(r, "add", "--source", "agent", "--slice", "s", "lesson two")
+check("a changed queue is requested again at once", "LESSON_REVIEW" in pass_reason(9))
+lid = ids(r)[0]
+lq(r, "resolve", lid, "--to", "rule", "--text", "Always show the RED.", "--why", "audit 06")
+for i in ids(r):
+    lq(r, "resolve", i, "--to", "discard")
+prop = pass_reason(10)
+check("a pending proposal alone triggers a request that tells the overseer how to review it",
+      "RULE_PROPOSALS_PENDING" in prop and f"RP-{lid}" in prop and "rule-proposal" in prop, prop[-300:])
+(r / ".engine/overseer").mkdir(parents=True, exist_ok=True)
+(r / ".engine/overseer/ledger.md").write_text(f"## 2026-10-03 — other entry — NOTE\n- we discussed rule-proposal {lid} and OVERSEER_PASS in prose\n")
+check("promote refuses a ledger chunk that merely quotes the id and the marker",
+      lq(r, "promote", lid).returncode == 1)
+(r / ".engine/overseer/ledger.md").write_text(f"## 2026-10-03 — rule-proposal {lid} — REVIEWED\n- the marker below\nOVERSEER_PASS\n")
+check("a chunk headed by the proposal with the marker alone on a line approves it", lq(r, "promote", lid).returncode == 0)
+bad_at = lq(r, "resolve", "00000000", "--to", "rule", "--text", "See @docs/x.md always", "--why", "w")
+lq(r, "add", "--source", "agent", "--slice", "s", "lesson three")
+bad_at = lq(r, "resolve", ids(r)[0], "--to", "rule", "--text", "See @docs/x.md always", "--why", "w")
+check("a rule text with an @path is refused (rules.md is imported by CLAUDE.md)", bad_at.returncode == 1 and "@path" in bad_at.stderr, bad_at.stderr)
+state = r / ".claude/state/lessons"
+(state / "stuck.json").write_text('{"key": "x", "count": ["not", "an", "int"]}')
+(state / "seen.json").write_text("[1, 2")
+check("corrupt state files do not break the hooks",
+      lq(r, "stuck", stdin={"hook_event_name": "PostToolUseFailure", "tool_name": "Bash", "error": "boom"}).returncode == 0
+      and lq(r, "collect").returncode == 0 and lq(r, "session-start").returncode == 0)
+(state / "review.json").write_text("garbage")
+check("...nor does a corrupt review marker break the overseer hook", run(r, OVERSEER, stdin={"last_assistant_message": "q\nOVERSEER_PASS\n"}).returncode == 0)
+check("an empty failure text is never counted", lesson_queue.note_failure(r, "   ") == "")
+
 # ---------------------------------------------------------------- session start
 print("session start: a bounded digest, and the clean-up proposal")
 r = project()
@@ -195,8 +247,8 @@ out = lq(r, "session-start").stdout
 check("the digest names the memory headings and the queue", "A passing test proves nothing" in out and "Lesson queue: 1 candidate" in out, out)
 check("the digest is short and never the memory file itself", len(out) <= 1200 and "body" not in out, len(out))
 check("a young queue: no clean-up proposed", "CLEAN-UP" not in out)
-for i in range(31):
-    lq(r, "add", "--source", "agent", "--slice", "s", f"filler lesson {'x' * i} word{i}a{'b' * i}")
+for n in range(31):
+    lq(r, "add", "--source", "agent", "--slice", "s", f"filler lesson {'x' * n} word{n}a{'b' * n}")
 out = lq(r, "session-start").stdout
 check("over 30 entries: the clean-up protocol is proposed", "MEMORY CLEAN-UP DUE" in out and "over 30" in out, out)
 check("the digest stays bounded with a long queue", len(out) <= 1200, len(out))
@@ -280,8 +332,8 @@ run(r, GATE, "--layer", "stop", "--hook", stdin={"stop_hook_active": True, "sess
 check("the same block again does not duplicate the candidate", queue(r) == first, queue(r))
 
 (r / ".claude/state/lessons/stuck.json").unlink()
-for i in range(3):
-    last = run(r, GATE, "--layer", "stop", "--hook", stdin={"stop_hook_active": i > 0, "session_id": "t"})
+for n in range(3):
+    last = run(r, GATE, "--layer", "stop", "--hook", stdin={"stop_hook_active": n > 0, "session_id": "t"})
 check("the gate hands the stuck protocol over on the third identical block (in the reason or the escalation)",
       "STUCK PROTOCOL" in last.stdout, last.stdout[:300])
 

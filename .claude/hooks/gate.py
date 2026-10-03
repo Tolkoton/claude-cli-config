@@ -660,7 +660,7 @@ def lessons(root: Path, action: str, text: str = "") -> str:
             return lesson_queue.note_failure(root, text)
         elif action == "success":
             lesson_queue.note_success(root)
-    except (ImportError, OSError, ValueError):
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
         pass
     return ""
 
@@ -708,7 +708,7 @@ def layer_post_write(root: Path, env: dict[str, str], rel: str, report: Report) 
                     notes.append(f"lint {shown}:{match['line']} {match['msg'].strip()}")
     warns = [f for f in report.findings if f.severity == "warn"]
     if warns:
-        stuck = lessons(root, "failure", f"{warns[0].rule} {warns[0].file} {warns[0].message}")
+        stuck = lessons(root, "failure", " ; ".join(sorted(f"{w.rule} {w.file} {w.message}" for w in warns)))
         if stuck:
             notes.append(stuck)
     else:
@@ -840,8 +840,8 @@ def emit_stop(report: Report, root: Path, hook: bool, session: str) -> int:
     if result != "escalated":
         write_report(report, result)
     if report.blocked:
-        stuck = lessons(root, "failure", next((f"{f.rule} {f.file} {f.message}" for f in report.findings
-                                              if f.severity == "block"), ""))
+        stuck = lessons(root, "failure", " ; ".join(sorted(
+            f"{f.rule} {f.file} {f.message}" for f in report.findings if f.severity == "block")))
         if stuck:
             report.reasons.append(stuck)
             if "systemMessage" in extra:

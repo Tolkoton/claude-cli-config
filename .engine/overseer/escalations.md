@@ -549,3 +549,30 @@ one; do not reopen the old one in conversation.
 - Evidence: results-package-7.json, 87 original scenarios identical to results-package-3c.json.
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-03T10:45:00Z — AUTONOMOUS — M1-carriers-not-new-hook-entries
+- Decision: package B's hooks ride on events already wired — SessionStart digest in env-check.sh, collection and the stuck counter in gate.py, verdict collection and the review request in overseer_stop.py — all calling one module, lesson_queue.py. Only the stuck counter on Bash results needs a new settings entry; it is parked with an idempotent apply script and a test.
+- Door: two-way
+- Cost to reverse: moving a call from a carrier to a dedicated settings entry changes wiring, not behaviour.
+- Why not escalated: .claude/settings.json is owner-only; three of the four mechanisms work without touching it, and the fourth degrades gracefully (post-write lint and Stop blocks still feed the counter).
+- Evidence: tests/test_lesson_queue.py 62/62, tests/test_lesson_hooks_proposal.py 21/21, golden scenarios lq-*.
+- Falsified by: the owner preferring separate hook entries for visibility — then four lines in settings.json and the carriers' calls removed.
+- Status: CLOSED
+
+## 2026-10-03T10:46:00Z — AUTONOMOUS — M7-promote-is-the-overseer-gate
+- Decision: "the overseer checks proposals" is implemented as a deterministic gate in `lesson_queue.py promote` (a ledger entry naming `rule-proposal <id>` containing OVERSEER_PASS, and the 200-line budget) rather than as new text in the overseer skill.
+- Door: two-way
+- Cost to reverse: one function; the overseer can later be given a dedicated check without changing `promote`'s contract.
+- Why not escalated: night program item 0.4 forbids changing the overseer's text this night; a code gate keeps the owner's rule (nothing enters the persistent context without the overseer) true today.
+- Evidence: tests/test_lesson_queue.py "the promotion path" (6 cases).
+- Falsified by: an overseer entry format that never contains the literal proposal id — then the reviewing session must name it, which the review request says.
+- Status: CLOSED
+
+## 2026-10-03T10:47:00Z — AUTONOMOUS — M8-skill-text-agreed
+- Decision: the self-learning-orchestrator skill keeps its triggers but its queue moves from `.claude/lesson-queue.md` (a path the agent cannot write) to `.engine/lesson-queue.md`, its capture command becomes `lesson_queue.py add`, and hard rule 2 distinguishes attended confirmation from the hook's review request.
+- Door: two-way
+- Cost to reverse: text only.
+- Why not escalated: item 9 of the owner's package asks for exactly this agreement; the old text told the agent to write a file `protect-paths.sh` refuses.
+- Evidence: git diff of .claude/skills/self-learning-orchestrator; tests/test_text_hygiene.py 8/8.
+- Falsified by: —
+- Status: CLOSED

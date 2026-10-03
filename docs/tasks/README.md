@@ -76,3 +76,22 @@ Edit/Write/MultiEdit permission request. Apply, from the repository root, then r
 ```bash
 cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```
+
+## `lesson-hooks.json` — the stuck counter's wiring (package B)
+
+Everything of the lesson queue rides on hooks that are already wired (the Stop gate collects and
+feeds the stuck counter, the overseer hook queues `OVERSEER_BLOCK` and asks for the review after a
+PASS, the SessionStart hook `env-check.sh` carries the digest). One thing needs a new entry in
+`.claude/settings.json`, which an agent may not edit: the stuck counter on **Bash results**
+(`PostToolUse` today matches `Edit|Write|MultiEdit` only; a failed Bash call arrives as
+`PostToolUseFailure`). Without it the counter still sees repeated gate failures (post-write lint,
+Stop blocks) — only a command that fails three times in a row goes unnoticed.
+
+```bash
+python3 docs/tasks/apply-lesson-hooks.py --dry-run     # what it would add
+python3 docs/tasks/apply-lesson-hooks.py               # merge, backup beside the file, idempotent
+python3 tests/test_lesson_hooks_proposal.py            # holds before and after
+```
+
+Restart Claude Code afterwards. If your Claude Code version has no `PostToolUseFailure` event the
+`PostToolUse` group alone still counts non-zero exit codes it can see; the unknown event is ignored.

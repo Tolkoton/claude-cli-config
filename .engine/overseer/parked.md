@@ -155,3 +155,11 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Evidence: `ls ~/engine-night` → "No such file or directory" at 19:55Z and at the end of the run.
 - Unblocks when: the owner creates ~/engine-night/night-1.md (no machine-checkable token: the path is outside the repository); a human moves this entry
 - Continued with: the package-2b records and report.
+
+## 2026-10-03T10:30:00Z — B-wiring-stuck-bash — PARKED
+- Blocked on: `.claude/settings.json` is owner-only (protect-paths.sh) and the stuck counter on Bash results needs a PostToolUse / PostToolUseFailure entry for `Bash`
+- Class: human-input
+- Reversibility: the merge is idempotent and writes a `.bak-lesson-hooks` backup; deleting the two groups undoes it
+- Evidence: docs/tasks/lesson-hooks.json, docs/tasks/apply-lesson-hooks.py, tests/test_lesson_hooks_proposal.py 21/21
+- Unblocks when: the owner runs `python3 docs/tasks/apply-lesson-hooks.py` (then restarts Claude Code); `python3 tests/test_lesson_hooks_proposal.py` passes before and after
+- Continued with: the rest of package B, which needs no new wiring
