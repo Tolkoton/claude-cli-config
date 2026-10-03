@@ -14,6 +14,8 @@
 # Package board: test_paid_run_gate 1.7 s and test_board 2.9 s are in (the board's reader; one synthetic install). Out: test_board_runner
 # 82 s (about forty runs of the real runner on synthetic repositories with a fake claude).
 # Board 002: test_audit_fixture_rounding 0.1 s is in (in-process, no sandbox).
+# Board 005: the gate's question — test_board grew to 3.3 s (in); test_gate_allows and
+# test_board_runner (about 100 s now) stay out.
 # Board 003: test_audit_first_verdict 2.0 s is in (two real sandboxes, a claude shim).
 test_deny_gaps.py
 test_root_delete_deny.py

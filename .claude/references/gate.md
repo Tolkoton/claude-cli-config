@@ -77,8 +77,16 @@ the files it blocked on (every file it looked at, when the failure named none). 
 `overseer_stop.py` answers an `OVERSEER_PASS` with `OVERSEER_PASS_REFUSED` as long as any of those
 files is in the range no accepted PASS has covered. The lock is keyed on the files, not on the
 slice's name — `.engine/PROGRESS.md` is the agent's own file. Other work passes once the escalated
-changes are set aside uncommitted (`git stash push -- <files>`). The owner closes it, in their own
-terminal:
+changes are set aside uncommitted (`git stash push -- <files>`).
+
+In a project with a task board (`tasks/`) the escalation is also written as a task,
+`tasks/blocked/9NN-gate-escalation-<stamp>.md`, with what the gate blocked on and one question.
+The owner answers `закрити` in that file — in the branch or through the inbox — and
+`board-runner.sh` runs the command below and moves the task to `done/`; any other answer is an
+instruction and sends the task to an agent with the escalation still open. The runner takes an
+answer only when it arrived by its pull or from the inbox: one already in the checkout was
+written on the agent's machine, and is wiped and asked again. Without a board, or at any time,
+the owner closes it in their own terminal:
 
 ```bash
 python3 .claude/hooks/gate.py --close-escalation <stamp|all>   # the stamp is in the parked entry

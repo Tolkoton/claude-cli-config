@@ -20,7 +20,18 @@ It never runs git: staging and committing belong to the runner and to the agent.
     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
     board.py audit-allowed           exit 0 only when the one task in doing/ asks for the audit
+    board.py gate-answers            the gate's questions in blocked/ that the owner answered
+                                     «закрити»: one `name<TAB>stamp<TAB>sha256` line each
+    board.py gate-done <name> <closed|absent>   such a task goes to done/ with its report
+    board.py gate-reject <name>      its answer is wiped and the question asked again
     board.py summary                 the board in a dozen lines, for the owner
+
+A GATE QUESTION (board 005) is a task the Stop gate writes itself when it gives up after N
+blocks in a row (`gate_question`, called by .claude/hooks/gate.py): tasks/blocked/9NN-gate-
+escalation-<stamp>.md, with the line `Ескалація воріт: <stamp>` under its title. The owner's
+answer «закрити» is acted on by board-runner.sh, which runs `gate.py --close-escalation` — never
+by an agent, so `unblock` leaves such a task where it is. Any other answer is an instruction:
+the task goes back to todo/ like every answered task.
 
 `--root DIR` names the repository (default: the one this file is installed in).
 """
@@ -28,9 +39,11 @@ It never runs git: staging and committing belong to the runner and to the agent.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 COLUMNS = ("todo", "doing", "blocked", "done")
@@ -42,6 +55,9 @@ QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MUL
 HEADING = re.compile(r"^##\s", re.MULTILINE)
 ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILINE)
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+GATE = re.compile(r"^Ескалація воріт:\s*(\S+)", re.MULTILINE)
+GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
+GATE_CLOSE = "закрити"
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE = 2, 3, 4
 
 
@@ -51,12 +67,21 @@ class Task:
     audit: bool
     questions: str
     answers: tuple[str, ...]
+    gate: str = ""
 
     @property
     def answered(self) -> bool:
         """Every question has its answer — and there is at least one: a task that asks nothing
         was answered by nobody."""
         return bool(self.answers) and all(self.answers)
+
+    @property
+    def closes(self) -> bool:
+        """A gate question whose last answer is the one word «закрити»: the runner's to act on."""
+        if not (self.gate and self.answered):
+            return False
+        words = self.answers[-1].lower().split()
+        return bool(words) and words[0].strip("«»\"'`*_.,;:!") == GATE_CLOSE
 
 
 def parse(text: str) -> Task:
@@ -65,6 +90,7 @@ def parse(text: str) -> Task:
     header = text[: first_heading.start()] if first_heading else text
     depends = DEPENDS.search(header)
     audit = AUDIT.search(header)
+    gate = GATE.search(header)
     section = QUESTIONS.search(text)
     questions = ""
     if section:
@@ -76,6 +102,7 @@ def parse(text: str) -> Task:
         audit=audit is not None and audit.group(1).strip(".,;*_").lower() == "так",
         questions=questions.strip(),
         answers=tuple(a.strip() for a in ANSWER.findall(questions)),
+        gate=gate.group(1) if gate else "",
     )
 
 
@@ -209,12 +236,115 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
 def unblock(board: Board) -> list[str]:
     moved: list[str] = []
     for path in board.files("blocked"):
-        if read(path).answered:
+        task = read(path)
+        # A gate question answered «закрити» is closed by the runner, not handed to an agent.
+        if task.answered and not task.closes:
             target = board.tasks / "todo" / path.name
             target.parent.mkdir(parents=True, exist_ok=True)
             path.rename(target)
             moved.append(path.name)
     return moved
+
+
+def gate_question(board: Board, stamp: str, blocks: int, slice_name: str, files: list[str],
+                  reasons: list[str], report: str) -> Path | None:
+    """The Stop gate's escalation as a question in blocked/. None when the project has no board;
+    the task already written for this stamp when there is one."""
+    if not board.tasks.is_dir():
+        return None
+    for path in [*(p for c in ("todo", "doing", "blocked") for p in board.files(c)), *(d / "task.md" for d in board.done())]:
+        if path.is_file() and read(path).gate == stamp:
+            return path
+    taken = {n for column in COLUMNS for n in board.numbers(column)}
+    number = next(n for n in range(GATE_FIRST, GATE_FIRST + len(taken) + 1) if n not in taken)
+
+    def shown(lines: list[str], empty: str) -> str:
+        return "\n".join(f"  - {line.replace('<!--', '<! --').strip()}" for line in lines) or f"  - {empty}"
+
+    text = f"""# {number} — Ворота зупинили роботу: потрібне ваше рішення
+
+Залежить від: —
+Аудит потрібен: ні
+Ескалація воріт: {stamp}
+
+## Що сталося
+Перевірки наприкінці ходу (ворота) не пройшли {blocks} раз(и) поспіль, і агент не зміг цього
+виправити. Хід завершено; зроблене лежить на диску. Поки це питання відкрите, наглядач не
+приймає роботу, яка зачіпає ці файли.
+
+- Зріз: {slice_name}
+- Файли:
+{shown(files, "(ворота не назвали файлів)")}
+- На чому зупинилося:
+{shown(reasons, "(причину не записано)")}
+- Повний звіт (на сервері): `{report}`
+
+## Що зробити
+Це питання поставили ворота, а не агент. Агент на нього не відповідає і сам ескалацію не
+закриває: відповідь «закрити» виконує виконавець дошки. Якщо власник відповів інакше — це
+вказівка агентові: виконай її, допиши внизу нове питання «Тепер закрити ескалацію?» з порожнім
+рядком відповіді й поверни задачу в `tasks/blocked/`.
+
+## Готово, коли
+Власник відповів «закрити», і виконавець закрив ескалацію.
+
+## Питання до власника
+Варіанти відповіді:
+- `закрити` — зауваження воріт прийнято або вже виправлено; роботу з цими файлами можна приймати далі.
+- будь-який інший текст — вказівка агентові, що саме виправити; ескалація лишається відкритою.
+
+1. Що робити з цією зупинкою воріт — закрити чи виправляти (тоді напишіть, що саме)?
+   Відповідь:
+"""
+    target = board.tasks / "blocked" / f"{number}-gate-escalation-{re.sub(r'[^0-9A-Za-z]', '', stamp)}.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    return target
+
+
+def gate_answers(board: Board) -> list[str]:
+    lines: list[str] = []
+    for path in board.files("blocked"):
+        task = read(path)
+        if task.closes:
+            lines.append(f"{path.name}\t{task.gate}\t{hashlib.sha256(path.read_bytes()).hexdigest()}")
+    return lines
+
+
+def gate_task(board: Board, name: str) -> Path | None:
+    path = board.tasks / "blocked" / Path(name).name
+    return path if path.is_file() and TASK_NAME.match(path.name) and read(path).gate else None
+
+
+def gate_done(board: Board, path: Path, outcome: str) -> Path:
+    """A gate question the runner has acted on: done/NNN-name/ with task.md and a report.md."""
+    stamp = read(path).gate
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if outcome == "closed":
+        changed = (f"Ескалацію воріт {stamp} закрито за вашою відповіддю «закрити» ({now}, виконавець дошки). "
+                   "Наглядач знову приймає роботу з цими файлами.")
+    else:
+        changed = (f"Ескалація воріт {stamp} на момент вашої відповіді вже не була відкрита (її закрито раніше "
+                   f"або запису про неї немає). Питання прибрано з дошки ({now}, виконавець дошки).")
+    target = board.tasks / "done" / path.stem
+    target.mkdir(parents=True, exist_ok=True)
+    path.rename(target / "task.md")
+    (target / "report.md").write_text(
+        f"# Звіт: {path.stem}\n\n## Що змінилось для власника\n- {changed}\n\n"
+        "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було, лише ваша відповідь.\n",
+        encoding="utf-8")
+    return target
+
+
+def gate_reject(path: Path) -> None:
+    """Wipe an answer that did not come from the owner and say so under the question."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    last = max(i for i, line in enumerate(lines) if ANSWER.match(line))
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lines[last] = lines[last][: lines[last].index("Відповідь:")] + "Відповідь:"
+    lines.insert(last, f"Примітка виконавця ({now}): відповідь «закрити» з'явилася на сервері, а не прийшла "
+                       "через гілку чи теку вхідних задач, тому її не прийнято. Дайте відповідь ще раз.")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def audit_refusal(tasks: Path) -> str | None:
@@ -269,6 +399,11 @@ def main() -> int:
     commands.add_parser("import-inbox").add_argument("inbox", type=Path)
     commands.add_parser("unblock")
     commands.add_parser("audit-allowed").add_argument("--tasks-dir", type=Path, default=None)
+    commands.add_parser("gate-answers")
+    gate_done_parser = commands.add_parser("gate-done")
+    gate_done_parser.add_argument("name")
+    gate_done_parser.add_argument("outcome", choices=("closed", "absent"))
+    commands.add_parser("gate-reject").add_argument("name")
     commands.add_parser("summary")
     args = parser.parse_args()
     root: Path = args.root.resolve()
@@ -286,6 +421,20 @@ def main() -> int:
     if args.command == "unblock":
         for name in unblock(board):
             print(name)
+        return 0
+    if args.command == "gate-answers":
+        for line in gate_answers(board):
+            print(line)
+        return 0
+    if args.command in ("gate-done", "gate-reject"):
+        path = gate_task(board, args.name)
+        if path is None:
+            print(f"board: {args.name} is not a gate question in tasks/blocked/", file=sys.stderr)
+            return EXIT_REFUSED
+        if args.command == "gate-done":
+            print(board.shown(gate_done(board, path, args.outcome)))
+        else:
+            gate_reject(path)
         return 0
     if args.command == "audit-allowed":
         refusal = audit_refusal(args.tasks_dir.resolve() if args.tasks_dir else board.tasks)

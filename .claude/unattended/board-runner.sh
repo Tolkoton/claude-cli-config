@@ -10,7 +10,8 @@
 # WHAT IT DOES, in the order it does it (tasks/README.md is the board's manual):
 #   before every task   fetch and `pull --rebase` the work branch — new tasks and the owner's
 #                       answers arrive this way; take new files from the inbox into tasks/todo/
-#                       (one commit); move answered tasks from tasks/blocked/ back to todo/ (one commit)
+#                       (one commit); close the gate escalations the owner answered «закрити»
+#                       (see below); move answered tasks from tasks/blocked/ back to todo/ (one commit)
 #   the task            the first in todo/ whose dependencies are in done/ goes to doing/ in a
 #                       commit of its own, then `claude -p` in a FRESH conversation
 #   while it is open    a session that ended with the task still in doing/ is continued
@@ -27,8 +28,17 @@
 #   summary.md  written at every stop       logs/       the raw output of every attempt
 # Exit 0: idle, waiting-owner, stopped (--once). Exit 1: stalled, deadline, error.
 #
-# THE RUNNER MOVES A TASK INTO doing/; ONLY THE AGENT MOVES IT OUT. The runner writes no report
-# and judges no work. It commits nothing but tasks/ — and only on the work branch, which must
+# A GATE QUESTION (tasks/blocked/9NN-gate-escalation-*.md, written by gate.py when the Stop gate
+# gives up) is the one task the runner finishes itself. It commits and pushes the question as
+# soon as it appears; when the owner's answer «закрити» ARRIVES — by the pull or through the
+# inbox — it runs `gate.py --close-escalation <stamp>` and moves the task to done/ with a
+# two-line report. An answer that was already in the checkout before the pull was written on
+# this machine, where the writer is the agent the gate judged: it is wiped and asked again.
+# gate.py refuses the command inside a Claude Code session, so a runner an agent starts closes
+# nothing.
+#
+# THE RUNNER MOVES A TASK INTO doing/; ONLY THE AGENT MOVES IT OUT. Gate questions apart, the
+# runner writes no report and judges no work. It commits nothing but tasks/ — and only on the work branch, which must
 # be an unattended/* branch: hooks do not see a commit made from a script, so the check is here.
 #
 # Every number is an environment variable, so the tests run in seconds:
@@ -68,6 +78,8 @@ STATE="$PROJECT_ROOT/.claude/state/board"
 MODE_FILE="$PROJECT_ROOT/.claude/state/overseer/mode"
 MODE_BEFORE="$STATE/mode.before"
 LOCK="$STATE/lock"
+GATE_PY="$HERE/../hooks/gate.py"
+ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
 board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
 memo() { python3 "$HERE/board_state.py" "$STATE" "$@"; }
 
@@ -197,15 +209,73 @@ sync_branch() {
   fi
 }
 
+# A question the gate put on the board is committed and pushed at once, by itself: the owner
+# reads the branch, not this machine, and the task the agent was on may never close.
+publish_gate_questions() {
+  local -a fresh=()
+  local path
+  while IFS= read -r path; do
+    case "$path" in tasks/blocked/[0-9]*-gate-escalation-*.md) fresh+=("$path") ;; esac
+  done < <(git ls-files --others --exclude-standard -- tasks/blocked)
+  [ "${#fresh[@]}" -gt 0 ] || return 0
+  [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] \
+    || finish error "${TASK_NAME:--}" branch "the checkout left $BRANCH; nothing was committed"
+  git add -- "${fresh[@]}" && git commit -q -m "board: the gate asks the owner — ${#fresh[@]} question(s) in blocked/" -- "${fresh[@]}" \
+    || finish error "${TASK_NAME:--}" commit "cannot commit the gate's question"
+  event "gate-question $(git rev-parse --short HEAD) ${fresh[*]}"
+  push_branch
+}
+
+# The «закрити» answers that are in the checkout NOW and did not arrive from the owner earlier.
+# Called before the pull: whatever it lists was written here, not by the owner.
+local_gate_answers() {
+  local line
+  board gate-answers | while IFS= read -r line; do
+    grep -qxF -- "$line" "$ACCEPTED" 2>/dev/null || echo "$line"
+  done
+}
+
+# Act on the owner's «закрити». The command is run here, by the runner — never by an agent.
+close_escalations() {
+  local name stamp sum line rc
+  while IFS=$'\t' read -r name stamp sum; do
+    [ -n "$name" ] || continue
+    line="$name"$'\t'"$stamp"$'\t'"$sum"
+    if grep -qxF -- "$line" <<< "$LOCAL_ANSWERS"; then
+      board gate-reject "$name" || finish error - gate "board.py gate-reject $name failed"
+      event "escalation-answer-rejected $stamp $name written-here"
+      say "$name: an answer written on this machine is not the owner's; wiped and asked again"
+      board_commit "board: ${name%.md} — an answer written on this machine is not the owner's; asked again" \
+        || finish error - commit "cannot commit the rejected answer"
+      continue
+    fi
+    echo "$line" >> "$ACCEPTED"
+    CLAUDE_PROJECT_DIR="$PROJECT_ROOT" python3 "$GATE_PY" --close-escalation "$stamp" >> "$STATE/logs/gate.log" 2>&1; rc=$?
+    case "$rc" in
+      0) board gate-done "$name" closed > /dev/null || finish error - gate "board.py gate-done $name failed" ;;
+      1) board gate-done "$name" absent > /dev/null || finish error - gate "board.py gate-done $name failed" ;;
+      *) event "escalation-close-refused $stamp $name rc=$rc"
+         say "$name: gate.py refused to close $stamp (see $STATE/logs/gate.log); the question stays in blocked/"
+         continue ;;
+    esac
+    event "escalation-closed $stamp $name$([ "$rc" -eq 1 ] && echo ' was-not-open')"
+    say "${name%.md}: gate escalation $stamp closed on the owner's answer"
+    board_commit "board: ${name%.md} → done — gate escalation $stamp closed on the owner's answer" \
+      || finish error - commit "cannot commit the closed gate question"
+  done <<< "$(board gate-answers)"
+}
+
 # New task files and the owner's answers, each in a commit of its own.
 intake() {
   local taken answered
+  publish_gate_questions
   taken=$(board import-inbox "$INBOX") || finish error - inbox "board.py import-inbox failed"
   if [ -n "$taken" ]; then
     while IFS= read -r line; do event "inbox $line"; done <<< "$taken"
     board_commit "board: from the inbox — $(echo "$taken" | grep -vc ' skipped: ') file(s) taken" \
       || finish error - commit "cannot commit the inbox files"
   fi
+  close_escalations
   answered=$(board unblock) || finish error - unblock "board.py unblock failed"
   if [ -n "$answered" ]; then
     board_commit "board: answered, back to todo — $(echo "$answered" | tr '\n' ' ')" \
@@ -259,6 +329,7 @@ run_task() {
     after=$(git rev-parse HEAD)
     note=$(memo record "$stem" "$out" "$([ "$before" != "$after" ] && echo 1 || echo 0)")
     event "attempt-end $stem $n cost=$(memo get "$stem" cost) commit=$([ "$before" != "$after" ] && echo yes || echo no)${note:+ $note}"
+    publish_gate_questions
     if [ "$note" = "limit" ] && [ "$(board where "$stem")" = "doing" ]; then
       status waiting-limit "$stem"
       say "usage limit; waiting $LIMIT_WAIT s"
@@ -273,6 +344,7 @@ event "start pid=$$ branch=$BRANCH once=$ONCE push=$PUSH${MAX_USD:+ max_usd=$MAX
 TASK_NAME="-"
 FINISHED=0
 while :; do
+  LOCAL_ANSWERS=$(local_gate_answers)
   sync_branch
   intake
   TASK=$(board next); RC=$?

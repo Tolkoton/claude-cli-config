@@ -155,6 +155,12 @@ such exemption before the overseer, who judges it (check #4). What that rests on
   `CLAUDECODE` is set — every shell the agent's tools start has it. An agent that clears the
   variable on purpose can run the command; that is a deliberate, visible act, not a routine edit
   of the park queue, which is what closed the question before.
+- **The board runner runs that command on the owner's `закрити`** under the gate's question in
+  `tasks/blocked/`. It tells the owner's answer from the agent's by how it arrived: the pull and
+  the inbox are the owner's, the checkout is not. That stops an answer typed into the file on
+  the server; it does not stop an agent that drops a forged copy into the inbox directory or
+  pushes one to the remote by another route — like clearing `CLAUDECODE`, a deliberate act that
+  shows in the transcript, not something the runner can see.
 - **The lock is keyed on files, so it is wide.** The slice's name is the agent's to write
   (`.engine/PROGRESS.md`), the diff is not. An escalation therefore holds every PASS while the
   files the gate blocked on are in the range no accepted PASS has covered — in practice all work

@@ -12,7 +12,9 @@ Layers
                 the model as additionalContext, and only when there is something to show.
     stop        quick, incremental: lint and types on the files the turn changed, tests that map
                 to them. Reads `stop_hook_active` first. Counts consecutive blocks; on the Nth it
-                lets the turn end and parks the item for a human (GATE_MAX_BLOCKS, default 3).
+                lets the turn end and parks the item for a human (GATE_MAX_BLOCKS, default 3);
+                in a project with a task board the question also becomes a task in
+                tasks/blocked/, and the owner's answer «закрити» there closes it.
                 Also refuses to be passed by silencing: see "bypass guard".
     pre_commit  the full set on the staged change (what a git pre-commit hook runs).
     ci          the full set (what a pipeline runs). No workflow file ships; see
@@ -666,7 +668,7 @@ def read_escalations(root: Path) -> dict[str, Any]:
     return data
 
 
-def open_escalation(root: Path, stamp: str, report: Report) -> None:
+def open_escalation(root: Path, stamp: str, report: Report, task: str | None = None) -> None:
     """Machine state beside the parked entry: overseer_stop.py refuses an OVERSEER_PASS while an
     escalation of the slice is open. In .claude/state/, which no agent tool may write — the park
     queue is the agent's own file and could not carry a lock on the agent."""
@@ -675,8 +677,11 @@ def open_escalation(root: Path, stamp: str, report: Report) -> None:
     # "failed"), every file the gate looked at. The lock is keyed on these, not on a slice name.
     files = sorted({f.file for f in report.findings if f.severity == "block" and f.file}) or sorted(report.files)
     head = git(root, "rev-parse", "-q", "--verify", "HEAD").stdout.strip()
-    data["open"].append({"stamp": stamp, "slice": active_slice(root) or NO_SLICE, "files": files,
-                         "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]})
+    entry = {"stamp": stamp, "slice": active_slice(root) or NO_SLICE, "files": files,
+             "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]}
+    if task:
+        entry["task"] = task
+    data["open"].append(entry)
     try:
         write_json(root / ESCALATIONS_REL, data)
     except OSError as exc:
@@ -684,7 +689,9 @@ def open_escalation(root: Path, stamp: str, report: Report) -> None:
 
 
 def close_escalation(root: Path, which: str) -> int:
-    """`gate.py --close-escalation <stamp|all>` — a HUMAN's answer to a parked gate question.
+    """`gate.py --close-escalation <stamp|all>` — a HUMAN's answer to a parked gate question:
+    typed by the owner, or run by board-runner.sh on the owner's «закрити» under the question
+    in tasks/blocked/ (board 005).
 
     Refuses inside a Claude Code session (CLAUDECODE is set in every shell the agent's tools
     start): hooks do not see a command a script runs, so this script carries the check itself.
@@ -716,10 +723,32 @@ def close_escalation(root: Path, which: str) -> int:
     return 0
 
 
-def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> None:
+def board_question(root: Path, stamp: str, report: Report, evidence: str, blocks: int) -> str | None:
+    """The escalation as a question on the task board (board.py, tasks/README.md): the path of the
+    task written to tasks/blocked/, or None — no board in this project, or it could not be
+    written. Best effort: a problem here never changes what the gate decides."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board
+
+        files = sorted({f.file for f in report.findings if f.severity == "block" and f.file}) or sorted(report.files)
+        task = board.gate_question(board.Board(root / "tasks"), stamp, blocks, active_slice(root) or NO_SLICE,
+                                   files[:20], [r.splitlines()[0][:200] for r in report.reasons[:5]], evidence)
+        return task.relative_to(root).as_posix() if task else None
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        print(f"gate: the escalation was not put on the task board: {exc}", file=sys.stderr)
+        return None
+
+
+def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> str | None:
+    """Park the item; returns the board task that asks the owner, when there is a board."""
     stamp = utc_now()
-    open_escalation(root, stamp, report)
+    evidence = str(report_path.relative_to(root) if report_path.is_relative_to(root) else report_path)
+    task = board_question(root, stamp, report, evidence, blocks)
+    open_escalation(root, stamp, report, task)
     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
+    on_board = (f"the owner answers «закрити» in {task} (board-runner.sh then closes the escalation; "
+                "the agent does not answer it), or " if task else "")
     entry = (
         f"\n## {stamp} — gate stop layer — PARKED\n"
         f"- Blocked on: the Stop gate blocked {blocks} turns in a row and was not satisfied\n"
@@ -728,9 +757,9 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
         # not accept an OVERSEER_PASS for work that still holds the escalated files (package costs).
         f"- Slice: {active_slice(root) or NO_SLICE}\n"
         "- Reversibility: nothing was decided; the work is on disk and uncommitted\n"
-        f"- Evidence: {report_path.relative_to(root) if report_path.is_relative_to(root) else report_path}\n"
+        f"- Evidence: {evidence}\n"
         f"{top}\n"
-        "- Unblocks when: a human reads the report, fixes or accepts the finding, and runs in their "
+        f"- Unblocks when: {on_board}a human reads the report, fixes or accepts the finding, and runs in their "
         f"own terminal `python3 .claude/hooks/gate.py --close-escalation {stamp}` (refused inside a "
         "Claude Code session; until then no OVERSEER_PASS is accepted for work that holds these files)\n"
         "- Continued with: the turn was allowed to end\n"
@@ -742,6 +771,7 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
             handle.write(entry)
     except OSError as exc:
         print(f"gate: cannot park the escalation in {path}: {exc}", file=sys.stderr)
+    return task
 
 
 def lessons(root: Path, action: str, text: str = "") -> str:
@@ -916,9 +946,12 @@ def finish_stop(report: Report, root: Path, session: str) -> tuple[str, dict[str
         return "block", {}
     write_count(root, session, 0)
     path = write_report(report, "escalated")
-    park_escalation(root, report, path, count)
+    task = park_escalation(root, report, path, count)
     message = (f"GATE ESCALATION: the Stop gate blocked {count} turns in a row. The turn may end; the "
                f"item is parked in {PARKED_REL} for a human. Report: {REPORT_REL}")
+    if task:
+        message += (f". The owner is asked on the task board: {task} — leave its answer line empty; "
+                    "the board runner acts on the owner's answer")
     return "escalated", {"systemMessage": message}
 
 

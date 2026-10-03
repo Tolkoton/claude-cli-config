@@ -519,5 +519,6 @@ does not accept a PASS: it answers `OVERSEER_PASS_REFUSED` instead of
 is then not PASS — write the superseding ledger entry the refusal asks for.
 Naming another slice in `.engine/PROGRESS.md` changes nothing; other work can
 pass once the escalated changes are set aside uncommitted. Only the owner closes
-the escalation (`gate.py --close-escalation`, refused inside a session); do not
-mark the parked entry yourself.
+the escalation (`gate.py --close-escalation`, refused inside a session, or the
+answer `закрити` under the gate's question in `tasks/blocked/`); do not mark the
+parked entry or fill that answer yourself.

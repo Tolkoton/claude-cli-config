@@ -427,6 +427,52 @@ r = new_repo()
 check("a parked gate entry from before this package (no state) locks nothing",
       overseer(r, VERDICT).startswith("OVERSEER_PASS recorded"), "")
 
+
+print("the gate's escalation on the task board (board 005)")
+r = new_repo()
+stamp = escalate(r)
+state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+check("no tasks/ in the project: no task, no tasks/ directory, the escalation as before",
+      not (r / "tasks").exists() and "task" not in state["open"][-1] and "закрити" not in (r / ".engine/overseer/parked.md").read_text(), state)
+r = new_repo()
+(r / "tasks" / "blocked").mkdir(parents=True)
+(r / "mod.py").write_text("x = 1\ny = 2\nq = 9\n")
+(r / ".claude" / "project.env").write_text('CODE_EXTENSIONS="py"\nLINT_CMD="false"\nGATE_MAX_BLOCKS="1"\n')
+commit(r, "env")
+(r / "mod.py").write_text("x = 1\ny = 2\nq = 10\n")
+proc = run(GATE, r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
+state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+stamp = str(state["open"][-1]["stamp"])
+asked = sorted((r / "tasks/blocked").glob("*.md"))
+question = asked[0].read_text(encoding="utf-8") if asked else ""
+check("a board in the project: the escalation is a task in tasks/blocked/",
+      len(asked) == 1 and asked[0].name.startswith("900-gate-escalation-") and f"Ескалація воріт: {stamp}" in question, asked)
+check("...it names the file the gate blocked on and offers «закрити» with an empty answer line",
+      "mod.py" in question and "`закрити`" in question and question.rstrip().endswith("Відповідь:"), question)
+check("...the escalation state names the task", state["open"][-1].get("task") == f"tasks/blocked/{asked[0].name}" if asked else False, state)
+parked = (r / ".engine/overseer/parked.md").read_text()
+check("...the parked entry names both ways to close: the board answer and the owner's command",
+      f"tasks/blocked/{asked[0].name}" in parked and "«закрити»" in parked and f"--close-escalation {stamp}" in parked if asked else False, parked)
+message = str(json.loads(proc.stdout or "{}").get("systemMessage", ""))
+check("...the session is told where the owner is asked, and not to answer it itself",
+      message.startswith("GATE ESCALATION") and "tasks/blocked/900-gate-escalation-" in message and "leave its answer line empty" in message, message)
+check("the gate itself still closes nothing inside a session", close(r, stamp, inside_claude=True).returncode == 2
+      and len(json.loads((r / ".claude/state/gate/escalations.json").read_text())["open"]) == 1)
+lonely = Path(tempfile.mkdtemp(prefix="gate-allows-noboard-")) / "hooks"
+lonely.mkdir()
+for name in ("gate.py", "lesson_queue.py"):
+    shutil.copy(HOOKS / name, lonely / name)
+r = new_repo()
+(r / "tasks" / "blocked").mkdir(parents=True)
+(r / ".claude" / "project.env").write_text('CODE_EXTENSIONS="py"\nLINT_CMD="false"\nGATE_MAX_BLOCKS="1"\n')
+commit(r, "env")
+(r / "mod.py").write_text("x = 1\ny = 2\nq = 9\n")
+proc = run(lonely / "gate.py", r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
+state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+check("board.py missing beside the hooks: the escalation is still recorded and parked, and the gate says so",
+      len(state["open"]) == 1 and "PARKED" in (r / ".engine/overseer/parked.md").read_text()
+      and "not put on the task board" in proc.stderr and "GATE ESCALATION" in proc.stdout, proc.stderr)
+
 print()
 print(f"{'PASS' if FAIL == 0 else 'FAIL'}: {PASS}/{PASS + FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

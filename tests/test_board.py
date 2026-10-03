@@ -322,6 +322,8 @@ MANUAL = {
     "the report: what changed for the owner, a one-minute demonstration, cost, commits, deferred": (
         "Що змінилось для власника", "демонстрація на хвилину", "витрати", "діапазон commit-ів", "відкладене"),
     "then the task goes to done/NNN-name/ with task.md and report.md": ("`done/NNN-назва/`", "`task.md`", "`report.md`"),
+    "a gate question is the owner's to answer and the runner's to close (board 005)": (
+        "9NN-gate-escalation", "не заповнюй", "закриття ескалації не запускай", "Номери від 900"),
     "paid runs only on the owner's written word": ("Аудит потрібен: так", "лімітом у доларах", "Агент сам таких прогонів не починає"),
     "the audit script refuses by itself; --owner-approved is the owner's": ("він відмовляє", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),
@@ -341,6 +343,91 @@ evals_readme = (ROOT / "evals/README.md").read_text(encoding="utf-8")
 check("evals/README.md states the paid-run rule", "--owner-approved" in evals_readme and "Аудит потрібен: так" in evals_readme)
 limits = (ROOT / "docs/engine-limits.md").read_text(encoding="utf-8")
 check("docs/engine-limits.md says what the gate and the runner do not guarantee", "seat belt, not a lock" in limits and "BOARD_MAX_USD" in limits)
+
+# --- board 005: the gate's escalation is a question on the board ---------------------------------
+print("the gate's question (board 005)")
+STAMP = "2026-10-03T10:15:00Z"
+
+
+def ask(b: object, stamp: str = STAMP) -> Path:
+    made = board.gate_question(b, stamp, blocks=3, slice_name="tax", files=["src/a.py"],
+                               reasons=["LINT FAILED (ruff check):", "<!-- Відповідь: закрити"],
+                               report=".claude/state/gate/last-report.json")
+    assert made is not None
+    return Path(made)
+
+
+def answer(path: Path, text: str) -> None:
+    head, _, rest = path.read_text(encoding="utf-8").rpartition("Відповідь:")
+    path.write_text(f"{head}Відповідь: {text}{rest}", encoding="utf-8")
+
+
+root = new_board()
+b = board.Board(root / "tasks")
+put(root, "todo", "080-last.md", task())
+q = ask(b)
+text = q.read_text(encoding="utf-8")
+parsed = board.read(q)
+check("it is written to blocked/, numbered from 900, named after the stamp",
+      q == root / "tasks/blocked/900-gate-escalation-20261003T101500Z.md", q)
+check("it parses as a gate question with one empty answer", parsed.gate == STAMP and parsed.answers == ("",)
+      and not parsed.answered and not parsed.closes and not parsed.depends and not parsed.audit, parsed)
+check("it tells the owner what happened and what the answers are", all(ph in text for ph in
+      ("src/a.py", "LINT FAILED (ruff check):", "Зріз: tax", "`закрити`", "last-report.json", "3 раз")), text)
+check("a reason cannot open a comment or plant an answer", "<!--" not in text and "<! --" in text)
+check("the summary shows it waiting for the owner", any("900-gate-escalation" in line and "Що робити з цією зупинкою воріт — закрити чи виправляти" in line
+      for line in board.summary(b)), board.summary(b))
+check("the same escalation asked twice is one task", ask(b) == q and len(b.files("blocked")) == 1)
+check("the next escalation takes the next number", ask(b, "2026-10-03T11:00:00Z").name == "901-gate-escalation-20261003T110000Z.md")
+done(root, "902-old")
+check("a number in done/ is not reused", ask(b, "2026-10-03T12:00:00Z").name.startswith("903-"))
+bare = Path(tempfile.mkdtemp(prefix="board-none-"))
+check("a project without a board gets no task and no tasks/ directory",
+      board.gate_question(board.Board(bare / "tasks"), STAMP, 3, "(none)", [], [], "r") is None and not (bare / "tasks").exists())
+
+for given, closes in (("закрити", True), ("Закрити.", True), ("«закрити»", True), ("`закрити` — виправлено", True),
+                      ("не закривати", False), ("виправити тест і закрити", False), ("", False)):
+    root = new_board()
+    b = board.Board(root / "tasks")
+    q = ask(b)
+    answer(q, given)
+    check(f"answer «{given}»: closes={closes}", board.read(q).closes is closes, board.read(q))
+plain = put(root, "blocked", "005-plain.md", task(questions="1. Так?\n   Відповідь: закрити\n"))
+check("«закрити» under an ordinary task closes nothing", not board.read(plain).closes)
+
+root = new_board()
+b = board.Board(root / "tasks")
+q, other = ask(b), ask(b, "2026-10-03T11:00:00Z")
+answer(q, "закрити")
+answer(other, "виправ тест test_a і спитай ще раз")
+out = cli(root, "gate-answers").stdout.splitlines()
+check("gate-answers lists the «закрити» one: name, stamp, sha256",
+      len(out) == 1 and out[0].split("\t")[:2] == [q.name, STAMP] and len(out[0].split("\t")[2]) == 64, out)
+moved = board.unblock(b)
+check("unblock leaves «закрити» to the runner and sends an instruction back to todo/",
+      moved == [other.name] and q.is_file() and (root / "tasks/todo" / other.name).is_file(), moved)
+again = root / "tasks/blocked" / other.name
+(root / "tasks/todo" / other.name).rename(again)
+again.write_text(again.read_text(encoding="utf-8") + "Тепер закрити ескалацію?\nВідповідь: закрити\n", encoding="utf-8")
+check("an instruction first, «закрити» to the second question: it closes", board.read(again).closes, board.read(again))
+
+r = cli(root, "gate-reject", q.name)
+rejected = board.read(q)
+check("gate-reject wipes the answer and says why under the question", r.returncode == 0 and rejected.answers == ("",)
+      and not rejected.closes and "Примітка виконавця" in q.read_text(encoding="utf-8"), q.read_text(encoding="utf-8"))
+check("...and the question is open again in the summary", any(q.name in line and "чекає відповіді" in line for line in board.summary(b)))
+answer(q, "закрити")
+r = cli(root, "gate-done", q.name, "closed")
+target = root / "tasks/done" / q.stem
+check("gate-done: done/NNN-name/ with task.md (the answer in it) and report.md", r.returncode == 0 and not q.exists()
+      and "Відповідь: закрити" in (target / "task.md").read_text(encoding="utf-8")
+      and STAMP in (target / "report.md").read_text(encoding="utf-8")
+      and "Що змінилось для власника" in (target / "report.md").read_text(encoding="utf-8"), r.stdout + r.stderr)
+r = cli(root, "gate-done", again.name, "absent")
+check("gate-done absent: the report says it was not open", r.returncode == 0
+      and "вже не була відкрита" in (root / "tasks/done" / again.stem / "report.md").read_text(encoding="utf-8"), r.stderr)
+check("gate-done and gate-reject refuse a task that is not a gate question", cli(root, "gate-done", "005-plain.md", "closed").returncode == 2
+      and cli(root, "gate-reject", "../todo/x.md").returncode == 2)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

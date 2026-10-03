@@ -55,7 +55,10 @@ bash .claude/unattended/board-runner.sh --retry    # after `stalled` or `deadlin
 
 Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
 from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, and returns
-answered tasks from `tasks/blocked/`. It moves the task to `doing/` in its own commit and starts
+answered tasks from `tasks/blocked/`. A question the Stop gate put there after giving up
+(`9NN-gate-escalation-*.md`) it commits and pushes at once; when the owner's answer `закрити`
+arrives by the pull or the inbox, the runner itself runs `gate.py --close-escalation` and moves
+that task to `done/` — no agent is started for it (`.claude/references/gate.md`). It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
 A session that ends with the task still open is continued (`--resume`); a usage-limit notice
 waits 15 minutes. When the agent has moved the task to `done/` or `blocked/` the runner pushes

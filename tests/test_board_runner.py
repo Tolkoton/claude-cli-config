@@ -13,6 +13,8 @@ and then does what its script for that call says — the things tasks/README.md 
     idle            do nothing
     limit           answer with a usage-limit notice
     garbage         print something that is not JSON
+    gateq           the Stop gate gave up during the session: a gate question appears in blocked/,
+                    uncommitted, and the task stays in doing/
 
 A conversation's reported cost is its running total (1 USD a call unless FAKE_COST says
 otherwise); `--resume ID` keeps the id, a call without it opens a new conversation.
@@ -77,6 +79,10 @@ elif step == "block" and doing:
 elif step == "work":
     Path(f"work-{n}.txt").write_text("progress\n")
     git("add", f"work-{n}.txt"); git("commit", "-q", "-m", f"work {n}")
+elif step == "gateq":
+    Path("tasks/blocked/900-gate-escalation-20261003T101500Z.md").write_text(
+        "# 900\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація воріт: 2026-10-03T10:15:00Z\n\n"
+        "## Питання до власника\n1. Закрити?\n   Відповідь:\n")
 elif step == "limit":
     result = "You've hit your session limit · resets 3pm (UTC)"
 elif step == "garbage":
@@ -143,8 +149,12 @@ class World:
     def run(self, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
         full = {**os.environ, "CLAUDE_PROJECT_DIR": str(self.repo), "BOARD_CLAUDE": str(self.fake),
                 "BOARD_INBOX": str(self.inbox), "BOARD_PAUSE_SEC": "0", "BOARD_LIMIT_WAIT_SEC": "0",
-                "FAKE_HOME": str(self.home), **env}
-        full.pop("CLAUDE_UNATTENDED_SESSION", None)
+                "FAKE_HOME": str(self.home)}
+        # The suite itself may run inside a Claude Code session; the runner under test is the
+        # owner's process unless a case says otherwise (CLAUDECODE="1").
+        for name in ("CLAUDE_UNATTENDED_SESSION", "CLAUDECODE"):
+            full.pop(name, None)
+        full.update(env)
         return subprocess.run(["bash", str(RUNNER), *args], cwd=self.dir, capture_output=True, text=True, env=full, check=False)
 
     def calls(self) -> list[dict[str, Any]]:
@@ -484,6 +494,155 @@ def alive(pid: int) -> bool:
 check("TERM: the session goes down with the runner", child > 0 and not alive(child), child)
 check("…the mode file is restored, the lock released, the status says so", not w.has(".claude/state/overseer/mode") and not (w.state / "lock").exists()
       and "state=error" in w.status() and "reason=killed" in w.status(), w.status())
+
+# --- board 005: the gate's escalation is closed through the board ----------------------------------
+GATE = ROOT / ".claude/hooks/gate.py"
+
+
+def escalate(w: World) -> tuple[str, str]:
+    """The REAL gate gives up on its first block in w.repo: (stamp, the question's file name)."""
+    (w.repo / ".claude").mkdir(exist_ok=True)
+    (w.repo / ".claude/project.env").write_text('CODE_EXTENSIONS="py"\nLINT_CMD="false"\nGATE_MAX_BLOCKS="1"\n')
+    (w.repo / "mod.py").write_text("x = 1\n")
+    sh(w.repo, "git", "add", "mod.py", ".claude/project.env")
+    sh(w.repo, "git", "commit", "-q", "-m", "code")
+    (w.repo / "mod.py").write_text("x = 1\nq = 9\n")
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(w.repo)}
+    subprocess.run([sys.executable, str(GATE), "--layer", "stop", "--hook"], cwd=w.repo, env=env, text=True,
+                   input=json.dumps({"session_id": "s1"}), capture_output=True, check=True)
+    names = sorted(p.name for p in (w.repo / "tasks/blocked").glob("9*-gate-escalation-*.md"))
+    return str(escalations(w)["open"][-1]["stamp"]), names[0] if names else ""
+
+
+def escalations(w: World) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads((w.repo / ".claude/state/gate/escalations.json").read_text())
+    return data
+
+
+def write_answer(path: Path, text: str) -> None:
+    head, _, rest = path.read_text(encoding="utf-8").rpartition("Відповідь:")
+    path.write_text(f"{head}Відповідь: {text}{rest}", encoding="utf-8")
+
+
+def owner_answers(w: World, name: str, text: str = "закрити") -> None:
+    """The owner answers where they work: in the branch, from another checkout, and pushes."""
+    clone = Path(tempfile.mkdtemp(prefix="owner-", dir=w.dir))
+    sh(w.dir, "git", "clone", "-q", "-b", "unattended/work", str(w.origin), str(clone))
+    for key, value in (("user.name", "owner"), ("user.email", "owner@example.invalid")):
+        sh(clone, "git", "config", key, value)
+    write_answer(clone / "tasks/blocked" / name, text)
+    sh(clone, "git", "commit", "-q", "-am", "owner: answer")
+    sh(clone, "git", "push", "-q", "origin", "unattended/work")
+
+
+def events(w: World) -> str:
+    return (w.state / "events.log").read_text()
+
+
+print("board 005, the demonstration: escalation → a task in blocked/ → the owner's answer → closed")
+w = World("")
+stamp, name = escalate(w)
+stem = name.removesuffix(".md")
+check("the gate's escalation is a question in tasks/blocked/, not yet committed",
+      name.startswith("900-gate-escalation-") and name in sh(w.repo, "git", "status", "--porcelain", "-uall").stdout, name)
+r = w.run()
+check("the runner commits the question by itself and pushes it", w.log("-1") == ["board: the gate asks the owner — 1 question(s) in blocked/"]
+      and w.origin_head() == w.head() and sh(w.repo, "git", "show", "--stat", "--format=", "HEAD").stdout.count("|") == 1, w.log("-3"))
+check("unanswered: the escalation stays open, the runner waits for the owner", len(escalations(w)["open"]) == 1
+      and r.returncode == 0 and "state=waiting-owner" in w.status() and w.has(f"tasks/blocked/{name}"), w.status())
+check("the summary shows the question to the owner", name in (w.state / "summary.md").read_text(), (w.state / "summary.md").read_text())
+owner_answers(w, name)
+r = w.run()
+state = escalations(w)
+check("the owner answered «закрити» in the branch: the escalation is closed", state["open"] == []
+      and [e["stamp"] for e in state["closed"]] == [stamp], state)
+check("…the parked entry is RESUMED", f"## {stamp} — gate stop layer — RESUMED" in (w.repo / ".engine/overseer/parked.md").read_text())
+check("…the task is in done/ with the answer and a report", not w.has(f"tasks/blocked/{name}")
+      and "Відповідь: закрити" in (w.repo / f"tasks/done/{stem}/task.md").read_text()
+      and stamp in (w.repo / f"tasks/done/{stem}/report.md").read_text())
+check("…in a commit of its own, pushed", w.log("-1") == [f"board: {stem} → done — gate escalation {stamp} closed on the owner's answer"]
+      and w.origin_head() == w.head(), w.log("-2"))
+check("…by the runner: no agent was started at all", w.calls() == [] and f"escalation-closed {stamp} {name}" in events(w), events(w))
+check("…and nothing waits any more: idle", r.returncode == 0 and "state=idle" in w.status(), w.status())
+check("the uncommitted work the gate blocked on was not touched", (w.repo / "mod.py").read_text() == "x = 1\nq = 9\n")
+
+print("board 005: the answer through the inbox")
+w = World("")
+stamp, name = escalate(w)
+w.run()
+copy = w.inbox / name
+copy.write_text((w.repo / "tasks/blocked" / name).read_text(encoding="utf-8"), encoding="utf-8")
+write_answer(copy, "Закрити.")
+r = w.run()
+check("an answered copy in the inbox closes the escalation", escalations(w)["open"] == [] and w.has(f"tasks/done/{name.removesuffix('.md')}/report.md")
+      and not copy.exists() and w.calls() == [], events(w))
+
+print("board 005: an answer the owner did not send closes nothing")
+for how in ("uncommitted", "committed"):
+    w = World("")
+    stamp, name = escalate(w)
+    w.run()
+    write_answer(w.repo / "tasks/blocked" / name, "закрити")
+    if how == "committed":
+        sh(w.repo, "git", "commit", "-q", "-am", "agent: answers for the owner")
+    r = w.run()
+    text = (w.repo / "tasks/blocked" / name).read_text(encoding="utf-8") if w.has(f"tasks/blocked/{name}") else ""
+    check(f"«закрити» written in the checkout ({how}): the escalation stays open", len(escalations(w)["open"]) == 1
+          and not w.has(f"tasks/done/{name.removesuffix('.md')}"), events(w))
+    check("…the answer is wiped, the reason written under the question, and that is pushed",
+          "Відповідь: закрити" not in text and "Примітка виконавця" in text and w.origin_head() == w.head()
+          and "escalation-answer-rejected" in events(w) and "state=waiting-owner" in w.status(), text)
+owner_answers(w, name)
+w.run()
+check("…and the owner's real answer afterwards still closes it", escalations(w)["open"] == [], events(w))
+
+print("board 005: a runner started inside a Claude Code session closes nothing")
+w = World("")
+stamp, name = escalate(w)
+w.run()
+owner_answers(w, name)
+r = w.run(CLAUDECODE="1")
+check("gate.py refuses; the question stays in blocked/, the event says refused", len(escalations(w)["open"]) == 1
+      and w.has(f"tasks/blocked/{name}") and f"escalation-close-refused {stamp} {name} rc=2" in events(w), events(w))
+r = w.run()
+check("the owner's runner then closes it (the answer had arrived from the owner)", escalations(w)["open"] == []
+      and w.has(f"tasks/done/{name.removesuffix('.md')}/report.md"), events(w))
+
+print("board 005: any other answer is an instruction for an agent")
+w = World("done")
+stamp, name = escalate(w)
+w.run()
+owner_answers(w, name, "виправ lint у mod.py")
+r = w.run()
+check("the task goes back to todo/ and an agent takes it; the escalation stays open", len(w.calls()) == 1
+      and f"tasks/doing/{name}" in w.argv(0)[1] and len(escalations(w)["open"]) == 1 and "escalation-closed" not in events(w), events(w))
+
+print("board 005: an escalation that is no longer open")
+w = World("")
+stamp, name = escalate(w)
+w.run()
+env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(w.repo)}
+subprocess.run([sys.executable, str(GATE), "--close-escalation", stamp], cwd=w.repo, env=env, capture_output=True, check=True)
+owner_answers(w, name)
+r = w.run()
+check("closed in a terminal earlier: the question still leaves the board, the report says so",
+      "вже не була відкрита" in (w.repo / f"tasks/done/{name.removesuffix('.md')}/report.md").read_text()
+      and "was-not-open" in events(w) and "state=idle" in w.status(), events(w))
+
+print("board 005: a question that appears during a session is published before the task closes")
+w = World("gateq done")
+w.put("todo", "001-first.md")
+r = w.run()
+log = w.log()
+asks = "board: the gate asks the owner — 1 question(s) in blocked/"
+check("its own commit, between the two attempts", asks in log and log.index(asks) > log.index("001-first: done"), log)
+lines = events(w).splitlines()
+ask_at = next((i for i, line in enumerate(lines) if " gate-question " in line), -1)
+check("…pushed at once, while the task was still open", ask_at >= 0 and " pushed " in lines[ask_at + 1]
+      and any(" attempt 001-first 2" in line for line in lines[ask_at:]), lines)
+check("…the commit holds the question and nothing else",
+      sh(w.repo, "git", "show", "--stat", "--format=", f"HEAD~{log.index(asks)}").stdout.count("|") == 1)
+check("the task finished; the run ends waiting for the owner", w.has("tasks/done/001-first/report.md") and "state=waiting-owner" in w.status(), w.status())
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)
