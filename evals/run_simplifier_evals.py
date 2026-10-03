@@ -170,7 +170,7 @@ def run_once(sandbox: Path, request: str, args: argparse.Namespace, simplifier: 
     except ValueError as exc:
         return row | {"error": f"the answer is not a JSON list of findings: {exc}", "answer": answer[:2000]}
     return row | score(result["findings"], expected) | {
-        "rejected": [{"errors": r["errors"]} for r in result["rejected"]],
+        "rejected": [{"errors": r["errors"], "finding": r["finding"]} for r in result["rejected"]],
         "lowered": sum(bool(f["validator"]) for f in result["findings"]),
         "answer": result["findings"],
     }
@@ -208,7 +208,7 @@ def main() -> int:
         args.sandbox.mkdir(parents=True)
         print(request_text(build_sandbox(args.sandbox), expected["scope"]))
         return 0
-    with tempfile.TemporaryDirectory(prefix="simplifier-eval-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="engine-simplifier-eval-") as tmp:
         sandbox = build_sandbox(Path(tmp) / "project")
         request = request_text(sandbox, expected["scope"])
         if args.score:

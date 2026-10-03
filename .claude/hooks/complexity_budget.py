@@ -689,10 +689,12 @@ def percentile(values: list[int], percent: int) -> int:
 
 def project_functions(root: Path) -> dict[str, tuple[int, int]]:
     """`path:function` -> (cyclomatic, nesting) for every production function git tracks."""
-    source_dirs = source_dirs_of(project_env(root))
+    env = project_env(root)
+    source_dirs = source_dirs_of(env)
+    excluded = [d for d in re.split(r"[\s,]+", env.get("SIMPLIFY_EXCLUDE", "")) if d]
     found: dict[str, tuple[int, int]] = {}
     for path in git(root, "ls-files", "*.py").splitlines():
-        if is_test(path) or not in_source(path, source_dirs):
+        if is_test(path) or not in_source(path, source_dirs) or (excluded and in_source(path, excluded)):
             continue
         try:
             tree = parse_py((root / path).read_text(encoding="utf-8", errors="replace"))

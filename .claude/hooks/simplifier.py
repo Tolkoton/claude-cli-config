@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """simplifier.py — everything deterministic around the simplifier agent (.claude/agents/simplifier.md).
 
-    python3 .claude/hooks/simplifier.py request --lens code|requirements|architecture|budget ... [--paths P ...]
-    python3 .claude/hooks/simplifier.py validate FINDINGS.json [--out FILE]
-    python3 .claude/hooks/simplifier.py route VALIDATED.json --title "what was reviewed"
+    python3 .claude/hooks/simplifier.py request --lens code|requirements|architecture|instructions|budget ... [--paths P ...]
+    python3 .claude/hooks/simplifier.py validate FINDINGS.json [--request FILE] [--out FILE]
+    python3 .claude/hooks/simplifier.py route FINDINGS.json [--request FILE] --title "what was reviewed"
     python3 .claude/hooks/simplifier.py accept --reason "why the excess is needed" --verdict FINDINGS.json
     python3 .claude/hooks/simplifier.py reversals [--last N] [--record]
     python3 .claude/hooks/simplifier.py nightly [--paths P ...]
@@ -60,7 +60,7 @@ EVIDENCE_SOURCES = ("signal", "read", "grep", "judgement")
 TEXT_FIELDS = ("target", "claim", "traceability")
 FIELDS = (*TEXT_FIELDS, "category", "evidence", "protected", "chesterton_checked", "test_safety",
           "proposed_action", "reversal_risk")
-LENSES = ("code", "requirements", "architecture", "budget")
+LENSES = ("code", "requirements", "architecture", "instructions", "budget")
 # Never removed without a human: what defines the gates, what the deny hooks guard, what a
 # measurement is compared with. SIMPLIFIER_PROTECTED in project.env adds the project's own.
 PROTECTED = (".claude/constitution.md", ".claude/settings*.json", ".claude/ownership.txt",
@@ -193,7 +193,11 @@ def validate(root: Path, answer: list[Any], signal_ids: set[str]) -> dict[str, l
     return result
 
 
-def known_signal_ids(root: Path) -> set[str]:
+def known_signal_ids(root: Path, request_file: Path | None = None) -> set[str]:
+    """The signals the agent was given: the ids in the request it was started with, else (one
+    request since the last measurement) the ones in machine state."""
+    if request_file is not None:
+        return set(re.findall(r"S-[0-9a-f]{8}", request_file.read_text(encoding="utf-8")))
     ids: set[str] = set()
     for path in (root / simplify_signals.STATE_REL).glob("signals-*.json"):
         try:
@@ -203,14 +207,14 @@ def known_signal_ids(root: Path) -> set[str]:
     return ids
 
 
-def validated_file(root: Path, path: Path) -> dict[str, list[Any]]:
+def validated_file(root: Path, path: Path, request_file: Path | None = None) -> dict[str, list[Any]]:
     """Validate an answer file; a file `validate --out` already wrote is validated again, not trusted."""
     data = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else None
     if isinstance(data, dict) and isinstance(data.get("findings"), list):
         answer = [{k: v for k, v in f.items() if k in FIELDS} for f in data["findings"] if isinstance(f, dict)]
     else:
         answer = parse_answer(path.read_text(encoding="utf-8"))
-    return validate(root, answer, known_signal_ids(root))
+    return validate(root, answer, known_signal_ids(root, request_file))
 
 
 # ------------------------------------------------------------------ the request
@@ -372,6 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("validate", "route"):
         p = sub.add_parser(name)
         p.add_argument("file", type=Path)
+        p.add_argument("--request", type=Path, help="the request the agent was started with (its signals are the input)")
         p.add_argument("--out", type=Path) if name == "validate" else p.add_argument("--title", required=True)
     p = sub.add_parser("accept")
     p.add_argument("--reason", required=True)
@@ -394,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command in ("validate", "route"):
         try:
-            result = validated_file(root, args.file)
+            result = validated_file(root, args.file, args.request)
         except (OSError, ValueError) as exc:
             print(f"INVALID: {exc}", file=sys.stderr)
             return 2

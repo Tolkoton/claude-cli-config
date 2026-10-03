@@ -1,0 +1,415 @@
+[
+  {
+    "target": "AGENTS.md:56-65",
+    "category": "duplication",
+    "claim": "The 'Rules that bite' bullets on commits (56-57), hooks-not-scripts (61-62) and the three stops (64-65) restate rules already in the always-loaded .claude/engine-rules.md, and the *.env (60) and jq/python3 (63) bullets restate what protect-paths.sh enforces and env-check.sh reports at SessionStart; dropping them leaves every rule stated once and frees lines in a persistent context that is at 199 of its 200-line budget.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": "AGENTS.md:56-65",
+        "detail": "Never git commit outside unattended/<date>; hooks guard tool calls not scripts; hooks need jq or python3; three legitimate stops only"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:9-11",
+        "detail": "the same commit rule, imported by CLAUDE.md every session"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:15-16",
+        "detail": "'A hook sees the command you type, never one run from inside a script. A script you write must carry the check itself.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:74-77",
+        "detail": "'The three reasons to stop, and there are no others'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/protect-paths.sh:74-96",
+        "detail": "denies *.env except .claude/project.env — the rule AGENTS.md:60 restates"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/env-check.sh:20-22",
+        "detail": "SessionStart hook already tells the session when jq/python3 are missing and what the deny hooks then do"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_context_budget.py:1-20",
+        "detail": "closure CLAUDE.md + engine-rules.md + AGENTS.md + .engine/rules.md must stay <= 200 lines; wc gives 199 today"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "git log: 'Rules that bite' dates from 2026-08-27 (163da1a), engine-rules.md was extracted on 2026-10-02 (6571ddf); the duplication is the residue of that move, not a design"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "AGENTS.md:3-5 (keep it short; budget <= 200 lines)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/overseer/SKILL.md:333-391",
+    "category": "duplication",
+    "claim": "The 'Verdict routing — what a verdict actually does' table, the unattended-escalation routing and the surface thresholds restate .claude/engine-rules.md § 'Verdict routing' and § 'The three reasons to stop', which are in the overseer's context on every turn; the SKILL can keep only the 12 checks, the verdict list and the ledger protocol.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/overseer/SKILL.md:333-360",
+        "detail": "routing table BLOCK/ADR_REQUIRED/ESCALATE by 'does the fix need a human', never block on AskUserQuestion unattended, Article 5 not relaxed, four surface thresholds"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/overseer/SKILL.md:377-390",
+        "detail": "two-way door decided autonomously with cost-to-reverse; one-way door or PRODUCT_DECISION parked"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:59-72",
+        "detail": "the same routing, the same door test, the same 'Attended, AskUserQuestion is cheap and right. Unattended, never block on it.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:74-82",
+        "detail": "the same three stop reasons and the same four surface thresholds"
+      },
+      {
+        "source": "read",
+        "ref": ".engine/overseer/ledger.md:41-42",
+        "detail": "both copies were written in the same 2026-08-27 change (SKILL § 'Verdict routing' and CLAUDE.md 'verdict routing and the three stop reasons added'); CLAUDE.md's copy has since moved into engine-rules.md"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md:59-82",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/agents/slice-planner-critic.md:199-214",
+    "category": "duplication",
+    "claim": "The slice critic's own 'VoI gate' section restates the four-condition BLOCKING test it already inherits from critic-core §1, and the file itself says it 'adds only the slice-level algorithm mix and the per-phase lenses'; the section can go with the inherited gate unchanged.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/agents/slice-planner-critic.md:199-214",
+        "detail": "'The VoI gate — classify EVERY objection BLOCKING or NON_BLOCKING_NOTE': decision-changing, falsifiable, in-scope, marginal; notes ride to the appendix"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/critic-core.md:48-52",
+        "detail": "'VoI gate: classify EVERY objection. BLOCKING needs ALL four — decision-changing, decidable, in-scope, marginal. Any false → NON_BLOCKING_NOTE. Notes go to an appendix'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/slice-planner-critic.md:43-48",
+        "detail": "'This critic inherits critic-core.md — the integrity discipline ..., the VoI gate, ... This file adds only the slice-level algorithm mix (below) and the per-phase lenses.'"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "both the VoI section and the 'Inherits critic-core' paragraph are from the initial import (c9d348e); the section was never pruned after the inheritance was declared"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/agents/critic-core.md:13-16 (each level critic states only what is specific to it)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/commands/plan-slice.md:9-11",
+    "category": "duplication",
+    "claim": "The planner is told to read the 525-line overseer SKILL.md 'for the shared discipline (anti-sycophancy, anti-Goodhart, citation-or-prune, the artifact-is-the-contract rule)', four principles that are Constitution Articles 2-4 and engine-rules § 'Overseer protocol' (contract sealed) — both already in every agent's context; the instruction loads an implementation-audit checklist into a planning session for nothing it does not already have.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/commands/plan-slice.md:9-11",
+        "detail": "'Read .claude/skills/overseer/SKILL.md for the shared discipline (anti-sycophancy, anti-Goodhart, citation-or-prune, the artifact-is-the-contract rule).'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/constitution.md:27-42",
+        "detail": "Article 2 anti-sycophancy, Article 3 anti-Goodhart, Article 4 cite or prune"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:54-57",
+        "detail": "the slice contract is sealed; a contract changed after approval gets no audit"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:98-100",
+        "detail": "'Every agent reads and obeys .claude/constitution.md'"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the line dates from the initial import (c9d348e, 2026-06-03), before the constitution and engine-rules carried these principles; the overseer SKILL is otherwise a 12-check audit of implementation turns, which /plan-slice stands down (plan-slice.md:19-22)"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/constitution.md Articles 2-4",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/commands/master-architect.md:73-74",
+    "category": "duplication",
+    "claim": "The pre-flight line 'Write plan into .claude/state/overseer/state' states, as a raw file write, the same phase guard that engine-rules and the other two commands express through the sanctioned script, while engine-rules forbids exactly that raw write; the line can be the one-line overseer_phase.py command the sibling commands use, or go.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/commands/master-architect.md:73-74",
+        "detail": "'Write `plan` into `.claude/state/overseer/state` during architecture work; clear it before feature builds begin.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:51-53",
+        "detail": "'python3 .claude/hooks/overseer_phase.py set plan ... Never write .claude/state/ with your own tools — it is the state of hooks and scripts; the named scripts are the only sanctioned path.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_phase.py:8-10",
+        "detail": "'Claude Code shows the direct `printf plan > .claude/state/overseer/state` as self-modification — correctly.'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/commands/feature-architect.md:16-18",
+        "detail": "sibling command uses 'python3 .claude/hooks/overseer_phase.py set plan' with the same never-write-state warning; plan-slice.md:19-22 likewise"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md:51-53",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/SKILL.md:123-137",
+    "category": "dead_code",
+    "claim": "The 'Delegation map' names seven cue phrases that activate skills (plan-mode-and-task-decomposition, progress-file-for-long-tasks, decisions-log-adr-lite, pre-commit-self-review-checklist, execution-feedback-debugging, codebase-navigation-strategy, session-dreaming) none of which exists in this repository, in user/skills or in templates; the map, the 'If a delegated skill is not installed' clause and the 'Compatibility notes' bullet about 'the 12 research-backed skills' can go, leaving the triggers' inline fallbacks as the only path, which is the path taken today.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:123-137",
+        "detail": "table of 7 cue phrases → skills; 'If a delegated skill is not installed, the trigger file in triggers/ contains the fallback inline protocol'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:177",
+        "detail": "'The 12 research-backed skills (decisions-log-adr-lite, progress-file-for-long-tasks, ...) are the delegates this orchestrator triggers via cue phrases.'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:129",
+        "detail": "each of the seven skill names appears only inside this skill's own files (and one README diagram label); no .claude/skills/<name>, user/skills/<name> or templates entry exists — user/skills holds only live-build"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/decision-checkpoint.md:33-37",
+        "detail": "'This triggers decisions-log-adr-lite ... If that skill is not installed, use the inline fallback below' — the fallback is always the branch taken"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:88-96",
+    "category": "duplication",
+    "claim": "Step 6 'Quick git context' (git status --short, git log -5 --oneline, git branch --show-current) is exactly what the SessionStart hook in settings.json already prints into every session, and step 1 'Read CLAUDE.md' asks for a file Claude Code loads at launch; both steps can go and the session has the same information.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:88-96",
+        "detail": "'git status --short / git log -5 --oneline / git branch --show-current ... Five seconds of input that contextualizes everything else.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/settings.json:229",
+        "detail": "SessionStart hook: 'echo ## git status; git status --short | head -20; echo ## recent commits; git log --oneline -5; echo ## branch; git branch --show-current'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:16-19",
+        "detail": "'### 1. Read CLAUDE.md' — the file Claude Code loads at launch (tests/test_context_budget.py:5-6: 'Claude Code loads CLAUDE.md and every @path it imports at launch')"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/env-check.sh:51-56",
+        "detail": "the same SessionStart hook also emits the lesson digest, so the memory-reading half of this trigger is partly hook-fed too (SKILL.md:115-117)"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/SKILL.md:14-21",
+    "category": "duplication",
+    "claim": "The memory-stack table names a second decision log (decisions.md, ADR-lite, with its own supersession rules in triggers/decision-checkpoint.md:35-102) and a project memory at .engine/architecture/MEMORY.md, while the engine's own mechanisms put ADRs in docs/adr/ and project memory in .engine/overseer/MEMORY.md; the parallel decisions.md system and the .engine/architecture/MEMORY.md path are a second statement of what the engine already records elsewhere, and neither file exists.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:14-21",
+        "detail": "rows for decisions.md (append-only ADR-lite), .engine/architecture/MEMORY.md, claude-progress.md, <task>/reflections.md"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/decision-checkpoint.md:35-63",
+        "detail": "inline ADR-lite template appended to decisions.md at the project root; supersession procedure at 95-102"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:63",
+        "detail": "'ADR_REQUIRED, reversible → write the ADR in docs/adr/ and continue'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/overseer/SKILL.md:250-267",
+        "detail": "check #8: a design decision needs an ADR in docs/adr/ (cited by number or drafted); a second ADR format in decisions.md would not satisfy it"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/documentation/references/adr-template.md:21-41",
+        "detail": "the engine's ADR format and lifecycle (docs/adr/NNNN, MADR, append-only)"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/lesson_queue.py:58",
+        "detail": "MEMORY_REL = .engine/overseer/MEMORY.md — the file the hooks and the session digest actually read and write; .engine/architecture/MEMORY.md does not exist (ls)"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/README.md:84",
+        "detail": "decisions.md, claude-progress.md, reflections.md listed as 'created on demand' by this skill only; no other file, hook or test references them"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": ".claude/engine-rules.md:63; .claude/skills/overseer/SKILL.md:250-267",
+    "reversal_risk": "medium"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md:77-93",
+    "category": "dead_code",
+    "claim": "Step 4 'Commit' (and the matching commit steps in session-end-dreaming.md:102-107 and periodic-maintenance.md:126-129) instruct a git commit that the standing rule forbids outside an unattended/<date> branch and that block-dangerous.sh refuses on protected branches; the engine's sanctioned end of a unit is 'git add, summary, suggested commit message', so these commit steps describe a procedure the session cannot carry out.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md:77-93",
+        "detail": "'Show it to the user. Get confirmation. Then commit.' and 'they go in the same commit as the code change'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/session-end-dreaming.md:102-107",
+        "detail": "'git add ... && git commit -m \"chore(memory): distill lessons ...\"'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/periodic-maintenance.md:126-129",
+        "detail": "'Commit each affected layer as a separate commit'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:9-14",
+        "detail": "'Never run git commit except on the run's own unattended/<date> branch, through commit_checkpoint.sh ... After a unit of work: git add <files>, run lint / type-check / tests, print a one-line summary and a suggested commit message'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/block-dangerous.sh:148-159",
+        "detail": "PreToolUse hook exits 2 on `git commit` when the branch is main/master/production/prod/release"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:186",
+        "detail": "the builder's own rule: 'Do NOT commit on the user's behalf — that block stays exactly as it is'"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": ".claude/engine-rules.md:9-14",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/commands/feature-architect.md:274",
+    "category": "dead_code",
+    "claim": "'Do NOT create tasks.yaml' guards against an artifact nothing in the engine produces or reads — no tasks.yaml exists anywhere, the backlog is .engine/architecture/feature-dag.json and the tasks/ board; the same phantom is named in slice-builder/SKILL.md:8, 72, 231 and overseer/SKILL.md:54, and all five mentions can go.",
+    "evidence": [
+      {
+        "source": "grep",
+        "ref": ".claude/commands/feature-architect.md:274",
+        "detail": "'Do NOT create tasks.yaml — produce slice contracts directly.'; the only other hits for tasks.yaml are slice-builder/SKILL.md:8,72,231 and overseer/SKILL.md:54; `find . -name tasks.yaml` returns nothing"
+      },
+      {
+        "source": "read",
+        "ref": "AGENTS.md:20-21",
+        "detail": "'The backlog is .engine/architecture/feature-dag.json, not an issue tracker.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:92-96",
+        "detail": "work arrives as files in tasks/ (todo/ doing/ blocked/ done/)"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the phrase is a residue of the retired task-list pipeline (commit 7863c51 'retire the claude-autonomy skill'); no hook, script or test knows the name"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/commands/plan-slice.md:184-187",
+    "category": "dead_code",
+    "claim": "The parenthetical 'Calibration, ~every 5th slice: submit a deliberately shallow counterfactual artifact to the cold-reader in a blind pair' is a procedure nothing can trigger — no hook, script, ledger field or test counts slices or holds a counterfactual artifact, and the planner has no round history to know it is the fifth; it can go without changing the cold-reader audit.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/commands/plan-slice.md:184-187",
+        "detail": "'(Calibration, ~every 5th slice: ... If it does not rate the real artifact above the counterfactual, the critic is mis-calibrated — halt and retune its prompt before trusting further runs.)'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/commands/plan-slice.md:184",
+        "detail": "'counterfactual' and 'every 5th' occur nowhere else in the repository; the only 'calibrate' elsewhere is complexity_budget.py's unrelated limit calibration"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/constitution.md:66-69",
+        "detail": "Article 7: 'No agent edits its own definition' — 'retune its prompt' is not something the planner may do anyway"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  }
+]

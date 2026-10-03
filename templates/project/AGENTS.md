@@ -12,7 +12,7 @@
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
 `/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit,
 auto-triggered by the Stop hook). `/mvp-architect` designs the cheapest thing that answers one
-question. Agents communicate through files, never chat.
+question. `simplifier` finds what can go, on a signal only. Agents talk through files, never chat.
 
 ## Key paths
 

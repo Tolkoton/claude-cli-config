@@ -47,7 +47,7 @@ expected = json.loads((FIXTURE / "expected.json").read_text(encoding="utf-8"))
 
 print("FIXTURE-* expected.json describes the project that is really there")
 check("six kinds of planted excess, four traps", len(expected["planted"]) == 6 and len(expected["traps"]) == 4, expected)
-work = Path(tempfile.mkdtemp(prefix="simplifier-eval-test-"))
+work = Path(tempfile.mkdtemp(prefix="engine-simplifier-evaltest-"))
 sandbox = runner.build_sandbox(work / "project")
 for entry in expected["planted"] + expected["traps"] + expected["also_true"]:
     texts = [(sandbox / f).read_text(encoding="utf-8") for f in entry["files"] if (sandbox / f).is_file()]

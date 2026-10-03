@@ -1,0 +1,440 @@
+LENS: code
+SCOPE: .claude/hooks
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-bfba3d74",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 184,
+  "message": "parse_budget: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-c8a8f5f9",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 244,
+  "message": "function_metrics.measure.walk: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-da3da375",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 299,
+  "message": "abstractions: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-5c24f5b2",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 345,
+  "message": "measure: complexity 34, the limit is 10"
+ },
+ {
+  "id": "S-6af18f89",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 544,
+  "message": "evaluate: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-663c6af9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 647,
+  "message": "run_validate: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-dd91e166",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 690,
+  "message": "project_functions: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-78c29028",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/complexity_budget.py",
+  "line": 749,
+  "message": "main: complexity 12, the limit is 10"
+ },
+ {
+  "id": "S-6855553f",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 236,
+  "message": "added_lines: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-e0f747b9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 405,
+  "message": "guard_python: complexity 17, the limit is 10"
+ },
+ {
+  "id": "S-df1256ba",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 405,
+  "message": "guard_python: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-8b5d6c70",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 467,
+  "message": "guard_config: complexity 17, the limit is 10"
+ },
+ {
+  "id": "S-73267bf4",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 467,
+  "message": "guard_config: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-93df865f",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 500,
+  "message": "bypass_guard: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-93316857",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 540,
+  "message": "run_checks: complexity 24, the limit is 10"
+ },
+ {
+  "id": "S-122f0df4",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 540,
+  "message": "run_checks: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-ae0763b9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 692,
+  "message": "close_escalation: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-d156e6f5",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 778,
+  "message": "lessons: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-117d1cd9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 830,
+  "message": "layer_post_write: complexity 17, the limit is 10"
+ },
+ {
+  "id": "S-2f7836a6",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 830,
+  "message": "layer_post_write: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-14b732ee",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 870,
+  "message": "format_file: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-5cbbded4",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 870,
+  "message": "format_file: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-5dde0913",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 991,
+  "message": "emit_stop: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-8379ef08",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate.py",
+  "line": 1022,
+  "message": "main: complexity 27, the limit is 10"
+ },
+ {
+  "id": "S-0cd6c776",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/gate.py",
+  "line": 1022,
+  "message": "main: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-b52739d1",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate_allows.py",
+  "line": 141,
+  "message": "from_python: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-744d71d7",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/gate_allows.py",
+  "line": 228,
+  "message": "collect: complexity 21, the limit is 10"
+ },
+ {
+  "id": "S-3ab0388e",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/lesson_queue.py",
+  "line": 338,
+  "message": "resolve: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-537e46e8",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/lesson_queue.py",
+  "line": 338,
+  "message": "resolve: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-b7981d4c",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/lesson_queue.py",
+  "line": 454,
+  "message": "digest: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-bdf00c82",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/lesson_queue.py",
+  "line": 505,
+  "message": "tool_failure_text: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-b0debfc5",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/lesson_queue.py",
+  "line": 566,
+  "message": "main: complexity 24, the limit is 10"
+ },
+ {
+  "id": "S-b1344323",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/lesson_queue.py",
+  "line": 566,
+  "message": "main: nesting 11, the limit is 3"
+ },
+ {
+  "id": "S-cfddbd38",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/overseer_stop.py",
+  "line": 324,
+  "message": "_open_gate_escalation: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-a3e09377",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/overseer_stop.py",
+  "line": 414,
+  "message": "_run_has_work: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-bfdca157",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/overseer_stop.py",
+  "line": 540,
+  "message": "_has_tool_signal: complexity 26, the limit is 10"
+ },
+ {
+  "id": "S-203be875",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/overseer_stop.py",
+  "line": 540,
+  "message": "_has_tool_signal: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-43147c61",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/overseer_stop.py",
+  "line": 715,
+  "message": "main: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-20293928",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 123,
+  "message": "schema_errors: complexity 26, the limit is 10"
+ },
+ {
+  "id": "S-1e0cdc84",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 123,
+  "message": "schema_errors: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-689c3515",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 155,
+  "message": "lowered: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-4295427a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 247,
+  "message": "route: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-550afd7f",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 269,
+  "message": "accept: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-05afe7fe",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 311,
+  "message": "removal_returned: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-70e07e39",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 330,
+  "message": "reversals: complexity 12, the limit is 10"
+ },
+ {
+  "id": "S-ea2df2cc",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplifier.py",
+  "line": 364,
+  "message": "main: complexity 23, the limit is 10"
+ },
+ {
+  "id": "S-69d4a6de",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplify_signals.py",
+  "line": 111,
+  "message": "complexity_signals: complexity 12, the limit is 10"
+ },
+ {
+  "id": "S-3ed7ae0e",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/simplify_signals.py",
+  "line": 111,
+  "message": "complexity_signals: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-dc078cac",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplify_signals.py",
+  "line": 159,
+  "message": "unused_dependency_signals: complexity 19, the limit is 10"
+ },
+ {
+  "id": "S-40a6320f",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/hooks/simplify_signals.py",
+  "line": 159,
+  "message": "unused_dependency_signals: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-f50be2eb",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplify_signals.py",
+  "line": 225,
+  "message": "trend_signals: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-9ebd3f6f",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/hooks/simplify_signals.py",
+  "line": 279,
+  "message": "main: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-cf7646d6",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": ".claude/hooks/overseer_stop.py",
+  "line": 93,
+  "message": "unused variable 'OVERSEER_MARKER_RE' (60% confidence)"
+ },
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

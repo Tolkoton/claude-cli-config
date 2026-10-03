@@ -1,0 +1,40 @@
+LENS: instructions
+SCOPE: CLAUDE.md AGENTS.md .claude/engine-rules.md .engine/rules.md .claude/skills .claude/agents .claude/commands
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-d9941990",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/skills/documentation/scripts/doc_audit.py",
+  "line": 136,
+  "message": "check_links: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-7dbbb8f4",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/skills/documentation/scripts/doc_audit.py",
+  "line": 136,
+  "message": "check_links: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-8a27c89f",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/skills/documentation/scripts/doc_audit.py",
+  "line": 194,
+  "message": "check_make_targets: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

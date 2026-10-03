@@ -26,15 +26,16 @@ there against that growth; what it saves is a side effect. Three parts, strictly
    one line of history, the reversal rate. It says whether the simplifier is called. Nothing
    in the engine schedules it; put the line in cron or a CI schedule.
 
-No signal, no simplifier: it is never part of an ordinary turn.
+No signal, no simplifier: it is never part of an ordinary turn. The nightly cleanup may also
+look at the standing instructions (lens `instructions`: CLAUDE.md, rules, skills, agents, commands).
 
 ## One run
 
 ```bash
 python3 .claude/hooks/simplifier.py request --lens code --paths src > request.txt   # signals inside
 # start the `simplifier` subagent with request.txt as its whole prompt; save the answer
-python3 .claude/hooks/simplifier.py validate .engine/simplifier/answer.json            # see what was lowered or rejected
-python3 .claude/hooks/simplifier.py route .engine/simplifier/answer.json --title "code, nightly"
+python3 .claude/hooks/simplifier.py validate .engine/simplifier/answer.json --request request.txt   # what was lowered or rejected
+python3 .claude/hooks/simplifier.py route .engine/simplifier/answer.json --request request.txt --title "code, nightly"
 ```
 
 The agent's answer is a JSON list of findings and nothing else. The validator rejects a finding

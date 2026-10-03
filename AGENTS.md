@@ -25,7 +25,7 @@ project receives (`templates/project/`) still says `src` and `py`. The backlog i
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
 `/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit, auto-triggered
 by the Stop hook). Also `/mvp-architect` (the cheapest thing that answers one question),
-`self-learning-orchestrator` (memory), `documentation` (README/ADR/AGENTS work). Critics in
+`self-learning-orchestrator` (memory), `documentation` (docs), `simplifier` (what can go; on a signal only). Critics in
 `.claude/agents/` (`master-`, `feature-`, `slice-planner-`, `mvp-critic`, all inheriting
 `critic-core`) are fresh-context and blind. Agents communicate through files, never chat.
 Unattended, `.claude/unattended/supervisor.sh` spawns a session per DAG node and restarts one

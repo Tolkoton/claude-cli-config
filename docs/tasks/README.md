@@ -99,6 +99,16 @@ cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings
 If your Claude Code version has no `PostToolUseFailure` event the `PostToolUse` group alone still
 counts non-zero exit codes it can see; the unknown event is ignored.
 
+## `complexity-thresholds.md` — the default complexity limits (board 010)
+
+The simplifier's signals and the complexity budget measure new and worsened functions against
+`COMPLEXITY_MAX_CYCLOMATIC` and `COMPLEXITY_MAX_NESTING` in `.claude/project.env`. The proposal
+holds the numbers calibrated on this repository's own functions and the one command that
+applies them; `tests/test_complexity_budget.py` checks the command.
+
+No change of `.claude/settings.json` came with the simplifier: its signals ride on the Stop
+gate, and `complexity_budget.py hook` was wired already.
+
 ## One way to apply, and who may take it
 
 `docs/tasks/settings.json` is the only place a change of the shared settings is proposed, and

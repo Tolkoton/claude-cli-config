@@ -1,0 +1,416 @@
+LENS: code
+SCOPE: engine.py evals/annotate_echo.py evals/compare.py evals/compare_audits.py evals/needs_audit.py evals/permission_rules.py evals/run_audit_scenarios.py evals/run_gate_evals.py evals/run_hook_scenarios.py evals/settings_parity.py evals/run_simplifier_evals.py evals/make_sandbox.sh
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-a387e25a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 167,
+  "message": "migration_pairs: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-5c35d41a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 212,
+  "message": "prune_old_dirs: complexity 12, the limit is 10"
+ },
+ {
+  "id": "S-6eb4157f",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 301,
+  "message": "compile_pattern: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-c4cfe21c",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 337,
+  "message": "parse_ownership: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-e80a30c4",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 466,
+  "message": "EngineSource.history: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-37ab5139",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 546,
+  "message": "gitignore_with_block: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-62f32a4e",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 600,
+  "message": "plan_sync: complexity 80, the limit is 10"
+ },
+ {
+  "id": "S-4d761f8e",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 600,
+  "message": "plan_sync: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-afaf3fc5",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 792,
+  "message": "plan_root_file: complexity 19, the limit is 10"
+ },
+ {
+  "id": "S-2b9ce6d6",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 833,
+  "message": "apply_plan: complexity 12, the limit is 10"
+ },
+ {
+  "id": "S-2514a2e2",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 939,
+  "message": "merge_into: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-43a82598",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 939,
+  "message": "merge_into: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-62b882b5",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 1217,
+  "message": "cmd_release: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-56a40621",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/annotate_echo.py",
+  "line": 67,
+  "message": "first_echo_reply: complexity 20, the limit is 10"
+ },
+ {
+  "id": "S-46a3bb55",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/annotate_echo.py",
+  "line": 67,
+  "message": "first_echo_reply: nesting 6, the limit is 3"
+ },
+ {
+  "id": "S-2a430fc3",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/annotate_echo.py",
+  "line": 122,
+  "message": "main: complexity 17, the limit is 10"
+ },
+ {
+  "id": "S-6f85bf4b",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/compare.py",
+  "line": 59,
+  "message": "main: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-db076252",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/compare_audits.py",
+  "line": 120,
+  "message": "compare: complexity 56, the limit is 10"
+ },
+ {
+  "id": "S-c8887517",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/compare_audits.py",
+  "line": 120,
+  "message": "compare: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-bea983b5",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/needs_audit.py",
+  "line": 95,
+  "message": "main: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-68da9b3d",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 172,
+  "message": "turn_fixture_problems: complexity 16, the limit is 10"
+ },
+ {
+  "id": "S-966ae193",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 225,
+  "message": "parse_stream: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-afb79929",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 225,
+  "message": "parse_stream: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-b7ab680a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 314,
+  "message": "read_verdict: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-5d13c42e",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 362,
+  "message": "actions_after_verdict: complexity 15, the limit is 10"
+ },
+ {
+  "id": "S-dfbc487a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 397,
+  "message": "is_match: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-43ffaa99",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 480,
+  "message": "run_once: complexity 32, the limit is 10"
+ },
+ {
+  "id": "S-57cb1345",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 683,
+  "message": "main: complexity 88, the limit is 10"
+ },
+ {
+  "id": "S-d8431178",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 683,
+  "message": "main: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-6ced5fe2",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 830,
+  "message": "main.report_row: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-fc4a8ae7",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 830,
+  "message": "main.report_row: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-beb14f64",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_gate_evals.py",
+  "line": 79,
+  "message": "judge: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-95b86cb6",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_gate_evals.py",
+  "line": 113,
+  "message": "run_all: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-d0e4ae51",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_gate_evals.py",
+  "line": 113,
+  "message": "run_all: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-1673a2ee",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_gate_evals.py",
+  "line": 144,
+  "message": "main: complexity 20, the limit is 10"
+ },
+ {
+  "id": "S-31c8b300",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 100,
+  "message": "apply_setup: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-d5a4a626",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 127,
+  "message": "classify: complexity 13, the limit is 10"
+ },
+ {
+  "id": "S-e2b23a80",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 166,
+  "message": "run_scenario: complexity 22, the limit is 10"
+ },
+ {
+  "id": "S-2ebcba3b",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 316,
+  "message": "run_all: complexity 26, the limit is 10"
+ },
+ {
+  "id": "S-77f45ffc",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 316,
+  "message": "run_all: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-12b7dd9d",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 118,
+  "message": "score: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-c7e01d59",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 118,
+  "message": "score: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-f732dee6",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 151,
+  "message": "run_once: complexity 12, the limit is 10"
+ },
+ {
+  "id": "S-8d2b1bcb",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 191,
+  "message": "main: complexity 14, the limit is 10"
+ },
+ {
+  "id": "S-b28bacf1",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/settings_parity.py",
+  "line": 85,
+  "message": "merge_levels: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-3b65eb9d",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/settings_parity.py",
+  "line": 100,
+  "message": "hook_handlers: complexity 11, the limit is 10"
+ },
+ {
+  "id": "S-bb278a70",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/settings_parity.py",
+  "line": 100,
+  "message": "hook_handlers: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-317b0a84",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": "evals/needs_audit.py",
+  "line": 80,
+  "message": "unused variable 'audit_needed' (60% confidence)"
+ },
+ {
+  "id": "S-d323c240",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": "evals/needs_audit.py",
+  "line": 84,
+  "message": "unused variable 'changed_files' (60% confidence)"
+ },
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ },
+ {
+  "id": "S-3cdd9538",
+  "tool": "pylint",
+  "kind": "duplication",
+  "file": "evals/annotate_echo.py",
+  "line": 51,
+  "message": "17 similar lines: evals/annotate_echo.py:51-68 and evals/run_audit_scenarios.py:421-438"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

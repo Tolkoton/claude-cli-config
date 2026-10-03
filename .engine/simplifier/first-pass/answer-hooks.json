@@ -1,0 +1,198 @@
+[
+  {
+    "target": ".claude/hooks/overseer_stop.py:92-97",
+    "category": "dead_code",
+    "claim": "OVERSEER_MARKER_RE is compiled and never read anywhere in the repository; HALT_MARKER_RE and PASS_MARKER_RE carry every verdict check, so removing it changes nothing.",
+    "evidence": [
+      {
+        "source": "signal",
+        "ref": "S-cf7646d6",
+        "detail": "vulture: unused variable 'OVERSEER_MARKER_RE' (60% confidence)"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/overseer_stop.py:93",
+        "detail": "'OVERSEER_MARKER_RE' occurs only at its definition across *.py, *.md, *.sh, *.json"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:92",
+        "detail": "the comment above it says 'Legacy alias for backward compat' — no caller, no test, no document names it"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:734",
+        "detail": "main() uses PASS_MARKER_RE and HALT_MARKER_RE only (also lines 746, 751, 288)"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "auto_remove",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/overseer_stop.py:474",
+    "category": "duplication",
+    "claim": "The second, identical path.parent.mkdir(parents=True, exist_ok=True) in _write_continue_count is a no-op repeat of line 473 and can go.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:473",
+        "detail": "lines 473 and 474 are the same idempotent mkdir call back to back"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_overseer_continue.py:23",
+        "detail": "the continue-count file is written and read by this test, which exercises _write_continue_count"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/overseer_stop.py:642",
+    "category": "duplication",
+    "claim": "The second, identical sha_file.parent.mkdir(parents=True, exist_ok=True) in _record_audit repeats line 641 and can go.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:641",
+        "detail": "lines 641 and 642 are the same idempotent mkdir call back to back"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_contract_fingerprint.py:73",
+        "detail": "the test reads .claude/state/overseer/.last_audit_sha, which _record_audit writes"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/complexity_budget.py:430-431",
+    "category": "duplication",
+    "claim": "first_seen_limits calls memo.parent.mkdir(parents=True, exist_ok=True) three times in a row; the two repeats at lines 430-431 do nothing and can go.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/complexity_budget.py:429",
+        "detail": "lines 429, 430 and 431 are the same idempotent mkdir call"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_complexity_budget.py:269",
+        "detail": "the test globs .claude/state/overseer/.budget-*.json, the memo this function writes, and line 268 checks the BUDGET RAISED text it produces"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/complexity_budget.py:505",
+    "category": "dead_code",
+    "claim": "The `limits` parameter of report() is never read in its body (the text is built from budget, usage, over, raised and accepted); the parameter and the argument at the single call site can go with no change to the report.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/complexity_budget.py:504",
+        "detail": "report() body (lines 508-528) references budget, usage, over, raised, accepted — not limits"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/complexity_budget.py:573",
+        "detail": "the only caller: report(budget, usage, limits, open_lines, raised, tuple(accepted))"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_complexity_budget.py:268",
+        "detail": "the hook's report text is asserted end to end ('1 allowed', 'BUDGET RAISED')"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/lesson_queue.py:226",
+    "category": "dead_code",
+    "claim": "collect_parked takes a slice_name argument it never uses (the parked entry's own item name is used as the slice at line 234); the parameter and the two arguments in collect() can go.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/lesson_queue.py:234",
+        "detail": "add(root, 'parked', match['item'], ...) — the slice comes from the parked header, slice_name is not referenced in lines 227-236"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/lesson_queue.py:260",
+        "detail": "callers: collect() at lines 260 and 263 pass slice_name; collect_escalations (line 246) does use its own slice_name, so only collect_parked is affected"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_lesson_queue.py:122",
+        "detail": "the test asserts the parked collector's output '| parked | S6 |' — the slice column is the item name, not slice_name"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/overseer_stop.py:664-695",
+    "category": "duplication",
+    "claim": "_active_contract (with CONTRACT_RE and SLICE_HEADING_RE) re-implements gate.active_slice line for line — same block split, same two regexes, same IN PROGRESS test; overseer_stop.py already imports gate lazily (line 370), so _contract_changed could resolve the slug through gate.active_slice and the two copies could not drift apart.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate.py:639",
+        "detail": "active_slice: re.split(r'(?=^## )'), 'IN PROGRESS' in block.upper(), the regexes '\\.engine/slices/([\\w.-]+)\\.md' and '^##\\s+Slice\\s+([\\w.-]+)' — identical to overseer_stop.py 664-665 and 687-694"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate.py:640",
+        "detail": "its docstring names this as 'the convention overseer_stop.py and complexity_budget.py read' — the same convention is parsed a third time in complexity_budget.active_contract (line 162) and a fourth, loosely, in lesson_queue.current_slice (line 165)"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/overseer_stop.py:701",
+        "detail": "_active_contract has one caller, _contract_changed"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:370",
+        "detail": "_note_refusal already does `import gate` inside the hook, so the dependency exists"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_contract_fingerprint.py:116",
+        "detail": "the contract-changed path is asserted end to end ('CONTRACT CHANGED AFTER APPROVAL' in the block reason)"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": ".claude/hooks/gate.py:640 (the stated shared convention)",
+    "reversal_risk": "low"
+  }
+]

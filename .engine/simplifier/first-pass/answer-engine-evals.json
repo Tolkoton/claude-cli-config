@@ -1,0 +1,116 @@
+[
+  {
+    "target": "evals/annotate_echo.py",
+    "category": "dead_code",
+    "claim": "The script annotated audit result files recorded before the runner checked the echo itself; every audit-*.json in evals/baseline already carries those annotations, and the runner (run_audit_scenarios.py) performs the same check at run time, so the script and its copies of scripted_lines/relayed/USAGE_LIMIT_RE can go while every current workflow stays the same.",
+    "evidence": [
+      {
+        "source": "signal",
+        "ref": "S-3cdd9538",
+        "detail": "pylint: 17 similar lines, evals/annotate_echo.py:51-68 and evals/run_audit_scenarios.py:421-438 (scripted_lines + relayed duplicated)"
+      },
+      {
+        "source": "read",
+        "ref": "evals/annotate_echo.py:23-24",
+        "detail": "its own docstring: 'The runner (run_audit_scenarios.py) performs the same check at run time since package 2b, so only files recorded before that need this.'"
+      },
+      {
+        "source": "read",
+        "ref": "evals/run_audit_scenarios.py:419-444",
+        "detail": "the runner's scripted_lines/relayed/echo_refused_message record `echo: refused` for every new run; recorded-turn scenes get `echo: fixture` (run_audit_scenarios.py:511-514)"
+      },
+      {
+        "source": "grep",
+        "ref": "evals/baseline/Laos-MacBook-Pro/audit-v0.11.0.json:2",
+        "detail": "all seven audit-*.json files under evals/baseline/ contain \"echo\" fields (6-33 each); the five pre-2b files carry the label 'echo annotated from the transcripts ... (evals/annotate_echo.py)', the two later ones were recorded by the checking runner"
+      },
+      {
+        "source": "grep",
+        "ref": "evals/annotate_echo.py:44",
+        "detail": "USAGE_LIMIT_RE is a third copy of the regex in run_audit_scenarios.py:132 and compare_audits.py:43"
+      },
+      {
+        "source": "grep",
+        "ref": "evals/README.md:168",
+        "detail": "the only remaining references are prose: evals/README.md:168 and the report line text in compare_audits.py:199; no test, hook, script or Makefile invokes annotate_echo.py (grep over tests/ and .claude/: zero hits)"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the reason it was written (package 2b: annotate earlier files) is fulfilled and cannot recur — any file the current runner writes is annotated at run time; the two prose mentions would need a one-line edit"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".engine/architecture/archive/engine-package-2b.json:94 ('annotate_echo.py for earlier files') — a one-time migration task, now done",
+    "reversal_risk": "low"
+  },
+  {
+    "target": "evals/run_hook_scenarios.py:292-294",
+    "category": "dead_code",
+    "claim": "The --reset-only option (parser lines 292-294, handler lines 324-331) exists 'between manual audit runs'; audit runs are now performed by run_audit_scenarios.py, which builds a fresh sandbox per run, and nothing in the repository invokes or documents the flag, so it can go while every documented invocation of the hook runner keeps working.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": "evals/run_hook_scenarios.py:292-294",
+        "detail": "help text: 'return the sandbox to its initial commit and exit (use between manual audit runs)'"
+      },
+      {
+        "source": "read",
+        "ref": "evals/run_audit_scenarios.py:13-14",
+        "detail": "'builds a FRESH sandbox (engine from --engine-ref + the audit fixtures): no run sees another run's ledger entries' — and run_once calls make_sandbox.sh for every run (lines 483-485)"
+      },
+      {
+        "source": "grep",
+        "ref": "evals/run_hook_scenarios.py:324",
+        "detail": "'reset-only' / 'reset_only' occur only inside run_hook_scenarios.py; evals/README.md has no 'reset' or 'manual' mention; no test, script or doc passes the flag (--record-only and --hooks-dir, by contrast, are used in evals/README.md:33-44 and a baseline)"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "reset_sandbox() itself stays: run_scenario and run_all call it; only the CLI entry point that exposes it for a manual workflow has no caller left"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": "engine.py::ref_commit",
+    "category": "duplication",
+    "claim": "ref_commit (engine.py:1161-1169) runs the same `git rev-parse --verify --quiet <ref>^{commit}` as EngineSource.resolve (engine.py:412-416) and differs only in returning None instead of raising EngineError; it can be a two-line try/except around src.resolve with identical behaviour for check_version and check_fast_forward.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": "engine.py:1161-1169",
+        "detail": "ref_commit: subprocess.run([\"git\", \"-C\", str(src.root), \"rev-parse\", \"--verify\", \"--quiet\", f\"{ref}^{{commit}}\"]) -> stdout or None"
+      },
+      {
+        "source": "read",
+        "ref": "engine.py:412-416",
+        "detail": "EngineSource.resolve: git(self.root, \"rev-parse\", \"--verify\", \"--quiet\", f\"{ref}^{{commit}}\") -> commit, raising EngineError on failure"
+      },
+      {
+        "source": "grep",
+        "ref": "engine.py:1182",
+        "detail": "ref_commit has two callers, check_version (1182) and check_fast_forward (1194); both only test the result for None"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_release.py:147-149",
+        "detail": "the release suite exercises both callers ('already exists', the fast-forward refusal) and would stay green with the behaviour unchanged"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  }
+]

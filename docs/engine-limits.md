@@ -178,6 +178,27 @@ such exemption before the overseer, who judges it (check #4). What that rests on
 - **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
   model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.
 
+## The simplifier
+
+- **A signal is a lead.** vulture cannot see a name used through a string, a decorator or a
+  framework; the unused-dependency check compares the declared name with the imported module
+  name and is wrong for a package whose import name differs (`pillow` / `PIL`); pylint's
+  duplicate check sees only Python. The signals feed the agent and never remove anything.
+- **The verdict on a budget overrun is relayed by the builder.** `simplifier.py accept` checks
+  the answer file it is given (schema, nothing above `flag_only`) and records its hash, but it
+  cannot know the file is what the `simplifier` subagent really answered. The reason lands in
+  the ledger, which the overseer and the owner read; that is the check.
+- **`test_safety` is the agent's claim.** The validator refuses `auto_remove` for code with
+  `test_safety: none`; whether the named test really covers the removed code is shown by the
+  builder (the suite green after the removal), not by the validator.
+- **The reversal rate sees commits with the trailer.** A removal committed without
+  `Simplifier-Finding:` is not counted, and code that came back reworded (under 60 % of the
+  removed lines identical) is not seen as returned.
+- **The eval's paid-run gate is the same seat belt as the audit's** (below): the task's
+  «Платні прогони» line or `--owner-approved` outside a session.
+- **The nightly cleanup is a command, not a schedule.** Nothing in the engine runs
+  `simplifier.py nightly`; without a cron line the history grows only at `pre_commit` and `ci`.
+
 ## The task board, its runner and the paid-run gate
 
 - **The paid-run gate is a seat belt, not a lock.** `run_audit_scenarios.py` refuses unless the
