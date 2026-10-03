@@ -653,8 +653,6 @@ def _same_continue_message(project_dir: Path, message: str) -> bool:
     return False
 
 
-CONTRACT_RE = re.compile(r"\.engine/slices/([\w.-]+)\.md")
-SLICE_HEADING_RE = re.compile(r"^##\s+Slice\s+([\w.-]+)", re.MULTILINE)
 CONTRACT_CHANGED_REASON = (
     "CONTRACT CHANGED AFTER APPROVAL — no audit was run. The active slice contract {contract} "
     "no longer matches the fingerprint sealed when the planner-critic loop approved it "
@@ -668,23 +666,12 @@ CONTRACT_CHANGED_REASON = (
 
 
 def _active_contract(project_dir: Path) -> Path | None:
-    """The contract of the slice .engine/PROGRESS.md marks IN PROGRESS — the convention
-    complexity_budget.py reads too: a `.engine/slices/<slug>.md` path in that block, else
-    the slug from its `## Slice <slug>` heading."""
-    progress = project_dir / ".engine" / "PROGRESS.md"
-    try:
-        text = progress.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    for block in re.split(r"(?=^## )", text, flags=re.MULTILINE):
-        if "IN PROGRESS" not in block.upper():
-            continue
-        named = CONTRACT_RE.search(block)
-        heading = SLICE_HEADING_RE.search(block)
-        slug = named.group(1) if named else (heading.group(1) if heading else None)
-        if slug:
-            return project_dir / ".engine" / "slices" / f"{slug}.md"
-    return None
+    """The contract of the slice .engine/PROGRESS.md marks IN PROGRESS; gate.active_slice owns
+    the convention."""
+    import gate
+
+    slug = gate.active_slice(project_dir)
+    return project_dir / ".engine" / "slices" / f"{slug}.md" if slug else None
 
 
 def _contract_changed(project_dir: Path) -> tuple[Path, Path] | None:
