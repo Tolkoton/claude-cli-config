@@ -80,6 +80,14 @@ OUTPUT_TAIL_CHARS = 1500
 FILE_LINE_RE = re.compile(r"^`?([\w./-]+\.[\w]+):(\d+)\b")
 ENTRY_HEADER_RE = re.compile(r"^## \d{4}-\d{2}-\d{2}T\S* — (?P<slice>.+?) — (?P<verdict>.+)$", re.MULTILINE)
 NO_ENTRIES = "(no entries yet)"
+# The ledger's Action line: what the verdict does next, which is the hook's doing, not the agent's.
+ACTIONS = {
+    "PASS": "unit accepted; the builder continues",
+    "BLOCK": "returned to the builder: fix and claim again, another overseer judges it (BLOCK on attempt {attempt}; {limit} in a row park the unit)",
+    "ADR_REQUIRED": "ADR draft handed to the builder for routing (.claude/engine-rules.md, Verdict routing)",
+    "ESCALATE": "escalation handed to the builder for routing (.claude/engine-rules.md, Verdict routing)",
+    INVALID: "no verdict: the audit is repeated by another overseer",
+}
 
 
 def utc_now() -> str:
@@ -492,12 +500,12 @@ def ledger_entry(row: JsonObj, obj: JsonObj | None) -> str:
     verdict = str(row["verdict"])
     header = verdict if verdict == INVALID else f"OVERSEER_{verdict}"
     check = row.get("check")
-    trigger = f"#{check} — {row['reason']}" if check else (str(row["reason"]) if verdict != "PASS" else "none")
+    trigger = f"#{check} — {row['reason']}" if check else (str(row["reason"]) if verdict != "PASS" else f"none — {row['reason']}")
     evidence = "; ".join(one_line(e, 200) for e in (obj or {}).get("evidence") or []) or "—"
     lines = [f"## {row['utc']} — {row['slice']} — {header}",
              f"- Trigger: {one_line(trigger)}",
              f"- Evidence: {one_line(evidence, 900)}",
-             f"- Action: {one_line(row['reason'] if verdict == 'PASS' else row.get('action', row['reason']))}",
+             f"- Action: {ACTIONS[verdict].format(attempt=row.get('attempt', 1), limit=MAX_BLOCKS)}",
              f"- Category: {(obj or {}).get('category', 'none')}"]
     if obj and isinstance(obj.get("devils_advocate"), str) and obj["devils_advocate"].strip():
         lines.append(f"- Devil's advocate: {one_line(obj['devils_advocate'], 1200)}")

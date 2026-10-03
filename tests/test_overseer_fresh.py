@@ -185,7 +185,7 @@ p = Project(slice_name="ref-tax")
 rid = p.audit(GOOD)
 entry = p.first_entry()
 check("PASS: the ledger entry is the script's, newest first, in the ledger's format",
-      "— ref-tax — OVERSEER_PASS" in entry and "- Trigger: none" in entry and f"- Request: {rid}" in entry and "- Auditor: overseer agent" in entry, entry)
+      "— ref-tax — OVERSEER_PASS" in entry and "- Trigger: none — every claim has its evidence" in entry and "- Action: unit accepted" in entry and f"- Request: {rid}" in entry and "- Auditor: overseer agent" in entry, entry)
 check("the placeholder is gone and the header stayed", "(no entries yet)" not in p.read(".engine/overseer/ledger.md") and p.read(".engine/overseer/ledger.md").startswith("# Overseer ledger"))
 check("verdicts.jsonl has the row", [r["verdict"] for r in p.rows()] == ["PASS"])
 said = p.stop("The overseer agent answered PASS.")
