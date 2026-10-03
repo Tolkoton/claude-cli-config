@@ -522,6 +522,25 @@ def project_root() -> Path:
     return Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else Path.cwd()
 
 
+def record_in_gate_format(root: Path, mode: str, text: str, exceeded: bool) -> None:
+    """Also write the verdict in gate.py's report schema (.claude/state/gate/<source>-report.json).
+
+    This script stays separate from gate.py — it reads the slice contract and its own state — but
+    one format means one reader. Never lets a reporting problem change the verdict."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import gate as gate_module
+
+        severity = ("block" if mode == "block" else "warn") if exceeded else "log"
+        gate_module.record_findings(
+            root, "complexity_budget", "stop",
+            [gate_module.Finding(None, None, "complexity-budget", severity, text.splitlines()[0],
+                                 f"see {REPORT_FILE}")],
+        )
+    except (ImportError, OSError):
+        pass
+
+
 def run_hook() -> int:
     raw = sys.stdin.read()
     # Same loop guard as verify-on-stop.sh: a turn the hook itself started is not re-judged.
@@ -540,6 +559,7 @@ def run_hook() -> int:
         (root / REPORT_FILE).write_text(text + "\n", encoding="utf-8")
     except OSError:
         pass
+    record_in_gate_format(root, gate, text, exceeded)
     if not exceeded:
         return 0
     if gate == "block":

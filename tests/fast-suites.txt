@@ -5,7 +5,7 @@
 # In: every suite under about 2 s plus the two hook negative-case suites. Out, with their
 # measured times (2026-10-02, sequential, idle machine): test_session_launch 30.2 s (real
 # headless sessions), test_complexity_budget 11.0, test_engine_install 10.1,
-# test_state_migration 9.3, test_deny_hooks 7.7, test_migration 7.2,
+# test_gate 10.2, test_state_migration 9.3, test_deny_hooks 7.7, test_migration 7.2,
 # test_audit_runner_resume 7.1 (real sandboxes; 29 s on the night of 2026-10-02 with 05 in its set),
 # test_audit_turn_fixture 11.2 (night 1: real sandboxes, the claude shim), test_commit_policy 5.6,
 # test_commit_checkpoint 3.9, test_audit_verdict_parsing ~3 (two sandboxes),

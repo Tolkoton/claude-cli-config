@@ -241,10 +241,11 @@ if f"ruff check --force-exclude --fix --select I {target}" in logtext:
 else:
     bad("ruff import-sort must run", f"ruff check --force-exclude --fix --select I {target}", logtext or "<empty>")
 marks = target.read_text().count("touched-by-ruff")
-if marks == 2:
-    ok("formatter writes reached the file (2 marks = both invocations)")
+# 3 since package 7: format, import sort, and the gate's quick lint (a third, read-only call).
+if marks == 3:
+    ok("formatter writes reached the file (3 marks = format, import sort, quick lint)")
 else:
-    bad("formatter output must land in the file", 2, marks)
+    bad("formatter output must land in the file", 3, marks)
 
 # ---------------------------------------------------------------------------
 # ACT-3  uv.lock takes precedence over bare ruff (first branch of the case).
@@ -446,10 +447,10 @@ target = r / "my file.py"
 target.write_text("x=1\n")
 run_hook(target, r, extra_path=shims)
 marks = target.read_text().count("touched-by-ruff")
-if marks == 2:
+if marks == 3:  # format, import sort, quick lint (package 7)
     ok("built-in branch handles a spaced path (arg is quoted)")
 else:
-    bad("built-in branch must handle spaces", 2, marks)
+    bad("built-in branch must handle spaces", 3, marks)
 
 # ---------------------------------------------------------------------------
 # ACT-7  The .py built-in branch driven by a REAL ruff (via uvx), not a shim.
@@ -508,14 +509,21 @@ else:
     target = r / "ugly.py"
     target.write_text(UGLY_PY)
     res = run_hook(target, r, extra_path=rr)
-    if res.stdout == "":
-        ok("stdout empty (contract in the hook header: 'Silent on success')")
+    # Package 7: the hook may now report through additionalContext (the file was rewritten).
+    # What must never appear is the formatter's own chatter, or anything but that one JSON.
+    try:
+        payload = json.loads(res.stdout) if res.stdout else {}
+    except ValueError:
+        payload = None
+    context = (payload or {}).get("hookSpecificOutput", {}).get("additionalContext", "")
+    if payload is not None and list(payload) in ([], ["hookSpecificOutput"]) and "1 file reformatted" not in res.stdout:
+        ok("stdout is empty or one hookSpecificOutput JSON, without the formatter's own chatter")
     else:
-        bad(
-            "formatter output must not leak to the hook's stdout",
-            "",
-            res.stdout[:200],
-        )
+        bad("formatter output must not leak to the hook's stdout", "empty or additionalContext JSON", res.stdout[:200])
+    if context and "rewritten by the formatter" in context:
+        ok("the model is told the file was rewritten (additionalContext)")
+    else:
+        bad("a rewritten file is reported through additionalContext", "mentions rewritten", context)
 
 print()
 print("---------------------------------------------")

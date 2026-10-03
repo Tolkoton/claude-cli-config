@@ -63,6 +63,23 @@ def seal(root: Path, contract: Path) -> int:
     return EXIT_OK
 
 
+def record_in_gate_format(root: Path, contract: Path, severity: str, message: str) -> None:
+    """The verdict also goes to .claude/state/gate/contract_fingerprint-report.json in gate.py's
+    report schema. This script stays separate (it gates /plan-slice and the audit, not a file);
+    the format is shared. A reporting problem never changes the exit status."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import gate as gate_module
+
+        gate_module.record_findings(
+            root, "contract_fingerprint", "stop",
+            [gate_module.Finding(contract.name, None, "contract-sealed", severity, message,
+                                 "re-approving a changed contract is the owner's act")],
+        )
+    except (ImportError, OSError):
+        pass
+
+
 def check(root: Path, contract: Path) -> int:
     target = fingerprint_path(root, contract)
     if not target.is_file():
@@ -72,12 +89,14 @@ def check(root: Path, contract: Path) -> int:
     actual = digest(contract)
     if recorded == actual:
         print(f"match: {contract.name} is the approved contract ({actual[:12]}…)")
+        record_in_gate_format(root, contract, "log", "matches its fingerprint")
         return EXIT_OK
     print(
         f"CHANGED: {contract.name} differs from the contract that was approved "
         f"(approved {recorded[:12]}…, now {actual[:12]}…). No audit against a moved goalpost.",
         file=sys.stderr,
     )
+    record_in_gate_format(root, contract, "block", "changed after approval: no audit against a moved goalpost")
     return EXIT_MISMATCH
 
 
