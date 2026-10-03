@@ -919,11 +919,10 @@ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
     full = layer in ("pre_commit", "ci")
     report.files = files
     code = eligible(env, files)
-    if layer == "stop":
-        # A configuration file is not code, but changing the gate's own settings is exactly what
-        # the guard exists to see; so a config-only turn still reaches the guard.
-        if not code and not any(is_config_file(f) for f in files):
-            return
+    # A configuration file is not code, but changing the gate's own settings is exactly what
+    # the guard exists to see; so a config-only turn still reaches the guard.
+    if layer == "stop" and not code and not any(is_config_file(f) for f in files):
+        return
     started = time.perf_counter()
     if layer in ("stop", "pre_commit"):
         bypass_guard(root, layer, files, diff_ref, report)
