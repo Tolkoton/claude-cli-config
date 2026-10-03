@@ -5,7 +5,7 @@ description: Orchestrates the self-learning loop across a Claude Code dev cycle 
 
 # Self-Learning Orchestrator
 
-Orchestrate the project's living memory across the development lifecycle. This skill is the *trigger dispatcher*: it recognizes WHICH self-learning moment is happening and routes to the right protocol. It does not duplicate the content of the per-artifact skills — it speaks their cue phrases so they activate.
+Orchestrate the project's living memory across the development lifecycle. This skill is the *trigger dispatcher*: it recognizes WHICH self-learning moment is happening and routes to the right protocol. The protocols themselves are the files in `triggers/`.
 
 ## What this skill manages
 
@@ -123,22 +123,6 @@ recommend; it does not decide. On the owner's «так» the board runner runs `
 `.engine/rules.md` (imported by CLAUDE.md under a 200-line budget); on «ні» it closes the proposal. Never run
 `promote` yourself (it refuses inside a session), never fill the answer, never edit CLAUDE.md for a lesson.
 
-## Delegation map (cue phrases that activate other skills)
-
-This skill stays thin by speaking phrases the per-artifact skills already match:
-
-| Concern | Cue phrase (Claude speaks aloud in reasoning) | Skill that activates |
-|---|---|---|
-| Plan the task | "let me use plan-mode decomposition for this" | `plan-mode-and-task-decomposition` |
-| Resume a task | "let me check claude-progress.md for resume context" | `progress-file-for-long-tasks` |
-| Record a decision | "this is an ADR-worthy decision; let me apply the ADR-lite format" | `decisions-log-adr-lite` |
-| Self-review before commit | "let me run the pre-commit self-review checklist" | `pre-commit-self-review-checklist` |
-| Debug a stuck failure | "let me apply execution-feedback-debugging discipline here" | `execution-feedback-debugging` |
-| End-of-task lesson distillation | "let me do session-dreaming for this task" | `session-dreaming` (from master-architect bundle) OR fall back to `triggers/session-end-dreaming.md` |
-| Navigate before editing unfamiliar code | "let me apply codebase-navigation-strategy first" | `codebase-navigation-strategy` |
-
-If a delegated skill is not installed, the trigger file in `triggers/` contains the fallback inline protocol — orchestrator never silently fails.
-
 ## Hard rules
 
 1. **Always read CLAUDE.md and the relevant MEMORY.md files at session start.** Skipping this is the single largest learning leak — every subsequent decision is uninformed by prior lessons.
@@ -177,4 +161,3 @@ For everything else — every real coding session — run at minimum the session
 Designed to compose with the broader project setup:
 - the engine's hooks provide PostToolUse / Stop hooks (quality gates) — those are execution feedback, not learning artifacts; this skill is orthogonal.
 - `master-architect` and `feature-architect` own architectural artifacts and may keep their own task-scoped `reflections.md`. This orchestrator handles the *between-task* and *across-task* memory; it defers when they're active.
-- The 12 research-backed skills (decisions-log-adr-lite, progress-file-for-long-tasks, pre-commit-self-review-checklist, plan-mode-and-task-decomposition, execution-feedback-debugging, etc.) are the delegates this orchestrator triggers via cue phrases.
