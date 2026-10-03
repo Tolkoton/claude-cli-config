@@ -100,7 +100,8 @@
     "transcript_path": "{{TRANSCRIPT}}"
    },
    "expect": "block",
-   "expect_detail_contains": "Launch the agent `overseer`"
+   "expect_detail_contains": "Launch the agent `overseer`",
+   "detail_line": "Launch the agent"
   },
   {
    "id": "osf-builder-pass-is-ignored",

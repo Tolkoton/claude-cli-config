@@ -105,7 +105,8 @@
     "last_assistant_message": "{\"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap\", \"evidence\": [\"tests/test_nowhere.py:12\"]}"
    },
    "expect": "block",
-   "expect_detail_contains": "no such file"
+   "expect_detail_contains": "no such file",
+   "detail_line": "no such file"
   },
   {
    "id": "ovr-another-agents-answer-is-not-a-verdict",
