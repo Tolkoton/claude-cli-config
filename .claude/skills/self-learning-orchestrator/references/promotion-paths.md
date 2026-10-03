@@ -28,7 +28,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
                                  │ during session-end-dreaming
                                  │
                     ┌────────────┴────────────┐
-                    │  .claude/lesson-queue.md│ ← in-flow capture
+                    │  .engine/lesson-queue.md│ ← in-flow capture
                     └─────────────────────────┘
 
 

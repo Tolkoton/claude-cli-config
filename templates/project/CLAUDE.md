@@ -3,6 +3,7 @@
 <!-- <<< engine -->
 
 @AGENTS.md
+@.engine/rules.md
 
 # <project name>
 

@@ -1,0 +1,68 @@
+{
+  "hook": "lesson_queue.py",
+  "event": "PostToolUseFailure / PostToolUse (the stuck counter; wiring proposed in docs/tasks/lesson-hooks.md)",
+  "args": [
+    "stuck"
+  ],
+  "scenarios": [
+    {
+      "id": "lq-stuck-twice-is-quiet",
+      "why": "Package B: two identical failures in a row say nothing.",
+      "input": {
+        "hook_event_name": "PostToolUseFailure",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "pytest -x"
+        },
+        "error": "AssertionError: 3 != 4"
+      },
+      "runs": 2,
+      "expect": [
+        "allow",
+        "allow"
+      ],
+      "expect_detail_contains": ""
+    },
+    {
+      "id": "lq-stuck-third-gives-the-protocol",
+      "why": "The third identical failure hands over the stuck protocol as additionalContext and still never blocks.",
+      "input": {
+        "hook_event_name": "PostToolUseFailure",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "pytest -x"
+        },
+        "error": "AssertionError: 3 != 4"
+      },
+      "runs": 3,
+      "expect": [
+        "allow",
+        "allow",
+        "allow"
+      ],
+      "expect_detail_contains": "STUCK PROTOCOL"
+    },
+    {
+      "id": "lq-stuck-success-resets",
+      "why": "A success is not a failure: no protocol, whatever came before.",
+      "input": {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "pytest"
+        },
+        "tool_response": {
+          "stdout": "ok",
+          "stderr": "",
+          "exit_code": 0
+        }
+      },
+      "runs": 3,
+      "expect": [
+        "allow",
+        "allow",
+        "allow"
+      ]
+    }
+  ]
+}

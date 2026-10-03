@@ -29,7 +29,7 @@ four cooperating layers:
 | **Design** | Turns intent into a task/slice plan | `.engine/architecture/`, `.engine/slices/` |
 | **Build** | Writes code + tests under TDD | source dirs, `tests/`, `scripts/` |
 | **Enforce** | Hooks + overseer keep discipline | `.claude/hooks/`, `.engine/overseer/` |
-| **Remember** | Distils lessons across sessions | `.engine/PROGRESS.md`, memory files, `.claude/lesson-queue.md` |
+| **Remember** | Distils lessons across sessions | `.engine/PROGRESS.md`, memory files, `.engine/lesson-queue.md` |
 
 One build pipeline is active:
 
@@ -79,7 +79,7 @@ volatile the artifact is.
 | `AGENTS.md` (root) | `documentation` | every agent (via `@AGENTS.md`) | with code changes |
 | `docs/adr/NNNN-*.md` | `documentation`, `master-architect`, developer | every agent, humans | **append-only / supersede** |
 | `.claude/settings.json` + 9 hooks | `engine.py install` (shipped from the engine repository) | Claude Code harness (session start) | rare |
-| `.claude/lesson-queue.md` | developer (lesson capture, `self-learning-orchestrator`) | the session-end trigger of the same skill | drained per session |
+| `.engine/lesson-queue.md` | hooks (gate, overseer, parked, escalation) and the developer (`lesson_queue.py`, rule in `self-learning-orchestrator`) | the session-end trigger of the same skill | the overseer-PASS review request; drained by triage |
 | `~/.claude/memory/<tech>/MEMORY.md` `[global]` | `self-learning-orchestrator` | all (session start) | per session-end |
 | `decisions.md`, `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator` | same | created on demand |
 
@@ -137,7 +137,7 @@ flowchart TD
 flowchart LR
   moment([dev moment]) --> SLO[self-learning-orchestrator]
   SLO -->|session start, reads| MEM["MEMORY.md files + .engine/PROGRESS.md + decisions.md"]
-  LES["lesson capture (in flow)"] -->|append| LQ[".claude/lesson-queue.md"]
+  LES["lesson capture (in flow)"] -->|append| LQ[".engine/lesson-queue.md"]
   WRAP["session end"] -->|drains| LQ
   WRAP -->|classify into| MEM
   STK["stuck protocol"] -.->|tier 2/3| dbg[execution-feedback-debugging / plan-mode]

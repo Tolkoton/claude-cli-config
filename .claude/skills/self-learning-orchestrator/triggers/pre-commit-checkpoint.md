@@ -55,10 +55,10 @@ This dispatches to `triggers/decision-checkpoint.md` (or to the `decisions-log-a
 
 **Q3: Was there a non-obvious bug found and fixed in this work?**
 
-If yes — append to `.claude/lesson-queue.md`:
+If yes — append to `.engine/lesson-queue.md`:
 
 ```bash
-echo "- $(date +%F) | $(git log -1 --format=%h 2>/dev/null || echo pending) | <one-line lesson>" >> .claude/lesson-queue.md
+python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"
 ```
 
 Defer the full lesson processing to session-end-dreaming. Do not stop now to write a full MEMORY.md entry — the lesson queue exists exactly to avoid this interruption.

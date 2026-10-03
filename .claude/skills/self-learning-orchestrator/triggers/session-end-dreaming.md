@@ -24,7 +24,7 @@ When in doubt: ask the user "Are we wrapping up this task? If so I'd like to do 
 ```
 Read claude-progress.md
 Read .engine/architecture/tasks/<active-task>/reflections.md 2>/dev/null
-Read .claude/lesson-queue.md 2>/dev/null
+Read .engine/lesson-queue.md 2>/dev/null
 ```
 
 The three input sources, in order:
@@ -112,8 +112,7 @@ After all entries are written:
 
    ```bash
    # Move to dated archive so future maintenance can re-read if needed.
-   mkdir -p .claude/lesson-archive
-   mv .claude/lesson-queue.md ".claude/lesson-archive/lesson-queue-$(date +%F).md"
+   python3 .claude/hooks/lesson_queue.py list > ".engine/lesson-archive-$(date +%F).md"   # then resolve every id; resolved lines leave the queue
    ```
 
 4. If the task is complete, archive or delete `claude-progress.md`:

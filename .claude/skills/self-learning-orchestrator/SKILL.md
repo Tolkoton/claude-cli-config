@@ -84,25 +84,41 @@ When invoked, identify which moment is happening and read the matching trigger f
 | About to commit / "done with this" | `triggers/pre-commit-checkpoint.md` |
 | User said "/clear", "/bye", "wrap up", or task is complete | `triggers/session-end-dreaming.md` |
 | User asked for memory maintenance or a periodic review | `triggers/periodic-maintenance.md` |
-| User said "lesson learned: ..." or "remember this for next time" | append to `.claude/lesson-queue.md`, see "Lesson capture" below |
+| User said "lesson learned: ..." or "remember this for next time" | `lesson_queue.py add`, see "Lesson capture" below |
 
 Read **only the trigger file that applies**. Do not preload everything — each trigger has independent context needs.
 
-## Lesson capture (lightweight, inline)
+## Lesson capture (lightweight, inline) — the queue is filled by hooks too
 
-When a non-obvious bug is fixed in-flow, do not interrupt with a full ADR. Append a one-liner to the lesson queue:
+`.engine/lesson-queue.md` is one line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`
+(source: gate, overseer, parked, escalation, agent). **Hooks fill it without you**: a Stop block of the
+gate, an `OVERSEER_BLOCK` verdict, a parked item and an escalation are added automatically, once each
+(`.claude/hooks/lesson_queue.py`). You add a line yourself only when you found a **non-obvious cause** —
+something a fresh session would not guess from the code:
 
 ```bash
-# Append to .claude/lesson-queue.md (create if missing)
-# Format: - YYYY-MM-DD | <task or commit ref> | <one-line lesson>
-echo "- $(date +%F) | $(git log -1 --format=%h) | <lesson>" >> .claude/lesson-queue.md
+python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"
 ```
 
-The queue is processed at session-end-dreaming. The point of the queue is *defer the classification* (tech vs project vs noise) until you have several candidates and can see patterns.
+Do not queue what the code, the tests or git history already say, and do not stop to write an ADR.
 
-Trigger this from:
-- The user saying "lesson learned: <text>" or "remember this for next time"
-- Recognizing in your own work "this took longer than it should have, future-me would benefit from knowing why"
+**Triage is the hook's request, not yours to schedule.** After an overseer verdict of PASS the hook appends
+`LESSON_REVIEW_REQUESTED` to the continue text when the queue is not empty. For each candidate run
+`python3 .claude/hooks/lesson_queue.py resolve <id> --to memory|rule|engine|discard`:
+`memory` needs `--text` and two `--cite` ledger entries (the memory file's citation-or-prune rule);
+`rule` needs `--text` and `--why` and writes a **proposal** to `.engine/rule-proposals.md`; `engine` writes
+`.engine/engine-feedback.md`; `discard` just removes it. A resolved candidate leaves the queue.
+
+**Stuck.** Three identical failures in a row make a hook hand you the stuck protocol
+(`triggers/stuck-protocol.md`) as additional context; a success resets the count. Follow it; it never blocks.
+
+**Session start.** A short digest (latest memory headings, queue size, proposals waiting) arrives as
+session context; when it says MEMORY CLEAN-UP DUE, run `triggers/periodic-maintenance.md`, then
+`python3 .claude/hooks/lesson_queue.py cleanup-done`.
+
+**Nothing reaches the persistent context by itself.** A rule proposal becomes a rule only after the overseer
+passes it (a ledger entry naming `rule-proposal <id>` with OVERSEER_PASS) and `lesson_queue.py promote <id>`
+appends it to `.engine/rules.md`, which CLAUDE.md imports under a 200-line budget. Never edit CLAUDE.md for a lesson.
 
 ## Delegation map (cue phrases that activate other skills)
 
@@ -123,9 +139,9 @@ If a delegated skill is not installed, the trigger file in `triggers/` contains 
 ## Hard rules
 
 1. **Always read CLAUDE.md and the relevant MEMORY.md files at session start.** Skipping this is the single largest learning leak — every subsequent decision is uninformed by prior lessons.
-2. **Never write to CLAUDE.md, decisions.md, or MEMORY.md silently.** Show the user what you propose to add and where; get explicit confirmation. Memory pollution is irreversible without git archaeology.
+2. **Never write to CLAUDE.md, decisions.md, or MEMORY.md silently.** Attended: show the user what you propose to add and where, and get explicit confirmation. Unattended, or in answer to the hook's `LESSON_REVIEW_REQUESTED`: that request is the confirmation for `.engine/overseer/MEMORY.md` (through `resolve --to memory`, which refuses without two ledger citations) and for the two proposal files; **CLAUDE.md and `.engine/rules.md` are never written by hand or by a hook — only `promote` writes the latter, after an overseer PASS.** Memory pollution is irreversible without git archaeology.
 3. **One artifact per piece of knowledge.** A specific fact lives in exactly one of: CLAUDE.md (rule), decisions.md (rationale), MEMORY.md (experience), reflections.md (per-task), code comment (per-line). Duplication causes drift. See `references/artifact-scope-decision-tree.md`.
-4. **Defer non-blocking captures to the queue.** Bug fix in flow? Append to `.claude/lesson-queue.md`, do not stop to write a full ADR. Process the queue at session-end.
+4. **Defer non-blocking captures to the queue.** Bug fix in flow with a non-obvious cause? `lesson_queue.py add`, do not stop to write a full ADR. The queue is triaged when the hook asks (after an overseer PASS) and at session-end.
 5. **Session-end is non-optional.** Skipping session-end-dreaming silently drops all lesson candidates accumulated during the session. If a session is ending and the queue is non-empty, process it before `/clear`.
 6. **Periodic maintenance is non-optional.** Without prune, MEMORY.md and CLAUDE.md rot to the point of being ignored. Schedule weekly or monthly, treat as real work.
 7. **Promotion path is one-way and rare.** A pattern in MEMORY.md may *eventually* be promoted to a Skill, but only after appearing in 3+ projects. Inverse demotion (skill → memory) never happens.

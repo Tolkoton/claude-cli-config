@@ -105,6 +105,10 @@ def main() -> int:
             if (seed.parent / "AGENTS.md").is_file():
                 shutil.copy2(seed.parent / "AGENTS.md", stand_in / "AGENTS.md")
             (stand_in / ".claude").symlink_to(ROOT / ".claude")
+            seed_rules = seed.parent / ".engine" / "rules.md"  # package B: the file CLAUDE.md imports
+            if seed_rules.is_file():
+                (stand_in / ".engine").mkdir()
+                shutil.copy2(seed_rules, stand_in / ".engine" / "rules.md")
             files, missing = closure(stand_in / "CLAUDE.md")
             check("a seeded project: every import resolves", not missing, "; ".join(missing))
             total = sum(lines(f) for f in files)

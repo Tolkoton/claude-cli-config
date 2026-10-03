@@ -20,7 +20,7 @@ Beyond that line, additional rules don't increase compliance — they just push 
 | `.engine/architecture/MEMORY.md` | 30 entries | 50 entries | Aggressive prune in periodic-maintenance; archive old entries |
 | `decisions.md` | 50 entries | 100 entries | Add an index section at top; otherwise leave (history is sacred) |
 | `claude-progress.md` | 1 screen of "What's left" | 2 screens | Decompose the task; create a separate file per sub-task |
-| `.claude/lesson-queue.md` | 10 entries between session-ends | 20 entries | Session-ends are happening too rarely or threshold for queueing is too low |
+| `.engine/lesson-queue.md` | 10 entries between session-ends | 20 entries | Session-ends are happening too rarely or threshold for queueing is too low |
 
 When you hit a soft limit, **review**. When you hit a hard limit, **act**.
 
@@ -92,9 +92,9 @@ The same observation lives in CLAUDE.md, decisions.md, MEMORY.md, AND inline com
 
 ### 9. Lesson queue that never empties
 
-`.claude/lesson-queue.md` has 30 entries. session-end-dreaming hasn't run in 3 weeks. None of the lessons have been classified.
+`.engine/lesson-queue.md` has 30 entries. session-end-dreaming hasn't run in 3 weeks. None of the lessons have been classified.
 
-**Detection**: `.claude/lesson-queue.md` exists and has > 10 entries.
+**Detection**: `.engine/lesson-queue.md` exists and has > 10 entries.
 
 **Fix**: process the queue NOW (not at next session end). If processing is taking > 20 minutes, do it in two passes (project-scope this session, tech-scope next).
 

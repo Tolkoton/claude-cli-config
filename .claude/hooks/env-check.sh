@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook: say what this machine LACKS for the engine to enforce anything.
 #
-# Silent when nothing is missing. SessionStart output is added to the context of every
+# Silent when nothing is missing (and, since package B, when the lesson digest is empty). SessionStart output is added to the context of every
 # session, so a routine "all good" line would be paid for in every session forever; a
 # missing tool, on the other hand, used to cost nothing up front and everything later —
 # hooks that silently enforced nothing, or a lint gate that could only ever fail.
@@ -40,11 +40,19 @@ if [ -f "$ROOT/pyproject.toml" ]; then
   fi
 fi
 
-[ "${#MISSING[@]}" -eq 0 ] && exit 0
+if [ "${#MISSING[@]}" -gt 0 ]; then
+  echo "## engine environment check — missing on this machine"
+  for line in "${MISSING[@]}"; do
+    echo "- $line"
+  done
+  echo "Tell the user about the items above before relying on hook enforcement in this session."
+fi
 
-echo "## engine environment check — missing on this machine"
-for line in "${MISSING[@]}"; do
-  echo "- $line"
-done
-echo "Tell the user about the items above before relying on hook enforcement in this session."
+# Package B: a bounded digest of the project's lessons (memory headings, the queue's size, the
+# proposals waiting) and, when due, the proposal to run the clean-up protocol. Silent when there
+# is nothing to say. Carried here because this is the SessionStart hook already wired; it needs
+# python3 and says nothing without it.
+if have python3 && [ -f "$ROOT/.claude/hooks/lesson_queue.py" ]; then
+  CLAUDE_PROJECT_DIR="$ROOT" python3 "$ROOT/.claude/hooks/lesson_queue.py" session-start 2>/dev/null || true
+fi
 exit 0

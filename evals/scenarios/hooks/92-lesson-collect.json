@@ -1,0 +1,37 @@
+{
+  "hook": "lesson_queue.py",
+  "event": "Stop (the collectors; carried by the Stop gate and the overseer hook)",
+  "args": [
+    "collect"
+  ],
+  "scenarios": [
+    {
+      "id": "lq-collect-parked-item",
+      "why": "A parked item becomes a queue candidate without a model.",
+      "setup": [
+        {
+          "write": {
+            "path": ".engine/overseer/parked.md",
+            "content": "# Parked\n\n## 2026-10-03T01:00:00Z — S5 — PARKED\n- Blocked on: the owner's cloud session\n- Class: human-input\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop"
+      },
+      "check_file": ".engine/lesson-queue.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "lq-collect-nothing-to-collect",
+      "why": "No source, no queue file.",
+      "input": {
+        "hook_event_name": "Stop"
+      },
+      "check_file": ".engine/lesson-queue.md",
+      "expect": "allow",
+      "expect_file_changed": false
+    }
+  ]
+}

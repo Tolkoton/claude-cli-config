@@ -275,6 +275,25 @@ UNATTENDED_CONTINUE_REASON = (
     "reasons applies."
 )
 
+def _lesson_review(project_dir: Path, message: str) -> str:
+    """Package B: after a verdict, feed the lesson queue and (on a PASS) ask for the review.
+
+    An OVERSEER_BLOCK verdict becomes a queue candidate; when the queue is not empty a PASS adds
+    the triage request to the "continue" text. Best effort — a problem here never changes the
+    verdict handling."""
+    try:
+        import lesson_queue
+
+        lesson_queue.add_from_verdict(project_dir, message)
+        if PASS_MARKER_RE.search(message):
+            lesson_queue.collect(project_dir)
+            request = lesson_queue.review_request(project_dir)
+            return f"\n\n{request}" if request else ""
+    except (ImportError, OSError, ValueError):
+        pass
+    return ""
+
+
 DRY_RUN_REASON = (
     "DRY-RUN: would have blocked — the overseer Stop hook is wired and live. "
     "No real unit-completion was evaluated; this is a smoke-test injection."
@@ -580,6 +599,8 @@ def main() -> NoReturn:
 
     message = _str_field(envelope, "last_assistant_message")
 
+    lesson_text = _lesson_review(_get_project_dir(), message)
+
     # Halt markers — owner takes over, hook silent-passes.
     if HALT_MARKER_RE.search(message):
         _passthrough()
@@ -598,7 +619,7 @@ def main() -> NoReturn:
         sha_file.parent.mkdir(parents=True, exist_ok=True)
         sha_file.parent.mkdir(parents=True, exist_ok=True)
         sha_file.write_text(digest + "\n", encoding="utf-8")
-        print(json.dumps({"decision": "block", "reason": CONTINUE_REASON}))
+        print(json.dumps({"decision": "block", "reason": CONTINUE_REASON + lesson_text}))
         sys.exit(0)
 
     project_dir = _get_project_dir()

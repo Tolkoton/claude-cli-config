@@ -109,10 +109,10 @@ This is the most important learning moment in the development cycle. The stuck s
 
 ### Lightweight capture (in-flow)
 
-Append to `.claude/lesson-queue.md`:
+Append to `.engine/lesson-queue.md`:
 
-```
-- <date> | <commit-ref> | <one-line lesson — what I misunderstood and what's actually true>
+```bash
+python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"
 ```
 
 This will be processed at session-end. Do not interrupt flow now.
@@ -136,7 +136,7 @@ If the lesson is large enough that you'd want to skip Tiers 0–4 next time:
 ## What this trigger writes
 
 - `claude-progress.md` (or `reflections.md`) — the Tier 0 stuck-state writeup. Always.
-- `.claude/lesson-queue.md` — the post-resolution lesson, one-liner. Almost always.
+- `.engine/lesson-queue.md` — the post-resolution lesson, one-liner. Almost always.
 - Maybe CLAUDE.md or a rejected-status ADR — only for big lessons.
 - Maybe an update to an existing MEMORY.md entry to add the symptom keywords you wished were there when you searched in Tier 1.
 

@@ -1,0 +1,34 @@
+{
+  "hook": "lesson_queue.py",
+  "event": "SessionStart (the digest; carried by env-check.sh in the engine's own wiring)",
+  "args": [
+    "session-start"
+  ],
+  "scenarios": [
+    {
+      "id": "lq-digest-empty-is-silent",
+      "why": "Package B: with nothing to say the SessionStart digest costs no context.",
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "lq-digest-names-the-queue",
+      "why": "A non-empty queue is announced in one bounded line.",
+      "setup": [
+        {
+          "write": {
+            "path": ".engine/lesson-queue.md",
+            "content": "# Lesson queue\n\n- 2026-10-01 | agent | s1 | the cache key ignores the locale #0a1b2c3d\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow",
+      "expect_detail_contains": "## lessons"
+    }
+  ]
+}

@@ -647,6 +647,24 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
         print(f"gate: cannot park the escalation in {path}: {exc}", file=sys.stderr)
 
 
+def lessons(root: Path, action: str, text: str = "") -> str:
+    """Feed the lesson queue and the stuck counter (lesson_queue.py). Best effort: a problem here
+    never changes what the gate decides. Returns the stuck protocol text when one is due."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import lesson_queue
+
+        if action == "collect":
+            lesson_queue.collect(root)
+        elif action == "failure":
+            return lesson_queue.note_failure(root, text)
+        elif action == "success":
+            lesson_queue.note_success(root)
+    except (ImportError, OSError, ValueError):
+        pass
+    return ""
+
+
 def summarise(report: Report, limit: int = 8) -> str:
     order = {s: i for i, s in enumerate(SEVERITIES)}
     top = sorted(report.findings, key=lambda f: order[f.severity])[:limit]
@@ -688,6 +706,13 @@ def layer_post_write(root: Path, env: dict[str, str], rel: str, report: Report) 
                     report.add(Finding(shown, int(match["line"]), "lint", "warn", match["msg"].strip(),
                                        "fix it in the next edit"))
                     notes.append(f"lint {shown}:{match['line']} {match['msg'].strip()}")
+    warns = [f for f in report.findings if f.severity == "warn"]
+    if warns:
+        stuck = lessons(root, "failure", f"{warns[0].rule} {warns[0].file} {warns[0].message}")
+        if stuck:
+            notes.append(stuck)
+    else:
+        lessons(root, "success")
     if not notes:
         return None
     return "gate: " + "\n".join(notes[:10])
@@ -814,6 +839,16 @@ def emit_stop(report: Report, root: Path, hook: bool, session: str) -> int:
     result, extra = finish_stop(report, root, session)
     if result != "escalated":
         write_report(report, result)
+    if report.blocked:
+        stuck = lessons(root, "failure", next((f"{f.rule} {f.file} {f.message}" for f in report.findings
+                                              if f.severity == "block"), ""))
+        if stuck:
+            report.reasons.append(stuck)
+            if "systemMessage" in extra:
+                extra["systemMessage"] += "\n" + stuck
+    else:
+        lessons(root, "success")
+    lessons(root, "collect")
     if report.findings and any(f.severity != "log" for f in report.findings):
         print(summarise(report), file=sys.stderr)
     if result == "escalated":

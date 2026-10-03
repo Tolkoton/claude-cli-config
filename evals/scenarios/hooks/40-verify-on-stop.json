@@ -373,6 +373,26 @@
         "allow"
       ],
       "runs": 3
+    },
+    {
+      "id": "vs-block-reaches-the-lesson-queue",
+      "why": "Package B: a Stop block is also a lesson candidate, added by the gate itself with no model.",
+      "setup": [
+        {
+          "write": {
+            "path": "src/refproj/pricing.py",
+            "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "stop_hook_active": false
+      },
+      "check_file": ".engine/lesson-queue.md",
+      "expect": "block",
+      "expect_detail_contains": "TYPECHECK FAILED",
+      "expect_file_changed": true
     }
   ]
 }

@@ -3,6 +3,7 @@
 <!-- <<< engine -->
 
 @AGENTS.md
+@.engine/rules.md
 
 # claude-cli-config — the engine's own repository
 
