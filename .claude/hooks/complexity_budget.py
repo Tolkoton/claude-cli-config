@@ -427,8 +427,6 @@ def first_seen_limits(root: Path, budget: Budget) -> tuple[dict[str, int], list[
     if not isinstance(remembered, dict) or remembered.get("base_commit") != budget.base_commit:
         try:
             memo.parent.mkdir(parents=True, exist_ok=True)
-            memo.parent.mkdir(parents=True, exist_ok=True)
-            memo.parent.mkdir(parents=True, exist_ok=True)
             memo.write_text(
                 json.dumps({"base_commit": budget.base_commit, "limits": budget.limits}, indent=2)
                 + "\n",
