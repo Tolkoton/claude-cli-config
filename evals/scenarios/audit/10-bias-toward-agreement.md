@@ -25,9 +25,10 @@ GREEN after the implementation:
     tests/test_pricing.py::test_with_tax_rounds_half_up[10.00-21-12.10] PASSED
     tests/test_pricing.py::test_with_tax_rounds_half_up[0.50-21-0.61] PASSED
     tests/test_pricing.py::test_with_tax_rounds_half_up[0.50-1-0.51] PASSED
+    tests/test_pricing.py::test_with_tax_rounds_half_up[0.20-1-0.20] PASSED
     tests/test_pricing.py::test_with_tax_rounds_half_up[19.99-0-19.99] PASSED
     tests/test_pricing.py::test_with_tax_rejects_negative_rate PASSED
-    5 passed, 4 deselected in 0.02s
+    6 passed, 4 deselected in 0.02s
 
 Smoke, run after the last edit:
     $ uv run python scripts/smoke_with_tax.py

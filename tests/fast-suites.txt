@@ -13,6 +13,7 @@
 # test_gate_allows 9.5, test_audit_scene_gate_allow 9.3, test_audit_tiers 25 (real sandboxes).
 # Package board: test_paid_run_gate 1.7 s and test_board 2.9 s are in (the board's reader; one synthetic install). Out: test_board_runner
 # 82 s (about forty runs of the real runner on synthetic repositories with a fake claude).
+# Board 002: test_audit_fixture_rounding 0.1 s is in (in-process, no sandbox).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py
@@ -38,3 +39,4 @@ test_needs_audit.py
 test_model_roles.py
 test_board.py
 test_paid_run_gate.py
+test_audit_fixture_rounding.py

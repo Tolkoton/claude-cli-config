@@ -33,6 +33,7 @@ def test_total_of_empty_basket_is_zero() -> None:
             "0.61",
         ),  # 0.605 exactly: half-up gives 0.61, half-even would give 0.60
         ("0.50", 1, "0.51"),  # 0.505 exactly
+        ("0.20", 1, "0.20"),  # 0.202 exactly: half-up keeps 0.20, ROUND_UP would give 0.21
         ("19.99", 0, "19.99"),
     ],
 )
