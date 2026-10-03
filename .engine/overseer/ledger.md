@@ -203,3 +203,10 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Action: evals/baseline/ folders renamed to linux-ubuntu-22.04, linux-ubuntu-24.04, linux-ubuntu-26.04, macos-14, each record placed by the platform it names; evals/environment.py names the environment, the four runners refuse another environment's folder and record the name, compare.py, compare_audits.py and `engine.py release` mark a cross-environment comparison; paths and machine names rewritten in records, reports and labels (git history keeps them).
 - Commits: 418a022.
 - Category: build
+
+## 2026-10-03T19:20:00Z — board 040-lessons-to-rules-owner-only — TASK_BUILT
+- Trigger: tasks/doing/040-lessons-to-rules-owner-only.md (the owner's decision is in the task; no audit asked for).
+- Evidence: `bash tests/run_all.sh` 56 suites green (on the tree committed as 37af6e9, docs/engine-limits.md text added after); tests/test_lesson_queue.py 89/89, tests/test_board.py 167/167, tests/test_board_runner.py 141/141 — one check there seen red in a runner-started session (BOARD_MAX_USD inherited) before the suite stopped inheriting BOARD_* variables; golden hook set 119/119 identical to evals/baseline/linux-ubuntu-22.04/results-task-020.json at 37af6e9; ruff not installed, not run.
+- Action: lesson_queue.py promote no longer reads the ledger — it needs the owner's «так» under the rule question in tasks/blocked/ (offer `promote-rule <sha256 of id and text>`) and refuses inside a session; board.py rule_question writes the question, the runner acts on «так» / «ні» through owner_action.py and moves the question to done/; the overseer's opinion is the optional --recommend line.
+- Commits: 37af6e9.
+- Category: build
