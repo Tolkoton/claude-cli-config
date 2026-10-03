@@ -13,6 +13,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `run_hook_scenarios.py` | Feeds each hook the JSON envelope Claude Code would send and records what the hook decided. Deterministic, no model involved. |
 | `compare.py` | Diffs two result files. The differences are what changed between two engine versions, two machines, or two hook directories. |
 | `scenarios/hooks/*.json` | The hook scenarios as data. `expect` describes the current engine; `why` says what each one protects. |
+| `run_gate_evals.py` | Measures `.claude/hooks/gate.py` (package 7) with real ruff, mypy and pytest: planted defects that must be caught, clean files that must not be blocked, one documented limit, every layer timed. Cases: `scenarios/gate/cases.json`; reference: `baseline/Laos-MacBook-Pro/gate-evals-package-7.json`. |
 | `run_audit_scenarios.py` | Runs the audit scenarios in headless Claude Code sessions and records the verdicts. |
 | `scenarios/audit/*.md` | 10 scripted turns for the overseer's 12-check audit; `work/` holds the code each turn talks about, `expected.json` the expectations. Seven are relayed by a live session (prompt A); 02, 04 and 10 are recorded turns the runner writes into the sandbox as a fixture (see below). |
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |

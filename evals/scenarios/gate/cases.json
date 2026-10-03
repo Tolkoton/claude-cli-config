@@ -1,0 +1,368 @@
+{
+ "note": "Cases for evals/run_gate_evals.py. kind: defective (must be caught by the named rule), clean (must not block), limit (a documented miss). commit: the setup is committed before the case runs; edited: the file a post_write case edits.",
+ "cases": [
+  {
+   "id": "d-syntax-error",
+   "kind": "defective",
+   "why": "A file that does not parse.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "def (:\n    pass\n"
+     }
+    }
+   ],
+   "rule": "lint",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-unused-import",
+   "kind": "defective",
+   "why": "An unused import.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nimport os\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+     }
+    }
+   ],
+   "rule": "lint",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-type-error",
+   "kind": "defective",
+   "why": "A return type that lies.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+     }
+    }
+   ],
+   "rule": "typecheck",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-failing-test",
+   "kind": "defective",
+   "why": "Lint and types are clean, the behaviour is wrong.",
+   "setup": [
+    {
+     "write": {
+      "path": "tests/test_pricing.py",
+      "content": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import apply_discount, total\n\n\ndef test_discount_rounds_half_up_to_cents() -> None:\n    assert apply_discount(Decimal(\"19.99\"), 15) == Decimal(\"17.00\")\n\n\ndef test_discount_of_zero_and_hundred_are_the_bounds() -> None:\n    assert apply_discount(Decimal(\"10.00\"), 0) == Decimal(\"10.00\")\n    assert apply_discount(Decimal(\"10.00\"), 100) == Decimal(\"0.00\")\n\n\ndef test_discount_outside_bounds_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"0..100\"):\n        apply_discount(Decimal(\"10.00\"), 101)\n\n\ndef test_total_of_empty_basket_is_zero() -> None:\n    assert total([]) == Decimal(\"0.00\")\n"
+     }
+    }
+   ],
+   "rule": "tests",
+   "layers": [
+    "stop"
+   ]
+  },
+  {
+   "id": "d-type-ignore",
+   "kind": "defective",
+   "why": "A type error silenced with an added suppression.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"  # type: ignore[return-value]\n"
+     }
+    }
+   ],
+   "rule": "bypass/type-ignore",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-noqa",
+   "kind": "defective",
+   "why": "An unused import silenced with an added suppression.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nimport os  # noqa: F401\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+     }
+    }
+   ],
+   "rule": "bypass/noqa",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-skip",
+   "kind": "defective",
+   "why": "A failing test turned into a skipped one.",
+   "setup": [
+    {
+     "write": {
+      "path": "tests/test_skipped.py",
+      "content": "import pytest\n\n\n@pytest.mark.skip(reason=\"later\")\ndef test_later() -> None:\n    assert False\n"
+     }
+    }
+   ],
+   "rule": "bypass/skip",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-xfail",
+   "kind": "defective",
+   "why": "A failing test turned into an expected failure.",
+   "setup": [
+    {
+     "write": {
+      "path": "tests/test_xfailed.py",
+      "content": "import pytest\n\n\n@pytest.mark.xfail\ndef test_later() -> None:\n    assert False\n"
+     }
+    }
+   ],
+   "rule": "bypass/xfail",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-ruff-config",
+   "kind": "defective",
+   "why": "The linter's rule set narrowed.",
+   "setup": [
+    {
+     "write": {
+      "path": "pyproject.toml",
+      "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\nextend-exclude = [\".claude\"]\n\n[tool.ruff.lint]\nselect = [\"E\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+     }
+    }
+   ],
+   "rule": "bypass/config",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-mypy-config",
+   "kind": "defective",
+   "why": "The type checker loosened.",
+   "setup": [
+    {
+     "write": {
+      "path": "pyproject.toml",
+      "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\nextend-exclude = [\".claude\"]\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = false\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+     }
+    }
+   ],
+   "rule": "bypass/config",
+   "layers": [
+    "stop",
+    "pre_commit"
+   ]
+  },
+  {
+   "id": "d-ci-committed-type-error",
+   "kind": "defective",
+   "why": "A type error that is already committed: only the full set sees it.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+     }
+    }
+   ],
+   "rule": "typecheck",
+   "layers": [
+    "ci"
+   ],
+   "commit": true
+  },
+  {
+   "id": "d-post-write-lint",
+   "kind": "defective",
+   "why": "An unused import, reported to the model as additionalContext (never a block).",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nimport os\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+     }
+    }
+   ],
+   "rule": "F401",
+   "layers": [
+    "post_write"
+   ],
+   "edited": "src/refproj/pricing.py"
+  },
+  {
+   "id": "l-stop-misses-committed-type-error",
+   "kind": "limit",
+   "why": "Declared: the Stop layer checks what the turn changed; a defect committed earlier in an untouched file is for pre_commit and ci (case d-ci-committed-type-error).",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef broken_total() -> int:\n    return \"not a number\"\n"
+     }
+    }
+   ],
+   "commit": true,
+   "layers": [
+    "stop"
+   ]
+  },
+  {
+   "id": "c-clean-edit",
+   "kind": "clean",
+   "why": "A correct, typed, tested change.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+     }
+    }
+   ],
+   "layers": [
+    "stop",
+    "pre_commit",
+    "ci"
+   ]
+  },
+  {
+   "id": "c-new-module-and-test",
+   "kind": "clean",
+   "why": "A new module with a passing test.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/shipping.py",
+      "content": "\"\"\"Shipping costs.\"\"\"\n\n\ndef cost(weight_kg: int) -> int:\n    \"\"\"Flat fee plus 2 per kg.\"\"\"\n    return 5 + 2 * weight_kg\n"
+     }
+    },
+    {
+     "write": {
+      "path": "tests/test_shipping.py",
+      "content": "from refproj.shipping import cost\n\n\ndef test_cost() -> None:\n    assert cost(3) == 11\n"
+     }
+    }
+   ],
+   "layers": [
+    "stop",
+    "pre_commit",
+    "ci"
+   ]
+  },
+  {
+   "id": "c-docs-only",
+   "kind": "clean",
+   "why": "A docs edit.",
+   "setup": [
+    {
+     "write": {
+      "path": "README.md",
+      "content": "# refproj\n\nEdited.\n"
+     }
+    }
+   ],
+   "layers": [
+    "stop",
+    "pre_commit",
+    "ci"
+   ]
+  },
+  {
+   "id": "c-justified-ignore",
+   "kind": "clean",
+   "why": "A suppression with its reason beside it.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef vendor_total() -> int:\n    return \"3\"  # type: ignore[return-value]  # gate-allow: the vendor stub returns str by contract\n"
+     }
+    }
+   ],
+   "layers": [
+    "stop",
+    "pre_commit",
+    "ci"
+   ]
+  },
+  {
+   "id": "c-string-mention",
+   "kind": "clean",
+   "why": "A docstring that merely mentions the markers.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef note() -> str:\n    \"\"\"Never add # type: ignore or # noqa to pass the gate.\"\"\"\n    return \"ok\"\n"
+     }
+    }
+   ],
+   "layers": [
+    "stop",
+    "pre_commit",
+    "ci"
+   ]
+  },
+  {
+   "id": "c-pyproject-comment",
+   "kind": "clean",
+   "why": "A comment in pyproject.toml is not a change of its settings.",
+   "setup": [
+    {
+     "write": {
+      "path": "pyproject.toml",
+      "content": "[project]\nname = \"refproj\"\nversion = \"0.1.0\"\ndescription = \"Tiny reference project used to exercise the engine's hooks. Not a real product.\"\nrequires-python = \">=3.12\"\ndependencies = []\n\n[dependency-groups]\ndev = [\"mypy>=1.11\", \"pytest>=8.0\", \"ruff>=0.6\"]\n\n# Not a package: nothing to build, so `uv sync` only installs the dev tools.\n[tool.uv]\npackage = false\n\n[tool.ruff]\nline-length = 100\nsrc = [\"src\", \"tests\"]\n# The engine ships its own Python under .claude/. It is not this project's code and is\n# not written to this project's rules, so it stays out of the lint scope. Scenario\n# `vs-engine-files-in-lint-scope` records what happens without this line.\nextend-exclude = [\".claude\"]\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"I\", \"B\", \"UP\"]\n\n[tool.mypy]\nstrict = true\nmypy_path = \"src\"\nfiles = [\"src\", \"tests\"]\n\n# tests live in tests/\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\npythonpath = [\"src\"]\n"
+     }
+    }
+   ],
+   "layers": [
+    "stop",
+    "pre_commit",
+    "ci"
+   ]
+  },
+  {
+   "id": "c-post-write-clean",
+   "kind": "clean",
+   "why": "A clean edit: the formatter has nothing to say.",
+   "setup": [
+    {
+     "write": {
+      "path": "src/refproj/pricing.py",
+      "content": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef with_tax(price: Decimal, rate_percent: int) -> Decimal:\n    \"\"\"Return `price` increased by `rate_percent`, rounded to cents.\"\"\"\n    factor = (Decimal(100) + Decimal(rate_percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n"
+     }
+    }
+   ],
+   "layers": [
+    "post_write"
+   ],
+   "edited": "src/refproj/pricing.py"
+  }
+ ]
+}

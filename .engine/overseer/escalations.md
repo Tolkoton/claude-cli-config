@@ -513,3 +513,39 @@ one; do not reopen the old one in conversation.
 - Evidence: audit-post-2b.json 06 runs 1-3 ("both resolved by overseer reproduction, not by the audited turn"); scenario 06's "Why this scenario exists".
 - Falsified by: 06 still passing on b72c218 — then the cause is elsewhere in the text.
 - Status: CLOSED
+
+## 2026-10-03T09:40:00Z — AUTONOMOUS — 7-D5-counter-reentry
+- Decision: gate.py reads `stop_hook_active` first but ends its work on it only while this session's counter is 0; with the counter above 0 the re-entry is checked and the Nth block escalates (parks, lets the turn end). The counter is keyed by `session_id`.
+- Door: two-way
+- Cost to reverse: one condition in main() and the counter file; the golden scenario `vs-stop-hook-active-guard` keeps its outcome.
+- Why not escalated: the owner asked for "checks stop_hook_active first" AND "a counter that escalates after N blocks in a row"; the fresh-context critic showed the two cannot both hold if the flag always ends the run, because Claude Code sets it on the stop after a block. This is the reading under which both requirements are reachable.
+- Evidence: tests/test_gate.py ("re-entry after OUR block … blocks", "the 3rd block escalates"); critic FEATURE_CRITIC_REVISE #1.
+- Falsified by: a Claude Code version that sets the flag on stops this gate did not cause AND keeps a stale counter — a session would then be re-verified once; the counter resets on the first pass.
+- Status: CLOSED
+
+## 2026-10-03T09:41:00Z — AUTONOMOUS — 7-D6-D7-bypass-guard-format
+- Decision: the justification format is `gate-allow: <reason>` (≥ 12 characters, two words) on the same or the comment-only previous line, any added line for a config file, or a `gate-allow:` line in a slice contract that is sealed and unchanged. The guard reads syntax only: tokenizer comments, AST marks, parsed [tool.ruff]/[tool.mypy] tables, project.env by parsed value.
+- Door: two-way
+- Cost to reverse: the format is one regex and one function; no persistent state depends on it.
+- Why not escalated: the owner left the format to the agent ("у визначеному тобою форматі"). A contract exemption is honoured only with a matching fingerprint so the guarded party cannot grant itself one (critic #7).
+- Evidence: tests/test_gate.py guard section (28 cases), evals/run_gate_evals.py 12/12 defects, 0 false blocks.
+- Falsified by: a legitimate pattern the guard refuses with no way to justify it — none found in the corpus.
+- Status: CLOSED
+
+## 2026-10-03T09:42:00Z — AUTONOMOUS — 7-D8-separate-gates
+- Decision: complexity_budget.py and contract_fingerprint.py stay separate scripts and write their verdicts in gate.py's schema to `.claude/state/gate/<source>-report.json`; gate.py owns `last-report.json` alone.
+- Door: two-way
+- Cost to reverse: folding them in later is a move of two functions; the report files already share the schema.
+- Why not escalated: item 4 allows it. Reasons: both read the slice contract and keep their own state and switch, neither lints a file, fingerprint also gates /plan-slice; two Stop hooks run side by side and one shared file would race.
+- Evidence: tests/test_gate.py "contract_fingerprint and complexity_budget report in the same schema"; test_complexity_budget 32/32, test_contract_fingerprint 15/15 unchanged.
+- Falsified by: a reader that needs ONE file for every gate — then a merge step in gate.py's report writer, not a rewrite.
+- Status: CLOSED
+
+## 2026-10-03T09:43:00Z — AUTONOMOUS — 7-golden-scope-scenario
+- Decision: the golden scenario `vs-engine-files-in-lint-scope` writes a pyproject.toml whose [tool.ruff] differs from the sandbox's (it drops the exclude on purpose); the new guard rightly sees a changed lint config. The scenario's pyproject now carries a `gate-allow:` line saying so, so it keeps testing what it was written for and its outcome stays `allow`.
+- Door: two-way
+- Cost to reverse: one comment line in a scenario file.
+- Why not escalated: an intended difference of the owner's item 5 (any lint-config change is a block unless justified), resolved by the exemption the owner specified, not by weakening the guard.
+- Evidence: results-package-7.json, 87 original scenarios identical to results-package-3c.json.
+- Falsified by: —
+- Status: CLOSED

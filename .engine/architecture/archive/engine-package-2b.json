@@ -1,0 +1,175 @@
+{
+  "feature": "engine-package-2b",
+  "note": "Owner's package 2b (docs/plan/package-2b.md): the engine's rules out of CLAUDE.md, a 200-line persistent context, clean seeds, a marked block for existing projects, text hygiene, the two stable overseer defects, before/after audits, a fast Stop gate. Contract: .engine/architecture/feature/engine-package-2b.md. Parked owner items from earlier packages carried over; C9 applied by the owner at 8e46a65.",
+  "nodes": [
+    {
+      "id": "P0a",
+      "title": "instrument: fixture contract moved to .engine/slices/, runner passes --settings, pre-flight checks the sandbox against PROGRESS.fixture.md; README",
+      "deps": [],
+      "status": "done",
+      "evidence": "e7b89c4: fixture moved to fixtures/.engine/slices/, runner passes --settings, pre-flight sandbox check, usage-limit detection + --resume redo, compare_audits.py; test_audit_runner_resume 40/40, test_audit_verdict_parsing 19/19."
+    },
+    {
+      "id": "P0",
+      "title": "audit-before: run_audit_scenarios.py --engine-ref v0.11.0 --runs 3 -> audit-v0.11.0.json on the fixed instrument (cap $35 incl. the stopped run)",
+      "deps": [
+        "P0a"
+      ],
+      "status": "done",
+      "evidence": "audit-v0.11.0.json complete, 30 runs, $20.17 (item 0 total $27.00 incl. the stopped run); 0 denials, every ledger written; 01 1/3, 08 0/3."
+    },
+    {
+      "id": "P1",
+      "title": "rules-file: .claude/engine-rules.md, references/{hooks,unattended}.md, this repo's CLAUDE.md/AGENTS.md shortened, tests/test_context_budget.py; TRACER: one headless session proves the @ import loads",
+      "deps": [],
+      "status": "done",
+      "evidence": "6571ddf: .claude/engine-rules.md (90 lines), references/{hooks,unattended}.md, CLAUDE.md 10 + AGENTS.md 81 = 181 lines; test_context_budget; tracer probe: the import loads (PR-2b-01)."
+    },
+    {
+      "id": "P2",
+      "title": "seeds: templates/project/{CLAUDE,AGENTS}.md, ownership seeds, TEMPLATE-SETUP steps 4-5, install test",
+      "deps": [
+        "P1"
+      ],
+      "status": "done",
+      "evidence": "e7a20d9: templates/project/{CLAUDE,AGENTS}.md seeds, ownership, TEMPLATE-SETUP 4-5; test_project_seeds 13/13; real session in a sandbox built from the commit quoted a rules sentence ($0.12, 0 denials)."
+    },
+    {
+      "id": "P3",
+      "title": "existing-projects: engine.py marked-block maintenance, pristine -> reseed, changed -> exact report; tests; decana --dry-run read-only",
+      "deps": [
+        "P2",
+        "P0"
+      ],
+      "status": "done",
+      "evidence": "56dc2f7: marked-block maintenance, pristine widened to the seed's history, exact report for an edited copy; test_claude_md_update 29/29; decana --dry-run read-only, boundaries verified by hand."
+    },
+    {
+      "id": "P4",
+      "title": "hygiene: four phantom memory commands, jq paragraphs, templates without this repository's records; tests/test_text_hygiene.py",
+      "deps": [
+        "P1"
+      ],
+      "status": "done",
+      "evidence": "3b4485d: phantom commands out of 9 files, jq paragraphs OS-neutral, seeds without this repository's records; test_text_hygiene 8/8."
+    },
+    {
+      "id": "P5a",
+      "title": "overseer-text-08: after the clean before-run; fix only what it confirms (owner correction 1)",
+      "deps": [
+        "P0"
+      ],
+      "status": "done",
+      "evidence": "6d8103c: #8 returns ADR_REQUIRED even against the contract; probe on the commit: 08 -> ADR_REQUIRED#8 ($0.69)."
+    },
+    {
+      "id": "P5b",
+      "title": "overseer-text-01: cause re-derived from P0's fixed-instrument transcripts; SKILL.md changed only as narrowly as they justify",
+      "deps": [
+        "P0"
+      ],
+      "status": "done",
+      "evidence": "b52c215: quoted output is reproduced, a reproduced RED counts, the overseer may run tests read-only; probe on the commit: 01 -> PASS ($0.66)."
+    },
+    {
+      "id": "P5c",
+      "title": "overseer-text correction: #5 restored, #2 narrowed after 06 regressed on the after-run",
+      "deps": [
+        "P7"
+      ],
+      "status": "done",
+      "evidence": "b72c218; audit-post-2b-p5c.json: 06 BLOCK#5 2/2 relayed (1 refused echo), 01 PASS 3/3; $3.35."
+    },
+    {
+      "id": "P6",
+      "title": "fast-gate: tests/run_all.sh --fast + tests/fast-suites.txt; TEST_CMD; both times measured",
+      "deps": [
+        "P1"
+      ],
+      "status": "done",
+      "evidence": "8775847: run_all.sh --fast + tests/fast-suites.txt (21 suites, 14.5 s); TEST_CMD; full set 126 s."
+    },
+    {
+      "id": "P7a",
+      "title": "instrument 2: the runner validates the echo; refused echo = error, prompt B skipped; annotate_echo.py for earlier files",
+      "deps": [],
+      "status": "done",
+      "evidence": "cdb53b2; test_audit_runner_resume 46/46; four earlier files annotated from transcripts."
+    },
+    {
+      "id": "P9",
+      "title": "phase-script: .claude/hooks/overseer_phase.py set|clear|show, named in the rules and used by the two commands; test; AUTONOMOUS entry (owner correction 2)",
+      "deps": [
+        "P1"
+      ],
+      "status": "done",
+      "evidence": "6df59e5: .claude/hooks/overseer_phase.py set|clear|show, named in the rules and the two commands; test_overseer_phase 16/16; exercised live."
+    },
+    {
+      "id": "P7",
+      "title": "audit-after: --engine-ref HEAD -> audit-post-2b.json (cap $35); evals/compare_audits.py; noise from the two 3c before-runs",
+      "deps": [
+        "P0a",
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5a",
+        "P5b",
+        "P6",
+        "P9"
+      ],
+      "status": "done",
+      "evidence": "audit-post-2b.json complete on 56dc2f7, $20.31 (01 3/3, 02 0/3, 03 3/3, 04 0/3, 05 2/3, 06 0/3, 07 3/3, 08 3/3, 09 3/3, 10 0/3); 01 and 08 FIXED on 56dc2f7 (3/3 each); 06 WORSE on 56dc2f7 (0/2) and corrected on b72c218 (audit-post-2b-p5c.json: 06 BLOCK#5 2/2 relayed, 01 PASS 3/3); 03/05/07/09 same; 02/04/10 no valid session on either side (refused echoes, D12); .engine/overseer/audit-2b-compare.md and audit-2b-compare-p5c.md"
+    },
+    {
+      "id": "P8",
+      "title": "records: report, DAG, ledger, escalations, parked, PROGRESS, memory, evals README",
+      "deps": [
+        "P7",
+        "P5c",
+        "P7a"
+      ],
+      "status": "done",
+      "evidence": "docs/plan/package-2b-report.md, ledger FEATURE_COMPLETE, PROGRESS, parked (night program), memory."
+    },
+    {
+      "id": "C9",
+      "title": "apply-settings (OWNER): docs/tasks/settings.json without the approve-project-data handler",
+      "deps": [],
+      "status": "done",
+      "evidence": "Applied by the owner: commit 8e46a65 'settings: apply the proposal without dead Write rules (C9)'."
+    },
+    {
+      "id": "C8b",
+      "title": "post-3c audit run (OWNER, money): --engine-ref 24abb7d -> audit-post-3c.json",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "Superseded: v0.11.0 contains 3c and package 2b's audit-v0.11.0.json is the measurement of it on a working instrument; unblocks only if the owner still wants the 24abb7d run."
+    },
+    {
+      "id": "S8",
+      "title": "apply-personal (OWNER): engine.py install --personal against the real ~/.claude",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "The run may only dry-run against ~/.claude. Unblocks when the owner runs `python3 engine.py install --personal --ref v0.11.0` after reading its --dry-run."
+    },
+    {
+      "id": "S9",
+      "title": "cloud-probe (OWNER): run .claude/unattended/env-probe.sh in a real cloud session, then decide CLOUD_COMMIT_POLICY",
+      "deps": [],
+      "status": "parked",
+      "parked_on": "Only a real cloud session can produce the facts. Unblocks when the owner pastes the probe's output back; the switch stays off until then."
+    },
+    {
+      "id": "N1",
+      "title": "night program (OWNER): ~/engine-night/night-1.md did not exist on 2026-10-02",
+      "deps": [
+        "P8"
+      ],
+      "status": "parked",
+      "parked_on": "The file is absent on this machine (checked 19:55Z and at the end of the run). Unblocks when: the owner creates ~/engine-night/night-1.md (no token — the path is outside the repository, and file: resolves under the project root); then execute it by its own rules."
+    }
+  ]
+}

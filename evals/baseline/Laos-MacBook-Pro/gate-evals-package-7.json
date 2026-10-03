@@ -1,0 +1,787 @@
+{
+  "label": "package 7 — gate.py on defective and clean files; Linux (lao@gcp), real ruff/mypy/pytest through uv; 3 runs per case and layer",
+  "recorded_utc": "2026-10-03T09:19:23Z",
+  "sandbox": {
+    "engine_ref": "HEAD",
+    "engine_commit": "239a3724eacaa08602d4e525bbf38faa2a2b931f",
+    "shipped_supervision_mode": "absent",
+    "installed_by": "evals/make_sandbox.sh: engine.py install --ref 239a3724eacaa08602d4e525bbf38faa2a2b931f",
+    "audit_fixtures": false,
+    "created_utc": "2026-10-03T09:17:53Z"
+  },
+  "environment": {
+    "platform": "Linux-6.8.0-1070-gcp-x86_64-with-glibc2.35",
+    "python": "3.12.13"
+  },
+  "summary": {
+    "defective_cases": 12,
+    "defects_caught": 12,
+    "clean_cases": 7,
+    "false_blocks": 0,
+    "documented_limits": 1,
+    "failed": []
+  },
+  "timings_ms": {
+    "ci": {
+      "n": 21,
+      "min_ms": 434,
+      "median_ms": 807,
+      "max_ms": 4457
+    },
+    "post_write": {
+      "n": 6,
+      "min_ms": 213,
+      "median_ms": 218,
+      "max_ms": 221
+    },
+    "pre_commit": {
+      "n": 45,
+      "min_ms": 370,
+      "median_ms": 803,
+      "max_ms": 4727
+    },
+    "stop": {
+      "n": 51,
+      "min_ms": 115,
+      "median_ms": 470,
+      "max_ms": 1748
+    }
+  },
+  "results": [
+    {
+      "id": "d-syntax-error",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "A file that does not parse.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['lint', 'typecheck'], wanted lint",
+      "wall_ms": [
+        548,
+        394,
+        384
+      ],
+      "steps_ms": {
+        "bypass_guard": 15,
+        "lint": 104,
+        "typecheck": 309
+      }
+    },
+    {
+      "id": "d-syntax-error",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "A file that does not parse.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['lint', 'typecheck'], wanted lint",
+      "wall_ms": [
+        370,
+        374,
+        385
+      ],
+      "steps_ms": {
+        "bypass_guard": 7,
+        "lint": 38,
+        "typecheck": 216
+      }
+    },
+    {
+      "id": "d-unused-import",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "An unused import.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['lint'], wanted lint",
+      "wall_ms": [
+        1748,
+        434,
+        408
+      ],
+      "steps_ms": {
+        "bypass_guard": 15,
+        "lint": 38,
+        "typecheck": 1574
+      }
+    },
+    {
+      "id": "d-unused-import",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "An unused import.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['lint'], wanted lint",
+      "wall_ms": [
+        3183,
+        470,
+        468
+      ],
+      "steps_ms": {
+        "bypass_guard": 9,
+        "lint": 44,
+        "typecheck": 3019
+      }
+    },
+    {
+      "id": "d-type-error",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "A return type that lies.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['typecheck'], wanted typecheck",
+      "wall_ms": [
+        441,
+        413,
+        410
+      ],
+      "steps_ms": {
+        "bypass_guard": 15,
+        "lint": 37,
+        "typecheck": 271
+      }
+    },
+    {
+      "id": "d-type-error",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "A return type that lies.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['typecheck'], wanted typecheck",
+      "wall_ms": [
+        530,
+        440,
+        451
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 39,
+        "typecheck": 369
+      }
+    },
+    {
+      "id": "d-failing-test",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "Lint and types are clean, the behaviour is wrong.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['tests'], wanted tests",
+      "wall_ms": [
+        1394,
+        838,
+        808
+      ],
+      "steps_ms": {
+        "bypass_guard": 17,
+        "lint": 39,
+        "typecheck": 385,
+        "tests": 831
+      }
+    },
+    {
+      "id": "d-type-ignore",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "A type error silenced with an added suppression.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/type-ignore'], wanted bypass/type-ignore",
+      "wall_ms": [
+        787,
+        735,
+        766
+      ],
+      "steps_ms": {
+        "bypass_guard": 17,
+        "lint": 37,
+        "typecheck": 252,
+        "tests": 356
+      }
+    },
+    {
+      "id": "d-type-ignore",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "A type error silenced with an added suppression.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/type-ignore'], wanted bypass/type-ignore",
+      "wall_ms": [
+        861,
+        871,
+        825
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 39,
+        "typecheck": 339,
+        "tests": 362
+      }
+    },
+    {
+      "id": "d-noqa",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "An unused import silenced with an added suppression.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/noqa'], wanted bypass/noqa",
+      "wall_ms": [
+        775,
+        724,
+        771
+      ],
+      "steps_ms": {
+        "bypass_guard": 15,
+        "lint": 37,
+        "typecheck": 250,
+        "tests": 356
+      }
+    },
+    {
+      "id": "d-noqa",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "An unused import silenced with an added suppression.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/noqa'], wanted bypass/noqa",
+      "wall_ms": [
+        872,
+        833,
+        811
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 41,
+        "typecheck": 347,
+        "tests": 353
+      }
+    },
+    {
+      "id": "d-skip",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "A failing test turned into a skipped one.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/skip', 'lint'], wanted bypass/skip",
+      "wall_ms": [
+        501,
+        440,
+        437
+      ],
+      "steps_ms": {
+        "bypass_guard": 6,
+        "lint": 37,
+        "typecheck": 340
+      }
+    },
+    {
+      "id": "d-skip",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "A failing test turned into a skipped one.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/skip', 'lint'], wanted bypass/skip",
+      "wall_ms": [
+        512,
+        428,
+        457
+      ],
+      "steps_ms": {
+        "bypass_guard": 7,
+        "lint": 39,
+        "typecheck": 352
+      }
+    },
+    {
+      "id": "d-xfail",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "A failing test turned into an expected failure.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/xfail', 'lint'], wanted bypass/xfail",
+      "wall_ms": [
+        557,
+        470,
+        462
+      ],
+      "steps_ms": {
+        "bypass_guard": 7,
+        "lint": 41,
+        "typecheck": 378
+      }
+    },
+    {
+      "id": "d-xfail",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "A failing test turned into an expected failure.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/xfail', 'lint'], wanted bypass/xfail",
+      "wall_ms": [
+        446,
+        444,
+        465
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 41,
+        "typecheck": 283
+      }
+    },
+    {
+      "id": "d-ruff-config",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "The linter's rule set narrowed.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/config'], wanted bypass/config",
+      "wall_ms": [
+        135,
+        142,
+        134
+      ],
+      "steps_ms": {
+        "bypass_guard": 18
+      }
+    },
+    {
+      "id": "d-ruff-config",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "The linter's rule set narrowed.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/config'], wanted bypass/config",
+      "wall_ms": [
+        777,
+        772,
+        792
+      ],
+      "steps_ms": {
+        "bypass_guard": 11,
+        "lint": 38,
+        "typecheck": 268,
+        "tests": 350
+      }
+    },
+    {
+      "id": "d-mypy-config",
+      "kind": "defective",
+      "layer": "stop",
+      "why": "The type checker loosened.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/config'], wanted bypass/config",
+      "wall_ms": [
+        135,
+        132,
+        135
+      ],
+      "steps_ms": {
+        "bypass_guard": 18
+      }
+    },
+    {
+      "id": "d-mypy-config",
+      "kind": "defective",
+      "layer": "pre_commit",
+      "why": "The type checker loosened.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['bypass/config'], wanted bypass/config",
+      "wall_ms": [
+        4727,
+        827,
+        851
+      ],
+      "steps_ms": {
+        "bypass_guard": 11,
+        "lint": 38,
+        "typecheck": 4182,
+        "tests": 385
+      }
+    },
+    {
+      "id": "d-ci-committed-type-error",
+      "kind": "defective",
+      "layer": "ci",
+      "why": "A type error that is already committed: only the full set sees it.",
+      "pass": true,
+      "detail": "exit 2, blocking rules ['typecheck'], wanted typecheck",
+      "wall_ms": [
+        4457,
+        434,
+        442
+      ],
+      "steps_ms": {
+        "lint": 42,
+        "typecheck": 4283
+      }
+    },
+    {
+      "id": "d-post-write-lint",
+      "kind": "defective",
+      "layer": "post_write",
+      "why": "An unused import, reported to the model as additionalContext (never a block).",
+      "pass": true,
+      "detail": "exit 0, additionalContext 'gate: lint src/refproj/pricing.py:3 F401 [*] `os` imported but unused'",
+      "wall_ms": [
+        213,
+        217,
+        218
+      ],
+      "steps_ms": {
+        "format": 69,
+        "lint": 39
+      }
+    },
+    {
+      "id": "l-stop-misses-committed-type-error",
+      "kind": "limit",
+      "layer": "stop",
+      "why": "Declared: the Stop layer checks what the turn changed; a defect committed earlier in an untouched file is for pre_commit and ci (case d-ci-committed-type-error).",
+      "pass": true,
+      "detail": "exit 0, blocking rules [] (a documented miss must stay one)",
+      "wall_ms": [
+        118,
+        125,
+        116
+      ],
+      "steps_ms": {}
+    },
+    {
+      "id": "c-clean-edit",
+      "kind": "clean",
+      "layer": "stop",
+      "why": "A correct, typed, tested change.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        775,
+        739,
+        731
+      ],
+      "steps_ms": {
+        "bypass_guard": 16,
+        "lint": 39,
+        "typecheck": 256,
+        "tests": 340
+      }
+    },
+    {
+      "id": "c-clean-edit",
+      "kind": "clean",
+      "layer": "pre_commit",
+      "why": "A correct, typed, tested change.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        882,
+        815,
+        774
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 40,
+        "typecheck": 342,
+        "tests": 370
+      }
+    },
+    {
+      "id": "c-clean-edit",
+      "kind": "clean",
+      "layer": "ci",
+      "why": "A correct, typed, tested change.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        779,
+        803,
+        820
+      ],
+      "steps_ms": {
+        "lint": 39,
+        "typecheck": 277,
+        "tests": 348
+      }
+    },
+    {
+      "id": "c-new-module-and-test",
+      "kind": "clean",
+      "layer": "stop",
+      "why": "A new module with a passing test.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        785,
+        751,
+        763
+      ],
+      "steps_ms": {
+        "bypass_guard": 12,
+        "lint": 43,
+        "typecheck": 262,
+        "tests": 340
+      }
+    },
+    {
+      "id": "c-new-module-and-test",
+      "kind": "clean",
+      "layer": "pre_commit",
+      "why": "A new module with a passing test.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        919,
+        810,
+        881
+      ],
+      "steps_ms": {
+        "bypass_guard": 16,
+        "lint": 41,
+        "typecheck": 366,
+        "tests": 370
+      }
+    },
+    {
+      "id": "c-new-module-and-test",
+      "kind": "clean",
+      "layer": "ci",
+      "why": "A new module with a passing test.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        857,
+        877,
+        842
+      ],
+      "steps_ms": {
+        "lint": 42,
+        "typecheck": 280,
+        "tests": 406
+      }
+    },
+    {
+      "id": "c-docs-only",
+      "kind": "clean",
+      "layer": "stop",
+      "why": "A docs edit.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        117,
+        115,
+        117
+      ],
+      "steps_ms": {}
+    },
+    {
+      "id": "c-docs-only",
+      "kind": "clean",
+      "layer": "pre_commit",
+      "why": "A docs edit.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        770,
+        809,
+        771
+      ],
+      "steps_ms": {
+        "bypass_guard": 0,
+        "lint": 37,
+        "typecheck": 276,
+        "tests": 346
+      }
+    },
+    {
+      "id": "c-docs-only",
+      "kind": "clean",
+      "layer": "ci",
+      "why": "A docs edit.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        784,
+        807,
+        869
+      ],
+      "steps_ms": {
+        "lint": 37,
+        "typecheck": 272,
+        "tests": 355
+      }
+    },
+    {
+      "id": "c-justified-ignore",
+      "kind": "clean",
+      "layer": "stop",
+      "why": "A suppression with its reason beside it.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        763,
+        750,
+        802
+      ],
+      "steps_ms": {
+        "bypass_guard": 15,
+        "lint": 37,
+        "typecheck": 256,
+        "tests": 333
+      }
+    },
+    {
+      "id": "c-justified-ignore",
+      "kind": "clean",
+      "layer": "pre_commit",
+      "why": "A suppression with its reason beside it.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        886,
+        785,
+        801
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 39,
+        "typecheck": 368,
+        "tests": 358
+      }
+    },
+    {
+      "id": "c-justified-ignore",
+      "kind": "clean",
+      "layer": "ci",
+      "why": "A suppression with its reason beside it.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        805,
+        792,
+        812
+      ],
+      "steps_ms": {
+        "lint": 41,
+        "typecheck": 275,
+        "tests": 367
+      }
+    },
+    {
+      "id": "c-string-mention",
+      "kind": "clean",
+      "layer": "stop",
+      "why": "A docstring that merely mentions the markers.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        866,
+        819,
+        784
+      ],
+      "steps_ms": {
+        "bypass_guard": 17,
+        "lint": 40,
+        "typecheck": 288,
+        "tests": 384
+      }
+    },
+    {
+      "id": "c-string-mention",
+      "kind": "clean",
+      "layer": "pre_commit",
+      "why": "A docstring that merely mentions the markers.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        863,
+        874,
+        803
+      ],
+      "steps_ms": {
+        "bypass_guard": 8,
+        "lint": 39,
+        "typecheck": 346,
+        "tests": 351
+      }
+    },
+    {
+      "id": "c-string-mention",
+      "kind": "clean",
+      "layer": "ci",
+      "why": "A docstring that merely mentions the markers.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        800,
+        833,
+        852
+      ],
+      "steps_ms": {
+        "lint": 39,
+        "typecheck": 278,
+        "tests": 355
+      }
+    },
+    {
+      "id": "c-pyproject-comment",
+      "kind": "clean",
+      "layer": "stop",
+      "why": "A comment in pyproject.toml is not a change of its settings.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        134,
+        133,
+        136
+      ],
+      "steps_ms": {
+        "bypass_guard": 19
+      }
+    },
+    {
+      "id": "c-pyproject-comment",
+      "kind": "clean",
+      "layer": "pre_commit",
+      "why": "A comment in pyproject.toml is not a change of its settings.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        896,
+        895,
+        918
+      ],
+      "steps_ms": {
+        "bypass_guard": 10,
+        "lint": 39,
+        "typecheck": 364,
+        "tests": 372
+      }
+    },
+    {
+      "id": "c-pyproject-comment",
+      "kind": "clean",
+      "layer": "ci",
+      "why": "A comment in pyproject.toml is not a change of its settings.",
+      "pass": true,
+      "detail": "exit 0, blocking rules []",
+      "wall_ms": [
+        817,
+        806,
+        799
+      ],
+      "steps_ms": {
+        "lint": 39,
+        "typecheck": 297,
+        "tests": 355
+      }
+    },
+    {
+      "id": "c-post-write-clean",
+      "kind": "clean",
+      "layer": "post_write",
+      "why": "A clean edit: the formatter has nothing to say.",
+      "pass": true,
+      "detail": "exit 0, stdout ''",
+      "wall_ms": [
+        221,
+        218,
+        219
+      ],
+      "steps_ms": {}
+    }
+  ]
+}
