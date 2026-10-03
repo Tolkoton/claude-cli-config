@@ -182,3 +182,10 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - First pass over the engine: 21 findings, 0 rejected (.engine/simplifier/first-pass/); 1 auto_remove carried out (725fadf, Simplifier-Finding: F-2acc71d0), 20 in .engine/simplifier/report.md for the owner.
 - Commits: 0ed18d0, e9158e1, 2dd5548, 725fadf.
 - Category: build
+
+## 2026-10-03T17:40:00Z — board 009-owner-review — TASK_BUILT
+- Trigger: tasks/doing/009-owner-review.md (the owner's decision is in the task; no audit asked for).
+- Evidence: `bash tests/run_all.sh` 55 suites (54 green, one red: tests/test_text_hygiene.py on a date in the seed manual's example, fixed and re-run green 8/8); golden hook set 118/118 identical to evals/baseline/claw/results-task-010.json; ruff --isolated and mypy --strict clean (tests/test_engine_lint.py); tests/test_board_review.py 64/64 on a synthetic repository (a work checkout, a bare origin, a second clone); 11 deliberate breakages of board_review.py — 9 seen red at once, 1 closed with a new check and then seen red, 1 was a guard no command needed and was removed.
+- Action: `board.py review` (.claude/unattended/board_review.py) reads the work branch in origin through git — objects only when a fetch is needed, no ref written — and prints one document; `/review` (.claude/commands/review.md) walks it with the owner and writes answers and new tasks into the inbox; tasks/README.md and its seed carry the operator's instruction. Live: the real board, twice, 1.2 s, `git status` and every ref unchanged (tasks/done/009-owner-review/review-example.md).
+- Commits: ab56b7b.
+- Category: build
