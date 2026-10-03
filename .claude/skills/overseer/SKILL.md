@@ -330,34 +330,10 @@ missing**.
 Do not chain multiple BLOCKs. One per invocation — the most important
 check that fired.
 
-## Verdict routing — what a verdict actually does
+## Verdict routing
 
-A verdict records a finding. Whether it also stops the run is a separate
-question, and the answer is: almost never. Route by whether the fix needs a
-human, not by the verdict's name.
-
-| Verdict | If you can act on it yourself | If it genuinely needs a human |
-|---|---|---|
-| `OVERSEER_BLOCK` | Fix the specific defect, log the fix in the ledger, continue. A block you can resolve is work, not a stop. | Park the item (`.engine/overseer/parked.md`), continue with the next unblocked one. |
-| `OVERSEER_ADR_REQUIRED` | Write the ADR in `docs/adr/` and continue. A reversible decision does not wait for ratification — the ADR *is* the record, and ADRs are superseded, not edited. | One-way door (datastore, public contract, irreversible migration): draft the ADR marked `PROPOSED — provisional, awaiting ratification`, park, continue elsewhere. |
-| `OVERSEER_ESCALATE` | Two-way door: take your own recommendation. It was already required in the JSON — now you act on it instead of waiting. Log to `escalations.md` with `Decided autonomously (provisional)` and the cost-to-reverse. | One-way door — money, a real external system, irreversible data, a published contract — or a PRODUCT_DECISION the owner must own under Art. 5: park, do not decide. |
-
-**Never block on `AskUserQuestion` in an unattended run.** It waits on a prompt
-nobody will answer, which converts a recoverable finding into a dead run. Attended,
-asking is still correct and still cheap — use it. Unattended, the escalation log
-plus the park queue carry the same information without the deadlock.
-
-**Article 5 is not relaxed by any of this.** Product decisions, acceptance
-criteria, thresholds, and every one-way door still belong to the owner. The change
-is that waiting for them blocks *one item*, not the whole run. Absence of a human
-is never grounds to walk through a one-way door.
-
-**Surface thresholds** — stop and address the owner when any of these is true,
-and not otherwise: nothing in the unblocked queue can move; a single item is
-parked on a one-way door; three or more items are parked awaiting ratification
-(that pattern means the contract is systematically under-specified, which is
-itself worth a human); or a premise flips to `falsified` and committed work
-depends on it (Art. 8).
+What a verdict does next — fix, park, decide or surface — is `.claude/engine-rules.md`,
+§ "Verdict routing" and § "The three reasons to stop"; it is not restated here.
 
 ## Escalation JSON format
 
@@ -374,20 +350,9 @@ depends on it (Art. 8).
 Attended, the developer agent surfaces this via `AskUserQuestion`, using options
 and recommendation verbatim, and waits for the selection.
 
-Unattended, it does **not** wait. Apply the routing table above:
-
-- **Two-way door** — append the block to `.engine/overseer/escalations.md` with
-  `Human chose: — decided autonomously (provisional)`, add a
-  `Cost-to-reverse:` line, act on `your_recommendation` verbatim, and continue.
-  The recommendation was already mandatory; acting on it is strictly more
-  informative than stalling on it, because the outcome becomes reviewable.
-- **One-way door, or any `PRODUCT_DECISION` under Art. 5** — append the same
-  block with `Status: PARKED`, add the item to `.engine/overseer/parked.md`, and
-  continue with the next unblocked item. Do not decide it.
-
-Classify honestly. The classification is made by the same agent that benefits
-from classifying generously, so when the door is ambiguous, treat it as one-way
-and park.
+Unattended, it does **not** wait: route it as the engine rules say. Classify honestly. The
+classification is made by the same agent that benefits from classifying generously, so when
+the door is ambiguous, treat it as one-way and park.
 
 ## Categories for ledger entries
 
