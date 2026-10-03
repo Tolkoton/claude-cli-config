@@ -1,0 +1,414 @@
+{
+ "note": "Simplifier findings with a known truth, for evals/run_second_opinion_evals.py. `correct`: removing the target is safe — the six items planted in evals/scenarios/simplifier/project/ and the fifteen `confirm` findings of the first pass over the engine that the owner approved. `false`: the target is needed — the four traps of that fixture and eight typical mistakes whose code is in project/ here (laid over the simplifier fixture). Only target, category and claim reach a model; `why` and `truth` never do. The engine findings are judged on the repository as it was at `engine_commit`, the commit before board 011 applied them. Kept honest by tests/test_second_opinion_evals.py. `shown` (false cases) is a piece of the line that refutes the claim: the test checks the request really carries it, so a judge that misses it was not kept in the dark.",
+ "engine_commit": "25797983e4b6af4bbf5281c982b74d512e89f0f5",
+ "cases": [
+  {
+   "id": "planted-abstraction",
+   "project": "fixture",
+   "kind": "planted",
+   "truth": "correct",
+   "why": "one implementation, one caller",
+   "finding": {
+    "target": "src/refproj/discounts.py:9",
+    "category": "premature_abstraction",
+    "claim": "DiscountPolicy is an abstract base with a single implementation, PercentDiscount, and policy_for() always returns that one; cli.py could call apply_discount directly."
+   }
+  },
+  {
+   "id": "planted-dead-code",
+   "project": "fixture",
+   "kind": "planted",
+   "truth": "correct",
+   "why": "unused since the decimal total() took over",
+   "finding": {
+    "target": "src/refproj/pricing.py:24",
+    "category": "dead_code",
+    "claim": "_legacy_total_v1 has no caller anywhere; total() replaced it."
+   }
+  },
+  {
+   "id": "planted-unused-dependency",
+   "project": "fixture",
+   "kind": "planted",
+   "truth": "correct",
+   "why": "never imported",
+   "finding": {
+    "target": "pyproject.toml:6",
+    "category": "redundant_dependency",
+    "claim": "The dependency `requests` is declared and no module imports it."
+   }
+  },
+  {
+   "id": "planted-impossible-guard",
+   "project": "fixture",
+   "kind": "planted",
+   "truth": "correct",
+   "why": "percent is already checked to be 0..100 two lines above",
+   "finding": {
+    "target": "src/refproj/pricing.py:14",
+    "category": "defensive_for_impossible",
+    "claim": "The `factor < 0` guard in apply_discount() cannot fire: percent was already checked to be within 0..100, so the factor is never negative."
+   }
+  },
+  {
+   "id": "planted-future-slice",
+   "project": "fixture",
+   "kind": "planted",
+   "truth": "correct",
+   "why": "the slice serves no goal",
+   "finding": {
+    "target": ".engine/slices/currency-rates.md",
+    "category": "speculative_slice",
+    "claim": "The currency-rates slice (S6 in .engine/architecture/feature-dag.json) serves none of the goals in docs/goals.md; nothing asks for currency conversion."
+   }
+  },
+  {
+   "id": "planted-invented-requirement",
+   "project": "fixture",
+   "kind": "planted",
+   "truth": "correct",
+   "why": "R6 names no goal",
+   "finding": {
+    "target": "docs/goals.md:21",
+    "category": "invented_requirement",
+    "claim": "Requirement R6 (an append-only audit log kept for seven years) names no goal, unlike R1-R5, and no goal G1-G4 asks for it."
+   }
+  },
+  {
+   "id": "trap-input-validation",
+   "project": "fixture",
+   "kind": "trap",
+   "truth": "false",
+   "why": "parse_order_line checks what the clerk typed and gives the clerk's message; reserve() is a different layer",
+   "finding": {
+    "target": "src/refproj/orders.py:33",
+    "category": "defensive_for_impossible",
+    "claim": "The `quantity <= 0` check in parse_order_line() is redundant: reserve() checks that the quantity is positive again before anything is charged."
+   },
+   "shown": "quantity must be positive, got"
+  },
+  {
+   "id": "trap-error-handling",
+   "project": "fixture",
+   "kind": "trap",
+   "truth": "false",
+   "why": "R1: a broken or missing list must stop the order with a message the clerk can act on",
+   "finding": {
+    "target": "src/refproj/orders.py:40",
+    "category": "defensive_for_impossible",
+    "claim": "load_price_list() wraps OSError and JSONDecodeError into PriceListError only for cli.py to print it; the wrapping adds nothing and the function can be a two-line json.loads."
+   },
+   "shown": "the message says what to fix"
+  },
+  {
+   "id": "trap-security-check",
+   "project": "fixture",
+   "kind": "trap",
+   "truth": "false",
+   "why": "the order id is typed by the clerk: path traversal",
+   "finding": {
+    "target": "src/refproj/receipts.py:11",
+    "category": "defensive_for_impossible",
+    "claim": "The is_relative_to() check in receipt_path() cannot fail: target is built from base two lines above, so it is always inside base."
+   },
+   "shown": "The id is typed by the clerk"
+  },
+  {
+   "id": "trap-rare-contract-field",
+   "project": "fixture",
+   "kind": "trap",
+   "truth": "false",
+   "why": "read by refund_note on the refund path (R5, G4)",
+   "finding": {
+    "target": "src/refproj/orders.py:22",
+    "category": "dead_code",
+    "claim": "OrderLine.refund_reference is never read: charge() and the receipt use only sku and quantity."
+   },
+   "shown": "line.refund_reference is None"
+  },
+  {
+   "id": "typical-string-dispatch",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "export() finds it by name: globals().get(f'export_{fmt}')",
+   "finding": {
+    "target": "src/refproj/exports.py:38",
+    "category": "dead_code",
+    "claim": "export_json() has no caller: no call to it exists anywhere in the repository."
+   },
+   "shown": "globals().get(f\"export_{fmt}\")"
+  },
+  {
+   "id": "typical-decorator-registry",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "@check puts it into CHECKS, which problems() runs",
+   "finding": {
+    "target": "src/refproj/checks.py:18",
+    "category": "dead_code",
+    "claim": "no_duplicate_skus() is never called by any module."
+   },
+   "shown": "@check"
+  },
+  {
+   "id": "typical-entry-point-in-config",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "ops/crontab starts it every night",
+   "finding": {
+    "target": "src/refproj/nightly.py:10",
+    "category": "dead_code",
+    "claim": "main() in nightly.py is called by nothing in src or tests, and the module is imported only for its SHELVES constant; the function and the __main__ block can go."
+   },
+   "shown": "python -m refproj.nightly"
+  },
+  {
+   "id": "typical-protocol-method",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "sorted() in emptiest() needs it",
+   "finding": {
+    "target": "src/refproj/shelves.py:12",
+    "category": "dead_code",
+    "claim": "Shelf.__lt__ is never called: no code compares two shelves with `<`."
+   },
+   "shown": "sorted(shelves)"
+  },
+  {
+   "id": "typical-reachable-guard",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "report.py passes only the lines whose SKU is in the price list, which can be none",
+   "finding": {
+    "target": "src/refproj/rounding.py:20",
+    "category": "defensive_for_impossible",
+    "claim": "The empty-list guard in average_price() cannot fire: report.py refuses to run without at least one order line."
+   },
+   "shown": "if line.sku in prices"
+  },
+  {
+   "id": "typical-not-a-duplicate",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "cash is rounded to the smallest coin, 0.05; card to the cent",
+   "finding": {
+    "target": "src/refproj/rounding.py:15",
+    "category": "duplication",
+    "claim": "round_cash() duplicates round_card(): both round an amount half-up; one function is enough."
+   },
+   "shown": "SMALLEST_COIN"
+  },
+  {
+   "id": "typical-field-read-through-a-template",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "SHELF_LABEL in report.py formats {shelf.label_note}",
+   "finding": {
+    "target": "src/refproj/shelves.py:10",
+    "category": "dead_code",
+    "claim": "The field label_note of Shelf is assigned and never read: no code accesses .label_note."
+   },
+   "shown": "{shelf.label_note}"
+  },
+  {
+   "id": "typical-template-method",
+   "project": "fixture",
+   "kind": "typical",
+   "truth": "false",
+   "why": "Exporter.run() calls self.header()",
+   "finding": {
+    "target": "src/refproj/exports.py:22",
+    "category": "dead_code",
+    "claim": "TableExporter.header() is never called: export_table() calls only run()."
+   },
+   "shown": "self.header()"
+  },
+  {
+   "id": "first-pass-F-3a73ae12",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/hooks/overseer_stop.py:474",
+    "category": "duplication",
+    "claim": "The second, identical path.parent.mkdir(parents=True, exist_ok=True) in _write_continue_count is a no-op repeat of line 473 and can go."
+   }
+  },
+  {
+   "id": "first-pass-F-056ef070",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/hooks/overseer_stop.py:642",
+    "category": "duplication",
+    "claim": "The second, identical sha_file.parent.mkdir(parents=True, exist_ok=True) in _record_audit repeats line 641 and can go."
+   }
+  },
+  {
+   "id": "first-pass-F-856a9dcb",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/hooks/complexity_budget.py:430-431",
+    "category": "duplication",
+    "claim": "first_seen_limits calls memo.parent.mkdir(parents=True, exist_ok=True) three times in a row; the two repeats at lines 430-431 do nothing and can go."
+   }
+  },
+  {
+   "id": "first-pass-F-3af152c0",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/hooks/complexity_budget.py:505",
+    "category": "dead_code",
+    "claim": "The `limits` parameter of report() is never read in its body (the text is built from budget, usage, over, raised and accepted); the parameter and the argument at the single call site can go with no change to the report."
+   }
+  },
+  {
+   "id": "first-pass-F-58f5a87a",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/hooks/lesson_queue.py:226",
+    "category": "dead_code",
+    "claim": "collect_parked takes a slice_name argument it never uses (the parked entry's own item name is used as the slice at line 234); the parameter and the two arguments in collect() can go."
+   }
+  },
+  {
+   "id": "first-pass-F-43a9cbd3",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/hooks/overseer_stop.py:664-695",
+    "category": "duplication",
+    "claim": "_active_contract (with CONTRACT_RE and SLICE_HEADING_RE) re-implements gate.active_slice line for line — same block split, same two regexes, same IN PROGRESS test; overseer_stop.py already imports gate lazily (line 370), so _contract_changed could resolve the slug through gate.active_slice and the two copies could not drift apart."
+   }
+  },
+  {
+   "id": "first-pass-F-8948ac3f",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": "engine.py::ref_commit",
+    "category": "duplication",
+    "claim": "ref_commit (engine.py:1161-1169) runs the same `git rev-parse --verify --quiet <ref>^{commit}` as EngineSource.resolve (engine.py:412-416) and differs only in returning None instead of raising EngineError; it can be a two-line try/except around src.resolve with identical behaviour for check_version and check_fast_forward."
+   }
+  },
+  {
+   "id": "first-pass-F-2a3cecd3",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": "AGENTS.md:56-65",
+    "category": "duplication",
+    "claim": "The 'Rules that bite' bullets on commits (56-57), hooks-not-scripts (61-62) and the three stops (64-65) restate rules already in the always-loaded .claude/engine-rules.md, and the *.env (60) and jq/python3 (63) bullets restate what protect-paths.sh enforces and env-check.sh reports at SessionStart; dropping them leaves every rule stated once and frees lines in a persistent context that is at 199 of its 200-line budget."
+   }
+  },
+  {
+   "id": "first-pass-F-f42f1239",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/skills/overseer/SKILL.md:333-391",
+    "category": "duplication",
+    "claim": "The 'Verdict routing — what a verdict actually does' table, the unattended-escalation routing and the surface thresholds restate .claude/engine-rules.md § 'Verdict routing' and § 'The three reasons to stop', which are in the overseer's context on every turn; the SKILL can keep only the 12 checks, the verdict list and the ledger protocol."
+   }
+  },
+  {
+   "id": "first-pass-F-a463a292",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/agents/slice-planner-critic.md:199-214",
+    "category": "duplication",
+    "claim": "The slice critic's own 'VoI gate' section restates the four-condition BLOCKING test it already inherits from critic-core §1, and the file itself says it 'adds only the slice-level algorithm mix and the per-phase lenses'; the section can go with the inherited gate unchanged."
+   }
+  },
+  {
+   "id": "first-pass-F-ad6c8b74",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/commands/plan-slice.md:9-11",
+    "category": "duplication",
+    "claim": "The planner is told to read the 525-line overseer SKILL.md 'for the shared discipline (anti-sycophancy, anti-Goodhart, citation-or-prune, the artifact-is-the-contract rule)', four principles that are Constitution Articles 2-4 and engine-rules § 'Overseer protocol' (contract sealed) — both already in every agent's context; the instruction loads an implementation-audit checklist into a planning session for nothing it does not already have."
+   }
+  },
+  {
+   "id": "first-pass-F-656c3729",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/commands/master-architect.md:73-74",
+    "category": "duplication",
+    "claim": "The pre-flight line 'Write plan into .claude/state/overseer/state' states, as a raw file write, the same phase guard that engine-rules and the other two commands express through the sanctioned script, while engine-rules forbids exactly that raw write; the line can be the one-line overseer_phase.py command the sibling commands use, or go."
+   }
+  },
+  {
+   "id": "first-pass-F-b90eb594",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/skills/self-learning-orchestrator/SKILL.md:123-137",
+    "category": "dead_code",
+    "claim": "The 'Delegation map' names seven cue phrases that activate skills (plan-mode-and-task-decomposition, progress-file-for-long-tasks, decisions-log-adr-lite, pre-commit-self-review-checklist, execution-feedback-debugging, codebase-navigation-strategy, session-dreaming) none of which exists in this repository, in user/skills or in templates; the map, the 'If a delegated skill is not installed' clause and the 'Compatibility notes' bullet about 'the 12 research-backed skills' can go, leaving the triggers' inline fallbacks as the only path, which is the path taken today."
+   }
+  },
+  {
+   "id": "first-pass-F-12b10bb6",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:88-96",
+    "category": "duplication",
+    "claim": "Step 6 'Quick git context' (git status --short, git log -5 --oneline, git branch --show-current) is exactly what the SessionStart hook in settings.json already prints into every session, and step 1 'Read CLAUDE.md' asks for a file Claude Code loads at launch; both steps can go and the session has the same information."
+   }
+  },
+  {
+   "id": "first-pass-F-ccc8ade1",
+   "project": "engine",
+   "kind": "first-pass",
+   "truth": "correct",
+   "why": "the owner answered «так» (board 012, answer 5); applied by board 011",
+   "finding": {
+    "target": ".claude/commands/feature-architect.md:274",
+    "category": "dead_code",
+    "claim": "'Do NOT create tasks.yaml' guards against an artifact nothing in the engine produces or reads — no tasks.yaml exists anywhere, the backlog is .engine/architecture/feature-dag.json and the tasks/ board; the same phantom is named in slice-builder/SKILL.md:8, 72, 231 and overseer/SKILL.md:54, and all five mentions can go."
+   }
+  }
+ ]
+}

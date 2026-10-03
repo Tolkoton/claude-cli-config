@@ -1,0 +1,2 @@
+# The stock room machine. Installed by the operator: crontab ops/crontab
+15 2 * * *  cd /srv/refproj && PYTHONPATH=src python -m refproj.nightly >> nightly.log 2>&1
