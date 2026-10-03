@@ -189,3 +189,10 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Action: `board.py review` (.claude/unattended/board_review.py) reads the work branch in origin through git — objects only when a fetch is needed, no ref written — and prints one document; `/review` (.claude/commands/review.md) walks it with the owner and writes answers and new tasks into the inbox; tasks/README.md and its seed carry the operator's instruction. Live: the real board, twice, 1.2 s, `git status` and every ref unchanged (tasks/done/009-owner-review/review-example.md).
 - Commits: ab56b7b.
 - Category: build
+
+## 2026-10-03T18:10:00Z — board 020-bypass-guard-without-marker — TASK_BUILT
+- Trigger: tasks/doing/020-bypass-guard-without-marker.md (no audit asked for).
+- Evidence: `bash tests/run_all.sh` 55 suites green (at 759657f); tests/test_gate.py 87/87, seven new checks, five of them seen red before the fix; golden hook set 119/119 meeting expectations, 118 identical to evals/baseline/claw/results-task-010.json, 1 new (vs-bypass-without-marker, seen red on 6a68829), recorded as evals/baseline/claw/results-task-020.json; ruff --isolated and mypy --strict clean (tests/test_engine_lint.py) — red on 3801249 (SIM102 in the change), fixed in 340c270.
+- Action: gate.py layer_checks runs the bypass guard before the PROJECT_MARKER check; a missing marker skips only lint, types, tests and the simplifier's signals.
+- Commits: 3801249, 340c270, 759657f.
+- Category: build
