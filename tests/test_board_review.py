@@ -168,6 +168,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "tasks/doing/009-in-work.md", task("009 — У роботі"))
     write(work, "tasks/todo/020-free.md", task("020 — Вільна", deps="001"))
     write(work, "tasks/todo/030-stands.md", task("030 — Стоїть", deps="008, 020"))
+    write(work, "tasks/todo/040-attended.md", task("040 — ЗАДАЧА-З-ВЛАСНИКОМ").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
     write(work, "docs/tasks/settings.json", '{"proposal": true}\n')
     write(work, ".claude/settings.json", '{"proposal": false}\n')
     write(work, ".engine/rule-proposals.md", "# Rule proposals\n\n## RP-ab12 — 2026-01-02 — PROPOSED\n- Rule: ПРАВИЛО-ПРОПОЗИЦІЯ\n- Why: бо\n\n"
@@ -282,6 +283,11 @@ check("rule proposals: the PROPOSED one only", "ПРАВИЛО-ПРОПОЗИЦ�
 with_state = cli(clone, state=state).stdout
 check("with the state files: the gate's open escalation of this machine", "ШТАМП-ВОРІТ" in section(with_state, "Чекає на власника"))
 check("--since does not hide what waits", waits == waiting, waits)
+attended_part = waiting.split("### Задачі, що потребують вашої присутності", 1)[-1].split("\n### ", 1)[0]
+check("a task that needs the owner present is under «Чекає на власника», by name and title (board 016)", "040-attended.md" in attended_part
+      and "ЗАДАЧА-З-ВЛАСНИКОМ" in attended_part and "tasks/README.md" in attended_part, waiting)
+check("…and an ordinary todo task is not there", "020-free.md" not in attended_part and "030-stands.md" not in attended_part, attended_part)
+check("…its unanswered-question count is not disturbed by it", "040-attended.md" not in waiting.split("### Задачі, що потребують вашої присутності", 1)[0], waiting)
 
 # --- the plan, the candidates, the health -----------------------------------------------------
 print("plan, candidates, health")
@@ -291,6 +297,9 @@ line_030 = next(line for line in plan.splitlines() if "030-stands.md" in line)
 line_020 = next(line for line in plan.splitlines() if "020-free.md" in line)
 check("…what stands on a dependency says which one and where it is", "008" in line_030 and "blocked" in line_030 and "020" in line_030 and "todo" in line_030, line_030)
 check("…and the one that can start is not said to stand", "стоїть" not in line_020 and "стоїть" in line_030, line_020)
+line_040 = next(line for line in plan.splitlines() if "040-attended.md" in line)
+check("…an attended task is in the plan as one the runner does not take, never as «наступна»", "лише з присутнім власником" in line_040
+      and "наступна" not in line_040, line_040)
 candidates = section(doc, "Кандидати в нові задачі")
 check("candidates: «Відкладене» and «Чого мені бракувало» of the finished reports", "ВІДКЛАДЕНЕ-001-first" in candidates
       and "ВІДКЛАДЕНЕ-002-second" in candidates and "БРАКУВАЛО-002-second" in candidates, candidates)

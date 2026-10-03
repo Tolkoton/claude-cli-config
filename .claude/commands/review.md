@@ -34,7 +34,8 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
 2. **Зроблено** — per finished task: what changed for the owner, then the decisions the agent
    took alone. Ask whether any of those decisions should be reversed — a reversal is a new task.
 3. **Чекає на власника** — every open question, one at a time, with its context and options. The
-   owner may answer, or leave it for later. Also the settings proposals, the open escalations,
+   owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
+   never takes them; they are done in an interactive session, not in this one), the settings proposals, the open escalations,
    the parked items and the rule proposals: each either gets an answer, becomes a new task, or waits.
 4. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
    rewritten task is a file for the inbox (below).

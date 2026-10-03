@@ -418,9 +418,14 @@ while :; do
     3|4)
       push_branch
       if [ "$RC" -eq 4 ] || [ -n "$(find tasks/blocked -maxdepth 1 -name '[0-9]*.md' 2>/dev/null | head -1)" ]; then
-        finish waiting-owner - owner "nothing can move: what is left waits for the owner's answers or for tasks that are not done ($FINISHED task(s) closed in this run)"
+        finish waiting-owner - owner "nothing can move: what is left waits for the owner's answers, for the owner's presence or for tasks that are not done ($FINISHED task(s) closed in this run)"
       fi
       finish idle - todo-empty "tasks/todo/ is empty ($FINISHED task(s) closed in this run)"
+      ;;
+    5)
+      # An attended task (board 016) is in doing/: the owner's interactive session works on it, never this runner.
+      push_branch
+      finish waiting-owner - attended "tasks/doing/ holds a task that needs the owner present; the runner never works on it — finish it in an interactive session or move it back to tasks/todo/ ($FINISHED task(s) closed in this run)"
       ;;
     *) finish error - board "board.py next refused (two tasks in tasks/doing/?); see its message above" ;;
   esac

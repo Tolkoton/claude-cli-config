@@ -2,8 +2,9 @@
 """The task board in files: the one reader of tasks/ (package board).
 
 The board is four directories under tasks/ — todo/, doing/, blocked/, done/. A task is one
-file `NNN-name.md`; the number is its place in the queue. Under the title it carries two plain
-lines, `Залежить від:` (task numbers) and `Аудит потрібен: так|ні`, and its last section,
+file `NNN-name.md`; the number is its place in the queue. Under the title it carries plain
+lines — `Залежить від:` (task numbers), `Аудит потрібен: так|ні` and, when the task may be worked
+on only with the owner present, `Потрібна присутність власника: так` — and its last section,
 `## Питання до власника`, holds questions, each with an `Відповідь:` line. A finished task is
 a directory done/NNN-name/ with task.md and report.md. tasks/README.md is the manual.
 
@@ -13,10 +14,11 @@ runner (board-runner.sh), for the audit runner (evals/run_audit_scenarios.py) an
 It never runs git: staging and committing belong to the runner and to the agent. The one
 exception reads only: `review` takes the board from the work branch in origin (board_review.py).
 
-    board.py next                    the task to work on: the one in doing/, else the first in
+    board.py next [--attended]       the task to work on: the one in doing/, else the first in
                                      todo/ whose dependencies are all in done/.
-                                     exit 3: todo/ is empty; exit 4: tasks wait, none is eligible
-    board.py start <todo file>       move it to doing/ (refused while doing/ holds a task)
+                                     exit 3: todo/ is empty; exit 4: tasks wait, none is eligible;
+                                     exit 5: doing/ holds a task that needs the owner present
+    board.py start [--attended] <todo file>   move it to doing/ (refused while doing/ holds a task)
     board.py where <NNN-name>        todo | doing | blocked | done | missing
     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
@@ -61,6 +63,15 @@ overseer's recommendation when there is one, the question «Зробити це 
 closed); either way the runner moves the task to done/ with a short report and no agent is
 started. Any other answer is an instruction for the agent.
 
+AN ATTENDED TASK (board 016) says `Потрібна присутність власника: так` under its title: work no
+agent may do alone — above all a change to its own guards, which the permission classifier
+rightly refuses without a person. `next` never offers one and `start` never moves one; the
+runner therefore never takes it, and a task that depends on it waits. With `--attended` both do
+— `next --attended` offers attended tasks only — and `--attended` is refused in an unattended
+session (CLAUDE_UNATTENDED_SESSION=1, or `.claude/state/overseer/mode` says `unattended`), so
+the flag is the owner's interactive session and nothing else. An attended task left in doing/
+makes `next` exit 5: the runner stops and says so instead of working on it.
+
 `--root DIR` names the repository (default: the one this file is installed in).
 """
 
@@ -80,6 +91,7 @@ TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
 AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
+ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
 ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILINE)
@@ -96,7 +108,7 @@ RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_
 ACTION = re.compile(r"^[\s>*_-]*Дія виконавця:[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
 ACTION_FILES = {"apply-settings": "docs/tasks/settings.json"}  # the file whose sha256 the offer names
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
-EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE = 2, 3, 4
+EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_ATTENDED = 2, 3, 4, 5
 
 
 @dataclass(frozen=True)
@@ -109,6 +121,7 @@ class Task:
     action: str = ""
     action_arg: str = ""
     rule: str = ""
+    attended: bool = False
 
     @property
     def answered(self) -> bool:
@@ -151,6 +164,7 @@ def parse(text: str) -> Task:
     header = text[: first_heading.start()] if first_heading else text
     depends = DEPENDS.search(header)
     audit = AUDIT.search(header)
+    attended = ATTENDED.search(header)
     gate = GATE.search(header)
     section = QUESTIONS.search(text)
     questions = ""
@@ -169,6 +183,7 @@ def parse(text: str) -> Task:
         answers=tuple(a.strip() for a in ANSWER.findall(questions)),
         gate=gate.group(1) if gate else "",
         rule=rule.group(1) if rule else "",
+        attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
     )
 
 
@@ -203,8 +218,11 @@ class Board:
         finished = self.numbers("done")
         return [n for n in task.depends if n not in finished]
 
-    def eligible(self) -> Path | None:
-        return next((p for p in self.files("todo") if not self.unmet(read(p))), None)
+    def eligible(self, attended: bool = False) -> Path | None:
+        """The first task in todo/ that can start: for an agent alone, never an attended one; with
+        attended=True (the owner's session), the first attended one."""
+        return next((p for p in self.files("todo") for task in [read(p)]
+                     if task.attended == attended and not self.unmet(task)), None)
 
     def shown(self, path: Path) -> str:
         return path.relative_to(self.tasks.parent).as_posix()
@@ -213,26 +231,51 @@ class Board:
         return [p for p in self.files(column) if number_of(p.name) == number]
 
 
-def cmd_next(board: Board) -> int:
+def unattended_session(root: Path) -> bool:
+    """Nobody is watching: the runner's environment says so, or the mode file does."""
+    if os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1":
+        return True
+    mode = root / ".claude/state/overseer/mode"
+    return mode.is_file() and mode.read_text(encoding="utf-8").strip() == "unattended"
+
+
+def attended_refusal(root: Path) -> str | None:
+    """Why `--attended` may not be used here; None in a session the owner sits in."""
+    if unattended_session(root):
+        return ("--attended is for an interactive session with the owner present; this session is unattended "
+                "(CLAUDE_UNATTENDED_SESSION=1 or .claude/state/overseer/mode)")
+    return None
+
+
+def cmd_next(board: Board, attended: bool = False) -> int:
     doing = board.files("doing")
     if len(doing) > 1:
         print("board: tasks/doing/ holds more than one task (" + ", ".join(p.name for p in doing)
               + ") — one at a time; move the extra ones back to tasks/todo/", file=sys.stderr)
         return EXIT_REFUSED
     if doing:
+        if read(doing[0]).attended and not attended:
+            print(f"board: tasks/doing/ holds {doing[0].name}, which needs the owner present "
+                  "(«Потрібна присутність власника: так») — it is worked on in an interactive session with the owner; "
+                  "to free the board, move it back to tasks/todo/", file=sys.stderr)
+            return EXIT_ATTENDED
         print(board.shown(doing[0]))
         return 0
-    task = board.eligible()
+    task = board.eligible(attended)
     if task is None:
         return EXIT_NONE_ELIGIBLE if board.files("todo") else EXIT_TODO_EMPTY
     print(board.shown(task))
     return 0
 
 
-def cmd_start(board: Board, root: Path, given: str) -> int:
+def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> int:
     source = (root / given).resolve() if not Path(given).is_absolute() else Path(given).resolve()
     if source.parent != (board.tasks / "todo").resolve() or not source.is_file() or not TASK_NAME.match(source.name):
         print(f"board: {given} is not a task file in tasks/todo/", file=sys.stderr)
+        return EXIT_REFUSED
+    if read(source).attended and not attended:
+        print(f"board: {source.name} needs the owner present («Потрібна присутність власника: так») — it is started only "
+              "in an interactive session with the owner: board.py start --attended (tasks/README.md)", file=sys.stderr)
         return EXIT_REFUSED
     doing = board.files("doing")
     if doing:
@@ -566,7 +609,10 @@ def summary(board: Board) -> list[str]:
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
     for path in todo:
-        unmet = board.unmet(read(path))
+        waiting = read(path)
+        if waiting.attended:
+            lines.append(f"чекає на присутність власника: {path.name} — лише в інтерактивній сесії з власником")
+        unmet = board.unmet(waiting)
         if unmet:
             waits = ", ".join(f"{n:03d}" + ("" if n in known else " (такої задачі ніде немає)") for n in unmet)
             lines.append(f"чекає на залежності: {path.name} — {waits}")
@@ -594,8 +640,11 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2],
                         help="the repository that holds tasks/ (default: the one this file is in)")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("next")
-    commands.add_parser("start").add_argument("task")
+    next_parser = commands.add_parser("next")
+    next_parser.add_argument("--attended", action="store_true", help="the owner is present: offer the tasks that need them")
+    start_parser = commands.add_parser("start")
+    start_parser.add_argument("--attended", action="store_true", help="the owner is present: a task that needs them may start")
+    start_parser.add_argument("task")
     commands.add_parser("where").add_argument("name")
     commands.add_parser("import-inbox").add_argument("inbox", type=Path)
     commands.add_parser("unblock")
@@ -623,10 +672,15 @@ def main() -> int:
     if args.command == "review":
         return cmd_review(root, args)
     board = Board(root / "tasks")
+    if args.command in ("next", "start") and args.attended:
+        refusal = attended_refusal(root)
+        if refusal:
+            print(f"board: {refusal}", file=sys.stderr)
+            return EXIT_REFUSED
     if args.command == "next":
-        return cmd_next(board)
+        return cmd_next(board, args.attended)
     if args.command == "start":
-        return cmd_start(board, root, args.task)
+        return cmd_start(board, root, args.task, args.attended)
     if args.command == "where":
         return cmd_where(board, args.name)
     if args.command == "import-inbox":

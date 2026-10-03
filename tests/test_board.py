@@ -14,6 +14,9 @@ WHAT IS CHECKED
     ANSWERED copy replace a blocked task (and only an answered one);
   - `unblock` returns a blocked task to todo/ only when every `Відповідь:` is filled;
   - `audit-allowed` says yes only for exactly one task in doing/ that asks for the audit;
+  - a task that says «Потрібна присутність власника: так» (board 016) is never offered by `next`
+    and never moved by `start`; with `--attended` it is, and `--attended` is refused in an
+    unattended session; left in doing/ it makes `next` exit 5; the owner's own task 017 is one;
   - the board ships: the template has the owner's sections, tasks/TEMPLATE.md is the seed,
     and a synthetic `engine.py install` seeds tasks/ once and never again.
 """
@@ -46,9 +49,13 @@ def check(name: str, ok: bool, detail: object = "") -> None:
     print(f"  {'ok  ' if ok else 'FAIL'} {name}{'' if ok else '   ' + str(detail)[:500]}")
 
 
-def cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def cli(root: Path, *args: str, unattended: bool = False) -> subprocess.CompletedProcess[str]:
+    # The suite itself may run inside an unattended session; a case says which kind it means.
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_UNATTENDED_SESSION"}
+    if unattended:
+        env["CLAUDE_UNATTENDED_SESSION"] = "1"
     return subprocess.run([sys.executable, str(SCRIPT), "--root", str(root), *args],
-                          capture_output=True, text=True, check=False)
+                          capture_output=True, text=True, check=False, env=env)
 
 
 def new_board() -> Path:
@@ -156,6 +163,69 @@ check("two tasks in doing/: exit 2, said on stderr", r.returncode == 2 and "doin
 r = cli(root, "start", "tasks/todo/nope.md")
 check("start of a file that is not in todo/: exit 2", r.returncode == 2, r.stderr)
 
+# --- a task that needs the owner present (board 016) ------------------------------------------
+print("attended tasks")
+ATTENDED_LINE = "Потрібна присутність власника"
+
+
+def attended_task(value: str = "так", deps: str = "—") -> str:
+    return task(deps=deps).replace("Аудит потрібен:", f"{ATTENDED_LINE}: {value}\nАудит потрібен:")
+
+
+check("«Потрібна присутність власника: так» is read", board.parse(attended_task()).attended is True)
+check("…«Так.» too", board.parse(attended_task("Так.")).attended is True)
+check("«ні», the template's «так/ні» and a missing line all mean no", not board.parse(attended_task("ні")).attended
+      and not board.parse(attended_task("так/ні")).attended and not board.parse(task()).attended)
+check("the line below the header (in the body) does not count",
+      not board.parse(f"# x\n\nЗалежить від: —\n\n## Що зробити\n{ATTENDED_LINE}: так\n").attended)
+check("the other header lines are still read beside it", board.parse(attended_task(deps="3")).depends == (3,)
+      and board.parse(attended_task().replace("Аудит потрібен: ні", "Аудит потрібен: так")).audit)
+real_017 = (ROOT / "tests/fixtures/board-attended/017-block-dangerous-push-hardening.md").read_text(encoding="utf-8")
+check("the owner's task 017 is an attended task that depends on 016", board.parse(real_017).attended and board.parse(real_017).depends == (16,))
+
+root = new_board()
+put(root, "todo", "017-guards.md", real_017)
+done(root, "016-attended-tasks")
+r = cli(root, "next")
+check("017 alone in todo/, its dependency done: `next` offers nothing, exit 4", r.returncode == 4 and r.stdout == "", (r.returncode, r.stdout, r.stderr))
+put(root, "todo", "018-after.md", task(deps="017"))
+put(root, "todo", "019-free.md", task())
+r = cli(root, "next")
+check("`next` passes over 017 and over what depends on it: 019", r.returncode == 0 and r.stdout.strip() == "tasks/todo/019-free.md", r.stdout + r.stderr)
+r = cli(root, "start", "tasks/todo/017-guards.md")
+check("`start` refuses 017 and says why; the file stays in todo/", r.returncode == 2 and ATTENDED_LINE in r.stderr and "--attended" in r.stderr
+      and (root / "tasks/todo/017-guards.md").is_file() and not (root / "tasks/doing/017-guards.md").exists(), r.stderr)
+r = cli(root, "summary")
+check("summary names 017 as waiting for the owner's presence, and 019 as next", "чекає на присутність власника: 017-guards.md" in r.stdout
+      and "наступна: 019-free.md" in r.stdout, r.stdout)
+for command in (("next", "--attended"), ("start", "--attended", "tasks/todo/017-guards.md")):
+    r = cli(root, *command, unattended=True)
+    check(f"`{command[0]} --attended` is refused in an unattended session (the environment)", r.returncode == 2 and r.stdout == ""
+          and "unattended" in r.stderr and (root / "tasks/todo/017-guards.md").is_file(), (r.returncode, r.stdout, r.stderr))
+(root / ".claude/state/overseer").mkdir(parents=True)
+(root / ".claude/state/overseer/mode").write_text("unattended\n", encoding="utf-8")
+r = cli(root, "start", "--attended", "tasks/todo/017-guards.md")
+check("…and while the mode file says unattended (a runner is at work)", r.returncode == 2 and (root / "tasks/todo/017-guards.md").is_file(), r.stderr)
+r = cli(root, "next", unattended=True)
+check("…a plain `next` still works there", r.returncode == 0 and r.stdout.strip() == "tasks/todo/019-free.md", r.stderr)
+(root / ".claude/state/overseer/mode").write_text("attended\n", encoding="utf-8")
+r = cli(root, "next", "--attended")
+check("with the owner present, `next --attended` offers 017 — not the free 019", r.returncode == 0 and r.stdout.strip() == "tasks/todo/017-guards.md", r.stdout + r.stderr)
+r = cli(root, "start", "--attended", "tasks/todo/017-guards.md")
+check("…and `start --attended` moves it to doing/", r.returncode == 0 and (root / "tasks/doing/017-guards.md").is_file(), r.stderr)
+r = cli(root, "next")
+check("017 in doing/: a plain `next` exits 5, prints no task and says what to do", r.returncode == 5 and r.stdout == ""
+      and "017-guards.md" in r.stderr and "tasks/todo/" in r.stderr, (r.returncode, r.stdout, r.stderr))
+r = cli(root, "next", "--attended")
+check("…`next --attended` prints it", r.returncode == 0 and r.stdout.strip() == "tasks/doing/017-guards.md", r.stdout + r.stderr)
+(root / "tasks/doing/017-guards.md").unlink()
+r = cli(root, "next", "--attended")
+check("no attended task in todo/: `next --attended` exits 4 and does not offer an ordinary one", r.returncode == 4 and r.stdout == "", (r.returncode, r.stdout))
+put(root, "todo", "020-attended-waits.md", attended_task(deps="018"))
+r = cli(root, "next", "--attended")
+check("an attended task waits for its dependencies like any other", r.returncode == 4 and r.stdout == "", (r.returncode, r.stdout))
+shutil.rmtree(root, ignore_errors=True)
+
 # --- unblock ------------------------------------------------------------------------------------
 print("unblock")
 root = new_board()
@@ -250,12 +320,13 @@ check("summary says what 010 waits for, and that 777 exists nowhere", "010-b.md"
 print("the board in this repository and in a project")
 template = (ROOT / "tasks/TEMPLATE.md").read_text(encoding="utf-8")
 check("the template has the owner's sections, in order",
-      [h for h in ("# ", "Залежить від:", "Аудит потрібен: ні", "## Що зробити", "## Готово, коли", "## Питання до власника", "Відповідь:")
-       if h in template] == ["# ", "Залежить від:", "Аудит потрібен: ні", "## Що зробити", "## Готово, коли", "## Питання до власника", "Відповідь:"]
-      and template.index("Залежить від:") < template.index("Аудит потрібен:") < template.index("## Що зробити")
+      [h for h in ("# ", "Залежить від:", "Потрібна присутність власника: ні", "Аудит потрібен: ні", "## Що зробити", "## Готово, коли", "## Питання до власника", "Відповідь:")
+       if h in template] == ["# ", "Залежить від:", "Потрібна присутність власника: ні", "Аудит потрібен: ні", "## Що зробити", "## Готово, коли", "## Питання до власника", "Відповідь:"]
+      and template.index("Залежить від:") < template.index("Потрібна присутність власника:") < template.index("Аудит потрібен:") < template.index("## Що зробити")
       < template.index("## Готово, коли") < template.index("## Питання до власника") < template.index("Відповідь:"), template)
 parsed = board.parse(template)
-check("the template itself parses: no dependency, no audit, no open question", parsed.depends == () and not parsed.audit and parsed.answers == (), parsed)
+check("the template itself parses: no dependency, no audit, not attended, no open question",
+      parsed.depends == () and not parsed.audit and not parsed.attended and parsed.answers == (), parsed)
 check("tasks/TEMPLATE.md is the seed, byte for byte", template == (ROOT / "templates/project/tasks/TEMPLATE.md").read_text(encoding="utf-8"))
 check("the four columns exist here", all((ROOT / "tasks" / c).is_dir() for c in board.COLUMNS))
 check("tasks/README.md exists here and as a seed", (ROOT / "tasks/README.md").is_file() and (ROOT / "templates/project/tasks/README.md").is_file())
@@ -330,6 +401,9 @@ MANUAL = {
     "a lesson becomes a rule only on the owner's answer (board 040)": (
         "Урок робить правилом лише власник", "`lesson_queue.py promote` не запускай", "8NN-rule-proposal", "Номери від 800",
         "зробити урок правилом"),
+    "a task that needs the owner present is never the runner's; how to do one with the owner (board 016)": (
+        "Потрібна присутність власника: так", "Виконавець її не бере ніколи", "next --attended", "start --attended",
+        "поверніть її в `todo/`", "Задачу з присутнім власником сам не бери"),
     "paid runs only on the owner's written word": ("Аудит потрібен: так", "лімітом у доларах", "Агент сам таких прогонів не починає"),
     "the audit script refuses by itself; --owner-approved is the owner's": ("він відмовляє", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),

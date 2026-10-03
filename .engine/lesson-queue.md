@@ -41,3 +41,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-03 | simplifier | - | duplication .claude/skills/self-learning-orchestrator/SKILL.md:14-21: The memory-stack table names a second decision log (decisions.md, ADR-lite, with its own supersession rules in triggers/decision-c #03f09847
 - 2026-10-03 | simplifier | - | dead_code .claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md:77-93: Step 4 'Commit' (and the matching commit steps in session-end-dreaming.md:102-107 and periodic-maintenance. #cfd4c25f
 - 2026-10-03 | simplifier | - | dead_code .claude/commands/plan-slice.md:184-187: The parenthetical 'Calibration, ~every 5th slice: submit a deliberately shallow counterfactual artifact to the cold-reader in a blind pair' is a proce #1b03bff2
+- 2026-10-03 | gate | - | tests: TESTS FAILED: FAIL: 1 of 30 suites red #6e7c6f04

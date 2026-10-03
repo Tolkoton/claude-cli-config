@@ -66,7 +66,10 @@ returned to `todo/` with the outcome in place of the offer (`docs/tasks/README.m
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
 `Дія виконавця: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the
-question to `done/` with a short report — no agent is started. It moves the task to `doing/` in its own commit and starts
+question to `done/` with a short report — no agent is started. A task that says `Потрібна присутність
+власника: так` it never takes (`board.py next` does not offer one; left in `doing/` it stops the runner with
+`reason=attended`): such a task is done in an interactive session with the owner (`tasks/README.md`).
+It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
 A session that ends with the task still open is continued (`--resume`); a usage-limit notice
 waits 15 minutes. When the agent has moved the task to `done/` or `blocked/` the runner pushes

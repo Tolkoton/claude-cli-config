@@ -17,6 +17,7 @@ on the runner's machine and replaced by what git shows when it does not.
 WHAT IT SHOWS, in six sections: the state now; what was done since `--since` (default: the
 newest version tag), each finished task with the owner's parts of its report; everything that
 waits for the owner — every unfilled `Відповідь:` in blocked/ with the text above it, the
+tasks that need the owner present (`Потрібна присутність власника: так`, board 016), the
 settings proposals, the open escalations, the parked items, the rule proposals; the plan; the
 candidates for new tasks; the health. `--since` narrows what was DONE (and the candidates and the
 costs that come from it); what waits and what is planned is always shown whole. The last line is
@@ -430,12 +431,28 @@ def rule_lines(src: Source) -> list[str]:
     return lines or ["- Немає (`.engine/rule-proposals.md`)."]
 
 
+def attended_lines(src: Source) -> list[str]:
+    """The tasks no agent takes alone (board 016): `Потрібна присутність власника: так`, in todo/ or doing/."""
+    lines = []
+    for column in ("doing", "todo"):
+        for path in src.column(column):
+            text = src.show(path)
+            if board.parse(text).attended:
+                name = posixpath.basename(path)
+                lines.append(f"- `{name}` — {title_of(text, name)}" + (" (зараз у `doing/`)" if column == "doing" else ""))
+    if not lines:
+        return ["- Немає."]
+    return [("Виконавець їх не бере ніколи; кожна робиться в інтерактивній сесії Claude Code разом із вами (`tasks/README.md`, "
+             "«Задачі з присутнім власником»)."), "", *lines]
+
+
 def waiting_section(src: Source, state: Path) -> list[str]:
     asked: list[Asked] = [(path, text, board.parse(text)) for path in src.column("blocked") for text in [src.show(path)]]
     total = sum(task.answers.count("") for _, _, task in asked)
     return [(f"Незаповнених відповідей: {total}, у задачах: {sum(1 for _, _, task in asked if '' in task.answers)} (тека `tasks/blocked/`). Відповідь пишеться в "
              "рядок «Відповідь:» файла задачі — у гілці або копією файла в теку вхідних задач; задача повертається в роботу, коли заповнено всі."), "",
             *question_lines(src, asked),
+            "### Задачі, що потребують вашої присутності", "", *attended_lines(src), "",
             "### Пропозиції налаштувань", "", *settings_lines(src, asked), "",
             "### Відкриті ескалації", "", *escalation_lines(src, state, asked), "",
             "### Пропозиції правил", "", *rule_lines(src)]
@@ -454,10 +471,14 @@ def plan_section(src: Source) -> list[str]:
     first_free = not src.column("doing")
     for index, path in enumerate(todo, 1):
         text = src.show(path)
-        depends = board.parse(text).depends
+        task = board.parse(text)
+        depends = task.depends
         unmet = [n for n in depends if place.get(n) != "done"]
         line = f"{index}. `{posixpath.basename(path)}` — {title_of(text, 'без назви')}"
-        if unmet:
+        if task.attended:
+            line += "; **лише з присутнім власником** — виконавець не бере"
+            line += ("; чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)) if unmet else ""
+        elif unmet:
             line += "; **стоїть**, чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)
         else:
             line += f"; залежності: {', '.join(f'{n:03d}' for n in depends) + ' — готові' if depends else 'немає'}"
