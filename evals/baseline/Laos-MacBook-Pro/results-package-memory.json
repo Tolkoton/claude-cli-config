@@ -1,13 +1,13 @@
 {
-  "label": "package B (memory) — lesson queue carried by the Stop gate, the overseer hook and env-check.sh; Linux (lao@gcp); results-package-7.json plus lq-* (7) and vs-block-reaches-the-lesson-queue",
-  "recorded_utc": "2026-10-03T09:38:51Z",
+  "label": "package B (memory) — lesson queue carried by the Stop gate, the overseer hook and env-check.sh; Linux (lao@gcp); results-package-7.json plus lq-* (8) and vs-block-reaches-the-lesson-queue",
+  "recorded_utc": "2026-10-03T09:41:25Z",
   "sandbox": {
     "engine_ref": "HEAD",
-    "engine_commit": "42d9c8a9897f6b7ff88f001146c5a9a480bdc6ca",
+    "engine_commit": "7accd9755d9bc1389b247d46ab9b931eba457d8f",
     "shipped_supervision_mode": "absent",
-    "installed_by": "evals/make_sandbox.sh: engine.py install --ref 42d9c8a9897f6b7ff88f001146c5a9a480bdc6ca",
+    "installed_by": "evals/make_sandbox.sh: engine.py install --ref 7accd9755d9bc1389b247d46ab9b931eba457d8f",
     "audit_fixtures": false,
-    "created_utc": "2026-10-03T09:38:21Z"
+    "created_utc": "2026-10-03T09:40:54Z"
   },
   "hooks_dir": "<SANDBOX>/.claude/hooks",
   "environment": {
@@ -1111,13 +1111,25 @@
       "outcomes": [
         "allow"
       ],
-      "detail": "0 new candidate(s)",
-      "file_changed": false,
+      "detail": "1 new candidate(s)",
+      "file_changed": true,
       "expect_file_changed": true,
-      "pass": false
+      "pass": true
     },
     {
       "id": "lq-collect-nothing-to-collect",
+      "hook": "lesson_queue.py",
+      "expect": "allow",
+      "outcomes": [
+        "allow"
+      ],
+      "detail": "0 new candidate(s)",
+      "file_changed": false,
+      "expect_file_changed": false,
+      "pass": true
+    },
+    {
+      "id": "lq-collect-first-run-seeds-history",
       "hook": "lesson_queue.py",
       "expect": "allow",
       "outcomes": [
