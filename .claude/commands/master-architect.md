@@ -70,8 +70,8 @@ Convergence is the critic's PASS **plus** the owner's approval — never frictio
 # Pre-flight
 - Read the existing **domain map** and **architecture map** (`.engine/architecture/*`),
   `docs/adr/`, and both playbook files. If none of the maps exist, this is greenfield.
-- Write `plan` into `.claude/state/overseer/state` during architecture work; clear it before
-  feature builds begin.
+- Run `python3 .claude/hooks/overseer_phase.py set plan` for the architecture work; clear it
+  with `... overseer_phase.py clear` before feature builds begin.
 
 ---
 
