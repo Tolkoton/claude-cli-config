@@ -71,7 +71,7 @@ shows the hook issuing the right command.
 ```bash
 bash tests/run_all.sh                 # every suite, one line each (the pre-tag check)
 bash tests/run_all.sh --fast          # the Stop-gate subset
-python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/Laos-MacBook-Pro/results-package-memory.json
+python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/Laos-MacBook-Pro/results-package-costs.json
 python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
 bash .claude/unattended/supervisor.sh --status
 ```
