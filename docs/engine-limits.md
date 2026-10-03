@@ -164,8 +164,14 @@ such exemption before the overseer, who judges it (check #4). What that rests on
 - **The runner applies the settings proposal on the owner's `так`** (`owner_action.py`), by the
   same rule for where an answer came from and with the same limit. The offer names the sha256 of
   the proposal, so what is applied is the file the owner was asked about; whether the owner read
-  it is not something a script can know. The list of such actions is two entries long and is
+  it is not something a script can know. The list of such actions is short and is
   code, not configuration: a task file cannot name a command to run.
+- **A lesson becomes a rule only on the owner's `так`** under a rule question in `tasks/blocked/`
+  (board 040); the overseer's recommendation opens nothing. The runner acts on it by the same
+  rule for where an answer came from, and `lesson_queue.py promote` refuses while `CLAUDECODE` is
+  set — with the same limit: an agent that clears the variable on purpose, or forges an answer
+  through the inbox, is not something a script can see. `.engine/rules.md` itself is an ordinary
+  project file; an edit of it by hand is caught by review of the diff, not by a hook.
 - **The lock is keyed on files, so it is wide.** The slice's name is the agent's to write
   (`.engine/PROGRESS.md`), the diff is not. An escalation therefore holds every PASS while the
   files the gate blocked on are in the range no accepted PASS has covered — in practice all work

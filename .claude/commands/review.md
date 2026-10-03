@@ -64,7 +64,7 @@ give the owner the files to deliver instead of pretending they arrived.
 **A new task** is a file `NNN-short-latin-name.md` made from `tasks/TEMPLATE.md`:
 
 - the number sets its place in the queue; pick one that is in no column of the board and not in
-  the inbox, below 900 (those are the gate's). A number that is already in `todo/` **replaces**
+  the inbox, below 800 (800 and up are rule questions and the gate's). A number that is already in `todo/` **replaces**
   that task — use it only when the owner wants that task rewritten;
 - fill `Залежить від:` and `## Що зробити` / `## Готово, коли` from what the owner said;
   `Аудит потрібен: ні` unless the owner asked for the paid audit; a paid run needs its own line

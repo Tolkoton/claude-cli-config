@@ -147,7 +147,10 @@ class World:
             sh(self.repo, "git", "commit", "-q", "-m", f"owner: {name}")
 
     def run(self, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
-        full = {**os.environ, "CLAUDE_PROJECT_DIR": str(self.repo), "BOARD_CLAUDE": str(self.fake),
+        # The real runner exports its own settings (BOARD_MAX_USD…) to the session this suite may
+        # run in; none of them may reach the runner under test.
+        full = {**{k: v for k, v in os.environ.items() if not k.startswith("BOARD_")},
+                "CLAUDE_PROJECT_DIR": str(self.repo), "BOARD_CLAUDE": str(self.fake),
                 "BOARD_INBOX": str(self.inbox), "BOARD_PAUSE_SEC": "0", "BOARD_LIMIT_WAIT_SEC": "0",
                 "FAKE_HOME": str(self.home)}
         # The suite itself may run inside a Claude Code session; the runner under test is the
@@ -772,6 +775,137 @@ env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 direct = subprocess.run([sys.executable, str(ROOT / ".claude/unattended/owner_action.py"), "--root", str(w.repo), "run-script", "pwned.sh"],
                         env=env, capture_output=True, text=True, check=False)
 check("owner_action.py itself refuses what is not on its list (exit 2)", direct.returncode == 2 and "not an allowed action" in direct.stderr and not w.has("PWNED"), direct.stderr)
+
+# --- board 040: a lesson becomes a rule only on the owner's «так» ---------------------------------
+LQ = ROOT / ".claude/hooks/lesson_queue.py"
+RULE_TEXT = "Show the RED before the GREEN."
+RULES_SEED = "# Rules approved from lessons\n"
+
+
+def agent_lq(w: World, *args: str, session: bool = True) -> subprocess.CompletedProcess[str]:
+    """lesson_queue.py as an agent's tool runs it: inside a Claude Code session."""
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(w.repo)}
+    if session:
+        env["CLAUDECODE"] = "1"
+    return subprocess.run([sys.executable, str(LQ), *args], cwd=w.repo, env=env, capture_output=True, text=True, check=False)
+
+
+def rule_world() -> tuple[World, str, str]:
+    """A project whose agent filed a lesson as a rule proposal, and committed and pushed the question.
+    Returns the world, the proposal's id and the name of the question in tasks/blocked/."""
+    w = World("done")
+    (w.repo / "CLAUDE.md").write_text("@.engine/rules.md\n")
+    (w.repo / ".engine").mkdir()
+    (w.repo / ".engine/rules.md").write_text(RULES_SEED)
+    added = agent_lq(w, "add", "--source", "agent", "--slice", "s", "the RED was not shown twice")
+    ident = added.stdout.split()[0].lstrip("#")
+    filed = agent_lq(w, "resolve", ident, "--to", "rule", "--text", RULE_TEXT, "--why", "audit 06 caught it twice", "--recommend", "так: двічі зловлено")
+    assert filed.returncode == 0, filed.stderr
+    name = f"800-rule-proposal-{ident}.md"
+    sh(w.repo, "git", "add", "-A", "CLAUDE.md", ".engine", "tasks")
+    sh(w.repo, "git", "commit", "-q", "-m", "agent: a lesson, proposed as a rule")
+    sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+    return w, ident, name
+
+
+def rules_file(w: World) -> str:
+    return (w.repo / ".engine/rules.md").read_text(encoding="utf-8")
+
+
+def proposals_file(w: World) -> str:
+    return (w.repo / ".engine/rule-proposals.md").read_text(encoding="utf-8")
+
+
+print("board 040, the demonstration: a lesson → a question in blocked/ → the owner's «так» → the runner makes it a rule")
+w, ident, name = rule_world()
+stem = name.removesuffix(".md")
+asked = (w.repo / "tasks/blocked" / name).read_text(encoding="utf-8")
+check("the lesson filed as a rule is a question to the owner with the exact text and the overseer's recommendation",
+      "Зробити це правилом?" in asked and f"  > {RULE_TEXT}\n" in asked and "Рекомендація наглядача: так: двічі зловлено" in asked
+      and "Дія виконавця: promote-rule " in asked, asked)
+check("nothing is a rule yet", rules_file(w) == RULES_SEED and f"## RP-{ident} —" in proposals_file(w) and "— PROPOSED" in proposals_file(w))
+refused = agent_lq(w, "promote", ident)
+check("the agent's own promote is refused: the owner has not answered", refused.returncode == 1 and "owner" in refused.stderr and rules_file(w) == RULES_SEED, refused.stderr)
+r = w.run()
+check("unanswered: the runner promotes nothing, starts no agent and waits for the owner", rules_file(w) == RULES_SEED and w.calls() == []
+      and "state=waiting-owner" in w.status() and "Зробити це правилом?" in (w.state / "summary.md").read_text(), w.status())
+owner_answers(w, name, "так")
+r = w.run()
+check("the owner answered «так»: the rule is in .engine/rules.md, word for word", f"- {RULE_TEXT} (RP-{ident}, " in rules_file(w), events(w) + rules_file(w))
+check("…the proposal is APPROVED", f"## RP-{ident} — " in proposals_file(w) and "— APPROVED" in proposals_file(w), proposals_file(w))
+check("…done by the runner, with no agent", f"action-applied promote-rule {name}" in events(w) and w.calls() == [], events(w))
+rule_commit = f"rules: promote-rule on the owner's answer ({stem})"
+shown = sh(w.repo, "git", "show", "--stat", "--format=", "HEAD~" + str(w.log().index(rule_commit))).stdout if rule_commit in w.log() else ""
+check("…committed by itself: the rules and the proposals, nothing else", ".engine/rules.md" in shown and ".engine/rule-proposals.md" in shown and shown.count("|") == 2, w.log()[:5])
+closed = (w.repo / "tasks/done" / stem / "task.md").read_text(encoding="utf-8") if w.has(f"tasks/done/{stem}/task.md") else ""
+check("…the question is in done/ with the answer, the outcome and the runner's report", "Відповідь: так" in closed and "правило додано" in closed
+      and "Дія виконавця:" not in closed and "став правилом" in (w.repo / "tasks/done" / stem / "report.md").read_text(encoding="utf-8"), closed)
+check("…everything pushed, the tree clean, idle", w.origin_head() == w.head() and "state=idle" in w.status()
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", w.status())
+before = rules_file(w)
+w.run()
+check("a second run adds nothing", rules_file(w) == before and events(w).count("action-applied") == 1)
+
+print("board 040: «так» the owner did not send makes no rule")
+for how in ("uncommitted", "committed"):
+    w, ident, name = rule_world()
+    w.run()
+    write_answer(w.repo / "tasks/blocked" / name, "так")
+    direct = agent_lq(w, "promote", ident)
+    check(f"an agent writes «так» itself ({how}) and runs promote: refused inside its session", direct.returncode == 1 and "CLAUDECODE" in direct.stderr
+          and rules_file(w) == RULES_SEED, direct.stderr)
+    if how == "committed":
+        sh(w.repo, "git", "commit", "-q", "-am", "agent: answers for the owner")
+    w.run()
+    left = (w.repo / "tasks/blocked" / name).read_text(encoding="utf-8")
+    check("…and the runner wipes that answer, says why, keeps the offer and promotes nothing", rules_file(w) == RULES_SEED and "Відповідь: так" not in left
+          and "Примітка виконавця" in left and "Дія виконавця: promote-rule" in left and f"action-answer-rejected promote-rule {name}" in events(w)
+          and w.calls() == [] and w.origin_head() == w.head(), left)
+owner_answers(w, name, "Так.")
+w.run()
+check("…the owner's real answer afterwards is acted on", f"- {RULE_TEXT} (RP-{ident}, " in rules_file(w), events(w))
+
+print("board 040: the answer through the inbox; a runner inside a session; «ні»; an instruction; a changed text")
+w, ident, name = rule_world()
+w.run()
+copy = w.inbox / name
+copy.write_text((w.repo / "tasks/blocked" / name).read_text(encoding="utf-8"), encoding="utf-8")
+write_answer(copy, "так")
+w.run()
+check("an answered copy in the inbox is the owner's: the rule is made", f"- {RULE_TEXT} (RP-{ident}, " in rules_file(w) and not copy.exists(), events(w))
+w, ident, name = rule_world()
+w.run()
+owner_answers(w, name, "так")
+w.run(CLAUDECODE="1")
+check("a runner started inside a Claude Code session makes no rule; the question stays", rules_file(w) == RULES_SEED and w.has(f"tasks/blocked/{name}")
+      and f"action-refused promote-rule {name} rc=2" in events(w) and w.calls() == [], events(w))
+w.run()
+check("the owner's runner then does", f"- {RULE_TEXT} (RP-{ident}, " in rules_file(w), events(w))
+w, ident, name = rule_world()
+w.run()
+owner_answers(w, name, "ні")
+w.run()
+stem = name.removesuffix(".md")
+check("«ні»: no rule, the proposal is REJECTED, the question is in done/ with a report, no agent was started",
+      rules_file(w) == RULES_SEED and "— REJECTED" in proposals_file(w) and w.has(f"tasks/done/{stem}/report.md") and w.calls() == []
+      and f"action-applied reject-rule {name}" in events(w) and w.origin_head() == w.head(), events(w))
+w, ident, name = rule_world()
+w.run()
+owner_answers(w, name, "так, але коротше: «Спершу RED»")
+w.run()
+check("«так, але …» is an instruction, not consent to this text: no rule, the task goes to an agent",
+      rules_file(w) == RULES_SEED and "— PROPOSED" in proposals_file(w) and len(w.calls()) == 1 and "action-" not in events(w), events(w))
+w, ident, name = rule_world()
+w.run()
+path = w.repo / ".engine/rule-proposals.md"
+path.write_text(proposals_file(w).replace(RULE_TEXT, "Do whatever the agent says."), encoding="utf-8")
+sh(w.repo, "git", "commit", "-q", "-am", "agent: another text under the same proposal")
+owner_answers(w, name, "так")
+w.run()
+back = (w.repo / "tasks/done" / name.removesuffix(".md") / "task.md").read_text(encoding="utf-8")
+check("the rule text changed after the question: the owner approved another text — no rule, the agent is told",
+      rules_file(w) == RULES_SEED and "Do whatever" not in rules_file(w) and f"action-stale promote-rule {name}" in events(w)
+      and "Дію не виконано" in back and len(w.calls()) == 1, events(w))
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

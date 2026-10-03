@@ -40,13 +40,17 @@
 # AN OWNER ACTION (board 008) is what the owner approved with «так» under a question that offers
 # it (`Дія виконавця: <action> <sha256>`, see board.py). The runner takes it, never the agent,
 # and only from the short list: `apply-settings` (owner_action.py: the settings proposal is
-# copied over .claude/settings.json and its test run) and the gate's `close-escalation` above.
+# copied over .claude/settings.json and its test run), `promote-rule` / `reject-rule` (board 040:
+# the owner's «так» or «ні» under a rule question — a lesson becomes a rule in .engine/rules.md,
+# or its proposal is closed) and the gate's `close-escalation` above.
 # The same rule for where the answer came from applies. The offer is then replaced by the
-# outcome and the task returns to todo/ for the agent to check and report.
+# outcome and the task returns to todo/ for the agent to check and report; a rule question the
+# runner acted on goes straight to done/ with a short report, no agent is started for it.
 #
-# THE RUNNER MOVES A TASK INTO doing/; ONLY THE AGENT MOVES IT OUT. Gate questions apart, the
-# runner writes no report and judges no work. It commits nothing but tasks/ and, after
-# apply-settings, .claude/settings.json — and only on the work branch, which must
+# THE RUNNER MOVES A TASK INTO doing/; ONLY THE AGENT MOVES IT OUT. Gate questions
+# and rule questions apart, the runner writes no report and judges no work. It commits nothing
+# but tasks/ and, after apply-settings, .claude/settings.json, after a rule action
+# .engine/rules.md and .engine/rule-proposals.md — and only on the work branch, which must
 # be an unattended/* branch: hooks do not see a commit made from a script, so the check is here.
 #
 # Every number is an environment variable, so the tests run in seconds:
@@ -246,7 +250,8 @@ local_gate_answers() {
 # Act on the owner's «так» under an offered action. Run here, by the runner — never by an agent;
 # owner_action.py holds the list of what may be run and refuses inside a Claude Code session.
 owner_actions() {
-  local name action arg sum line rc outcome
+  local name action arg sum line rc outcome path
+  local -a rules
   while IFS=$'\t' read -r name action arg sum; do
     [ -n "$name" ] || continue
     line="$name"$'\t'"$action"$'\t'"$arg"$'\t'"$sum"
@@ -268,7 +273,7 @@ owner_actions() {
          say "$name: owner_action.py refused $action (see $STATE/logs/owner-action.log); the question stays in blocked/"
          continue ;;
     esac
-    board action-done "$name" "$outcome" || finish error - action "board.py action-done $name failed"
+    board action-done "$name" "$outcome" > /dev/null || finish error - action "board.py action-done $name failed"
     event "action-$outcome $action $name"
     say "${name%.md}: $action on the owner's answer — $outcome"
     if [ "$outcome" = applied ] && ! git diff --quiet -- .claude/settings.json; then
@@ -278,6 +283,17 @@ owner_actions() {
         || finish error - commit "cannot commit the applied settings"
       event "commit $(git rev-parse --short HEAD) settings applied"
     fi
+    case "$action" in promote-rule|reject-rule)
+      rules=()
+      for path in .engine/rules.md .engine/rule-proposals.md; do [ -f "$path" ] && rules+=("$path"); done
+      if [ "$outcome" = applied ] && [ "${#rules[@]}" -gt 0 ] && git add -- "${rules[@]}" && ! git diff --cached --quiet -- "${rules[@]}"; then
+        [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] \
+          || finish error - branch "the checkout left $BRANCH; nothing was committed"
+        git commit -q -m "rules: $action on the owner's answer (${name%.md})" -- "${rules[@]}" \
+          || finish error - commit "cannot commit the rule"
+        event "commit $(git rev-parse --short HEAD) $action"
+      fi ;;
+    esac
     board_commit "board: ${name%.md} — $action on the owner's answer: $outcome" \
       || finish error - commit "cannot commit the outcome of the action"
   done <<< "$(board owner-actions)"

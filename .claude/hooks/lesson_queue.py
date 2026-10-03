@@ -5,8 +5,10 @@
     python3 .claude/hooks/lesson_queue.py collect          # scan the sources, add new candidates
     python3 .claude/hooks/lesson_queue.py list
     python3 .claude/hooks/lesson_queue.py review-request   # the triage request, or nothing
-    python3 .claude/hooks/lesson_queue.py resolve ID --to memory|rule|engine|discard [--text T] [--cite C C] [--why W]
-    python3 .claude/hooks/lesson_queue.py promote ID       # an overseer-approved proposal -> .engine/rules.md
+    python3 .claude/hooks/lesson_queue.py resolve ID --to memory|rule|engine|discard [--text T] [--cite C C] [--why W] [--recommend R]
+    python3 .claude/hooks/lesson_queue.py ask ID           # (re)write the owner's question for a pending proposal
+    python3 .claude/hooks/lesson_queue.py promote ID       # a proposal the OWNER approved -> .engine/rules.md
+    python3 .claude/hooks/lesson_queue.py reject ID --why W   # the owner said no: the proposal is closed
     python3 .claude/hooks/lesson_queue.py session-start    # hook: a bounded digest, a cleanup proposal
     python3 .claude/hooks/lesson_queue.py cleanup-done
     python3 .claude/hooks/lesson_queue.py stuck            # hook (PostToolUse / PostToolUseFailure): the stuck counter
@@ -30,10 +32,16 @@ memory (`.engine/overseer/MEMORY.md`, which demands two ledger citations), a rul
 (`.engine/rule-proposals.md`), feedback for the engine (`.engine/engine-feedback.md`) or discard it.
 A resolved candidate leaves the queue.
 
-NEVER INTO THE PERSISTENT CONTEXT AUTOMATICALLY. Nothing here writes CLAUDE.md or `.claude/`.
-A proposal becomes a rule only through `promote`, which needs an overseer entry in the ledger that
-names it (`rule-proposal <id>`) with OVERSEER_PASS, and refuses when the persistent context would
-pass 200 lines. The rule lands in `.engine/rules.md`, which CLAUDE.md imports.
+NEVER INTO THE PERSISTENT CONTEXT AUTOMATICALLY — A LESSON BECOMES A RULE ONLY ON THE OWNER'S WORD
+(board 040). Nothing here writes CLAUDE.md or `.claude/`. A rule proposal is put to the owner as a
+task in `tasks/blocked/` (board.py `rule_question`): the question «Зробити це правилом?», the exact
+text of the rule, and the offer `Дія виконавця: promote-rule <sha256 of the id and that text>`.
+The overseer may add a recommendation (`--recommend`); it decides nothing, and no ledger entry
+opens the way. `promote` needs the owner's «так» under that very offer, refuses inside a Claude
+Code session (the board runner takes the action, through owner_action.py, after it has checked
+that the answer arrived from the owner), and refuses when the persistent context would pass 200
+lines. The rule lands in `.engine/rules.md`, which CLAUDE.md imports. A project without a task
+board has one way: the owner's own terminal, `promote ID --owner-approved`.
 
 STUCK. The same failure three times in a row (the key is the failure's normalised fingerprint) makes
 `stuck` answer with the stuck protocol as additionalContext; a success resets the counter. It never
@@ -47,6 +55,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from datetime import UTC, datetime
@@ -79,11 +88,11 @@ AT_RE = re.compile(r"(?:(?<=\s)|^)@\S")
 LINE_RE = re.compile(
     r"^- (?P<date>\d{4}-\d{2}-\d{2}) \| (?P<source>\w+) \| (?P<slice>[^|]*?) \| (?P<essence>.*) #(?P<id>[0-9a-f]{8})$"
 )
-PROPOSAL_REVIEW = (
-    "Run the overseer on each (read .claude/skills/overseer/SKILL.md; is it a standing rule, is it true, "
-    "does it already exist) and append a ledger entry headed `## <time> — rule-proposal <id> — <verdict>` "
-    "with the verdict marker alone on its own line, OVERSEER_PASS or OVERSEER_BLOCK: #N <reason>; "
-    "then `python3 .claude/hooks/lesson_queue.py promote <id>`."
+RULE_ACTION = "promote-rule"
+OWNER_YES = "так"
+IN_SESSION = (
+    "refused inside a Claude Code session (CLAUDECODE is set): a lesson becomes a rule on the owner's word, "
+    "and the board runner acts on it, never an agent"
 )
 STUCK_TEXT = (
     "STUCK PROTOCOL: the same failure has now happened {n} times in a row ({what}). Stop retrying the "
@@ -283,31 +292,24 @@ def pending_proposals(root: Path) -> list[str]:
 
 
 def review_request(root: Path, track: bool = False) -> str:
-    """The triage request; with track=True (the overseer hook) it repeats only when the queue or the
-    proposals changed since it was last made, or on every third PASS, so an item the agent cannot
-    triage does not cost tokens forever."""
+    """The triage request; with track=True (the overseer hook) it repeats only when the queue
+    changed since it was last made, or on every third PASS, so an item the agent cannot triage does
+    not cost tokens forever. A pending proposal asks for nothing here: it waits for the owner."""
     queue = entries(root)
-    proposals = pending_proposals(root)
-    if not queue and not proposals:
+    if not queue:
         return ""
     if track:
-        key = sorted(e["id"] for e in queue) + sorted(proposals)
+        key = sorted(e["id"] for e in queue)
         state = load_json(state_file(root, "review.json"))
         passes = int(state.get("passes", 0)) if isinstance(state.get("passes", 0), int) else 0
         if state.get("key") == key and passes < 2:
             write(state_file(root, "review.json"), json.dumps({"key": key, "passes": passes + 1}) + "\n")
             return ""
         write(state_file(root, "review.json"), json.dumps({"key": key, "passes": 0}) + "\n")
-    return _request_text(queue, proposals)
+    return _request_text(queue, pending_proposals(root))
 
 
 def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
-    if not queue:
-        return (
-            f"RULE_PROPOSALS_PENDING — {len(proposals)} proposal(s) in .engine/rule-proposals.md await the overseer: "
-            + ", ".join(f"RP-{p}" for p in proposals)
-            + ". " + PROPOSAL_REVIEW
-        )
     shown = "\n".join(f"  #{e['id']}  {e['date']}  [{e['source']}] {e['slice']}: {e['essence'][:110]}" for e in queue[:12])
     more = f"\n  … and {len(queue) - 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""
     return (
@@ -316,10 +318,11 @@ def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
         f"{shown}{more}\n"
         "For each: `python3 .claude/hooks/lesson_queue.py resolve <id> --to <where> ...` with where = "
         "memory (project memory; needs --text and two --cite ledger entries), rule (a proposal for a standing "
-        "rule; needs --text and --why), engine (feedback for the engine's own repository; --text) or "
-        "discard. A resolved candidate leaves the queue. A rule proposal reaches the persistent context only "
-        "after the overseer passes it (`promote`); never edit CLAUDE.md for it."
-        + (f"\nRULE_PROPOSALS_PENDING: {', '.join('RP-' + p for p in proposals)}. {PROPOSAL_REVIEW}" if proposals else "")
+        "rule; needs --text and --why, and takes --recommend, the overseer's advice to the owner), engine "
+        "(feedback for the engine's own repository; --text) or discard. A resolved candidate leaves the queue. "
+        "A rule proposal becomes a question to the owner in tasks/blocked/ and a rule only on the owner's «так»; "
+        "the overseer recommends, it does not decide. Never run `promote` and never edit CLAUDE.md for it."
+        + (f"\nWaiting for the owner, nothing to do: {', '.join('RP-' + p for p in proposals)}." if proposals else "")
     )
 
 
@@ -335,7 +338,71 @@ def append(path: Path, text: str, header: str = "") -> None:
     write(path, existing + text)
 
 
-def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: str) -> tuple[bool, str]:
+def proposal_sha(ident: str, rule: str) -> str:
+    """What the owner says «так» to: the proposal and the exact text of its rule."""
+    return hashlib.sha256(f"RP-{ident}\n{rule.strip()}\n".encode()).hexdigest()
+
+
+def proposal(root: Path, ident: str) -> tuple[re.Match[str], str] | None:
+    """The header of RP-<ident> in the proposals file and its body."""
+    text = read(root / PROPOSALS_REL)
+    match = re.search(rf"^## RP-{re.escape(ident)} — (?P<date>\S+) — (?P<state>\w+)[ \t]*$", text, re.MULTILINE)
+    return (match, text[match.end():].split("\n## ", 1)[0]) if match else None
+
+
+def proposal_by_sha(root: Path, sha: str) -> str | None:
+    """The id of the PROPOSED proposal whose id and rule text make this sha256."""
+    for ident in pending_proposals(root):
+        found = proposal(root, ident)
+        if found and proposal_sha(ident, bullet(found[1], "Rule")) == sha:
+            return ident
+    return None
+
+
+def board_module() -> Any:
+    """board.py (the one reader of tasks/), or None where the engine was installed without it."""
+    folder = Path(__file__).resolve().parent.parent / "unattended"
+    if not (folder / "board.py").is_file():
+        return None
+    if str(folder) not in sys.path:
+        sys.path.insert(0, str(folder))
+    import board
+
+    return board
+
+
+def ask_owner(root: Path, ident: str) -> tuple[bool, str]:
+    """Put a PROPOSED proposal to the owner: a task in tasks/blocked/ with the exact rule and the offer."""
+    found = proposal(root, ident)
+    if not found:
+        return False, f"no proposal RP-{ident} in {PROPOSALS_REL}"
+    if found[0]["state"] != "PROPOSED":
+        return False, f"RP-{ident} is already {found[0]['state']}"
+    body, board = found[1], board_module()
+    rule = bullet(body, "Rule")
+    path = board.rule_question(board.Board(root / "tasks"), ident, rule, bullet(body, "Why"), bullet(body, "From"),
+                               bullet(body, "Overseer recommends"), proposal_sha(ident, rule)) if board else None
+    if path is None:
+        return False, (f"this project has no task board (tasks/): the owner decides RP-{ident} in their own terminal, "
+                       f"`python3 .claude/hooks/lesson_queue.py promote {ident} --owner-approved`")
+    return True, f"RP-{ident} is asked of the owner: {path.relative_to(root).as_posix()}"
+
+
+def owner_said_yes(root: Path, ident: str, rule: str) -> bool:
+    """A task in tasks/blocked/ offers promote-rule for exactly this proposal and this text, and the
+    owner's answer under it is «так». Where the answer came from is the runner's check, not this one."""
+    board = board_module()
+    if board is None:
+        return False
+    wanted = proposal_sha(ident, rule)
+    for path in board.Board(root / "tasks").files("blocked"):
+        task = board.read(path)
+        if task.action == RULE_ACTION and task.action_arg == wanted and task.approves:
+            return True
+    return False
+
+
+def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: str, recommend: str = "") -> tuple[bool, str]:
     found = [e for e in entries(root) if e["id"] == ident]
     if not found:
         return False, f"no candidate #{ident} in the queue"
@@ -350,10 +417,13 @@ def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: st
             return False, "a rule text may not contain an @path (CLAUDE.md would load it as an import)"
         if not text or not why:
             return False, "a rule proposal needs --text (the rule, imperative, one line) and --why"
-        append(root / PROPOSALS_REL, f"\n## RP-{ident} — {today()} — PROPOSED\n- Rule: {text.splitlines()[0]}\n- Why: {why}\n- From: {origin}\n"
-               "- Status: PROPOSED (the overseer reviews it; `lesson_queue.py promote` needs its PASS in the ledger)\n",
+        advice = f"- Overseer recommends: {' '.join(recommend.split())}\n" if recommend.strip() else ""
+        append(root / PROPOSALS_REL, f"\n## RP-{ident} — {today()} — PROPOSED\n- Rule: {text.splitlines()[0]}\n- Why: {' '.join(why.split())}\n- From: {origin}\n{advice}"
+               "- Status: PROPOSED (the owner decides: the question is in tasks/blocked/; only the owner's «так» lets `lesson_queue.py promote` through)\n",
                "# Rule proposals\n\nCandidates for the standing rules. Never loaded into the persistent context; "
-               "approved ones are promoted into `.engine/rules.md`.\n")
+               "the ones the owner approves are promoted into `.engine/rules.md`.\n")
+        remove_line(root, ident)
+        return True, f"#{ident} -> rule proposal. " + ask_owner(root, ident)[1]
     elif to == "engine":
         if not text:
             return False, "engine feedback needs --text"
@@ -386,27 +456,28 @@ def context_lines(root: Path) -> int:
     return sum(len(read(p).splitlines()) for p in seen)
 
 
-def promote(root: Path, ident: str) -> tuple[bool, str]:
-    proposals = read(root / PROPOSALS_REL)
-    header = re.compile(rf"^## RP-{ident} — (?P<date>\S+) — (?P<state>\w+)[ \t]*$", re.MULTILINE)
-    match = header.search(proposals)
-    if not match:
+def promote(root: Path, ident: str, owner_flag: bool = False, in_session: bool = False) -> tuple[bool, str]:
+    """A proposal becomes a rule. Only on the owner's word: «так» under the question in tasks/blocked/
+    (the board runner then calls this, outside any session), or `--owner-approved` typed in the owner's
+    own terminal. Inside a Claude Code session neither counts — an agent can write both."""
+    found = proposal(root, ident)
+    if not found:
         return False, f"no proposal RP-{ident} in {PROPOSALS_REL}"
+    match, body = found
     if match["state"] != "PROPOSED":
         return False, f"RP-{ident} is already {match['state']}"
-    body = proposals[match.end():].split("\n## ", 1)[0]
     rule = bullet(body, "Rule")
     if AT_RE.search(rule):
         return False, "the rule text contains an @path, which CLAUDE.md would load as an import"
-    passed = any(
-        re.match(rf"## [^\n]*rule-proposal {ident}\b", chunk)
-        and re.search(r"(?m)^[-\s]*(?:Verdict:\s*)?OVERSEER_PASS\s*$", chunk)
-        for chunk in re.split(r"(?m)^(?=## )", read(root / LEDGER_REL))
-    )
-    if not passed:
-        return False, f"the ledger has no entry headed `rule-proposal {ident}` with OVERSEER_PASS alone on a line — the overseer reviews proposals first"
+    if not owner_flag and not owner_said_yes(root, ident, rule):
+        return False, (f"the owner has not said «{OWNER_YES}» to RP-{ident}: no task in tasks/blocked/ offers "
+                       f"`Дія виконавця: {RULE_ACTION} {proposal_sha(ident, rule)}` with that answer. A lesson becomes a rule "
+                       f"only with the owner's consent (`lesson_queue.py ask {ident}` writes the question; the overseer's "
+                       "opinion opens nothing)")
+    if in_session:
+        return False, f"promote: {IN_SESSION}"
     rules_path = root / RULES_REL
-    before = read(rules_path) or "# Rules approved from lessons\n\nPromoted by `lesson_queue.py promote` after an overseer PASS. Each line is a standing rule.\n\n"
+    before = read(rules_path) or "# Rules approved from lessons\n\nPromoted by `lesson_queue.py promote` on the owner's «так». Each line is a standing rule.\n\n"
     new_text = before.rstrip("\n") + f"\n- {rule} (RP-{ident}, {today()})\n"
     original = read(rules_path)
     write(rules_path, new_text)
@@ -416,8 +487,25 @@ def promote(root: Path, ident: str) -> tuple[bool, str]:
         else:
             rules_path.unlink()
         return False, f"promoting would take the persistent context past {BUDGET} lines — trim .engine/rules.md first"
-    write(root / PROPOSALS_REL, proposals.replace(match.group(0), f"## RP-{ident} — {match['date']} — APPROVED", 1))
+    close_proposal(root, match, "APPROVED", "")
     return True, f"RP-{ident} promoted into {RULES_REL}"
+
+
+def close_proposal(root: Path, match: re.Match[str], state: str, note: str) -> None:
+    text = read(root / PROPOSALS_REL)
+    header = match.group(0).replace("— PROPOSED", f"— {state}")
+    write(root / PROPOSALS_REL, text.replace(match.group(0), header + (f"\n- Owner: {note}" if note else ""), 1))
+
+
+def reject(root: Path, ident: str, why: str) -> tuple[bool, str]:
+    """The owner said no: the proposal is closed and never becomes a rule."""
+    found = proposal(root, ident)
+    if not found:
+        return False, f"no proposal RP-{ident} in {PROPOSALS_REL}"
+    if found[0]["state"] != "PROPOSED":
+        return False, f"RP-{ident} is already {found[0]['state']}"
+    close_proposal(root, found[0], "REJECTED", " ".join(why.split()) or "declined")
+    return True, f"RP-{ident} rejected"
 
 
 # ------------------------------------------------------------------ session start
@@ -461,7 +549,7 @@ def digest(root: Path) -> str:
     if queue:
         lines.append(f"Lesson queue: {len(queue)} candidate(s), oldest {queue[0]['date']} (.engine/lesson-queue.md).")
     if proposals:
-        lines.append(f"{proposals} rule proposal(s) wait for the overseer (.engine/rule-proposals.md).")
+        lines.append(f"{proposals} rule proposal(s) wait for the owner's answer in tasks/blocked/ (.engine/rule-proposals.md); nothing for an agent to do.")
     due = cleanup_due(root)
     if due:
         lines.append(
@@ -543,7 +631,6 @@ def run_stuck(root: Path, envelope: dict[str, Any]) -> dict[str, Any]:
 
 
 def project_root() -> Path:
-    import os
     import subprocess
 
     given = os.environ.get("CLAUDE_PROJECT_DIR", "")
@@ -578,8 +665,15 @@ def main(argv: list[str] | None = None) -> int:
     p_res.add_argument("--text", default="")
     p_res.add_argument("--cite", nargs="*", default=[])
     p_res.add_argument("--why", default="")
+    p_res.add_argument("--recommend", default="", help="the overseer's recommendation to the owner; it decides nothing")
+    sub.add_parser("ask").add_argument("id")
     p_pro = sub.add_parser("promote")
     p_pro.add_argument("id")
+    p_pro.add_argument("--owner-approved", action="store_true",
+                       help="the owner's flag, for the owner's own terminal; inside a Claude Code session it does not count")
+    p_rej = sub.add_parser("reject")
+    p_rej.add_argument("id")
+    p_rej.add_argument("--why", default="")
     args = parser.parse_args(argv)
     root = project_root()
     hook_commands = ("session-start", "stuck", "collect")
@@ -597,11 +691,17 @@ def main(argv: list[str] | None = None) -> int:
             if text:
                 print(text)
         elif args.command == "resolve":
-            done, message = resolve(root, args.id.lstrip("#"), args.to, args.text, args.cite, args.why)
+            done, message = resolve(root, args.id.lstrip("#"), args.to, args.text, args.cite, args.why, args.recommend)
             print(message, file=sys.stdout if done else sys.stderr)
             return 0 if done else 1
-        elif args.command == "promote":
-            done, message = promote(root, args.id.lstrip("#"))
+        elif args.command in ("ask", "promote", "reject"):
+            ident = args.id.lstrip("#").removeprefix("RP-")
+            if args.command == "ask":
+                done, message = ask_owner(root, ident)
+            elif args.command == "promote":
+                done, message = promote(root, ident, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
+            else:
+                done, message = reject(root, ident, args.why)
             print(message, file=sys.stdout if done else sys.stderr)
             return 0 if done else 1
         elif args.command == "session-start":

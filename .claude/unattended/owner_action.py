@@ -2,6 +2,8 @@
 """The actions board-runner.sh may take on the owner's word — and it takes no other (board 008).
 
     owner_action.py [--root DIR] apply-settings <sha256>
+    owner_action.py [--root DIR] promote-rule <sha256>
+    owner_action.py [--root DIR] reject-rule <sha256>
 
 `apply-settings` is the one way the shared settings change: the proposal docs/tasks/settings.json
 is copied over .claude/settings.json and tests/test_settings_proposal.py is run — the command
@@ -9,6 +11,12 @@ the owner would type, `cp docs/tasks/settings.json .claude/settings.json && pyth
 tests/test_settings_proposal.py`. `<sha256>` is the proposal the owner said «так» to (the agent
 wrote it under its question, board.py `action-line`); a proposal that changed since is not the
 one that was approved and is not applied. A red test puts the previous file back.
+
+`promote-rule` is the one way a lesson becomes a rule (board 040): the owner answered «так» under
+a rule question, whose offer names the sha256 of the proposal's id and the exact rule text. The
+PROPOSED proposal with that sha256 is promoted into .engine/rules.md by lesson_queue.promote,
+which looks for the owner's answer itself; a proposal whose text changed since the question is
+stale. `reject-rule` is the owner's «ні»: the proposal is marked REJECTED.
 
 An agent may not edit .claude/settings.json (protect-paths.sh) and may not get there through
 this script either: it refuses inside a Claude Code session, as gate.py --close-escalation does.
@@ -27,6 +35,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 PROPOSAL = "docs/tasks/settings.json"
 LIVE = ".claude/settings.json"
@@ -56,7 +65,36 @@ def apply_settings(root: Path, approved: str) -> int:
     return 0
 
 
-ACTIONS = {"apply-settings": apply_settings}
+def lessons() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+    import lesson_queue
+
+    return lesson_queue
+
+
+def promote_rule(root: Path, approved: str) -> int:
+    queue = lessons()
+    ident = queue.proposal_by_sha(root, approved)
+    if ident is None:
+        print(f"owner-action: no PROPOSED rule proposal has the sha256 {approved or '(none)'}; the owner approved another text", file=sys.stderr)
+        return EXIT_STALE
+    done, message = queue.promote(root, ident)
+    print(f"owner-action: {message}", file=sys.stdout if done else sys.stderr)
+    return 0 if done else EXIT_FAILED
+
+
+def reject_rule(root: Path, declined: str) -> int:
+    queue = lessons()
+    ident = queue.proposal_by_sha(root, declined)
+    if ident is None:
+        print(f"owner-action: no PROPOSED rule proposal has the sha256 {declined or '(none)'}; nothing to close", file=sys.stderr)
+        return EXIT_STALE
+    done, message = queue.reject(root, ident, "ні (the owner's answer on the task board)")
+    print(f"owner-action: {message}", file=sys.stdout if done else sys.stderr)
+    return 0 if done else EXIT_FAILED
+
+
+ACTIONS = {"apply-settings": apply_settings, "promote-rule": promote_rule, "reject-rule": reject_rule}
 
 
 def main() -> int:

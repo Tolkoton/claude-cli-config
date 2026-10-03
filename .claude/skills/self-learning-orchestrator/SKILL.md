@@ -106,7 +106,8 @@ Do not queue what the code, the tests or git history already say, and do not sto
 `LESSON_REVIEW_REQUESTED` to the continue text when the queue is not empty. For each candidate run
 `python3 .claude/hooks/lesson_queue.py resolve <id> --to memory|rule|engine|discard`:
 `memory` needs `--text` and two `--cite` ledger entries (the memory file's citation-or-prune rule);
-`rule` needs `--text` and `--why` and writes a **proposal** to `.engine/rule-proposals.md`; `engine` writes
+`rule` needs `--text` and `--why` (and takes `--recommend`, the overseer's advice) and writes a **proposal** to
+`.engine/rule-proposals.md` plus a question for the owner in `tasks/blocked/`; `engine` writes
 `.engine/engine-feedback.md`; `discard` just removes it. A resolved candidate leaves the queue.
 
 **Stuck.** Three identical failures in a row make a hook hand you the stuck protocol
@@ -116,9 +117,11 @@ Do not queue what the code, the tests or git history already say, and do not sto
 session context; when it says MEMORY CLEAN-UP DUE, run `triggers/periodic-maintenance.md`, then
 `python3 .claude/hooks/lesson_queue.py cleanup-done`.
 
-**Nothing reaches the persistent context by itself.** A rule proposal becomes a rule only after the overseer
-passes it (a ledger entry naming `rule-proposal <id>` with OVERSEER_PASS) and `lesson_queue.py promote <id>`
-appends it to `.engine/rules.md`, which CLAUDE.md imports under a 200-line budget. Never edit CLAUDE.md for a lesson.
+**Nothing reaches the persistent context by itself, and a lesson becomes a rule only with the owner's consent.**
+A rule proposal is a task in `tasks/blocked/` asking «Зробити це правилом?» with the exact text. The overseer may
+recommend; it does not decide. On the owner's «так» the board runner runs `promote`, which appends the rule to
+`.engine/rules.md` (imported by CLAUDE.md under a 200-line budget); on «ні» it closes the proposal. Never run
+`promote` yourself (it refuses inside a session), never fill the answer, never edit CLAUDE.md for a lesson.
 
 ## Delegation map (cue phrases that activate other skills)
 

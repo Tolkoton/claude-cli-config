@@ -44,17 +44,37 @@ def project() -> Path:
     (root / "CLAUDE.md").write_text("@.engine/rules.md\n")
     (root / ".engine").mkdir()
     (root / ".engine/rules.md").write_text("# Rules approved from lessons\n")
+    (root / "tasks/blocked").mkdir(parents=True)
     return root
 
 
-def run(root: Path, script: Path, *args: str, stdin: Any = None) -> subprocess.CompletedProcess[str]:
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root))
+def run(root: Path, script: Path, *args: str, stdin: Any = None, session: bool = False) -> subprocess.CompletedProcess[str]:
+    """session=True: as an agent's tool would run it (CLAUDECODE set); otherwise as the board runner
+    or the owner's terminal would — whatever this test itself was started from."""
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(root)}
+    if session:
+        env["CLAUDECODE"] = "1"
     return subprocess.run([sys.executable, str(script), *args], cwd=root, capture_output=True, text=True, env=env,
                           input=json.dumps(stdin) if stdin is not None else "", check=False)
 
 
-def lq(root: Path, *args: str, stdin: Any = None) -> subprocess.CompletedProcess[str]:
-    return run(root, LQ, *args, stdin=stdin)
+def lq(root: Path, *args: str, stdin: Any = None, session: bool = False) -> subprocess.CompletedProcess[str]:
+    return run(root, LQ, *args, stdin=stdin, session=session)
+
+
+def rule_task(root: Path, ident: str) -> Path:
+    """The owner's question about RP-<ident> in tasks/blocked/."""
+    found = sorted((root / "tasks/blocked").glob(f"*-rule-proposal-{ident}.md"))
+    assert len(found) == 1, found
+    return found[0]
+
+
+def answer(path: Path, word: str) -> None:
+    """Write `word` into the task's last empty answer line, as the owner would."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    last = max(i for i, line in enumerate(lines) if line.strip() == "Відповідь:")
+    lines[last] = f"{lines[last]} {word}"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def queue(root: Path) -> list[str]:
@@ -163,34 +183,93 @@ check("a rule becomes a PROPOSAL, status PROPOSED", f"## RP-{b} —" in props an
 lq(r, "resolve", c, "--to", "engine", "--text", "the gate report could list the exact re-run command")
 check("engine feedback goes to .engine/engine-feedback.md", "exact re-run command" in (r / ".engine/engine-feedback.md").read_text() and c not in ids(r))
 lq(r, "resolve", d, "--to", "discard")
-check("the queue is empty after the triage; only the pending proposal is still asked about", ids(r) == [] and "LESSON_REVIEW" not in lq(r, "review-request").stdout and "RULE_PROPOSALS_PENDING" in lq(r, "review-request").stdout)
+check("the queue is empty after the triage: nothing is requested, a pending proposal waits for the owner, not for an agent", ids(r) == [] and lq(r, "review-request").stdout == "")
 check("a missing id is an error", lq(r, "resolve", "deadbeef", "--to", "discard").returncode == 1)
 check("nothing in the persistent context changed: CLAUDE.md and .engine/rules.md are untouched",
       (r / "CLAUDE.md").read_text() == claude_before and (r / ".engine/rules.md").read_text() == "# Rules approved from lessons\n")
 
-print("the promotion path: only an overseer PASS, only inside the budget")
+print("the promotion path (board 040): only the owner's «так», only inside the budget")
+RULE = "Pass --force-exclude to ruff for explicit paths."
+RULES_BEFORE = "# Rules approved from lessons\n"
+def rules(root: Path) -> str:
+    return (root / ".engine/rules.md").read_text()
+q = rule_task(r, b)
+question = q.read_text(encoding="utf-8")
+sha = lesson_queue.proposal_sha(b, RULE)
+check("filing a lesson as a rule writes a question for the owner in tasks/blocked/",
+      q.name == f"800-rule-proposal-{b}.md" and "Зробити це правилом?" in question and question.rstrip().endswith("Відповідь:"), question)
+check("…with the exact text of the rule, the reason, and the offer that names this proposal and this text",
+      f"  > {RULE}\n" in question and "else engine files are judged by project rules" in question
+      and f"Дія виконавця: promote-rule {sha}" in question and f"Пропозиція правила: RP-{b}" in question, question)
 p = lq(r, "promote", b)
-check("promote refuses without an overseer entry in the ledger", p.returncode == 1 and "ledger" in p.stderr, p.stderr)
-(r / ".engine/overseer/ledger.md").write_text(f"## 2026-10-03T03:00:00Z — rule-proposal {b} — REVIEWED\n- Verdict: OVERSEER_PASS\n")
+check("promote refuses without the owner's answer", p.returncode == 1 and "owner" in p.stderr and rules(r) == RULES_BEFORE, p.stderr)
+(r / ".engine/overseer").mkdir(parents=True, exist_ok=True)
+(r / ".engine/overseer/ledger.md").write_text(f"## 2026-10-03T03:00:00Z — rule-proposal {b} — REVIEWED\n- Verdict: OVERSEER_PASS\nOVERSEER_PASS\n")
 p = lq(r, "promote", b)
-rules = (r / ".engine/rules.md").read_text()
-check("with the overseer's PASS the rule lands in .engine/rules.md", p.returncode == 0 and f"(RP-{b}," in rules and "Pass --force-exclude" in rules, p.stderr + rules)
+check("the overseer's PASS in the ledger opens nothing: the overseer recommends, the owner decides",
+      p.returncode == 1 and "owner" in p.stderr and rules(r) == RULES_BEFORE, p.stderr)
+for said in ("ні", "так, але переформулюй", "можливо"):
+    q.write_text(question, encoding="utf-8")
+    answer(q, said)
+    check(f"an answer that is not «так» («{said}») does not let promote through", lq(r, "promote", b).returncode == 1 and rules(r) == RULES_BEFORE)
+q.write_text(question.replace(sha, lesson_queue.proposal_sha(b, RULE + " And more.")), encoding="utf-8")
+answer(q, "так")
+check("«так» under an offer for ANOTHER text does not approve this one", lq(r, "promote", b).returncode == 1 and rules(r) == RULES_BEFORE)
+q.write_text(question.replace("## Питання до власника", "## Нотатки"), encoding="utf-8")
+answer(q, "так")
+check("«так» outside the questions section is no answer", lq(r, "promote", b).returncode == 1 and rules(r) == RULES_BEFORE)
+q.write_text(question, encoding="utf-8")
+answer(q, "так")
+p = lq(r, "promote", b, session=True)
+check("with «так» in the file, promote still refuses inside a Claude Code session: an agent could have written it",
+      p.returncode == 1 and "CLAUDECODE" in p.stderr and rules(r) == RULES_BEFORE, p.stderr)
+p = lq(r, "promote", b, "--owner-approved", session=True)
+check("--owner-approved does not count inside a session either", p.returncode == 1 and "CLAUDECODE" in p.stderr and rules(r) == RULES_BEFORE, p.stderr)
+p = lq(r, "promote", b)
+check("with the owner's «так», outside a session, the rule lands in .engine/rules.md", p.returncode == 0 and f"- {RULE} (RP-{b}," in rules(r), p.stderr + rules(r))
 check("the proposal is marked APPROVED", f"## RP-{b} — {datetime.now(UTC):%Y-%m-%d} — APPROVED" in (r / ".engine/rule-proposals.md").read_text())
 check("a second promote is refused", lq(r, "promote", b).returncode == 1)
-(r / ".engine/rule-proposals.md").write_text((r / ".engine/rule-proposals.md").read_text()
-    + "\n## RP-aaaaaaaa — 2026-10-03 — PROPOSED\n- Rule: A rule that does not fit.\n- Why: x\n")
-(r / ".engine/overseer/ledger.md").write_text((r / ".engine/overseer/ledger.md").read_text() + "\n## x — rule-proposal aaaaaaaa — R\n- OVERSEER_PASS\n")
+
+def propose(root: Path, text: str, *extra: str) -> str:
+    lq(root, "add", "--source", "agent", "--slice", "s", f"lesson behind: {text}")
+    ident = ids(root)[-1]
+    done = lq(root, "resolve", ident, "--to", "rule", "--text", text, "--why", "seen twice", *extra)
+    assert done.returncode == 0, done.stderr
+    return ident
+
+fits = propose(r, "A rule that does not fit.")
+answer(rule_task(r, fits), "так")
 (r / "CLAUDE.md").write_text("@.engine/rules.md\n" + "filler\n" * 199)
-full = lq(r, "promote", "aaaaaaaa")
+before = rules(r)
+full = lq(r, "promote", fits)
 check("promotion that would pass 200 lines of persistent context is refused and leaves the file as it was",
-      full.returncode == 1 and "A rule that does not fit" not in (r / ".engine/rules.md").read_text(), full.stderr)
+      full.returncode == 1 and "200" in full.stderr and rules(r) == before, full.stderr)
 (r / "CLAUDE.md").write_text("@.engine/rules.md\n")
-(r / ".engine/rule-proposals.md").write_text((r / ".engine/rule-proposals.md").read_text()
-    + "\n## RP-bbbbbbbb — 2026-10-03 — PROPOSED\n- Rule: A rule the overseer blocked.\n- Why: y\n")
-(r / ".engine/overseer/ledger.md").write_text((r / ".engine/overseer/ledger.md").read_text()
-    + "\n## y — rule-proposal bbbbbbbb — BLOCKED\n- Verdict: OVERSEER_BLOCK: #3 not a standing rule\n")
-check("a ledger entry that names the proposal but holds no PASS does not approve it",
-      lq(r, "promote", "bbbbbbbb").returncode == 1 and "A rule the overseer blocked" not in (r / ".engine/rules.md").read_text())
+advised = propose(r, "Always show the RED.", "--recommend", "так: двічі зловлено аудитом")
+text = rule_task(r, advised).read_text(encoding="utf-8")
+check("the overseer's recommendation is shown to the owner, and it is only a recommendation",
+      "Рекомендація наглядача: так: двічі зловлено аудитом" in text and lq(r, "promote", advised).returncode == 1, text)
+check("the next question takes the next free number from 800", rule_task(r, advised).name.startswith("802-"), rule_task(r, advised).name)
+again = lq(r, "ask", advised)
+check("asking again writes no second question", again.returncode == 0 and len(list((r / "tasks/blocked").glob("*-rule-proposal-*.md"))) == 3, again.stdout)
+gone = lq(r, "reject", advised, "--why", "власник: ні")
+props = (r / ".engine/rule-proposals.md").read_text()
+check("reject closes the proposal with the owner's words", gone.returncode == 0 and f"## RP-{advised} — {datetime.now(UTC):%Y-%m-%d} — REJECTED\n- Owner: власник: ні" in props, props)
+answer(rule_task(r, advised), "так")
+check("a rejected proposal is never promoted, whatever is answered afterwards",
+      lq(r, "promote", advised).returncode == 1 and "Always show the RED" not in rules(r))
+
+print("the promotion path: a project without a task board")
+r = project()
+(r / "tasks/blocked").rmdir()
+(r / "tasks").rmdir()
+lq(r, "add", "--source", "agent", "--slice", "s", "a lesson")
+lone = ids(r)[0]
+out = lq(r, "resolve", lone, "--to", "rule", "--text", "Keep it.", "--why", "w")
+check("the proposal is recorded and the agent is told that only the owner's terminal promotes it",
+      out.returncode == 0 and "--owner-approved" in out.stdout and f"## RP-{lone} —" in (r / ".engine/rule-proposals.md").read_text() and not (r / "tasks").exists(), out.stdout)
+check("promote refuses", lq(r, "promote", lone).returncode == 1 and "Keep it." not in rules(r))
+check("the owner's own terminal: --owner-approved promotes", lq(r, "promote", lone, "--owner-approved").returncode == 0 and "- Keep it. (RP-" in rules(r))
 
 
 print("review: proposals, repetition, quoting, corrupt state, @path")
@@ -214,14 +293,13 @@ lq(r, "resolve", lid, "--to", "rule", "--text", "Always show the RED.", "--why",
 for i in ids(r):
     lq(r, "resolve", i, "--to", "discard")
 prop = pass_reason(10)
-check("a pending proposal alone triggers a request that tells the overseer how to review it",
-      "RULE_PROPOSALS_PENDING" in prop and f"RP-{lid}" in prop and "rule-proposal" in prop, prop[-300:])
-(r / ".engine/overseer").mkdir(parents=True, exist_ok=True)
-(r / ".engine/overseer/ledger.md").write_text(f"## 2026-10-03 — other entry — NOTE\n- we discussed rule-proposal {lid} and OVERSEER_PASS in prose\n")
-check("promote refuses a ledger chunk that merely quotes the id and the marker",
-      lq(r, "promote", lid).returncode == 1)
-(r / ".engine/overseer/ledger.md").write_text(f"## 2026-10-03 — rule-proposal {lid} — REVIEWED\n- the marker below\nOVERSEER_PASS\n")
-check("a chunk headed by the proposal with the marker alone on a line approves it", lq(r, "promote", lid).returncode == 0)
+check("a pending proposal alone asks the overseer for nothing: the decision is the owner's",
+      "RULE_PROPOSALS" not in prop and "LESSON_REVIEW" not in prop and "promote" not in prop and prop.startswith("OVERSEER_PASS recorded."), prop[-300:])
+lq(r, "add", "--source", "agent", "--slice", "s", "lesson four")
+prop = pass_reason(11)
+check("the triage request names the proposals that wait for the owner and tells the agent not to promote",
+      f"Waiting for the owner, nothing to do: RP-{lid}" in prop and "Never run `promote`" in prop, prop[-400:])
+lq(r, "resolve", ids(r)[0], "--to", "discard")
 bad_at = lq(r, "resolve", "00000000", "--to", "rule", "--text", "See @docs/x.md always", "--why", "w")
 lq(r, "add", "--source", "agent", "--slice", "s", "lesson three")
 bad_at = lq(r, "resolve", ids(r)[0], "--to", "rule", "--text", "See @docs/x.md always", "--why", "w")

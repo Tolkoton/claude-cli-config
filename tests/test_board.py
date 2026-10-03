@@ -327,6 +327,9 @@ MANUAL = {
     "an action the owner approves is the runner's to take, from a short list (board 008)": (
         "action-line apply-settings", "Відповідь «так» виконує виконавець", "Сам команду не запускай",
         "застосувати пропозицію налаштувань, закрити ескалацію воріт"),
+    "a lesson becomes a rule only on the owner's answer (board 040)": (
+        "Урок робить правилом лише власник", "`lesson_queue.py promote` не запускай", "8NN-rule-proposal", "Номери від 800",
+        "зробити урок правилом"),
     "paid runs only on the owner's written word": ("Аудит потрібен: так", "лімітом у доларах", "Агент сам таких прогонів не починає"),
     "the audit script refuses by itself; --owner-approved is the owner's": ("він відмовляє", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),
@@ -485,6 +488,65 @@ plain = put(root, "blocked", "005-plain.md", task(questions="1. Так?\n   Ві
 check("action-done and action-reject refuse a task that offers no action", cli(root, "action-done", plain.name, "applied").returncode == 2
       and cli(root, "action-reject", plain.name).returncode == 2 and cli(root, "action-done", "../todo/008-wiring.md", "applied").returncode == 2)
 check("action-line refuses an action that is not on the list", cli(root, "action-line", "run-script").returncode == 2)
+
+# --- board 040: a lesson becomes a rule only on the owner's word ----------------------------------
+print("the rule question (board 040)")
+root = new_board()
+b = board.Board(root / "tasks")
+RULE_SHA = "a" * 64
+q = board.rule_question(b, "ab12cd34", "Show the RED before the GREEN. <!-- x -->", "audit 06\ncaught it twice", "lesson #ab12cd34", "", RULE_SHA)
+text = q.read_text(encoding="utf-8")
+t = board.read(q)
+check("rule_question writes tasks/blocked/800-rule-proposal-<id>.md", q == root / "tasks/blocked/800-rule-proposal-ab12cd34.md", q)
+check("…the exact rule on one line, the reason, «немає» where the overseer said nothing",
+      "  > Show the RED before the GREEN. <! -- x -->\n" in text and "- Чому: audit 06 caught it twice\n" in text and "- Рекомендація наглядача: немає\n" in text, text)
+check("…parsed: the proposal, the offer and its sha256, one empty answer; it asks for no paid audit",
+      t.rule == "ab12cd34" and t.action == "promote-rule" and t.action_arg == RULE_SHA and t.answers == ("",) and not t.audit and not t.decided, t)
+check("the summary shows the question to the owner", any("800-rule-proposal-ab12cd34.md — 1. Зробити це правилом?" in line for line in board.summary(b)), board.summary(b))
+check("a second call for the same proposal writes nothing new", board.rule_question(b, "ab12cd34", "Other text.", "w", "o", "", "b" * 64) == q
+      and q.read_text(encoding="utf-8") == text)
+second = board.rule_question(b, "ffff0000", "Another rule.", "w", "o", "так: варто", "c" * 64)
+check("the next proposal takes the next free number; the overseer's recommendation is shown",
+      second.name == "801-rule-proposal-ffff0000.md" and "- Рекомендація наглядача: так: варто\n" in second.read_text(encoding="utf-8"), second.name)
+bare = Path(tempfile.mkdtemp(prefix="board-none-"))
+check("a project without a board gets no question", board.rule_question(board.Board(bare / "tasks"), "ab12cd34", "r", "w", "o", "", RULE_SHA) is None and not (bare / "tasks").exists())
+check("unanswered: owner-actions lists nothing, unblock moves nothing", cli(root, "owner-actions").stdout == "" and board.unblock(b) == [])
+for reply, decided in (("так", "promote-rule"), ("Так.", "promote-rule"), ("«так»", "promote-rule"), ("ні", "reject-rule"), ("Ні.", "reject-rule"),
+                       ("так, але коротше", ""), ("ні, перепиши", ""), ("такий текст не годиться", ""), ("закрити", "")):
+    q.write_text(text, encoding="utf-8")
+    answer(q, reply)
+    check(f"the answer {reply!r}: {decided or 'an instruction for the agent, nothing for the runner'}", board.read(q).decided == decided, board.read(q))
+check("an answer that is an instruction goes back to todo/ like any answered task", board.unblock(b) == [q.name])
+(root / "tasks/todo" / q.name).rename(q)
+for reply, action, said in (("так", "promote-rule", "правило додано"), ("ні", "reject-rule", "пропозицію закрито")):
+    q.write_text(text, encoding="utf-8")
+    answer(q, reply)
+    out = cli(root, "owner-actions").stdout.splitlines()
+    check(f"«{reply}»: owner-actions lists {action} with the sha256 of the rule; unblock leaves it to the runner",
+          len(out) == 1 and out[0].split("\t")[:3] == [q.name, action, RULE_SHA] and board.unblock(b) == [] and q.is_file(), out)
+    r = cli(root, "action-done", q.name, "applied")
+    target = root / "tasks/done" / q.stem
+    closed = (target / "task.md").read_text(encoding="utf-8") if (target / "task.md").is_file() else ""
+    check(f"…action-done applied: straight to done/ with the runner's report, the offer replaced, the answer kept",
+          r.returncode == 0 and not q.exists() and said in closed and "Дія виконавця:" not in closed and f"Відповідь: {reply}" in closed
+          and "Що змінилось для власника" in (target / "report.md").read_text(encoding="utf-8"), r.stdout + r.stderr + closed)
+    (target / "report.md").unlink()
+    (target / "task.md").unlink()
+    target.rmdir()
+for outcome, said in (("failed", "200 рядків"), ("stale", "sha256")):
+    q.write_text(text, encoding="utf-8")
+    answer(q, "так")
+    r = cli(root, "action-done", q.name, outcome)
+    after = q.read_text(encoding="utf-8") if q.is_file() else ""
+    check(f"action-done {outcome}: the task stays for the agent with the reason, and the same «так» promotes nothing",
+          r.returncode == 0 and said in after and board.read(q).decided == "" and cli(root, "owner-actions").stdout == "", after)
+q.write_text(text, encoding="utf-8")
+answer(q, "ні")
+cli(root, "action-reject", q.name)
+check("action-reject wipes «ні» written on the server as well, and keeps the offer",
+      board.read(q).answers == ("",) and board.read(q).action == "promote-rule" and "відповідь «ні» з'явилася на сервері" in q.read_text(encoding="utf-8"))
+forged = put(root, "blocked", "803-forged.md", task(questions="1. Так?\n   Дія виконавця: reject-rule " + RULE_SHA + "\n   Відповідь: так\n"))
+check("reject-rule cannot be offered by hand: it is only the owner's «ні» under a rule question", board.read(forged).action == "")
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

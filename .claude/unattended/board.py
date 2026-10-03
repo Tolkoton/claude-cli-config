@@ -26,7 +26,8 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py gate-done <name> <closed|absent>   such a task goes to done/ with its report
     board.py gate-reject <name>      its answer is wiped and the question asked again
     board.py owner-actions           blocked/ tasks that carry an allowed action the owner answered
-                                     «так»: one `name<TAB>action<TAB>argument<TAB>sha256` line each
+                                     «так» (a rule proposal: also «ні»): one
+                                     `name<TAB>action<TAB>argument<TAB>sha256` line each
     board.py action-line <action>    the line an agent writes under its question to offer the action
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
@@ -50,6 +51,15 @@ owner's answer «так» is acted on by board-runner.sh through owner_action.py
 outcome, and then the task returns to todo/ for the agent to check and report. The list of what
 the runner may do on the owner's word is OWNER_ACTIONS and nothing outside it is ever run from a
 task file. Any other answer is an instruction for the agent, as everywhere.
+
+A RULE QUESTION (board 040) is how a lesson becomes a rule: never by itself, only on the owner's
+word. `rule_question` (called by .claude/hooks/lesson_queue.py when a lesson is filed as a rule
+proposal) writes tasks/blocked/8NN-rule-proposal-<id>.md: the exact text of the rule, the
+overseer's recommendation when there is one, the question «Зробити це правилом?» and the offer
+`Дія виконавця: promote-rule <sha256 of the id and the text>`. «так» is the runner's to act on
+(owner_action.py promote-rule → lesson_queue.promote), «ні» too (reject-rule: the proposal is
+closed); either way the runner moves the task to done/ with a short report and no agent is
+started. Any other answer is an instruction for the agent.
 
 `--root DIR` names the repository (default: the one this file is installed in).
 """
@@ -79,9 +89,13 @@ GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner'
 GATE_CLOSE = "закрити"
 # What the runner may do on the owner's word, and the answer that asks for it. `close-escalation`
 # is offered by the gate's own question (the `Ескалація воріт:` line), the rest by an action line.
-OWNER_ACTIONS = {"apply-settings": "так", "close-escalation": GATE_CLOSE}
+OWNER_ACTIONS = {"apply-settings": "так", "promote-rule": "так", "close-escalation": GATE_CLOSE}
+RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
+RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
+RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_FIRST
 ACTION = re.compile(r"^[\s>*_-]*Дія виконавця:[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
 ACTION_FILES = {"apply-settings": "docs/tasks/settings.json"}  # the file whose sha256 the offer names
+OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE = 2, 3, 4
 
 
@@ -94,6 +108,7 @@ class Task:
     gate: str = ""
     action: str = ""
     action_arg: str = ""
+    rule: str = ""
 
     @property
     def answered(self) -> bool:
@@ -109,13 +124,25 @@ class Task:
     @property
     def approves(self) -> bool:
         """An offered action whose last answer is the one word «так»: the runner's to act on."""
-        return bool(self.action) and not self.gate and self.says(OWNER_ACTIONS[self.action])
+        return bool(self.action) and not self.gate and self.says(OWNER_ACTIONS[self.action], alone=self.action == RULE_ACTION)
 
-    def says(self, word: str) -> bool:
+    @property
+    def declines(self) -> bool:
+        """A rule question whose last answer is the one word «ні»: the runner closes the proposal."""
+        return self.action == RULE_ACTION and not self.gate and self.says(RULE_NO, alone=True)
+
+    @property
+    def decided(self) -> str:
+        """The action the runner is to take on the owner's answer, or ""."""
+        return self.action if self.approves else RULE_DECLINE if self.declines else ""
+
+    def says(self, word: str, alone: bool = False) -> bool:
+        """The last answer begins with `word`; alone=True (a rule question): it is nothing but that
+        word — «так, але інакше» is an instruction, not consent to this text."""
         if not self.answered:
             return False
         words = self.answers[-1].lower().split()
-        return bool(words) and words[0].strip("«»\"'`*_.,;:!") == word
+        return bool(words) and words[0].strip("«»\"'`*_.,;:!") == word and (not alone or len(words) == 1)
 
 
 def parse(text: str) -> Task:
@@ -131,7 +158,8 @@ def parse(text: str) -> Task:
         rest = text[section.end():]
         following = HEADING.search(rest)
         questions = rest[: following.start()] if following else rest
-    offers = [m for m in ACTION.finditer(questions) if m.group(1) in ACTION_FILES]
+    rule = RULE.search(header)
+    offers = [m for m in ACTION.finditer(questions) if m.group(1) in OFFERS]
     return Task(
         action=offers[-1].group(1) if offers else "",
         action_arg=(offers[-1].group(2) or "") if offers else "",
@@ -140,6 +168,7 @@ def parse(text: str) -> Task:
         questions=questions.strip(),
         answers=tuple(a.strip() for a in ANSWER.findall(questions)),
         gate=gate.group(1) if gate else "",
+        rule=rule.group(1) if rule else "",
     )
 
 
@@ -276,7 +305,7 @@ def unblock(board: Board) -> list[str]:
         task = read(path)
         # A gate question answered «закрити» is closed by the runner, not handed to an agent;
         # an offered action answered «так» waits for the runner to act on it first.
-        if task.answered and not task.closes and not task.approves:
+        if task.answered and not task.closes and not task.decided:
             target = board.tasks / "todo" / path.name
             target.parent.mkdir(parents=True, exist_ok=True)
             path.rename(target)
@@ -340,6 +369,63 @@ def gate_question(board: Board, stamp: str, blocks: int, slice_name: str, files:
     return target
 
 
+def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, advice: str, sha: str) -> Path | None:
+    """A rule proposal as a question in blocked/ (board 040). None when the project has no board;
+    the task already written for this proposal when there is one."""
+    if not board.tasks.is_dir():
+        return None
+    for path in [*(p for c in ("todo", "doing", "blocked") for p in board.files(c)), *(d / "task.md" for d in board.done())]:
+        if path.is_file() and read(path).rule == ident:
+            return path
+    taken = {n for column in COLUMNS for n in board.numbers(column)}
+    number = next(n for n in range(RULE_FIRST, RULE_FIRST + len(taken) + 1) if n not in taken)
+
+    def shown(text: str, empty: str) -> str:
+        return " ".join(text.replace("<!--", "<! --").split()) or empty
+
+    text = f"""# {number} — Зробити урок правилом? Пропозиція RP-{ident}
+
+Залежить від: —
+Аудит потрібен: ні
+Пропозиція правила: RP-{ident}
+
+## Що сталося
+Із роботи над проєктом винесено урок, схожий на постійне правило. Уроки не стають правилами
+самі: це правило з'явиться лише з вашої згоди. Наглядач може радити, але не вирішує.
+
+- Текст правила — саме так, слово в слово, він потрапить у `.engine/rules.md`, який читає кожна розмова:
+
+  > {shown(rule, "(тексту немає)")}
+
+- Чому: {shown(why, "(не записано)")}
+- Звідки урок: {shown(origin, "(не записано)")}
+- Рекомендація наглядача: {shown(advice, "немає")}
+
+## Що зробити
+Це питання до власника, не робота для агента. Відповіді «так» і «ні» виконує виконавець дошки.
+Якщо власник відповів інакше — це вказівка агентові: виконай її (щоб змінити текст правила,
+закрий цю пропозицію — `python3 .claude/hooks/lesson_queue.py reject {ident} --why "<слова власника>"` —
+і подай нову), запиши у звіт і закрий задачу. Сам `promote` не запускай і `Відповідь:` не заповнюй.
+
+## Готово, коли
+Власник відповів, і виконавець записав правило або закрив пропозицію.
+
+## Питання до власника
+Варіанти відповіді:
+- `так` — урок стає правилом: рядок вище буде додано до `.engine/rules.md`.
+- `ні` — правилом не стає; пропозицію закрито.
+- будь-який інший текст — вказівка агентові (наприклад, як переписати правило).
+
+1. Зробити це правилом?
+   Дія виконавця: {RULE_ACTION} {sha}
+   Відповідь:
+"""
+    target = board.tasks / "blocked" / f"{number}-rule-proposal-{ident}.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    return target
+
+
 def gate_answers(board: Board) -> list[str]:
     lines: list[str] = []
     for path in board.files("blocked"):
@@ -378,8 +464,8 @@ def owner_actions(board: Board) -> list[str]:
     lines: list[str] = []
     for path in board.files("blocked"):
         task = read(path)
-        if task.approves:
-            lines.append(f"{path.name}\t{task.action}\t{task.action_arg or '-'}\t{hashlib.sha256(path.read_bytes()).hexdigest()}")
+        if task.decided:
+            lines.append(f"{path.name}\t{task.decided}\t{task.action_arg or '-'}\t{hashlib.sha256(path.read_bytes()).hexdigest()}")
     return lines
 
 
@@ -393,24 +479,49 @@ def action_task(board: Board, name: str) -> Path | None:
     return path if path.is_file() and TASK_NAME.match(path.name) and read(path).action else None
 
 
+STALE = ("Дію не виконано ({now}, виконавець дошки): {action} — те, що застосовується, змінилося після запитання "
+         "(інший sha256) або його немає; власник схвалював не це. Агентові: спитай знову з новим рядком дії.")
 ACTION_OUTCOMES = {
     "applied": "Дію виконано ({now}, виконавець дошки): {action} — застосовано за відповіддю власника «так», "
                "перевірка після застосування зелена. Агентові: переконайся і закрий задачу звітом.",
     "failed": "Дію не виконано ({now}, виконавець дошки): {action} — перевірка після застосування червона, попередній "
               "файл повернуто (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: виправ і спитай знову.",
-    "stale": "Дію не виконано ({now}, виконавець дошки): {action} — файл, який застосовується, змінився після запитання "
-             "(інший sha256) або його немає; власник схвалював не його. Агентові: спитай знову з новим рядком дії.",
+    "stale": STALE,
+}
+RULE_OUTCOMES = {
+    (RULE_ACTION, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «так» правило додано до `.engine/rules.md`.",
+    (RULE_ACTION, "failed"): "Дію не виконано ({now}, виконавець дошки): {action} — правило не додано: постійний контекст перевищив би "
+                             "200 рядків (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: скороти "
+                             "`.engine/rules.md` і спитай знову (`lesson_queue.py ask <id>`).",
+    (RULE_DECLINE, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «ні» пропозицію закрито; правилом вона не стала.",
+}
+RULE_REPORTS = {
+    RULE_ACTION: "Урок став правилом за вашою відповіддю «так»: рядок додано до `.engine/rules.md` ({now}, виконавець дошки).",
+    RULE_DECLINE: "Пропозицію правила закрито за вашою відповіддю «ні»: правилом вона не стала ({now}, виконавець дошки).",
 }
 
 
-def action_done(path: Path, outcome: str) -> None:
+def action_done(board: Board, path: Path, outcome: str) -> Path:
     """Replace the offer by what happened: the task is then an ordinary answered one (`unblock`)
-    and the same «так» can never run the action twice."""
+    and the same answer can never run the action twice. A rule question the runner has acted on
+    needs no agent: it goes to done/ with a report. Returns where the task is now."""
     task = read(path)
-    note = ACTION_OUTCOMES[outcome].format(now=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), action=task.action)
+    action = task.decided or task.action
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    note = RULE_OUTCOMES.get((action, outcome), ACTION_OUTCOMES[outcome]).format(now=now, action=action)
     lines = path.read_text(encoding="utf-8").splitlines()
     lines = [note if ACTION.match(line) else line for line in lines]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if action not in RULE_REPORTS or outcome != "applied":
+        return path
+    target = board.tasks / "done" / path.stem
+    target.mkdir(parents=True, exist_ok=True)
+    path.rename(target / "task.md")
+    (target / "report.md").write_text(
+        f"# Звіт: {path.stem}\n\n## Що змінилось для власника\n- {RULE_REPORTS[action].format(now=now)}\n\n"
+        "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було, лише ваша відповідь.\n",
+        encoding="utf-8")
+    return target
 
 
 def gate_reject(path: Path, word: str = GATE_CLOSE) -> None:
@@ -553,9 +664,9 @@ def main() -> int:
             print(f"board: {args.name} offers no action in tasks/blocked/", file=sys.stderr)
             return EXIT_REFUSED
         if args.command == "action-done":
-            action_done(path, args.outcome)
+            print(board.shown(action_done(board, path, args.outcome)))
         else:
-            gate_reject(path, OWNER_ACTIONS[read(path).action])
+            gate_reject(path, RULE_NO if read(path).declines else OWNER_ACTIONS[read(path).action])
         return 0
     if args.command == "audit-allowed":
         refusal = audit_refusal(args.tasks_dir.resolve() if args.tasks_dir else board.tasks)

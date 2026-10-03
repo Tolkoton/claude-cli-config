@@ -53,6 +53,9 @@ through the overseer and a line-budgeted file.
   only when the ledger holds an entry naming `rule-proposal <id>` that contains OVERSEER_PASS,
   and refuses — leaving the file as it was — when CLAUDE.md plus its imports would pass 200
   lines. CLAUDE.md imports `.engine/rules.md` (seed, ownership entry, budget test included).
+  *Superseded 2026-10-03 by board task 040:* `promote` no longer reads the ledger; a proposal is a
+  question in `tasks/blocked/` and only the owner's «так» there makes a rule. The overseer may
+  recommend (`--recommend`), nothing more. The 200-line budget stands.
 - **M8 the skill's old text said the opposite** (queue in `.claude/`, never write MEMORY.md
   silently): the queue moves to `.engine/lesson-queue.md` everywhere in the skill; rule 2 now
   distinguishes attended confirmation from the hook's request.

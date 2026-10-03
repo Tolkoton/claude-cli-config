@@ -724,3 +724,9 @@ one; do not reopen the old one in conversation.
 - Evidence: tests/test_model_roles.py red on the four critics before the change (5 FAIL), 38/38 after; planted-model cases inside the suite.
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-03T18:30:00Z — AUTONOMOUS — board-040-owner-decides-rules (supersedes M7-promote-is-the-overseer-gate)
+- Decision: by the owner's decision in board task 040, `lesson_queue.py promote` no longer reads the ledger. A rule proposal is a question in `tasks/blocked/` (`8NN-rule-proposal-<id>.md`); only the owner's «так» under its offer, acted on by the board runner outside any session, makes a rule. The overseer's opinion is the optional `--recommend` line.
+- Door: two-way
+- Evidence: tests/test_lesson_queue.py "the promotion path (board 040)", tests/test_board.py "the rule question", tests/test_board_runner.py "board 040".
+- Status: CLOSED
