@@ -181,6 +181,12 @@ such exemption before the overseer, who judges it (check #4). What that rests on
   clear the variable or point `--tasks-dir` at another board. Each is a deliberate act that shows
   in the diff or the transcript — the gate stops drift, not intent. Only that one script is
   gated; for any other paid run the rule is text.
+- **The release command's owner check is the same seat belt.** `engine.py release` refuses
+  without `--owner-approved` and while `CLAUDECODE` is set, and it pushes from inside a script,
+  where no hook sees the push. An agent that clears the variable can release; that is a
+  deliberate act in the transcript, and only the remote's branch protection would stop it. What
+  the command guarantees regardless of who runs it: no force, no moved tag, fast-forward only,
+  nothing pushed on red tests or a differing golden set (`docs/release.md`).
 - **The runner sees files and commits, nothing else.** A task is closed when it left
   `tasks/doing/` for `done/` or `blocked/`. The runner does not read the report and does not
   judge the work; a task moved to `done/` with nothing done is "done" to it. The overseer and

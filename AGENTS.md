@@ -48,6 +48,7 @@ that dies.
 | `user/` | The owner's own skills and settings layer. Never ships. |
 | `docs/tasks/` | Proposals the engine may not apply itself, each with a test and one command |
 | `docs/engine-limits.md` | What the guarantees assume |
+| `docs/release.md` | The release order: `engine.py release <version>`, the owner's command only |
 | `evals/`, `tests/` | The measuring instruments and every check of this repository |
 
 ## Rules that bite

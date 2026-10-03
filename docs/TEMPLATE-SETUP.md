@@ -345,6 +345,8 @@ AGENTS.md         — agent roster and project context (loaded via @AGENTS.md)
 
 ## Keeping the engine up to date
 
+How a new version comes to exist — the tag, `main` and `stable` — is `docs/release.md`.
+
 ```bash
 git -C /path/to/claude-cli-config pull --tags                     # the new versions
 python3 /path/to/claude-cli-config/engine.py status /path/to/your-project

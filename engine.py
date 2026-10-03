@@ -6,6 +6,7 @@
     engine.py update  <project> [--ref REF] [--dry-run] [--reseed-pristine] [--take PATH]
     engine.py update  --all     [--ref REF] [--dry-run] [--reseed-pristine]
     engine.py status  [<project>] [--ref REF]
+    engine.py release <version> --owner-approved [--baseline FILE] [--remote NAME] [--message TEXT]
 
 REF defaults to the newest `v*` tag. Files are read from the ref with git, never from the
 working tree, so an install can be repeated byte for byte. `.claude/ownership.txt` in that
@@ -36,6 +37,11 @@ when the ref's seed block differs, and never a byte outside them. An older proje
 CLAUDE.md still holds the rules inline is reported: an unedited copy is replaced by the seed
 with --reseed-pristine; an edited one is left alone and the report names the import line to
 add and the line ranges that now duplicate .claude/engine-rules.md.
+
+`release` is the owner's command and the only one that pushes (docs/release.md): on a clean work
+tree with green suites and a golden set identical to its baseline it tags HEAD with the version
+and moves `main` and `stable` onto it, fast-forward only. Without --owner-approved, or inside a
+Claude Code session, it does nothing.
 
 engine.py never commits and never touches a file it does not own: review with `git status`.
 Exit status: 0 done, 1 done but some engine files were held back (see "keep"), 2 error.
@@ -121,6 +127,13 @@ STATE_MIGRATIONS: tuple[tuple[str, str], ...] = (
 # The harness's stall timeout (config.sh STALL_TIMEOUT_SEC default): a heartbeat younger than
 # this means a session may be writing state right now.
 STALL_TIMEOUT_S = 900
+# A release (docs/release.md). The branches that follow every release, the two checks it runs in
+# the repository being released, and where the golden set's baselines live.
+RELEASE_BRANCHES = ("main", "stable")
+RELEASE_VERSION = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
+RELEASE_TESTS = ("bash", "tests/run_all.sh")
+RELEASE_GOLDEN = "evals/run_hook_scenarios.py"
+RELEASE_BASELINES = "evals/baseline/*/results-*.json"
 SUPERVISOR_STOP_FIRST = "unattended supervisor appears live ({why}): stop it first; the state is not moved"
 
 
@@ -1137,6 +1150,122 @@ def cmd_status(src: EngineSource, args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# --- release ------------------------------------------------------------------------------
+
+
+def version_key(version: str) -> tuple[int, ...] | None:
+    match = RELEASE_VERSION.fullmatch(version)
+    return tuple(int(part) for part in match.groups()) if match else None
+
+
+def ref_commit(src: EngineSource, ref: str) -> str | None:
+    """The commit a ref points at, or None when the ref does not exist."""
+    proc = subprocess.run(
+        ["git", "-C", str(src.root), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def require_clean(src: EngineSource, when: str) -> None:
+    dirty = git(src.root, "status", "--porcelain").decode("utf-8", "replace").splitlines()
+    if dirty:
+        listed = "\n".join(f"    {line}" for line in dirty[:10])
+        raise EngineError(f"the work tree is not clean {when} ({len(dirty)} path(s)); nothing was released\n{listed}")
+
+
+def check_version(src: EngineSource, version: str, remote: str) -> None:
+    """The version was never released, here or on the remote, and is newer than every released one."""
+    on_remote = git(src.root, "ls-remote", "--tags", remote, f"refs/tags/{version}").strip()
+    if on_remote or ref_commit(src, f"refs/tags/{version}"):
+        where = f" on {remote}" if on_remote else ""
+        raise EngineError(f"the tag {version} already exists{where}; a released version is never moved")
+    released = [(k, tag) for tag in git(src.root, "tag", "--list", "v*").decode().split() if (k := version_key(tag))]
+    if released and (version_key(version) or ()) <= max(released)[0]:
+        raise EngineError(f"{version} is not newer than {max(released)[1]}, the newest released version")
+
+
+def check_fast_forward(src: EngineSource, head: str, remote: str) -> None:
+    """Every existing `main` and `stable`, here and on the remote, must already be behind HEAD."""
+    for branch in RELEASE_BRANCHES:
+        for ref, name in ((f"refs/remotes/{remote}/{branch}", f"{remote}/{branch}"), (f"refs/heads/{branch}", branch)):
+            commit = ref_commit(src, ref)
+            if commit is not None and not src.is_ancestor(commit, head):
+                raise EngineError(
+                    f"{name} ({commit[:7]}) is not an ancestor of HEAD ({head[:7]}): moving it would not be a "
+                    "fast-forward. Bring its commits into the branch being released first; nothing was released"
+                )
+
+
+def newest_baseline(src: EngineSource) -> str:
+    """The golden-set results file committed last: the baseline the task plans call "the newest"."""
+    added = git(src.root, "log", "--diff-filter=A", "--format=", "--name-only", "HEAD", "--", RELEASE_BASELINES).decode().split("\n")
+    for path in added:
+        if path and (src.root / path).is_file():
+            return path
+    raise EngineError(f"no golden-set baseline ({RELEASE_BASELINES}) in this repository; pass --baseline FILE")
+
+
+def run_check(src: EngineSource, what: str, command: list[str], red: str) -> None:
+    print(f"  check   {what}: {' '.join(command)}", flush=True)
+    if subprocess.run(command, cwd=src.root, check=False).returncode != 0:
+        raise EngineError(f"{red}; nothing was released")
+
+
+def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
+    if not args.owner_approved:
+        raise EngineError("release does nothing without --owner-approved: a release is the owner's decision (docs/release.md)")
+    if os.environ.get("CLAUDECODE"):
+        raise EngineError(
+            "--owner-approved was given, but inside a Claude Code session (CLAUDECODE is set) it does not count: "
+            "it is the owner's flag, for the owner's own terminal"
+        )
+    version, remote = args.version, args.remote
+    if version_key(version) is None:
+        raise EngineError(f"{version!r} is not a version: write it as vMAJOR.MINOR.PATCH, for example v0.12.0")
+    git(src.root, "fetch", "--quiet", remote)
+    check_version(src, version, remote)
+    require_clean(src, "before the checks")
+    head = src.resolve("HEAD")
+    check_fast_forward(src, head, remote)
+    baseline = args.baseline or newest_baseline(src)
+    if not (src.root / baseline).is_file():
+        raise EngineError(f"the baseline {baseline} is not a file in {src.root}")
+    print(f"engine release: {version} at {head[:7]} -> {', '.join(RELEASE_BRANCHES)} on {remote}")
+    run_check(src, "the suites", list(RELEASE_TESTS), "the tests are red")
+    run_check(
+        src,
+        "the golden set",
+        [sys.executable, RELEASE_GOLDEN, "--engine-ref", "HEAD", "--compare", baseline],
+        f"the golden set is not identical to {baseline}",
+    )
+    require_clean(src, "after the checks")
+    if src.resolve("HEAD") != head:
+        raise EngineError("HEAD moved while the checks ran; nothing was released")
+
+    git(src.root, "tag", "-a", version, "-m", args.message or f"engine {version}", head)
+    try:
+        git(src.root, "push", "--atomic", remote, f"refs/tags/{version}", *(f"{head}:refs/heads/{b}" for b in RELEASE_BRANCHES))
+    except EngineError as exc:
+        git(src.root, "tag", "-d", version)
+        raise EngineError(f"the push was refused, the local tag is removed again and nothing was released\n  {exc}") from None
+    print(f"  pushed  {version}, {', '.join(RELEASE_BRANCHES)} -> {remote} (fast-forward)")
+    current = subprocess.run(
+        ["git", "-C", str(src.root), "symbolic-ref", "--short", "-q", "HEAD"], capture_output=True, text=True, check=False
+    ).stdout.strip()
+    for branch in RELEASE_BRANCHES:
+        if branch == current:
+            continue
+        try:
+            git(src.root, "branch", "-f", branch, head)
+        except EngineError as exc:
+            print(f"  note    the local branch {branch} was not moved (the remote one was): {exc}")
+    print(f"released {version} ({head[:7]}): {', '.join(RELEASE_BRANCHES)} and the tag point at it, here and on {remote}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="engine.py", description=(__doc__ or "").split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1186,6 +1315,24 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("project", nargs="?")
     common(status, writes=False)
     status.set_defaults(handler=cmd_status)
+
+    release = sub.add_parser(
+        "release", help="the owner's: tag HEAD with a version and move main and stable onto it, fast-forward only, and push"
+    )
+    release.add_argument("version", help="the new version, vMAJOR.MINOR.PATCH")
+    release.add_argument(
+        "--owner-approved",
+        action="store_true",
+        help="the owner's approval; without it nothing happens, and inside a Claude Code session it does not count",
+    )
+    release.add_argument(
+        "--baseline",
+        metavar="FILE",
+        help=f"the golden-set results to compare with (default: the {RELEASE_BASELINES} committed last)",
+    )
+    release.add_argument("--remote", default="origin", help="the remote to push to (default: origin)")
+    release.add_argument("--message", metavar="TEXT", help="the tag's message (default: `engine <version>`)")
+    release.set_defaults(handler=cmd_release)
     return parser
 
 
