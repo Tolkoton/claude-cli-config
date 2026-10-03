@@ -173,3 +173,12 @@ Categories follow Trajectory-Informed Memory Generation (arXiv 2603.10600):
 - Evidence: .engine/architecture/feature/engine-package-board.md; `bash tests/run_all.sh` 49 suites green (2026-10-03T14:07Z–14:11Z, at b2681b3); golden hook set 114/114 identical to results-package-costs.json; ruff --isolated and mypy --strict clean on the new and changed Python; live check: task 000-перевірка todo → doing → done through the real `claude`, 0.277 USD of 3 (commits 8f2b806, cbf7b9f, fef334d).
 - Action: 6 slices built (B1 board + board.py, B2+B3 runner, B4 paid-run gate, B5 rules, B6 seventeen tasks in todo/), tracer verified (tests/test_board_runner.py, first case), 2 critic rounds on the plan (REVISE, PASS), 0 interrupts.
 - Category: strategy
+
+## 2026-10-03T17:20:00Z — board 010-simplifier — TASK_BUILT
+- Trigger: tasks/doing/010-simplifier.md (the owner's decisions are in the task; no audit asked for).
+- Model probe (item 0): `claude -p --model fable`, Read/Grep/Glob, three engine files — answered on claude-fable-5-1 with six concrete findings, no refusal, 0.60 USD (.engine/artifacts/simplifier/probe/fable.json). Decision: the simplifier runs on fable; opus stays the owner's fallback.
+- Evidence: `bash tests/run_all.sh` 54 suites (53 green, one red on a record exemption, fixed and re-run green: tests/test_no_home_hook_copies.py 21/21); golden hook set 118/118 meeting expectations, 114 identical to results-package-costs.json, 4 new (evals/baseline/claw/results-task-010.json); ruff --isolated and mypy --strict clean (tests/test_engine_lint.py); 17 deliberate breakages, each seen red after two test gaps were closed.
+- Eval: evals/baseline/claw/simplifier-evals-2026-10-03.json — three runs, recall 1.0, precision 1.0, 0 traps touched, 1.41 USD; one earlier trial run (0.64 USD) was spoiled by a concurrent test of mine deleting its temporary directory and is not counted.
+- First pass over the engine: 21 findings, 0 rejected (.engine/simplifier/first-pass/); 1 auto_remove carried out (725fadf, Simplifier-Finding: F-2acc71d0), 20 in .engine/simplifier/report.md for the owner.
+- Commits: 0ed18d0, e9158e1, 2dd5548, 725fadf.
+- Category: build

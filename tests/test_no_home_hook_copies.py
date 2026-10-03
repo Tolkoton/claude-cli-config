@@ -60,7 +60,8 @@ def main() -> int:
     tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"], capture_output=True, check=True).stdout.decode().split("\0")
     live = []
     for rel in tracked:
-        if not rel or rel.startswith(("docs/plan/", "evals/baseline/", ".engine/architecture/archive/", ".engine/architecture/feature/engine-package-3")):
+        if not rel or rel.startswith(("docs/plan/", "evals/baseline/", ".engine/architecture/archive/", ".engine/architecture/feature/engine-package-3",
+                                         ".engine/simplifier/")):  # the simplifier's findings quote history, like the ledger
             continue
         if rel in (".engine/overseer/ledger.md", ".engine/overseer/escalations.md", ".engine/overseer/parked.md", ".engine/architecture/feature-dag.json", ".claude/unattended/unattended-decisions.md", "docs/engine-limits.md", ".claude/references/permission-philosophy.md", "tests/test_no_home_hook_copies.py"):
             continue
