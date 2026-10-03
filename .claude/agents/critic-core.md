@@ -1,6 +1,5 @@
 ---
 name: critic-core
-model: sonnet
 description: |
   Shared foundation inherited by every critic (slice-critic, feature-critic,
   master-critic). Holds what is UNIFORM across levels: the integrity discipline, the

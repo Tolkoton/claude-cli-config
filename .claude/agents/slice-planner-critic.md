@@ -1,6 +1,5 @@
 ---
 name: slice-planner-critic
-model: sonnet
 description: |
   Adversarial sparring critic for the AUTOMATED slice-planning loop (Phases 2-5).
   Inherits critic-core.md. Invoke as a fresh-context subagent whenever the slice planner drafts a

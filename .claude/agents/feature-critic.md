@@ -1,6 +1,5 @@
 ---
 name: feature-critic
-model: sonnet
 description: |
   Adversarial sparring critic for FEATURE decomposition (slice DAG + inter-slice
   contracts). Invoke as a fresh-context subagent whenever the feature-architect drafts a

@@ -83,8 +83,8 @@ After this round, the owner is not prompted again except for the critical interr
 # Phases 2-4 — AUTOMATED decompose → contracts → sequence
 
 Draft all three phases, then put the WHOLE plan before the critic. **A plan gets at most two
-critic rounds** — in total, not per phase (owner's rule, package costs: the critic runs on a
-cheaper model, and a third round on the same plan has never paid for itself).
+critic rounds** — in total, not per phase (owner's rule: the critic runs on the session's
+model, and a third round on the same plan has never paid for itself).
 
 ```
 draft = YOU (as architect) draft decompose, then contracts, then sequence

@@ -711,3 +711,12 @@ one; do not reopen the old one in conversation.
 - Evidence: commits 1c0748b, adcd4ab, 977193b, 09bdd22, b2681b3; .engine/architecture/feature/engine-package-board.md.
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-03T14:54:36Z — AUTONOMOUS — board-001-critics-on-session-model
+- Decision: supersedes the model half of costs-K9-K10-models-and-rounds on the owner's instruction (task 001): the `model` field is removed from critic-core, feature-critic, master-critic and slice-planner-critic, so every critic inherits the session's model. The two-round cap stays. The test treats only "no `model`" and `inherit` as not weaker for a critic (the session's model is unknown to a deterministic test); for every other definition and for the settings layers it refuses the sonnet and haiku families.
+- Door: two-way
+- Cost to reverse: four frontmatter lines; one sentence in .claude/commands/feature-architect.md; one block of tests/test_model_roles.py.
+- Why not escalated: the owner's own decision, written in the task; the strictness of the test is implementation.
+- Evidence: tests/test_model_roles.py red on the four critics before the change (5 FAIL), 38/38 after; planted-model cases inside the suite.
+- Falsified by: —
+- Status: CLOSED
