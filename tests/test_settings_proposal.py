@@ -9,8 +9,10 @@ an agent), so this is the test of that one file. It holds before and after the a
   effective settings of {home fixture, the shared file as it was before the split}
   (docs/tasks/effective-before-split.json) — except for the differences this file lists
   on purpose, each with the reason;
-- the proposal carries no personal key, and its hooks block is byte-for-byte the live one
-  (applying it changes no hook wiring);
+- the proposal carries no personal key; against the live file its hooks block drops the retired
+  approve-project-data handler and adds the two stuck-counter handlers (STUCK_HANDLERS), and
+  nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
+  `cp` of it the one way to apply it;
 - once the live .claude/settings.json equals the proposal, that is reported as applied.
 """
 
@@ -18,6 +20,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -38,6 +41,10 @@ PERSONAL_ENV = (
 )
 
 APPROVE_HANDLER = 'PermissionRequest|Edit|Write|MultiEdit|command|python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/approve-project-data.py"'
+STUCK_COMMAND = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/lesson_queue.py" stuck'
+# The stuck counter on Bash results (package memory): a failed Bash call arrives as
+# PostToolUseFailure, a finished one as PostToolUse. The owner's decision of 2026-10-03.
+STUCK_HANDLERS = {f"{event}|Bash|command|{STUCK_COMMAND}" for event in ("PostToolUse", "PostToolUseFailure")}
 
 # Differences against the frozen "before" that are intended. Path -> why.
 INTENDED: dict[str, str] = {
@@ -55,6 +62,11 @@ INTENDED: dict[str, str] = {
     "env.ANTHROPIC_DEFAULT_SONNET_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
     "env.ANTHROPIC_DEFAULT_OPUS_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
     "env.ANTHROPIC_DEFAULT_HAIKU_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
+    "hooks": (
+        "owner, 2026-10-03 (package memory, board 008): the stuck counter listens to Bash results — "
+        "`lesson_queue.py stuck` on PostToolUse and PostToolUseFailure, matcher Bash; without them a "
+        "command that fails three times in a row goes unnoticed. Exactly these two handlers, nothing else"
+    ),
     "env.CLAUDE_CODE_SUBAGENT_MODEL": "F4 (owner): removed — the variable is not documented at code.claude.com/docs/en/env-vars",
 }
 
@@ -102,14 +114,37 @@ def main() -> int:
     # project-owned is left under .claude/ for it to approve — so the proposal DROPS its
     # PermissionRequest handler and changes no other wiring. Until the owner applies it the
     # live file still carries exactly that handler; afterwards the two are equal.
+    # Board 008 (owner, 2026-10-03): the proposal ADDS the two stuck-counter handlers; until it
+    # is applied the live file lacks them. No other handler may differ, in either direction.
     extra = set(parity.hook_handlers(proposal["hooks"])) - set(parity.hook_handlers(live["hooks"]))
     gone = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
     t.check(
-        "proposal: no hook added, and the only removal is approve-project-data on PermissionRequest",
-        not extra and (not gone or gone == {APPROVE_HANDLER}),
+        "proposal: the only hooks added against the live file are the two stuck-counter handlers, "
+        "and the only removal is approve-project-data on PermissionRequest",
+        extra <= STUCK_HANDLERS and gone <= {APPROVE_HANDLER},
         json.dumps({"extra": sorted(extra), "gone": sorted(gone)}),
     )
     t.check("proposal: the retired hook is not wired anywhere", "approve-project-data" not in json.dumps(proposal["hooks"]))
+    stuck = [
+        (event, group, handler)
+        for event in ("PostToolUse", "PostToolUseFailure")
+        for group in proposal["hooks"].get(event, [])
+        for handler in group["hooks"]
+        if handler.get("command") == STUCK_COMMAND
+    ]
+    t.check(
+        "proposal: the stuck counter is wired once on PostToolUse and once on PostToolUseFailure, for Bash, with a timeout",
+        [event for event, _, _ in stuck] == ["PostToolUse", "PostToolUseFailure"]
+        and all(group.get("matcher") == "Bash" and handler.get("timeout") for _, group, handler in stuck),
+        json.dumps(stuck, ensure_ascii=False),
+    )
+    script = ROOT / ".claude/hooks/lesson_queue.py"
+    helped = subprocess.run([sys.executable, str(script), "--help"], capture_output=True, text=True, check=False)
+    t.check("...and the command names a script that exists with the sub-command it has", script.is_file() and "stuck" in helped.stdout)
+    t.check(
+        "the old second way to apply is gone: no merge script, no fragment",
+        not (ROOT / "docs/tasks/apply-lesson-hooks.py").exists() and not (ROOT / "docs/tasks/lesson-hooks.json").exists(),
+    )
     t.check("proposal: the engine's own env stays", proposal["env"].get("CLAUDE_CODE_STOP_HOOK_BLOCK_CAP") is not None)
     t.check("personal layer: wires no hooks", "hooks" not in personal_raw)
 
@@ -138,6 +173,11 @@ def main() -> int:
         f"{len(diffs)} intended difference(s)",
         not unexpected and not missing,
         json.dumps({"unexpected": unexpected, "intended but absent": missing}, ensure_ascii=False),
+    )
+    t.check(
+        "effective hooks: the frozen handlers plus exactly the two stuck-counter handlers",
+        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS and not set(frozen["hooks"]) - set(after["hooks"]),
+        json.dumps(sorted(set(after["hooks"]) ^ set(frozen["hooks"]))),
     )
     for d in diffs:
         if d["path"] in INTENDED:

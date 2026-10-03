@@ -18,7 +18,7 @@ through the overseer and a line-budgeted file.
 
 - `.claude/settings.json` (owner-only). Everything that can ride on hooks already wired does; the
   one thing that cannot (the stuck counter on Bash results) is a parked proposal with its own
-  test and one command (`docs/tasks/lesson-hooks.json`, `apply-lesson-hooks.py`).
+  test and one command (since board 008: inside `docs/tasks/settings.json`, applied by `cp`).
 - The overseer's text (`.claude/skills/overseer/SKILL.md`): unchanged. "The overseer checks the
   proposals" is a deterministic gate in `promote`, not a new overseer rule.
 - Writing CLAUDE.md. Never, by anything here.
@@ -65,7 +65,7 @@ through the overseer and a line-budgeted file.
 | B2 | carriers: gate, overseer hook, SessionStart | same suite, hook-level cases |
 | B3 | skill text, `.engine/rules.md` import, seed, ownership, budget test | test_context_budget, test_ownership, test_text_hygiene |
 | B4 | golden scenarios for the new behaviour; new reference | evals run, compare to results-package-7.json |
-| B5 | the parked wiring proposal | tests/test_lesson_hooks_proposal.py |
+| B5 | the parked wiring proposal | tests/test_settings_proposal.py (since board 008) |
 
 ## Hardest seams
 

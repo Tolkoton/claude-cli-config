@@ -161,6 +161,11 @@ such exemption before the overseer, who judges it (check #4). What that rests on
   the server; it does not stop an agent that drops a forged copy into the inbox directory or
   pushes one to the remote by another route — like clearing `CLAUDECODE`, a deliberate act that
   shows in the transcript, not something the runner can see.
+- **The runner applies the settings proposal on the owner's `так`** (`owner_action.py`), by the
+  same rule for where an answer came from and with the same limit. The offer names the sha256 of
+  the proposal, so what is applied is the file the owner was asked about; whether the owner read
+  it is not something a script can know. The list of such actions is two entries long and is
+  code, not configuration: a task file cannot name a command to run.
 - **The lock is keyed on files, so it is wide.** The slice's name is the agent's to write
   (`.engine/PROGRESS.md`), the diff is not. An escalation therefore holds every PASS while the
   files the gate blocked on are in the range no accepted PASS has covered — in practice all work

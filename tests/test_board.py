@@ -324,6 +324,9 @@ MANUAL = {
     "then the task goes to done/NNN-name/ with task.md and report.md": ("`done/NNN-назва/`", "`task.md`", "`report.md`"),
     "a gate question is the owner's to answer and the runner's to close (board 005)": (
         "9NN-gate-escalation", "не заповнюй", "закриття ескалації не запускай", "Номери від 900"),
+    "an action the owner approves is the runner's to take, from a short list (board 008)": (
+        "action-line apply-settings", "Відповідь «так» виконує виконавець", "Сам команду не запускай",
+        "застосувати пропозицію налаштувань, закрити ескалацію воріт"),
     "paid runs only on the owner's written word": ("Аудит потрібен: так", "лімітом у доларах", "Агент сам таких прогонів не починає"),
     "the audit script refuses by itself; --owner-approved is the owner's": ("він відмовляє", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),
@@ -428,6 +431,60 @@ check("gate-done absent: the report says it was not open", r.returncode == 0
       and "вже не була відкрита" in (root / "tasks/done" / again.stem / "report.md").read_text(encoding="utf-8"), r.stderr)
 check("gate-done and gate-reject refuse a task that is not a gate question", cli(root, "gate-done", "005-plain.md", "closed").returncode == 2
       and cli(root, "gate-reject", "../todo/x.md").returncode == 2)
+
+# --- board 008: an action offered under a question, approved with «так» --------------------------
+print("the owner's action (board 008)")
+root = new_board()
+b = board.Board(root / "tasks")
+(root / "docs/tasks").mkdir(parents=True)
+(root / "docs/tasks/settings.json").write_text("{}\n")
+SHA = "44136fa355b3678a1138e166b3d48e7b6f1d7a3b1a7d7e6c0f2e5d1d9a6d3c1e"  # any 64 hex digits
+offer = cli(root, "action-line", "apply-settings").stdout.strip()
+check("action-line prints the offer with the sha256 of the proposal as it is now",
+      offer == "Дія виконавця: apply-settings ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356", offer)
+
+
+def offered(name: str, line: str, reply: str = "") -> Path:
+    return put(root, "blocked", name, task(questions=f"1. Застосувати пропозицію налаштувань?\n   {line}\n   Відповідь:{' ' + reply if reply else ''}\n"))
+
+
+t = board.read(offered("008-wiring.md", offer))
+check("the offer is parsed: the action and its sha256; unanswered, it approves nothing",
+      t.action == "apply-settings" and t.action_arg == offer.split()[-1] and not t.approves and not t.answered, t)
+check("the summary shows the question, not the offer line", any("008-wiring.md — 1. Застосувати пропозицію налаштувань?" in line for line in board.summary(b)), board.summary(b))
+check("unanswered: owner-actions lists nothing", cli(root, "owner-actions").stdout == "")
+for reply, yes in (("так", True), ("Так.", True), ("«так»", True), ("так, застосуй", True), ("ні", False), ("закрити", False), ("такий варіант не годиться", False)):
+    check(f"the answer {reply!r} {'approves' if yes else 'does not approve'}", board.read(offered("008-wiring.md", offer, reply)).approves is yes)
+for line, why in ((f"Дія виконавця: run-script {SHA}", "an action that is not on the list"), ("Дія виконавця: close-escalation", "the gate's action offered by hand"),
+                  ("Дія: apply-settings", "another wording")):
+    t = board.read(offered("008-wiring.md", line, "так"))
+    check(f"{why} is no offer: an ordinary answered task", t.action == "" and not t.approves and t.answered, t)
+header = put(root, "blocked", "007-header.md", task().replace("Аудит потрібен: ні", f"Аудит потрібен: ні\n{offer}") + "1. Так?\n   Відповідь: так\n")
+check("an offer outside the questions section is not one", board.read(header).action == "")
+header.unlink()
+q = offered("008-wiring.md", offer, "так")
+out = cli(root, "owner-actions").stdout.splitlines()
+check("owner-actions lists it: name, action, sha256 of the proposal, sha256 of the task",
+      len(out) == 1 and out[0].split("\t")[:3] == [q.name, "apply-settings", offer.split()[-1]] and len(out[0].split("\t")[3]) == 64, out)
+check("gate-answers does not list it, and it is no gate question", cli(root, "gate-answers").stdout == "" and cli(root, "gate-done", q.name, "closed").returncode == 2)
+check("unblock leaves «так» to the runner", board.unblock(b) == [] and q.is_file())
+r = cli(root, "action-reject", q.name)
+text = q.read_text(encoding="utf-8")
+check("action-reject wipes the answer, says why, keeps the offer", r.returncode == 0 and board.read(q).answers == ("",) and board.read(q).action == "apply-settings"
+      and "відповідь «так» з'явилася на сервері" in text, text)
+answer(q, "так")
+for outcome, said in (("stale", "sha256"), ("failed", "попередній"), ("applied", "Дію виконано")):
+    q = offered("008-wiring.md", offer, "так")
+    r = cli(root, "action-done", q.name, outcome)
+    t, text = board.read(q), q.read_text(encoding="utf-8")
+    check(f"action-done {outcome}: the offer is replaced by the outcome, the answer stays", r.returncode == 0 and t.action == "" and not t.approves
+          and t.answers == ("так",) and said in text and "Дія виконавця:" not in text, text)
+check("…so the same «так» cannot run the action twice, and the task returns to todo/", cli(root, "owner-actions").stdout == ""
+      and board.unblock(b) == [q.name] and (root / "tasks/todo" / q.name).is_file())
+plain = put(root, "blocked", "005-plain.md", task(questions="1. Так?\n   Відповідь: так\n"))
+check("action-done and action-reject refuse a task that offers no action", cli(root, "action-done", plain.name, "applied").returncode == 2
+      and cli(root, "action-reject", plain.name).returncode == 2 and cli(root, "action-done", "../todo/008-wiring.md", "applied").returncode == 2)
+check("action-line refuses an action that is not on the list", cli(root, "action-line", "run-script").returncode == 2)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

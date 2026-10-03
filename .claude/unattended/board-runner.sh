@@ -11,7 +11,7 @@
 #   before every task   fetch and `pull --rebase` the work branch — new tasks and the owner's
 #                       answers arrive this way; take new files from the inbox into tasks/todo/
 #                       (one commit); close the gate escalations the owner answered «закрити»
-#                       (see below); move answered tasks from tasks/blocked/ back to todo/ (one commit)
+#                       and take the actions the owner answered «так» (see below); move answered tasks from tasks/blocked/ back to todo/ (one commit)
 #   the task            the first in todo/ whose dependencies are in done/ goes to doing/ in a
 #                       commit of its own, then `claude -p` in a FRESH conversation
 #   while it is open    a session that ended with the task still in doing/ is continued
@@ -37,8 +37,16 @@
 # gate.py refuses the command inside a Claude Code session, so a runner an agent starts closes
 # nothing.
 #
+# AN OWNER ACTION (board 008) is what the owner approved with «так» under a question that offers
+# it (`Дія виконавця: <action> <sha256>`, see board.py). The runner takes it, never the agent,
+# and only from the short list: `apply-settings` (owner_action.py: the settings proposal is
+# copied over .claude/settings.json and its test run) and the gate's `close-escalation` above.
+# The same rule for where the answer came from applies. The offer is then replaced by the
+# outcome and the task returns to todo/ for the agent to check and report.
+#
 # THE RUNNER MOVES A TASK INTO doing/; ONLY THE AGENT MOVES IT OUT. Gate questions apart, the
-# runner writes no report and judges no work. It commits nothing but tasks/ — and only on the work branch, which must
+# runner writes no report and judges no work. It commits nothing but tasks/ and, after
+# apply-settings, .claude/settings.json — and only on the work branch, which must
 # be an unattended/* branch: hooks do not see a commit made from a script, so the check is here.
 #
 # Every number is an environment variable, so the tests run in seconds:
@@ -230,9 +238,49 @@ publish_gate_questions() {
 # Called before the pull: whatever it lists was written here, not by the owner.
 local_gate_answers() {
   local line
-  board gate-answers | while IFS= read -r line; do
+  { board gate-answers; board owner-actions; } | while IFS= read -r line; do
     grep -qxF -- "$line" "$ACCEPTED" 2>/dev/null || echo "$line"
   done
+}
+
+# Act on the owner's «так» under an offered action. Run here, by the runner — never by an agent;
+# owner_action.py holds the list of what may be run and refuses inside a Claude Code session.
+owner_actions() {
+  local name action arg sum line rc outcome
+  while IFS=$'\t' read -r name action arg sum; do
+    [ -n "$name" ] || continue
+    line="$name"$'\t'"$action"$'\t'"$arg"$'\t'"$sum"
+    if grep -qxF -- "$line" <<< "$LOCAL_ANSWERS"; then
+      board action-reject "$name" || finish error - action "board.py action-reject $name failed"
+      event "action-answer-rejected $action $name written-here"
+      say "$name: an answer written on this machine is not the owner's; wiped and asked again"
+      board_commit "board: ${name%.md} — an answer written on this machine is not the owner's; asked again" \
+        || finish error - commit "cannot commit the rejected answer"
+      continue
+    fi
+    echo "$line" >> "$ACCEPTED"
+    python3 "$HERE/owner_action.py" --root "$PROJECT_ROOT" "$action" "$arg" >> "$STATE/logs/owner-action.log" 2>&1; rc=$?
+    case "$rc" in
+      0) outcome=applied ;;
+      1) outcome=failed ;;
+      3) outcome=stale ;;
+      *) event "action-refused $action $name rc=$rc"
+         say "$name: owner_action.py refused $action (see $STATE/logs/owner-action.log); the question stays in blocked/"
+         continue ;;
+    esac
+    board action-done "$name" "$outcome" || finish error - action "board.py action-done $name failed"
+    event "action-$outcome $action $name"
+    say "${name%.md}: $action on the owner's answer — $outcome"
+    if [ "$outcome" = applied ] && ! git diff --quiet -- .claude/settings.json; then
+      [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] \
+        || finish error - branch "the checkout left $BRANCH; nothing was committed"
+      git commit -q -m "settings: the proposal docs/tasks/settings.json applied on the owner's answer (${name%.md})" -- .claude/settings.json \
+        || finish error - commit "cannot commit the applied settings"
+      event "commit $(git rev-parse --short HEAD) settings applied"
+    fi
+    board_commit "board: ${name%.md} — $action on the owner's answer: $outcome" \
+      || finish error - commit "cannot commit the outcome of the action"
+  done <<< "$(board owner-actions)"
 }
 
 # Act on the owner's «закрити». The command is run here, by the runner — never by an agent.
@@ -276,6 +324,7 @@ intake() {
       || finish error - commit "cannot commit the inbox files"
   fi
   close_escalations
+  owner_actions
   answered=$(board unblock) || finish error - unblock "board.py unblock failed"
   if [ -n "$answered" ]; then
     board_commit "board: answered, back to todo — $(echo "$answered" | tr '\n' ' ')" \

@@ -18,6 +18,8 @@
 # test_board_runner (about 100 s now) stay out.
 # Board 003: test_audit_first_verdict 2.0 s is in (two real sandboxes, a claude shim).
 # Board 007: test_release 6.3 s stays out (ten synthetic repositories, each with a bare remote).
+# Board 008: the owner's action — test_board and test_settings_proposal stay in; test_board_runner
+# (about 150 s now, twelve more runner runs) stays out; test_lesson_hooks_proposal is gone with its script.
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

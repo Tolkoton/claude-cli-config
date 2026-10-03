@@ -77,21 +77,36 @@ Edit/Write/MultiEdit permission request. Apply, from the repository root, then r
 cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```
 
-## `lesson-hooks.json` — the stuck counter's wiring (package B)
+## `settings.json` — the stuck counter's wiring (package memory, board 008)
 
 Everything of the lesson queue rides on hooks that are already wired (the Stop gate collects and
 feeds the stuck counter, the overseer hook queues `OVERSEER_BLOCK` and asks for the review after a
 PASS, the SessionStart hook `env-check.sh` carries the digest). One thing needs a new entry in
 `.claude/settings.json`, which an agent may not edit: the stuck counter on **Bash results**
-(`PostToolUse` today matches `Edit|Write|MultiEdit` only; a failed Bash call arrives as
+(`PostToolUse` matched `Edit|Write|MultiEdit` only; a failed Bash call arrives as
 `PostToolUseFailure`). Without it the counter still sees repeated gate failures (post-write lint,
 Stop blocks) — only a command that fails three times in a row goes unnoticed.
 
+The proposal carries both groups: `lesson_queue.py stuck` on `PostToolUse` and on
+`PostToolUseFailure`, matcher `Bash`, timeout 5 s. `tests/test_settings_proposal.py` lists them
+as the intended difference from the state before the split (the owner's decision of
+2026-10-03) and allows no other. Apply, from the repository root, then restart Claude Code:
+
 ```bash
-python3 docs/tasks/apply-lesson-hooks.py --dry-run     # what it would add
-python3 docs/tasks/apply-lesson-hooks.py               # merge, backup beside the file, idempotent
-python3 tests/test_lesson_hooks_proposal.py            # holds before and after
+cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```
 
-Restart Claude Code afterwards. If your Claude Code version has no `PostToolUseFailure` event the
-`PostToolUse` group alone still counts non-zero exit codes it can see; the unknown event is ignored.
+If your Claude Code version has no `PostToolUseFailure` event the `PostToolUse` group alone still
+counts non-zero exit codes it can see; the unknown event is ignored.
+
+## One way to apply, and who may take it
+
+`docs/tasks/settings.json` is the only place a change of the shared settings is proposed, and
+the `cp` above the only way it is applied — there is no merge script and no fragment beside it
+(`apply-lesson-hooks.py` wrote the live file directly, which left this proposal behind and its
+test red). The owner types the command, or answers `так` on the task board under a question
+that offers it: `board-runner.sh` then runs exactly this through
+`.claude/unattended/owner_action.py`, for exactly the proposal the question named (its sha256
+is in the offer), puts the previous file back if the test goes red, and commits the applied
+file. No agent can: `protect-paths.sh` refuses the file, and `owner_action.py` refuses inside a
+Claude Code session.

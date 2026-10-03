@@ -58,7 +58,11 @@ from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, a
 answered tasks from `tasks/blocked/`. A question the Stop gate put there after giving up
 (`9NN-gate-escalation-*.md`) it commits and pushes at once; when the owner's answer `закрити`
 arrives by the pull or the inbox, the runner itself runs `gate.py --close-escalation` and moves
-that task to `done/` — no agent is started for it (`.claude/references/gate.md`). It moves the task to `doing/` in its own commit and starts
+that task to `done/` — no agent is started for it (`.claude/references/gate.md`). An action the
+owner approved with `так` under a question that offers it (`Дія виконавця: apply-settings <sha256>`)
+the runner takes itself, through `owner_action.py`, whose list holds that one action: the settings
+proposal is copied over `.claude/settings.json`, its test run, the file committed, and the task
+returned to `todo/` with the outcome in place of the offer (`docs/tasks/README.md`). It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
 A session that ends with the task still open is continued (`--resume`); a usage-limit notice
 waits 15 minutes. When the agent has moved the task to `done/` or `blocked/` the runner pushes

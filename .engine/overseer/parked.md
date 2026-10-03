@@ -165,9 +165,9 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 ## 2026-10-03T10:30:00Z — B-wiring-stuck-bash — PARKED
 - Blocked on: `.claude/settings.json` is owner-only (protect-paths.sh) and the stuck counter on Bash results needs a PostToolUse / PostToolUseFailure entry for `Bash`
 - Class: human-input
-- Reversibility: the merge is idempotent and writes a `.bak-lesson-hooks` backup; deleting the two groups undoes it
-- Evidence: docs/tasks/lesson-hooks.json, docs/tasks/apply-lesson-hooks.py, tests/test_lesson_hooks_proposal.py 21/21
-- Unblocks when: the owner runs `python3 docs/tasks/apply-lesson-hooks.py` (then restarts Claude Code); `python3 tests/test_lesson_hooks_proposal.py` passes before and after
+- Reversibility: `git checkout -- .claude/settings.json`; tests/test_settings_proposal.py holds on both sides of the apply
+- Evidence: since board 008 (2026-10-03) the two groups are in docs/tasks/settings.json; tests/test_settings_proposal.py 17/17. The merge script, its fragment and their test are removed: the script wrote the live file directly and left the proposal's test red
+- Unblocks when: the owner runs `cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code, or answers «так» to board task 008 and the board runner runs it
 - Continued with: the rest of package B, which needs no new wiring
 
 ## 2026-10-03T11:20:00Z — N0.3-full-audit — RESUMED

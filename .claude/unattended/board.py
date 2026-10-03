@@ -24,6 +24,11 @@ It never runs git: staging and committing belong to the runner and to the agent.
                                      «закрити»: one `name<TAB>stamp<TAB>sha256` line each
     board.py gate-done <name> <closed|absent>   such a task goes to done/ with its report
     board.py gate-reject <name>      its answer is wiped and the question asked again
+    board.py owner-actions           blocked/ tasks that carry an allowed action the owner answered
+                                     «так»: one `name<TAB>action<TAB>argument<TAB>sha256` line each
+    board.py action-line <action>    the line an agent writes under its question to offer the action
+    board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
+    board.py action-reject <name>    its answer is wiped and the question asked again
     board.py summary                 the board in a dozen lines, for the owner
 
 A GATE QUESTION (board 005) is a task the Stop gate writes itself when it gives up after N
@@ -32,6 +37,15 @@ escalation-<stamp>.md, with the line `Ескалація воріт: <stamp>` un
 answer «закрити» is acted on by board-runner.sh, which runs `gate.py --close-escalation` — never
 by an agent, so `unblock` leaves such a task where it is. Any other answer is an instruction:
 the task goes back to todo/ like every answered task.
+
+AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do — today
+one thing: applying the settings proposal. The agent asks its question and writes under it the
+line `Дія виконавця: apply-settings <sha256 of the proposal>` (`action-line` prints it). The
+owner's answer «так» is acted on by board-runner.sh through owner_action.py, never by an agent;
+`unblock` leaves such a task where it is until the runner has replaced the offer with the
+outcome, and then the task returns to todo/ for the agent to check and report. The list of what
+the runner may do on the owner's word is OWNER_ACTIONS and nothing outside it is ever run from a
+task file. Any other answer is an instruction for the agent, as everywhere.
 
 `--root DIR` names the repository (default: the one this file is installed in).
 """
@@ -58,6 +72,11 @@ COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 GATE = re.compile(r"^Ескалація воріт:\s*(\S+)", re.MULTILINE)
 GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
 GATE_CLOSE = "закрити"
+# What the runner may do on the owner's word, and the answer that asks for it. `close-escalation`
+# is offered by the gate's own question (the `Ескалація воріт:` line), the rest by an action line.
+OWNER_ACTIONS = {"apply-settings": "так", "close-escalation": GATE_CLOSE}
+ACTION = re.compile(r"^[\s>*_-]*Дія виконавця:[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
+ACTION_FILES = {"apply-settings": "docs/tasks/settings.json"}  # the file whose sha256 the offer names
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE = 2, 3, 4
 
 
@@ -68,6 +87,8 @@ class Task:
     questions: str
     answers: tuple[str, ...]
     gate: str = ""
+    action: str = ""
+    action_arg: str = ""
 
     @property
     def answered(self) -> bool:
@@ -78,10 +99,18 @@ class Task:
     @property
     def closes(self) -> bool:
         """A gate question whose last answer is the one word «закрити»: the runner's to act on."""
-        if not (self.gate and self.answered):
+        return bool(self.gate) and self.says(GATE_CLOSE)
+
+    @property
+    def approves(self) -> bool:
+        """An offered action whose last answer is the one word «так»: the runner's to act on."""
+        return bool(self.action) and not self.gate and self.says(OWNER_ACTIONS[self.action])
+
+    def says(self, word: str) -> bool:
+        if not self.answered:
             return False
         words = self.answers[-1].lower().split()
-        return bool(words) and words[0].strip("«»\"'`*_.,;:!") == GATE_CLOSE
+        return bool(words) and words[0].strip("«»\"'`*_.,;:!") == word
 
 
 def parse(text: str) -> Task:
@@ -97,7 +126,10 @@ def parse(text: str) -> Task:
         rest = text[section.end():]
         following = HEADING.search(rest)
         questions = rest[: following.start()] if following else rest
+    offers = [m for m in ACTION.finditer(questions) if m.group(1) in ACTION_FILES]
     return Task(
+        action=offers[-1].group(1) if offers else "",
+        action_arg=(offers[-1].group(2) or "") if offers else "",
         depends=tuple(int(n) for n in re.findall(r"\d+", depends.group(1))) if depends else (),
         audit=audit is not None and audit.group(1).strip(".,;*_").lower() == "так",
         questions=questions.strip(),
@@ -237,8 +269,9 @@ def unblock(board: Board) -> list[str]:
     moved: list[str] = []
     for path in board.files("blocked"):
         task = read(path)
-        # A gate question answered «закрити» is closed by the runner, not handed to an agent.
-        if task.answered and not task.closes:
+        # A gate question answered «закрити» is closed by the runner, not handed to an agent;
+        # an offered action answered «так» waits for the runner to act on it first.
+        if task.answered and not task.closes and not task.approves:
             target = board.tasks / "todo" / path.name
             target.parent.mkdir(parents=True, exist_ok=True)
             path.rename(target)
@@ -336,13 +369,52 @@ def gate_done(board: Board, path: Path, outcome: str) -> Path:
     return target
 
 
-def gate_reject(path: Path) -> None:
+def owner_actions(board: Board) -> list[str]:
+    lines: list[str] = []
+    for path in board.files("blocked"):
+        task = read(path)
+        if task.approves:
+            lines.append(f"{path.name}\t{task.action}\t{task.action_arg or '-'}\t{hashlib.sha256(path.read_bytes()).hexdigest()}")
+    return lines
+
+
+def action_line(root: Path, action: str) -> str:
+    """The offer an agent writes under its question: the action and the sha256 of what it applies."""
+    return f"Дія виконавця: {action} {hashlib.sha256((root / ACTION_FILES[action]).read_bytes()).hexdigest()}"
+
+
+def action_task(board: Board, name: str) -> Path | None:
+    path = board.tasks / "blocked" / Path(name).name
+    return path if path.is_file() and TASK_NAME.match(path.name) and read(path).action else None
+
+
+ACTION_OUTCOMES = {
+    "applied": "Дію виконано ({now}, виконавець дошки): {action} — застосовано за відповіддю власника «так», "
+               "перевірка після застосування зелена. Агентові: переконайся і закрий задачу звітом.",
+    "failed": "Дію не виконано ({now}, виконавець дошки): {action} — перевірка після застосування червона, попередній "
+              "файл повернуто (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: виправ і спитай знову.",
+    "stale": "Дію не виконано ({now}, виконавець дошки): {action} — файл, який застосовується, змінився після запитання "
+             "(інший sha256) або його немає; власник схвалював не його. Агентові: спитай знову з новим рядком дії.",
+}
+
+
+def action_done(path: Path, outcome: str) -> None:
+    """Replace the offer by what happened: the task is then an ordinary answered one (`unblock`)
+    and the same «так» can never run the action twice."""
+    task = read(path)
+    note = ACTION_OUTCOMES[outcome].format(now=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), action=task.action)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    lines = [note if ACTION.match(line) else line for line in lines]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def gate_reject(path: Path, word: str = GATE_CLOSE) -> None:
     """Wipe an answer that did not come from the owner and say so under the question."""
     lines = path.read_text(encoding="utf-8").splitlines()
     last = max(i for i, line in enumerate(lines) if ANSWER.match(line))
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines[last] = lines[last][: lines[last].index("Відповідь:")] + "Відповідь:"
-    lines.insert(last, f"Примітка виконавця ({now}): відповідь «закрити» з'явилася на сервері, а не прийшла "
+    lines.insert(last, f"Примітка виконавця ({now}): відповідь «{word}» з'явилася на сервері, а не прийшла "
                        "через гілку чи теку вхідних задач, тому її не прийнято. Дайте відповідь ще раз.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -365,7 +437,7 @@ def first_open_question(task: Task) -> str:
     for index, line in enumerate(lines):
         answer = ANSWER.match(line)
         if answer and not answer.group(1).strip():
-            asked = [text.strip() for text in lines[:index] if text.strip() and not ANSWER.match(text)]
+            asked = [text.strip() for text in lines[:index] if text.strip() and not ANSWER.match(text) and not ACTION.match(text)]
             return asked[-1] if asked else "(питання без тексту)"
     return "(питань не записано)"
 
@@ -404,6 +476,12 @@ def main() -> int:
     gate_done_parser.add_argument("name")
     gate_done_parser.add_argument("outcome", choices=("closed", "absent"))
     commands.add_parser("gate-reject").add_argument("name")
+    commands.add_parser("owner-actions")
+    commands.add_parser("action-line").add_argument("action", choices=sorted(ACTION_FILES))
+    action_done_parser = commands.add_parser("action-done")
+    action_done_parser.add_argument("name")
+    action_done_parser.add_argument("outcome", choices=sorted(ACTION_OUTCOMES))
+    commands.add_parser("action-reject").add_argument("name")
     commands.add_parser("summary")
     args = parser.parse_args()
     root: Path = args.root.resolve()
@@ -435,6 +513,23 @@ def main() -> int:
             print(board.shown(gate_done(board, path, args.outcome)))
         else:
             gate_reject(path)
+        return 0
+    if args.command == "owner-actions":
+        for line in owner_actions(board):
+            print(line)
+        return 0
+    if args.command == "action-line":
+        print(action_line(root, args.action))
+        return 0
+    if args.command in ("action-done", "action-reject"):
+        path = action_task(board, args.name)
+        if path is None:
+            print(f"board: {args.name} offers no action in tasks/blocked/", file=sys.stderr)
+            return EXIT_REFUSED
+        if args.command == "action-done":
+            action_done(path, args.outcome)
+        else:
+            gate_reject(path, OWNER_ACTIONS[read(path).action])
         return 0
     if args.command == "audit-allowed":
         refusal = audit_refusal(args.tasks_dir.resolve() if args.tasks_dir else board.tasks)

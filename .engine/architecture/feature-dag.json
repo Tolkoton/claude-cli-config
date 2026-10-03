@@ -70,8 +70,8 @@
       "title": "stuck counter on Bash results: settings wiring (OWNER)",
       "deps": [],
       "status": "parked",
-      "parked_on": "parked.md B-wiring-stuck-bash: python3 docs/tasks/apply-lesson-hooks.py",
-      "evidence": "parked.md B-wiring-stuck-bash: python3 docs/tasks/apply-lesson-hooks.py"
+      "parked_on": "parked.md B-wiring-stuck-bash: cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py (board 008)",
+      "evidence": "parked.md B-wiring-stuck-bash: cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py (board 008)"
     },
     {
       "id": "C8b",

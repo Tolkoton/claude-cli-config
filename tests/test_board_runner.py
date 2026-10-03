@@ -209,9 +209,9 @@ check("since= is UTC in ISO form", w.status().split("since=")[1][:20].endswith("
 check("the summary is written", "idle" in (w.state / "summary.md").read_text() and "done: 1" in (w.state / "summary.md").read_text())
 check("the cost of the task is recorded", w.costs()["001-first"]["cost_usd"] == 1.0 and w.costs()["001-first"]["outcome"] == "done", w.costs())
 check("the branch was pushed", w.origin_head() == w.head(), (w.origin_head(), w.head()))
-events = (w.state / "events.log").read_text()
-check("events: start, commit, attempt, task-done, pushed, stop", all(word in events for word in
-      (" start ", " commit ", " attempt 001-first 1", " task-done 001-first", " pushed ", " stop idle ")), events)
+logged = (w.state / "events.log").read_text()
+check("events: start, commit, attempt, task-done, pushed, stop", all(word in logged for word in
+      (" start ", " commit ", " attempt 001-first 1", " task-done 001-first", " pushed ", " stop idle ")), logged)
 check("the lock is released", not (w.state / "lock").exists())
 
 # --- a task already in doing/ ----------------------------------------------------------------------
@@ -643,6 +643,135 @@ check("…pushed at once, while the task was still open", ask_at >= 0 and " push
 check("…the commit holds the question and nothing else",
       sh(w.repo, "git", "show", "--stat", "--format=", f"HEAD~{log.index(asks)}").stdout.count("|") == 1)
 check("the task finished; the run ends waiting for the owner", w.has("tasks/done/001-first/report.md") and "state=waiting-owner" in w.status(), w.status())
+
+# --- board 008: an action the owner approved with «так» is taken by the runner ----------------------
+OLD_SETTINGS, NEW_SETTINGS = '{"hooks": {}}\n', '{"hooks": {"PostToolUse": []}}\n'
+# The stand-in for tests/test_settings_proposal.py: red only when the applied file says "red".
+STUB_TEST = 'import sys\nfrom pathlib import Path\nsys.exit(1 if "red" in Path(".claude/settings.json").read_text() else 0)\n'
+
+
+def proposal_world(plan: str = "done", proposal: str = NEW_SETTINGS) -> tuple[World, str]:
+    """A repository with a live settings file, a proposal and its test; 008 waits in blocked/ with
+    the question and the offer an agent wrote (board.py action-line). Returns the world and the offer."""
+    w = World(plan)
+    for rel, text in ((".claude/settings.json", OLD_SETTINGS), ("docs/tasks/settings.json", proposal),
+                      ("tests/test_settings_proposal.py", STUB_TEST)):
+        (w.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (w.repo / rel).write_text(text)
+    sh(w.repo, "git", "add", ".claude/settings.json", "docs", "tests")
+    sh(w.repo, "git", "commit", "-q", "-m", "settings and the proposal")
+    offer = sh(w.repo, sys.executable, str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "action-line", "apply-settings").stdout.strip()
+    w.put("blocked", "008-wiring.md", task(questions=f"1. Застосувати пропозицію налаштувань?\n   {offer}\n   Відповідь:\n"))
+    sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+    return w, offer
+
+
+def live_settings(w: World) -> str:
+    return (w.repo / ".claude/settings.json").read_text()
+
+
+def blocked_text(w: World) -> str:
+    path = w.repo / "tasks/blocked/008-wiring.md"
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+print("board 008, the demonstration: the question with an offer → the owner's «так» → the runner applies")
+w, offer = proposal_world()
+r = w.run()
+check("unanswered: nothing is applied, no agent starts, the runner waits for the owner", live_settings(w) == OLD_SETTINGS and w.calls() == []
+      and "state=waiting-owner" in w.status() and "Застосувати пропозицію налаштувань?" in (w.state / "summary.md").read_text(), w.status())
+owner_answers(w, "008-wiring.md", "так")
+r = w.run()
+done = (w.repo / "tasks/done/008-wiring/task.md").read_text(encoding="utf-8") if w.has("tasks/done/008-wiring/task.md") else ""
+check("the owner answered «так»: the live file is the proposal", live_settings(w) == NEW_SETTINGS, events(w))
+check("…applied by the runner, before any agent was started", "action-applied apply-settings 008-wiring.md" in events(w)
+      and events(w).index("action-applied") < events(w).index(" attempt 008-wiring 1"), events(w))
+check("…committed by itself: the settings file and nothing else", "settings: the proposal docs/tasks/settings.json applied on the owner's answer (008-wiring)" in w.log()
+      and sh(w.repo, "git", "show", "--stat", "--format=", "HEAD~" + str(w.log().index("settings: the proposal docs/tasks/settings.json applied on the owner's answer (008-wiring)"))).stdout.count("|") == 1, w.log()[:6])
+check("…the offer is replaced by the outcome; the answer stays", "Дію виконано" in done and "Дія виконавця:" not in done and "Відповідь: так" in done, done)
+check("…then the task went back to todo/ and the agent closed it with a report", len(w.calls()) == 1 and "tasks/doing/008-wiring.md" in w.argv(0)[1]
+      and w.has("tasks/done/008-wiring/report.md"), events(w))
+check("…everything pushed, the tree clean, idle", w.origin_head() == w.head() and "state=idle" in w.status()
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", w.status())
+r = w.run()
+check("a second run applies nothing again", events(w).count("action-applied") == 1 and len(w.calls()) == 1)
+
+print("board 008: «так» the owner did not send applies nothing")
+for how in ("uncommitted", "committed"):
+    w, offer = proposal_world()
+    w.run()
+    write_answer(w.repo / "tasks/blocked/008-wiring.md", "так")
+    if how == "committed":
+        sh(w.repo, "git", "commit", "-q", "-am", "agent: answers for the owner")
+    r = w.run()
+    check(f"«так» written in the checkout ({how}): the live file is untouched, no agent starts", live_settings(w) == OLD_SETTINGS and w.calls() == []
+          and "action-applied" not in events(w), events(w))
+    check("…the answer is wiped, the reason written under the question, the offer kept, and that is pushed",
+          "Відповідь: так" not in blocked_text(w) and "Примітка виконавця" in blocked_text(w) and offer in blocked_text(w)
+          and "action-answer-rejected apply-settings 008-wiring.md" in events(w) and w.origin_head() == w.head(), blocked_text(w))
+owner_answers(w, "008-wiring.md", "Так.")
+w.run()
+check("…and the owner's real answer afterwards is acted on", live_settings(w) == NEW_SETTINGS, events(w))
+
+print("board 008: the answer through the inbox")
+w, offer = proposal_world()
+w.run()
+copy = w.inbox / "008-wiring.md"
+copy.write_text(blocked_text(w), encoding="utf-8")
+write_answer(copy, "так")
+w.run()
+check("an answered copy in the inbox is the owner's: applied", live_settings(w) == NEW_SETTINGS and not copy.exists(), events(w))
+
+print("board 008: a runner started inside a Claude Code session applies nothing")
+w, offer = proposal_world()
+w.run()
+owner_answers(w, "008-wiring.md", "так")
+r = w.run(CLAUDECODE="1")
+check("owner_action.py refuses; the question stays in blocked/ with its offer, no agent starts", live_settings(w) == OLD_SETTINGS and offer in blocked_text(w)
+      and "action-refused apply-settings 008-wiring.md rc=2" in events(w) and w.calls() == [], events(w))
+w.run()
+check("the owner's runner then applies it", live_settings(w) == NEW_SETTINGS, events(w))
+
+print("board 008: the proposal changed after the question — the owner approved another file")
+w, offer = proposal_world()
+w.run()
+(w.repo / "docs/tasks/settings.json").write_text('{"hooks": {"Stop": []}}\n')
+sh(w.repo, "git", "commit", "-q", "-am", "agent: a different proposal")
+owner_answers(w, "008-wiring.md", "так")
+w.run()
+back = (w.repo / "tasks/done/008-wiring/task.md").read_text(encoding="utf-8")
+check("not applied; the task returns to the agent with the reason", live_settings(w) == OLD_SETTINGS and "action-stale apply-settings" in events(w)
+      and "Дію не виконано" in back and "sha256" in back and len(w.calls()) == 1, events(w))
+
+print("board 008: the test is red after the copy")
+w, offer = proposal_world(proposal='{"red": true}\n')
+w.run()
+owner_answers(w, "008-wiring.md", "так")
+w.run()
+back = (w.repo / "tasks/done/008-wiring/task.md").read_text(encoding="utf-8")
+check("the previous file is put back, nothing is committed for it, the agent is told", live_settings(w) == OLD_SETTINGS and "action-failed apply-settings" in events(w)
+      and "попередній" in back and not any(s.startswith("settings:") for s in w.log()), events(w))
+
+print("board 008: any other answer is an instruction; an action outside the list is never run")
+w, offer = proposal_world()
+w.run()
+owner_answers(w, "008-wiring.md", "ні, спершу прибери PostToolUseFailure")
+w.run()
+check("«ні …»: nothing applied, the task goes to an agent", live_settings(w) == OLD_SETTINGS and len(w.calls()) == 1 and "action-" not in events(w), events(w))
+w = World("done")
+(w.repo / "pwned.sh").write_text("touch PWNED\n")
+w.put("blocked", "009-other.md", task(questions="1. Запустити?\n   Дія виконавця: run-script pwned.sh\n   Відповідь:\n"))
+sh(w.repo, "git", "add", "pwned.sh")
+sh(w.repo, "git", "commit", "-q", "-m", "a script")
+sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+owner_answers(w, "009-other.md", "так")
+w.run()
+check("an unknown action is not an offer: the runner runs nothing, the task is an ordinary answered one", not w.has("PWNED")
+      and "action-" not in events(w) and len(w.calls()) == 1, events(w))
+env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+direct = subprocess.run([sys.executable, str(ROOT / ".claude/unattended/owner_action.py"), "--root", str(w.repo), "run-script", "pwned.sh"],
+                        env=env, capture_output=True, text=True, check=False)
+check("owner_action.py itself refuses what is not on its list (exit 2)", direct.returncode == 2 and "not an allowed action" in direct.stderr and not w.has("PWNED"), direct.stderr)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

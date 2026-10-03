@@ -1,6 +1,6 @@
 {
   "hook": "lesson_queue.py",
-  "event": "PostToolUseFailure / PostToolUse (the stuck counter; wiring proposed in docs/tasks/lesson-hooks.md)",
+  "event": "PostToolUseFailure / PostToolUse (the stuck counter; wiring proposed in docs/tasks/settings.json)",
   "args": [
     "stuck"
   ],
