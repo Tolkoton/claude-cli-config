@@ -17,7 +17,10 @@ FIXED (a real improvement AND at least two of three valid sessions match after);
 other scenario whether it is WORSE (a real drop). A must-fix scenario that already matched
 (≥ 2/3) before and still does is MET — the defect was elsewhere (the instrument). Sessions that failed are listed apart from
 the differences: those lost to the account usage limit in one list, other tooling errors in
-another — a session that ran no audit is not a verdict.
+another — a session that ran no audit is not a verdict. Last, «дії після вердикту»: every
+session that went on acting after its verdict (edited files, wrote a second ledger entry).
+The verdict counted is the first one; the rest is a breach of the overseer's role, listed
+apart. Files recorded before board 003 carry no such field and list nothing.
 
 Exit status: 0 when every --must-fix scenario is FIXED and nothing is WORSE, else 1.
 Standard library only, Python 3.12+.
@@ -97,6 +100,17 @@ def verdict_of(run: JsonObj) -> str:
         return "ERROR"
     marker = str(run.get("marker") or "none")
     return f"{marker}#{run['check']}" if run.get("check") else marker
+
+
+def after_verdict_of(run: JsonObj) -> str:
+    """What the session changed after its verdict, in one line; "" when nothing. Tool calls
+    alone are not listed here: after a PASS the Stop hook itself tells the session to go on."""
+    after = run.get("after_verdict") or {}
+    parts = ["edited " + ", ".join(map(str, after["edited"]))] if after.get("edited") else []
+    parts.extend(f"then wrote to the ledger: {str(h).lstrip('# ')}" for h in after.get("ledger_entries", []))
+    if parts and after.get("tool_calls"):
+        parts.insert(0, f"{after['tool_calls']} tool call(s)")
+    return "; ".join(parts)
 
 
 def fmt(x: float | None) -> str:
@@ -189,6 +203,13 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
     lines.append("**Sessions lost to tooling errors — not differences**")
     lines.append("")
     lines.extend(tooling or ["- none"])
+    lines.append("")
+    acted = [f"- {label} `{sid}` run {n} (after {verdict_of(run)}): {after_verdict_of(run)[:300]}"
+             for label, data in (("before", b), ("after", a)) for sid in sorted(data)
+             for n, run in enumerate(data[sid].get("runs", []), 1) if after_verdict_of(run)]
+    lines.append("**Дії після вердикту — the session changed something after its verdict; the first verdict is the one counted**")
+    lines.append("")
+    lines.extend(acted or ["- none"])
     lines.append("")
     return "\n".join(lines), ok
 
