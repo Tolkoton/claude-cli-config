@@ -229,6 +229,11 @@ def run_scenario(
             outcome, reason = classify(proc.returncode, proc.stdout)
             outcomes.append(outcome)
             detail = first_line(reason) or first_line(proc.stderr) or first_line(proc.stdout)
+            # A reason of several paragraphs (the audit request plus what a hook appends to it):
+            # `detail_line` names the line the scenario is about, by a phrase it contains.
+            anchor = scenario.get("detail_line")
+            if anchor:
+                detail = next((ln.strip() for ln in reason.splitlines() if anchor in ln), detail)
 
         for real, shown in ((str(sandbox), "<SANDBOX>"), (str(workdir), "<TMP>")):
             detail = detail.replace(real, shown)

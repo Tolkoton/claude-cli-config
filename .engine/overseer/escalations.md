@@ -576,3 +576,57 @@ one; do not reopen the old one in conversation.
 - Evidence: git diff of .claude/skills/self-learning-orchestrator; tests/test_text_hygiene.py 8/8.
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-03T11:51:10Z — AUTONOMOUS — costs-K2-K12-new-means-shown-and-passed
+- Decision: a gate exemption is "new" until an audit request listed it AND an accepted OVERSEER_PASS followed; the diff base is that request's commit (else the contract's base_commit, the merge-base with main, HEAD), never plain HEAD.
+- Door: two-way
+- Cost to reverse: `default_base`, `record_request`, `record_pass` in .claude/hooks/gate_allows.py and three calls in overseer_stop.py.
+- Why not escalated: the owner's requirement is that the overseer sees every new gate-allow; both critic rounds showed a HEAD base (round 1) and a disk-state record (round 2, probes P1–P3) let one through unseen.
+- Evidence: tests/test_gate_allows.py "not yet judged" and "judged means shown AND passed" (69/69); golden os-gate-allow-committed-is-still-listed.
+- Falsified by: an overseer flow where audits are mostly by hand — then nothing is ever promoted and every exemption is re-listed each time (noisy, still safe).
+- Status: CLOSED
+
+## 2026-10-03T11:51:10Z — AUTONOMOUS — costs-K5-K13-escalation-lock
+- Decision: the Stop gate's escalation is machine state (.claude/state/gate/escalations.json), closed only by `gate.py --close-escalation` (which refuses when CLAUDECODE is set); the PASS lock is keyed on the files the gate blocked on, not on the slice name.
+- Door: two-way
+- Cost to reverse: `_open_gate_escalation` in overseer_stop.py (scope rule) and `close_escalation` in gate.py (who may close).
+- Why not escalated: the owner asked that the hook, not the skill text, refuse the PASS "for this slice". The slice's name lives in .engine/PROGRESS.md and parked.md is the agent's own file, so both first designs were opened by one edit of the judged agent (critic round 1 N1, round 2 probes P4–P5). The file key is stricter than "this slice": it also holds other work stacked on the unanswered files. The stricter reading was taken because the looser one is not enforceable.
+- Evidence: tests/test_gate_allows.py "PASS and the gate's open escalation" (agent RESUMED edit, slice rename, stash, close refused inside a session, owner close); golden os-pass-refused-*.
+- Falsified by: the owner preferring a slice-wide lock that an agent can lift by renaming — then one condition in `_open_gate_escalation`.
+- Status: CLOSED
+
+## 2026-10-03T11:51:10Z — AUTONOMOUS — costs-K4-gate-allow-under-check-4
+- Decision: the overseer judges gate-allow reasons under check #4 (a silenced check is a masked gap) and runs the collector as state step 11; no thirteenth check. The overseer skill's text was changed for this — the owner's item 1 requires the overseer to judge each reason, and item 4 forbids changes only after the release audit.
+- Door: two-way
+- Cost to reverse: text only (.claude/skills/overseer/SKILL.md), plus HEADER in gate_allows.py.
+- Why not escalated: "12" is in the rules, the hook's request text and every instrument; a new number would touch all of them for no gain.
+- Evidence: git diff d6b9947 -- .claude/skills/overseer/SKILL.md; audit scenario 11.
+- Falsified by: the release audit showing #4's own scene (05) getting worse.
+- Status: CLOSED
+
+## 2026-10-03T11:51:10Z — AUTONOMOUS — costs-K7-K8-audit-economy
+- Decision: `--tier smoke` = 1 run, `full` = 3, a bare invocation stays 3; `--max-cost` stops before the run that would pass it (estimate: the dearest run so far; round-robin order); `needs_audit.py` lists the owner's six classes as TEXT and five hook files as MAYBE, exit 1 for either.
+- Door: two-way
+- Cost to reverse: argument handling in evals/run_audit_scenarios.py; two frozensets in evals/needs_audit.py.
+- Why not escalated: the owner fixed the tiers, the rule and the file classes; the cost limit is the mechanism behind the owner's own $35.
+- Evidence: tests/test_audit_tiers.py 23/23, tests/test_needs_audit.py 20/20.
+- Falsified by: —
+- Status: CLOSED
+
+## 2026-10-03T11:51:10Z — AUTONOMOUS — costs-K9-K10-models-and-rounds
+- Decision: the four critics the owner named carry `model: sonnet` (the alias, so it follows the family); mvp-critic, not named, is unchanged; overseer and architects name no model and run on the session's. `/feature-architect` sends the whole plan to the critic at most twice; what survives round two is recorded and routed by door.
+- Door: two-way
+- Cost to reverse: four frontmatter lines; one block of .claude/commands/feature-architect.md.
+- Why not escalated: owner's item 3; the field's facts are from code.claude.com/docs/en/sub-agents (premise PR-costs-01).
+- Evidence: tests/test_model_roles.py 25/25.
+- Falsified by: critics on the cheaper model missing what this package's two rounds caught (both rounds here ran before/while the change landed; no measurement yet).
+- Status: CLOSED
+
+## 2026-10-03T11:51:10Z — AUTONOMOUS — costs-audit-fixture-noqa
+- Decision: the audit fixtures' smoke script no longer carries a bare `noqa` (the import moved into `main()`); scenes 01–10 keep their turns and expectations.
+- Door: two-way
+- Cost to reverse: two fixture files.
+- Why not escalated: an instrument defect, not a product choice — since package 7 the sandbox's own Stop gate blocked every audit session on that line (bypass/noqa), and with this package's PASS lock it would have refused every clean scene's PASS.
+- Evidence: tests/test_audit_scene_gate_allow.py "every other scene's working tree" (fails on the old fixtures: shown in the build log); sandbox run 2026-10-03 (ruff, mypy, pytest, smoke 12.10, gate rc 0).
+- Falsified by: —
+- Status: CLOSED

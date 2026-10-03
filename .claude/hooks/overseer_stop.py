@@ -295,19 +295,21 @@ def _lesson_review(project_dir: Path, message: str) -> str:
 
 
 PASS_REFUSED_REASON = (
-    "OVERSEER_PASS_REFUSED. The Stop gate has an open escalation for {scope} (parked {stamp} in "
+    "OVERSEER_PASS_REFUSED. The Stop gate has an open escalation ({scope}; parked {stamp} in "
     ".engine/overseer/parked.md): it blocked several turns in a row, was not satisfied, and handed "
     "the question to a human. Until the owner closes it (`python3 .claude/hooks/gate.py "
-    "--close-escalation {stamp}`, refused inside a Claude Code session), a PASS for this work is "
-    "not accepted — the gate's finding is unanswered, whatever the audit found.\n"
-    "Do NOT proceed to the next unit of this slice, do NOT run that command and do NOT mark the "
+    "--close-escalation {stamp}`, refused inside a Claude Code session), a PASS is not accepted for "
+    "any work that still holds the escalated files — the gate's finding is unanswered, whatever "
+    "the audit found.\n"
+    "Do NOT proceed to the next unit of this work, do NOT run that command and do NOT mark the "
     "parked entry yourself. Append a superseding ledger entry for this unit (`— OVERSEER_BLOCK`, "
-    "Trigger: gate escalation {stamp} open), then either take the next unblocked item of ANOTHER "
-    "slice, or — if nothing else can move — end the turn with `OVERSEER_SLICE_AWAITING_OWNER: gate "
-    "escalation {stamp} open` on its own line."
+    "Trigger: gate escalation {stamp} open). Other work can pass only once the escalated files "
+    "are out of the unjudged range: set those changes aside uncommitted (`git stash push -- "
+    "<files>`) and take the next unblocked item; or — if nothing else can move — end the turn with "
+    "`OVERSEER_SLICE_AWAITING_OWNER: gate escalation {stamp} open` on its own line."
 )
 GATE_OPEN_NOTICE = (
-    "\n\nGATE ESCALATION OPEN for {scope} (parked {stamp} in .engine/overseer/parked.md). "
+    "\n\nGATE ESCALATION OPEN ({scope}; parked {stamp} in .engine/overseer/parked.md). "
     "OVERSEER_PASS will not be accepted for this work until the owner closes it: audit as usual, "
     "but the verdict cannot be PASS."
 )
@@ -329,9 +331,11 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
     to mark entries RESUMED. Only `gate.py --close-escalation`, which refuses inside a Claude Code
     session, takes an escalation out of `open`.
 
-    Covers: an escalation raised inside a slice covers that slice while it is the active one. One
-    raised outside any slice covers the files the gate blocked on (all work, when the gate named
-    none) for as long as they are part of the range no accepted PASS has covered yet."""
+    Covers — by FILES, never by the slice's name: the active slice is whatever .engine/PROGRESS.md
+    says, and the agent writes that file. An escalation holds while any file the gate blocked on
+    is still in the range no accepted PASS has covered (changed since the last one, committed or
+    not). An escalation that recorded no file holds for everything. The slice is named in the
+    message only."""
     try:
         data = json.loads(
             (project_dir / ".claude" / "state" / "gate" / "escalations.json").read_text(encoding="utf-8")
@@ -341,20 +345,13 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
         return None
     if not entries:
         return None
-    contract = _active_contract(project_dir)
-    active = contract.stem if contract is not None else NO_SLICE
     unit: set[str] | None = None
     for entry in entries:
-        stamp, scope = str(entry.get("stamp", "?")), str(entry.get("slice", NO_SLICE))
-        if scope != NO_SLICE:
-            if scope == active:
-                return stamp, f"slice `{active}`"
-            continue
-        if active != NO_SLICE:
-            continue
+        stamp, raised_in = str(entry.get("stamp", "?")), str(entry.get("slice", NO_SLICE))
+        where = f"raised in slice `{raised_in}`" if raised_in != NO_SLICE else "raised outside any slice"
         files = {str(f) for f in entry.get("files") or []}
         if not files:
-            return stamp, "the work outside any slice"
+            return stamp, f"{where}, on no particular file — it covers all work"
         if unit is None:
             try:
                 import gate_allows
@@ -363,7 +360,7 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
             except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
                 unit = set(files)  # cannot tell the range: the lock holds rather than opens
         if files & unit:
-            return stamp, "the files " + ", ".join(sorted(files & unit)[:5])
+            return stamp, f"{where}, on " + ", ".join(sorted(files & unit)[:5])
     return None
 
 
@@ -388,18 +385,22 @@ def _gate_allow_review(project_dir: Path) -> str:
     try:
         import gate_allows
 
-        listing = gate_allows.render(gate_allows.collect(project_dir))
+        listing = gate_allows.render(gate_allows.record_request(project_dir))
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         return COLLECTOR_FAILED_NOTICE.format(error=f"{type(exc).__name__}: {exc}"[:160])
     return f"\n\n{listing}" if listing else ""
 
 
-def _record_accepted_pass(project_dir: Path) -> None:
-    """An accepted PASS moves the collector's base: what it listed has now been judged."""
+def _settle_request(project_dir: Path, accepted: bool) -> None:
+    """What the last audit request showed becomes "judged" only through an accepted PASS; any
+    other verdict — a halt marker, a refused PASS — judged nothing and drops the request."""
     try:
         import gate_allows
 
-        gate_allows.record_pass(project_dir)
+        if accepted:
+            gate_allows.record_pass(project_dir)
+        else:
+            gate_allows.drop_request(project_dir)
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
         pass
 
@@ -736,19 +737,21 @@ def main() -> NoReturn:
             if _same_continue_message(_get_project_dir(), message):
                 _passthrough()
             _note_refusal(_get_project_dir(), escalation[0], message)
+            _settle_request(_get_project_dir(), accepted=False)
             _emit_block(PASS_REFUSED_REASON.format(stamp=escalation[0], scope=escalation[1]))
 
     lesson_text = _lesson_review(_get_project_dir(), message)
 
     # Halt markers — owner takes over, hook silent-passes.
     if HALT_MARKER_RE.search(message):
+        _settle_request(_get_project_dir(), accepted=False)
         _passthrough()
 
     # PASS marker — re-inject "continue to next unit" (taskmaster pattern: keep blocking until slice done)
     if PASS_MARKER_RE.search(message):
         if _same_continue_message(_get_project_dir(), message):
             _passthrough()
-        _record_accepted_pass(_get_project_dir())
+        _settle_request(_get_project_dir(), accepted=True)
         print(json.dumps({"decision": "block", "reason": CONTINUE_REASON + lesson_text}))
         sys.exit(0)
 

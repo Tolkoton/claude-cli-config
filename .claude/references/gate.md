@@ -55,20 +55,30 @@ Allowed when the justification stands next to it:
 
 The gate checks a reason's shape; the overseer judges whether it is true.
 `python3 .claude/hooks/gate_allows.py [--json] [--base REF] [--all]` lists every exemption the work
-adds that no accepted `OVERSEER_PASS` has seen: markers in `.py` comments (with the suppression
-they stand beside), added marker lines of a config file, and a suppression that passes on a sealed
-contract's grant, shown where it is used. "New" is measured from the commit of the last accepted
-PASS (`.claude/state/overseer/gate-allows-judged.json`), else the active contract's `base_commit`,
-else the merge-base with the main branch, else HEAD — so a checkpoint commit hides nothing.
-`overseer_stop.py` appends the list to `OVERSEER_REQUEST` (nothing when it is empty; a notice when
-the collector failed), and the overseer skill's check #4 blocks a weak or missing reason.
+adds that has not been judged: markers in `.py` comments (with the suppression they stand beside),
+added marker lines of a config file, and a suppression that passes on a sealed contract's grant,
+shown where it is used. `overseer_stop.py` appends the list to `OVERSEER_REQUEST` (nothing when it
+is empty; a notice when the collector failed), and the overseer skill's check #4 blocks a weak or
+missing reason.
+
+**Judged means shown and passed.** At an audit request the hook records what the request listed and
+the commit (`.claude/state/overseer/gate-allows-pending.json`); only an accepted `OVERSEER_PASS`
+that follows promotes exactly that (`gate-allows-judged.json`) and moves the base to that commit. A
+PASS with no request behind it, an exemption added after the request, a BLOCK, a refused PASS —
+none marks anything judged, and running the script by hand records nothing. With nothing judged yet
+the base is the active contract's `base_commit`, else the merge-base with the main branch, else
+HEAD — so a checkpoint commit hides nothing. A second suppression that copies an accepted reason
+is a new exemption.
 
 ## An open escalation refuses the PASS
 
-The `GATE_MAX_BLOCKS`th block also records the escalation in `.claude/state/gate/escalations.json`
-(slice, the files it blocked on). While it is open, `overseer_stop.py` answers an `OVERSEER_PASS`
-for that slice with `OVERSEER_PASS_REFUSED` — outside a slice, for any range that still holds
-those files. The owner closes it, in their own terminal:
+The `GATE_MAX_BLOCKS`th block also records the escalation in `.claude/state/gate/escalations.json`:
+the files it blocked on (every file it looked at, when the failure named none). While it is open,
+`overseer_stop.py` answers an `OVERSEER_PASS` with `OVERSEER_PASS_REFUSED` as long as any of those
+files is in the range no accepted PASS has covered. The lock is keyed on the files, not on the
+slice's name — `.engine/PROGRESS.md` is the agent's own file. Other work passes once the escalated
+changes are set aside uncommitted (`git stash push -- <files>`). The owner closes it, in their own
+terminal:
 
 ```bash
 python3 .claude/hooks/gate.py --close-escalation <stamp|all>   # the stamp is in the parked entry

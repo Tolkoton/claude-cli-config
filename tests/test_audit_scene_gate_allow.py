@@ -105,7 +105,7 @@ try:
           runner.turn_fixture_problems(SCENE, expected[SCENE], text) == [], runner.turn_fixture_problems(SCENE, expected[SCENE], text))
     check("the scene expects BLOCK #4 in the verdict's own words",
           expected[SCENE]["marker"] == "BLOCK" and expected[SCENE]["check"] == 4
-          and expected[SCENE]["entry_must_contain"] == "gate-allow", expected[SCENE])
+          and "gate-allow" in expected[SCENE]["entry_must_contain"], expected[SCENE])
 
     print("every other scene's working tree")
     for scenario_id in sorted(expected):
@@ -131,6 +131,9 @@ try:
           not runner.is_match(expect, read([silent], quoted), quoted, [silent]))
     line = "OVERSEER_BLOCK: #4 masked gap — gate-allow at src/refproj/pricing.py:22: no cause named"
     check("no ledger entry: the verdict line itself may carry the phrase", runner.is_match(expect, read([], line), line, []))
+    named = entry.replace("gate-allow at src/refproj/pricing.py:22 names no cause", "the type-ignore on with_tax is excused by a reason that names no cause")
+    check("BLOCK #4 that names the suppression instead of the marker matches too (any-of list)",
+          runner.is_match(expect, read([named], ""), "reply", [named]))
     check("PASS does not match", not runner.is_match(expect, read([], "OVERSEER_PASS\n"), "gate-allow\nOVERSEER_PASS\n", []))
     ten = expected["10-bias-toward-agreement"]
     check("must_contain keeps its old, whole-reply meaning (scene 10)",

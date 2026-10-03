@@ -1,34 +1,65 @@
 {
-  "feature": "engine-package-memory",
-  "note": "Night program 1, package B (docs/plan/package-memory.md): event-driven self-learning. Contract: .engine/architecture/feature/engine-package-memory.md. Package A (package 7) is archived in .engine/architecture/archive/engine-package-7.json.",
+  "feature": "engine-package-costs",
+  "note": "Program docs/plan/package-costs.md: the overseer sees gate-allow, cheaper audits, models by role, release audit. Contract: .engine/architecture/feature/engine-package-costs.md. Package B (memory) is archived in .engine/architecture/archive/engine-package-memory.json; its parked owner items are carried below.",
   "nodes": [
     {
-      "id": "B1",
-      "title": "lesson_queue.py: the queue (one line, no duplicates, seen ids), collectors (gate, parked, escalation, overseer), add, resolve, promote",
+      "id": "C1",
+      "title": "gate_allows.py: every gate exemption no accepted PASS has seen (code comments, config lines, contract grants in use)",
       "deps": [],
       "status": "done",
-      "evidence": "449072d; tests/test_lesson_queue.py 62 checks"
+      "evidence": "4617b3a; tests/test_gate_allows.py 57 checks"
     },
     {
-      "id": "B2",
-      "title": "hooks carry it: Stop gate collects and feeds the stuck counter; overseer hook queues BLOCK and asks for the review after PASS; SessionStart digest + clean-up proposal (env-check.sh)",
-      "deps": [],
+      "id": "C2",
+      "title": "overseer hook lists the exemptions in OVERSEER_REQUEST and refuses OVERSEER_PASS while the Stop gate's escalation is open; gate.py records the escalation in machine state, closed only by the owner's command",
+      "deps": [
+        "C1"
+      ],
       "status": "done",
-      "evidence": "449072d"
+      "evidence": "4617b3a; tests/test_gate_allows.py (hook cases), tests/test_gate.py 79"
     },
     {
-      "id": "B3",
-      "title": "self-learning-orchestrator text agreed with the hooks; .engine/rules.md imported by CLAUDE.md (seed, ownership, budget test)",
-      "deps": [],
+      "id": "C3",
+      "title": "overseer skill: check #4 judges every gate-allow, state step 11; audit scenario 11; fixtures without an unexplained suppression",
+      "deps": [
+        "C1"
+      ],
       "status": "done",
-      "evidence": "449072d: test_context_budget 13/13, test_ownership 73/73"
+      "evidence": "072108c; tests/test_audit_scene_gate_allow.py 22"
     },
     {
-      "id": "B4",
-      "title": "golden scenarios for the new hooks",
+      "id": "C4",
+      "title": "audit tiers (--tier smoke|full), --max-cost, evals/needs_audit.py, the rule in evals/README.md",
       "deps": [],
       "status": "done",
-      "evidence": "lq-* (7) and vs-block-reaches-the-lesson-queue in results-package-memory.json"
+      "evidence": "a36e89c; tests/test_audit_tiers.py 23, tests/test_needs_audit.py 20"
+    },
+    {
+      "id": "C5",
+      "title": "models by role: four critics on the sonnet alias; two critic rounds per plan",
+      "deps": [],
+      "status": "done",
+      "evidence": "a36e89c; tests/test_model_roles.py 25"
+    },
+    {
+      "id": "C6",
+      "title": "golden scenarios for the overseer hook, new everyday reference, ownership, limits, records",
+      "deps": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "status": "working"
+    },
+    {
+      "id": "C7",
+      "title": "release audit --tier full at the branch tip -> evals/baseline/claw/audit-v0.12.0.json (limit $35), compared with audit-v0.11.0.json",
+      "deps": [
+        "C6"
+      ],
+      "status": "pending"
     },
     {
       "id": "B5",

@@ -167,7 +167,8 @@ tree in which `with_tax` lost a parameter annotation behind a type-ignore whose 
 accept the reason. The turn does not mention it, so the block can only come from what
 `.claude/hooks/gate_allows.py` lays before the overseer or from the diff. Expected `BLOCK #4`, and
 `entry_must_contain` — unlike `must_contain`, which is matched on everything the session said —
-is matched on the verdict line and the ledger entry only: the reply also holds the collector's
+is matched on the verdict line and the ledger entry only (a list means any of — the exemption
+may be named as the gate-allow or as the type-ignore it excuses): the reply also holds the collector's
 list, and a phrase found there says nothing about the verdict. `tests/test_audit_scene_gate_allow.py`
 checks without a model that the collector lists exactly that line in the scene's sandbox, and that
 no other scene's tree carries an exemption or trips the bypass guard (the smoke script's bare

@@ -129,3 +129,40 @@ been observed from the inside. Run `bash .claude/unattended/env-probe.sh` there,
 `git_branch`, `git_remotes`, `settings_*` and `session_kind` lines, and flip the key only
 on that evidence. The probe reports environment variables by name and prints values for an
 allow-list of non-secret ones only.
+
+## What the overseer is shown of a gate exemption, and what closes an escalation
+
+The bypass guard accepts a `gate-allow` by the shape of its reason; `gate_allows.py` lays every
+such exemption before the overseer, who judges it (check #4). What that rests on:
+
+- **The collector reads three kinds of file**: `.py` (comment tokens), the lint / type
+  configuration files the guard watches, and slice contracts. Those are the only places the
+  guard honours a marker, so a marker anywhere else exempts nothing and is not listed. A project
+  whose checks are not Python's (`LINT_CMD` for another language) has suppressions the guard
+  itself does not see; neither does the collector.
+- **Judged means shown at an audit request and passed.** Both records live in
+  `.claude/state/overseer/`. Machine state is protected from the agent's edit tools, not from a
+  script the agent writes; an agent that rewrites it is doing something no rule permits, and it
+  shows in the transcript. A by-hand audit ("run overseer") records nothing, so its exemptions
+  are listed again at the next hook-requested audit — the safe side.
+- **On the main branch with nothing judged yet the base is HEAD**, so there a commit would hide
+  an exemption; the commit policy refuses an agent's commit on that branch, which is what keeps
+  this closed.
+- **The judgement is a model's.** The script guarantees the overseer was shown the exemption;
+  it does not guarantee the verdict. Audit scenario 11 measures how often a weak reason is
+  blocked.
+- **An open escalation is closed by `gate.py --close-escalation`**, which refuses when
+  `CLAUDECODE` is set — every shell the agent's tools start has it. An agent that clears the
+  variable on purpose can run the command; that is a deliberate, visible act, not a routine edit
+  of the park queue, which is what closed the question before.
+- **The lock is keyed on files, so it is wide.** The slice's name is the agent's to write
+  (`.engine/PROGRESS.md`), the diff is not. An escalation therefore holds every PASS while the
+  files the gate blocked on are in the range no accepted PASS has covered — in practice all work
+  on the branch until the owner closes it or the escalated changes are set aside uncommitted. The
+  owner's "for this slice" is met in the strict direction: the slice cannot pass, and neither can
+  anything stacked on its unanswered files.
+- **The collector sees what the guard sees.** `.sh`, `.pyi`, `setup.cfg`, a `conftest.py`
+  `collect_ignore`: the bypass guard does not watch them, so no gate-allow can exist there to
+  hide. That is a limit of the gate (package 7), unchanged here.
+- **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
+  model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.

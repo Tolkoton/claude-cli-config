@@ -144,6 +144,20 @@ expected = {
     "tests/test_engine_lint.py": "project",
     ".claude/unattended/commit_checkpoint.sh": "engine",
     "templates/project/.claude/project.env": "project",
+    # package costs
+    ".claude/hooks/gate_allows.py": "engine",
+    ".claude/state/gate/escalations.json": "machine",
+    ".claude/state/overseer/gate-allows-judged.json": "machine",
+    "evals/needs_audit.py": "project",
+    "evals/scenarios/audit/11-gate-allow-weak-reason.md": "project",
+    "evals/scenarios/audit/work/11-gate-allow/src/refproj/pricing.py": "project",
+    "tests/test_gate_allows.py": "project",
+    "tests/test_audit_scene_gate_allow.py": "project",
+    "tests/test_audit_tiers.py": "project",
+    "tests/test_needs_audit.py": "project",
+    "tests/test_model_roles.py": "project",
+    ".engine/architecture/feature/engine-package-costs.md": "project",
+    "docs/plan/package-costs.md": "project",
 }
 for path, owner in expected.items():
     got = engine.owner_of(rules, path)

@@ -158,6 +158,30 @@ section, this section is the contract.
 - **C7 (N11).** The baseline of v0.11.0 lives under `Laos-MacBook-Pro/`; this host is `claw`
   (Linux). The comparison is cross-host and the report says so.
 
+## Revisions after the critic (round 2 of 2: FEATURE_CRITIC_REVISE on the BUILT C1–C5; no third round)
+
+Two blocking findings, each with a probe the critic ran against the real hooks; both are two-way
+doors and both are fixed (decision K12/K13, logged AUTONOMOUS). Nothing is left open, so there is no
+open item to route.
+
+- **K12 judged = shown AND passed (B1).** `record_pass` marked as judged whatever was on disk when
+  a PASS arrived: a bare `OVERSEER_PASS` line with no audit behind it, an exemption added after the
+  request, or a second suppression reusing an accepted reason all slipped past. Now the hook records
+  what a request listed and its commit in a pending file; only an accepted PASS that follows
+  promotes exactly that; a halt marker or a refused PASS drops it; no pending request, nothing
+  recorded; the script run by hand records nothing. The fingerprint counts occurrences.
+- **K13 the lock is keyed on files, not on the slice's name (B2).** `.engine/PROGRESS.md` is the
+  agent's own file: marking the slice PARKED or declaring another one opened the PASS. An
+  escalation now records the files the gate blocked on (every file it looked at when the failure
+  named none) and holds while any of them is in the range no accepted PASS has covered; the slice
+  is named in the message only. Consequence, accepted and stated in engine-limits: the lock is wide
+  — all work on the branch until the owner closes it or the escalated changes are set aside
+  uncommitted. This supersedes K5's slice scope and round 1's N2 answer.
+- **Notes folded in:** the limits are in `docs/engine-limits.md` (N1–N3, N6); a cut-off under
+  `--max-cost` prints the partial rows (N4); `entry_must_contain` takes an any-of list, so a correct
+  BLOCK #4 that names the type-ignore rather than the marker still matches, and scenario 11's
+  mismatches are to be read entry by entry in the report (N5).
+
 ## Slices (the DAG)
 
 | id | slice | delivers | depends | verification |

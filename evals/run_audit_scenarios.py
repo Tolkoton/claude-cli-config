@@ -304,8 +304,10 @@ def is_match(expect: JsonObj, verdict: JsonObj, reply: str, entries: list[str]) 
         # Narrower than must_contain on purpose: the whole reply also holds what the session READ
         # (the collector's list names every gate-allow), so a phrase found there proves nothing
         # about the verdict. Only the verdict's own line and the ledger entry count.
-        own_words = "\n".join([str(verdict["line"]), *entries[:1]])
-        matched = expect["entry_must_contain"].lower() in own_words.lower()
+        own_words = "\n".join([str(verdict["line"]), *entries[:1]]).lower()
+        wanted = expect["entry_must_contain"]
+        # A list is "any of": the same finding has more than one honest name.
+        matched = any(str(w).lower() in own_words for w in ([wanted] if isinstance(wanted, str) else wanted))
     return bool(matched)
 
 
@@ -720,6 +722,9 @@ def main() -> int:
                 print(f"\ncost limit: ${spent():.2f} reported so far, the dearest run cost ${dearest():.2f}, the limit is "
                       f"${args.max_cost:.2f} — stopping before {scenario_id} run {n + 1}. "
                       + (f"Raise --max-cost and continue with --resume: {args.out}" if args.out else "Nothing was saved (no --out)."))
+                for unfinished in ids:   # what was paid for is shown, not only saved
+                    if 0 < len(rows[unfinished]["runs"]) < args.runs:
+                        report_row(unfinished)
                 return EXIT_BUDGET
             if scenario_id not in texts:
                 texts[scenario_id] = (SCENARIOS / f"{scenario_id}.md").read_text(encoding="utf-8")

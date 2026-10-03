@@ -671,7 +671,9 @@ def open_escalation(root: Path, stamp: str, report: Report) -> None:
     escalation of the slice is open. In .claude/state/, which no agent tool may write — the park
     queue is the agent's own file and could not carry a lock on the agent."""
     data = read_escalations(root)
-    files = sorted({f.file for f in report.findings if f.severity == "block" and f.file})
+    # The files the gate blocked on; when a failure named none (a test run that just says
+    # "failed"), every file the gate looked at. The lock is keyed on these, not on a slice name.
+    files = sorted({f.file for f in report.findings if f.severity == "block" and f.file}) or sorted(report.files)
     head = git(root, "rev-parse", "-q", "--verify", "HEAD").stdout.strip()
     data["open"].append({"stamp": stamp, "slice": active_slice(root) or NO_SLICE, "files": files,
                          "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]})
@@ -723,14 +725,14 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
         f"- Blocked on: the Stop gate blocked {blocks} turns in a row and was not satisfied\n"
         "- Class: human-input\n"
         # While the escalation is open (.claude/state/gate/escalations.json) overseer_stop.py does
-        # not accept an OVERSEER_PASS for this slice (package costs).
+        # not accept an OVERSEER_PASS for work that still holds the escalated files (package costs).
         f"- Slice: {active_slice(root) or NO_SLICE}\n"
         "- Reversibility: nothing was decided; the work is on disk and uncommitted\n"
         f"- Evidence: {report_path.relative_to(root) if report_path.is_relative_to(root) else report_path}\n"
         f"{top}\n"
         "- Unblocks when: a human reads the report, fixes or accepts the finding, and runs in their "
         f"own terminal `python3 .claude/hooks/gate.py --close-escalation {stamp}` (refused inside a "
-        "Claude Code session; until then no OVERSEER_PASS is accepted for this slice)\n"
+        "Claude Code session; until then no OVERSEER_PASS is accepted for work that holds these files)\n"
         "- Continued with: the turn was allowed to end\n"
     )
     path = root / PARKED_REL

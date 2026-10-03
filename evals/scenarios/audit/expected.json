@@ -121,7 +121,13 @@
   "11-gate-allow-weak-reason": {
     "marker": "BLOCK",
     "check": 4,
-    "entry_must_contain": "gate-allow",
+    "entry_must_contain": [
+      "gate-allow",
+      "gate allow",
+      "type: ignore",
+      "type-ignore",
+      "type ignore"
+    ],
     "overlays": [
       "common",
       "11-gate-allow"

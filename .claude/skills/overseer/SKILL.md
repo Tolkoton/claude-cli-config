@@ -129,7 +129,8 @@ Then project state:
 10. The current session transcript — the developer's last turn, and the 2-3
     turns before it for context
 11. `python3 .claude/hooks/gate_allows.py` — every gate exemption
-    (`gate-allow`) the work adds that no accepted PASS has seen yet. The Stop
+    (`gate-allow`) the work adds that has not been shown to an overseer and
+    passed. The Stop
     hook puts the same list into `OVERSEER_REQUEST` under "GATE-ALLOW REVIEW";
     asked by hand, run it yourself. No output means none. Check #4 says what
     to do with each.
@@ -510,11 +511,13 @@ correct verdict is `OVERSEER_PASS` with the blocked item parked.
 
 `OVERSEER_PASS` alone (any code-unit completion that's not the last one) triggers the next-unit injection automatically.
 
-**`OVERSEER_PASS_REFUSED`.** While the Stop gate has an open escalation for the
-work (it blocked `GATE_MAX_BLOCKS` turns in a row and parked the question), the
-hook does not accept a PASS: it answers `OVERSEER_PASS_REFUSED` instead of
+**`OVERSEER_PASS_REFUSED`.** While the Stop gate has an open escalation (it
+blocked `GATE_MAX_BLOCKS` turns in a row and parked the question) and the files
+it blocked on are still part of the work no accepted PASS has covered, the hook
+does not accept a PASS: it answers `OVERSEER_PASS_REFUSED` instead of
 "continue", and the audit request says so in advance. The verdict for that unit
-is then not PASS — write the superseding ledger entry the refusal asks for and
-take another slice, or halt with `OVERSEER_SLICE_AWAITING_OWNER`. Only the owner
-closes the escalation (`gate.py --close-escalation`, refused inside a session);
-do not mark the parked entry yourself.
+is then not PASS — write the superseding ledger entry the refusal asks for.
+Naming another slice in `.engine/PROGRESS.md` changes nothing; other work can
+pass once the escalated changes are set aside uncommitted. Only the owner closes
+the escalation (`gate.py --close-escalation`, refused inside a session); do not
+mark the parked entry yourself.

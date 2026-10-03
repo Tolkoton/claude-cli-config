@@ -25,12 +25,16 @@ A marker with no reason at all is listed too (`reason` empty); `reason_ok` says 
 would accept the reason's shape.
 
 NEW MEANS NOT YET JUDGED. A checkpoint commit must not hide an exemption from the overseer, so
-the base is not HEAD. In order: `--base REF`; the commit recorded at the last ACCEPTED
-OVERSEER_PASS (overseer_stop.py calls `record_pass`, state in
-.claude/state/overseer/gate-allows-judged.json); the `base_commit` the active slice contract
-names; the merge-base with the main branch; HEAD. Exemptions that were in front of the overseer
-at an accepted PASS are remembered by fingerprint (file, kind, reason) and not listed again;
-`--all` lists them too. Exit 0 always — except 2 for a base that is not a commit.
+the base is not HEAD. In order: `--base REF`; the commit of the last audit request that ended in
+an ACCEPTED OVERSEER_PASS; the `base_commit` the active slice contract names; the merge-base with
+the main branch; HEAD. Judged means SHOWN AND PASSED, nothing less: when overseer_stop.py issues
+an audit request it records what the request listed (`record_request`, a pending file); only an
+accepted PASS that follows promotes exactly that list and that commit (`record_pass`). A PASS
+with no request behind it, an exemption added after the request, a verdict other than PASS —
+none of them marks anything judged. Judged exemptions are remembered by fingerprint (file, kind,
+reason, and which occurrence) and not listed again; `--all` lists them too. Running this script
+by hand records nothing. State: .claude/state/overseer/gate-allows-{judged,pending}.json.
+Exit 0 always — except 2 for a base that is not a commit.
 
 Standard library only; imports gate.py so the two can never disagree about a diff or a reason.
 """
@@ -57,6 +61,7 @@ BASE_COMMIT_RE = re.compile(r"^\s*base_commit:\s*`?([0-9a-fA-F]{7,40})`?\s*$", r
 SLICES_PREFIX = ".engine/slices/"
 UNATTACHED = "nothing beside it"
 JUDGED_REL = Path(".claude/state/overseer/gate-allows-judged.json")
+PENDING_REL = Path(".claude/state/overseer/gate-allows-pending.json")
 MAIN_BRANCHES = ("origin/main", "main", "origin/master", "master")
 JUDGED_CAP = 5000
 HEADER = (
@@ -78,10 +83,13 @@ class Allow:
     what: str
     reason: str
     reason_ok: bool
+    # Which one of several identical exemptions in a file this is (1, 2, ...): a reason that was
+    # accepted once does not cover the next suppression that copies it.
+    ordinal: int = 1
 
     @property
     def fingerprint(self) -> str:
-        key = f"{self.file}\x1f{self.source}\x1f{self.what}\x1f{self.reason}"
+        key = f"{self.file}\x1f{self.source}\x1f{self.what}\x1f{self.reason}\x1f{self.ordinal}"
         return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
@@ -245,23 +253,45 @@ def collect(root: Path, base: str | None = None, include_judged: bool = False) -
             if grant:
                 found = [Allow(rel, 1, "contract", f"config change (granted by {grant[0]})", grant[1], True)]
         allows.extend(found)
+    seen: dict[tuple[str, str, str, str], int] = {}
+    for allow in allows:
+        key = (allow.file, allow.source, allow.what, allow.reason)
+        seen[key] = allow.ordinal = seen.get(key, 0) + 1
     if include_judged or base:
         return allows
     _, judged = read_judged(root)
     return [a for a in allows if a.fingerprint not in judged]
 
 
-def record_pass(root: Path) -> None:
-    """Called by overseer_stop.py when it ACCEPTS an OVERSEER_PASS: what the diff holds now has
-    been in front of the overseer, and the next unit's diff starts at this commit."""
-    commit, judged = read_judged(root)
-    try:
-        judged |= {a.fingerprint for a in collect(root, include_judged=True)}
-    except ValueError:
-        pass
+def record_request(root: Path) -> list[Allow]:
+    """Called by overseer_stop.py when it issues an audit request: collect, and remember what
+    this request shows and at which commit. Only an accepted PASS turns that into "judged"."""
+    allows = collect(root)
     head = gate.git(root, "rev-parse", "-q", "--verify", "HEAD").stdout.strip()
-    gate.write_json(root / JUDGED_REL, {"commit": head or commit, "judged": sorted(judged)[-JUDGED_CAP:],
+    gate.write_json(root / PENDING_REL, {"commit": head, "shown": sorted(a.fingerprint for a in allows),
+                                         "requested_utc": gate.utc_now()})
+    return allows
+
+
+def drop_request(root: Path) -> None:
+    """A verdict other than an accepted PASS judged nothing: forget the pending request."""
+    (root / PENDING_REL).unlink(missing_ok=True)
+
+
+def record_pass(root: Path) -> bool:
+    """Called by overseer_stop.py when it ACCEPTS an OVERSEER_PASS. Promotes the pending request —
+    exactly what it showed, at the commit it was made — and nothing else. False (and no change)
+    when no request is pending: a PASS nobody asked for has judged nothing."""
+    try:
+        pending = json.loads((root / PENDING_REL).read_text(encoding="utf-8"))
+        commit, shown = str(pending["commit"]), {str(x) for x in pending["shown"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    previous, judged = read_judged(root)
+    gate.write_json(root / JUDGED_REL, {"commit": commit or previous, "judged": sorted(judged | shown)[-JUDGED_CAP:],
                                         "updated_utc": gate.utc_now()})
+    drop_request(root)
+    return True
 
 
 def render(allows: list[Allow]) -> str:
