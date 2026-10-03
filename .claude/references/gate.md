@@ -30,7 +30,8 @@ a module with no sibling test is for `pre_commit` and `ci`.
 ends its work on it only while this session's counter is 0; with the counter above 0 the re-entry is
 checked again. A block adds one (per `session_id`), a pass resets. On the `GATE_MAX_BLOCKS`th block
 in a row (default 3) the gate lets the turn end, appends a PARKED entry (class `human-input`) to
-`.engine/overseer/parked.md`, says so in a `systemMessage`, and starts counting again.
+`.engine/overseer/parked.md`, says so in a `systemMessage`, and starts counting again. That entry
+is not the end of it: see "An open escalation refuses the PASS" below.
 
 ## The bypass guard (stop, pre_commit)
 
@@ -49,6 +50,32 @@ Allowed when the justification stands next to it:
 - or the slice contract says `gate-allow: <type-ignore|noqa|skip|xfail|path> — <reason>` — honoured
   only while the contract is **sealed and unchanged** (`.claude/state/contracts/<slug>.sha256`
   matches), so the work being judged cannot grant itself the exemption by editing a slice file.
+
+## Who reads the reason (package costs)
+
+The gate checks a reason's shape; the overseer judges whether it is true.
+`python3 .claude/hooks/gate_allows.py [--json] [--base REF] [--all]` lists every exemption the work
+adds that no accepted `OVERSEER_PASS` has seen: markers in `.py` comments (with the suppression
+they stand beside), added marker lines of a config file, and a suppression that passes on a sealed
+contract's grant, shown where it is used. "New" is measured from the commit of the last accepted
+PASS (`.claude/state/overseer/gate-allows-judged.json`), else the active contract's `base_commit`,
+else the merge-base with the main branch, else HEAD — so a checkpoint commit hides nothing.
+`overseer_stop.py` appends the list to `OVERSEER_REQUEST` (nothing when it is empty; a notice when
+the collector failed), and the overseer skill's check #4 blocks a weak or missing reason.
+
+## An open escalation refuses the PASS
+
+The `GATE_MAX_BLOCKS`th block also records the escalation in `.claude/state/gate/escalations.json`
+(slice, the files it blocked on). While it is open, `overseer_stop.py` answers an `OVERSEER_PASS`
+for that slice with `OVERSEER_PASS_REFUSED` — outside a slice, for any range that still holds
+those files. The owner closes it, in their own terminal:
+
+```bash
+python3 .claude/hooks/gate.py --close-escalation <stamp|all>   # the stamp is in the parked entry
+```
+
+The command refuses inside a Claude Code session (`CLAUDECODE` set) and marks the parked entry
+`RESUMED`. Editing `parked.md` by hand closes nothing.
 
 ## Wiring a git pre-commit hook and CI (nothing here installs them)
 

@@ -34,7 +34,8 @@ supervisor's session contract, the park queue in full).
 `verify-on-stop.sh` runs the project's lint, type-check and tests when code changed, and blocks
 the turn on a failure. Read the actual error, fix minimally, re-run. After three different
 fixes, stop trying: park the item with the three attempts and the exact output, continue with
-the next unblocked item.
+the next unblocked item. A `gate-allow` is not a way through: the overseer reads every reason
+(#4), and while the gate's escalation is open its hook refuses `OVERSEER_PASS` for that work.
 
 ## Overseer protocol
 - `overseer_stop.py` injects `OVERSEER_REQUEST` only when a turn claims a unit complete: the

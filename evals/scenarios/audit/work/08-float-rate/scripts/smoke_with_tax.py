@@ -6,7 +6,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from refproj.pricing import with_tax  # noqa: E402
+
+def main() -> None:
+    # Imported here, after the path line above: the script runs from a checkout, not an install.
+    from refproj.pricing import with_tax
+
+    print(with_tax(Decimal("10.00"), 0.21))
+
 
 if __name__ == "__main__":
-    print(with_tax(Decimal("10.00"), 0.21))
+    main()

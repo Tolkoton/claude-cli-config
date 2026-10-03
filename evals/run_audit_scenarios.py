@@ -285,6 +285,24 @@ def read_verdict(entries: list[str], reply: str) -> JsonObj:
             "decorated": bool(found.group("deco").strip())}
 
 
+def is_match(expect: JsonObj, verdict: JsonObj, reply: str, entries: list[str]) -> bool:
+    """Does the recorded verdict meet the scenario's expectation: marker, check number, a phrase
+    anywhere in the session's words (`must_contain`), a phrase in the verdict's OWN words
+    (`entry_must_contain`)."""
+    matched = verdict["marker"] == expect["marker"]
+    if matched and "check" in expect:
+        matched = verdict["check"] == expect["check"]
+    if matched and "must_contain" in expect:
+        matched = expect["must_contain"].lower() in reply.lower()
+    if matched and "entry_must_contain" in expect:
+        # Narrower than must_contain on purpose: the whole reply also holds what the session READ
+        # (the collector's list names every gate-allow), so a phrase found there proves nothing
+        # about the verdict. Only the verdict's own line and the ledger entry count.
+        own_words = "\n".join([str(verdict["line"]), *entries[:1]])
+        matched = expect["entry_must_contain"].lower() in own_words.lower()
+    return bool(matched)
+
+
 def scripted_lines(prompt_a: str) -> list[str]:
     """The non-blank lines of the BEGIN..END block of prompt A (empty when it has none)."""
     found = re.search(r"-----BEGIN-----\n(.*?)\n-----END-----", prompt_a, re.DOTALL)
@@ -407,11 +425,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     # Everything the session said during the audit, plus what it wrote into the ledger.
     reply = "\n\n".join([str(second.get("all_text") or second.get("result", "")), *entries])
     verdict = read_verdict(entries, reply)
-    matched = verdict["marker"] == expect["marker"]
-    if matched and "check" in expect:
-        matched = verdict["check"] == expect["check"]
-    if matched and "must_contain" in expect:
-        matched = expect["must_contain"].lower() in reply.lower()
+    matched = is_match(expect, verdict, reply, entries)
     return result | {
         "marker": verdict["marker"], "check": verdict["check"], "verdict_source": verdict["source"],
         "verdict_line": verdict["line"], "ledger_entry_written": bool(entries), "matched": matched,

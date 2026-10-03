@@ -128,6 +128,11 @@ Then project state:
    are referenced in the turn)
 10. The current session transcript — the developer's last turn, and the 2-3
     turns before it for context
+11. `python3 .claude/hooks/gate_allows.py` — every gate exemption
+    (`gate-allow`) the work adds that no accepted PASS has seen yet. The Stop
+    hook puts the same list into `OVERSEER_REQUEST` under "GATE-ALLOW REVIEW";
+    asked by hand, run it yourself. No output means none. Check #4 says what
+    to do with each.
 
 If `.engine/slices/<current-slug>.md` is missing on a non-trivial slice,
 that itself may be a finding (the slice was not planned with overseer).
@@ -192,6 +197,24 @@ missing**.
 - **If missing:** `OVERSEER_BLOCK: #4 masked test gap — describe a wrong
   implementation this test would NOT catch. If none exists, the test is
   redundant`.
+- **A silenced check is a masked gap too — every `gate-allow` is judged
+  here.** The Stop gate lets a new `# type: ignore`, `# noqa`, skip / xfail or
+  a loosened lint / type configuration through when `gate-allow: <reason>`
+  stands beside it (or the slice contract grants the kind), and of the reason
+  it checks only the shape. Whether the reason is TRUE is yours: for each
+  exemption `gate_allows.py` lists (state step 11), open the line.
+  - A reason holds when it names the cause that makes the check wrong or
+    impossible AT THAT LINE — a vendored stub with no types, a generated
+    file, a platform the test cannot run on — and the code bears it out.
+  - A reason is weak when it only says the check was in the way ("to make
+    mypy pass", "temporary", "for now", "legacy", "not needed"), restates
+    what the suppression does, names a cause the code contradicts, or covers
+    something an ordinary fix would remove (a missing annotation, an unused
+    import, a failing test).
+  - **Weak or missing:** `OVERSEER_BLOCK: #4 masked gap — gate-allow at
+    <file>:<line>: <what the reason fails to say>`. This holds on an otherwise
+    clean turn: green tests do not make the exemption true. Name every
+    exemption you judged in the ledger entry's Evidence line.
 
 ### 5. Stale-evidence checkpoint
 - **Trigger:** developer cites a verification artifact (browser tab, log
@@ -486,3 +509,12 @@ nothing else can move. If something else can move, that claim is false and the
 correct verdict is `OVERSEER_PASS` with the blocked item parked.
 
 `OVERSEER_PASS` alone (any code-unit completion that's not the last one) triggers the next-unit injection automatically.
+
+**`OVERSEER_PASS_REFUSED`.** While the Stop gate has an open escalation for the
+work (it blocked `GATE_MAX_BLOCKS` turns in a row and parked the question), the
+hook does not accept a PASS: it answers `OVERSEER_PASS_REFUSED` instead of
+"continue", and the audit request says so in advance. The verdict for that unit
+is then not PASS — write the superseding ledger entry the refusal asks for and
+take another slice, or halt with `OVERSEER_SLICE_AWAITING_OWNER`. Only the owner
+closes the escalation (`gate.py --close-escalation`, refused inside a session);
+do not mark the parked entry yourself.
