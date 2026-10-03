@@ -332,6 +332,12 @@ check("the verdict is in the ledger; the Stop hook adds nothing (the report is t
 old = Project(wired=False)
 old.write("turn.md", CLAIM)
 check("negative — not wired: `request` refuses instead of leaving a request nobody records", old.run(VERDICT, ["request", "--turn-file", "turn.md"]).returncode == 3)
+typed = Project()
+said = typed.stop("The unit is incomplete. I'll now invoke the overseer.\n\n```\nOVERSEER_REQUEST 3\n```")
+check("a session that only TYPES a request (seen live, a small model) is told the real steps, once",
+      "starts nothing" in said and "overseer_verdict.py request --turn-file" in said
+      and typed.stop("The unit is incomplete. I'll now invoke the overseer.\n\n```\nOVERSEER_REQUEST 3\n```") == "", said)
+check("negative — a message that only mentions the word inside a sentence is left alone", typed.stop("The hook answers OVERSEER_REQUEST when a unit is claimed.") == "")
 stray = Project()
 stray.answer(GOOD)
 check("an answer without a pending request records nothing", not stray.rows() and "OVERSEER_PASS" not in stray.read(".engine/overseer/ledger.md"))

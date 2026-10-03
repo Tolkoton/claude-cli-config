@@ -1,13 +1,14 @@
 ---
 name: overseer
 description: |
-  Reviews the last developer turn against a 12-check discipline checklist.
-  Catches false-DONE, fabricated RED, decision conflation, masked test gaps,
-  stale evidence, soft verdicts on hard data, missed alternatives, chat-only
-  designs, handoff WHY missing, hardest seams unnamed, scope drift, and
-  bias-toward-agreement. The audit itself is done by the agent `overseer` in a
-  fresh context; this skill says how a builder claims a unit and how to ask for
-  an audit by hand ("review the last turn", "run overseer").
+  How to get a developer turn audited against the 12-check discipline checklist
+  (false-DONE, fabricated RED, decision conflation, masked test gaps, stale
+  evidence, soft verdicts on hard data, missed alternatives, chat-only designs,
+  handoff WHY missing, hardest seams unnamed, scope drift, bias-toward-agreement).
+  Invoke this skill FIRST whenever you are asked to "run overseer", "review the
+  last turn" or "apply overseer checks", or when the Stop hook answers
+  OVERSEER_REQUEST: you do not audit yourself — the skill gives the two steps
+  (make the request with a script, launch the agent `overseer`) that do.
 ---
 
 # Overseer — how an audit is asked for

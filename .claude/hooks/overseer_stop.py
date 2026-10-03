@@ -313,6 +313,16 @@ FRESH_PASS_IGNORED_REASON = (
     "code edit and its verification, and the audit will be requested. To stop for real, emit an "
     "OVERSEER_ halt marker naming the reason. Otherwise carry on with the work."
 )
+FRESH_REQUEST_TYPED_REASON = (
+    "OVERSEER_REQUEST typed by you starts nothing: a request is made by a script, and the audit by the "
+    "agent `overseer`. To have a turn audited by hand (.claude/skills/overseer/SKILL.md): (1) the turn "
+    "must be a file — a recorded turn as it is, a turn from this conversation written out verbatim; "
+    "(2) run `python3 .claude/hooks/overseer_verdict.py request --turn-file <file> --unit <N>`; (3) launch "
+    "the agent `overseer` (Agent tool, subagent_type `overseer`, run_in_background false) with exactly "
+    "the line that command prints; (4) report the agent's verdict as it gave it. Do not audit the turn "
+    "yourself."
+)
+REQUEST_TYPED_RE = re.compile(r"^[ \t>*`]*OVERSEER_REQUEST\b", re.MULTILINE)
 MAX_UNATTENDED_CONTINUES = 25
 
 UNATTENDED_CONTINUE_REASON = (
@@ -867,6 +877,8 @@ def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
         _passthrough()
     if PASS_MARKER_RE.search(message) and not _same_continue_message(project_dir, message):
         _emit_block(FRESH_PASS_IGNORED_REASON)
+    if REQUEST_TYPED_RE.search(message) and not _same_continue_message(project_dir, message):
+        _emit_block(FRESH_REQUEST_TYPED_REASON)
     if _phase_is_plan(project_dir):
         _passthrough()
     _stop_or_continue(project_dir)
