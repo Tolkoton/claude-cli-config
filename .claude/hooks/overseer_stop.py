@@ -632,7 +632,6 @@ def _record_audit(project_dir: Path, message: str) -> None:
     """Persist this message's digest so the SHA guard suppresses a re-fire."""
     sha_file = _audit_sha_file(project_dir)
     sha_file.parent.mkdir(parents=True, exist_ok=True)
-    sha_file.parent.mkdir(parents=True, exist_ok=True)
     sha_file.write_text(_message_digest(message) + "\n", encoding="utf-8")
 
 
