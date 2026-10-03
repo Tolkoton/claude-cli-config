@@ -88,6 +88,16 @@ engine   .claude/**
 project  CLAUDE.md  seed=templates/project/CLAUDE.md
 project  AGENTS.md  seed=templates/project/AGENTS.md
 
+# --- the task board (package board): the project's own. The manual, the task template and ----
+# --- the four columns are seeded once; no update ever overwrites or re-creates one of them. ---
+project  tasks/README.md         seed=templates/project/tasks/README.md
+project  tasks/TEMPLATE.md       seed=templates/project/tasks/TEMPLATE.md
+project  tasks/todo/.gitkeep     seed=templates/project/tasks/todo/.gitkeep
+project  tasks/doing/.gitkeep    seed=templates/project/tasks/doing/.gitkeep
+project  tasks/blocked/.gitkeep  seed=templates/project/tasks/blocked/.gitkeep
+project  tasks/done/.gitkeep     seed=templates/project/tasks/done/.gitkeep
+project  tasks/
+
 # --- the owner's personal layer: skills and settings ---------------------------------------
 user     user/settings.json
 user     user/**
