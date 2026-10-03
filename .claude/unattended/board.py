@@ -33,6 +33,9 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py action-line <action>    the line an agent writes under its question to offer the action
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
+    board.py park <NNN-name> <reason> [--detail N] [--stash SHA]
+                                     the runner gives up on a task, not on the board (see below)
+    board.py anomaly <task|-> <what happened> <what was done>   one entry in tasks/ANOMALIES.md
     board.py summary                 the board in a dozen lines, for the owner
     board.py review [--since <commit|date>] [--offline]
                                      the owner's review: one markdown document about the work
@@ -71,6 +74,15 @@ runner therefore never takes it, and a task that depends on it waits. With `--at
 session (CLAUDE_UNATTENDED_SESSION=1, or `.claude/state/overseer/mode` says `unattended`), so
 the flag is the owner's interactive session and nothing else. An attended task left in doing/
 makes `next` exit 5: the runner stops and says so instead of working on it.
+
+A PARKED TASK (board 021). One task never stops the board: when the runner gives up on a task —
+attempts in a row without a commit, a task open too long, its budget spent, a task the agent put
+back into todo/ — `park` moves it to blocked/ itself, with a section `## Чому зупинилась` (one
+dated line per stop, placed before the questions) and a question to the owner with an empty
+`Відповідь:`; any answer returns it to todo/ like every answered task. The same call writes the
+event into THE ANOMALY JOURNAL, tasks/ANOMALIES.md: `## <UTC> — <task or дошка>` with two lines,
+what happened and what was done. Everything odd goes there instead of stopping the work; the
+runner writes it and commits it with tasks/, and the review shows the new entries.
 
 `--root DIR` names the repository (default: the one this file is installed in).
 """
@@ -590,6 +602,71 @@ def audit_refusal(tasks: Path) -> str | None:
     return None
 
 
+ANOMALIES = "ANOMALIES.md"
+ANOMALIES_HEAD = ("# Журнал аномалій дошки\n\nУсе дивне, що сталося під час роботи виконавця: воно записується сюди, а не зупиняє дошку. "
+                  "Пише виконавець; найновіший запис унизу. Огляд (`board.py review`) показує нові записи окремим розділом.\n")
+WHY = "## Чому зупинилась"
+# reason → (what happened, the question). {n} is the runner's number: attempts, hours, dollars.
+PARK_REASONS = {
+    "no-commit": ("{n} спроб(и) поспіль не дали жодного commit-а",
+                  ("Задача застрягла: агент кілька спроб поспіль нічого не закомітив. Що робити далі? Будь-яка відповідь поверне задачу "
+                  "в чергу з новим лічильником спроб; вказівку агентові напишіть тут же.")),
+    "deadline": ("задача відкрита довше за {n} год",
+                 ("Задача тривала довше дозволеного. Що робити далі? Будь-яка відповідь поверне задачу в чергу з новим відліком часу; "
+                 "вказівку агентові (наприклад, як її розбити) напишіть тут же.")),
+    "budget": ("задача витратила свій бюджет: {n} USD",
+               ("Задача вичерпала свій бюджет. Продовжити? Будь-яка відповідь поверне задачу в чергу й дасть їй ще один такий самий "
+               "бюджет; якщо продовжувати не треба — не відповідайте або приберіть задачу.")),
+    "returned": ("агент повернув задачу з `doing/` у `todo/`, не закінчивши її і нічого не спитавши",
+                 ("Агент не закінчив задачу й не поставив питання. Що робити далі? Будь-яка відповідь поверне задачу в чергу; "
+                 "вказівку агентові напишіть тут же.")),
+}
+
+
+def utc_now() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def anomaly(board: Board, task: str, what: str, done: str) -> Path:
+    """Append one entry to tasks/ANOMALIES.md (made with its heading the first time)."""
+    path = board.tasks / ANOMALIES
+    text = path.read_text(encoding="utf-8") if path.is_file() else ANOMALIES_HEAD
+    entry = f"\n## {utc_now()} — {task if task and task != '-' else 'дошка'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
+    path.write_text(text.rstrip("\n") + "\n" + entry, encoding="utf-8")
+    return path
+
+
+def park(board: Board, stem: str, reason: str, detail: str, stash: str) -> Path | None:
+    """The runner gives up on a task: doing/ (or todo/) → blocked/, with the reason, a question
+    for the owner and an entry in the anomaly journal. None when the task is in neither."""
+    stem = stem.removesuffix(".md")
+    source = next((p for c in ("doing", "todo") for p in [board.tasks / c / f"{stem}.md"] if p.is_file()), None)
+    if source is None:
+        return None
+    what, question = (part.format(n=detail) for part in PARK_REASONS[reason])
+    saved = (f" Незакомічену роботу агента виконавець зберіг у сховку git: `git stash apply {stash}`." if stash else "")
+    line = f"- {utc_now()} — {what}; виконавець переніс задачу в `blocked/` і взяв наступну.{saved}"
+    text = source.read_text(encoding="utf-8").rstrip("\n") + "\n"
+    if not QUESTIONS.search(text):
+        text += "\n## Питання до власника\n"
+    start = QUESTIONS.search(text)
+    assert start is not None
+    head, tail = text[: start.start()], text[start.start():]
+    if re.search(rf"^{re.escape(WHY)}\s*$", head, re.MULTILINE):
+        head = head.rstrip("\n") + "\n" + line + "\n\n"
+    else:
+        head = head.rstrip("\n") + f"\n\n{WHY}\n{line}\n\n"
+    number = len(ANSWER.findall(parse(text).questions)) + 1
+    tail = tail.rstrip("\n") + f"\n{number}. {question}\n   Відповідь:\n"
+    target = board.tasks / "blocked" / source.name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(head + tail, encoding="utf-8")
+    source.unlink()
+    anomaly(board, stem, what + ".", "задачу перенесено в `blocked/` з розділом «Чому зупинилась» і питанням до власника; "
+            "виконавець узяв наступну задачу." + saved)
+    return target
+
+
 def first_open_question(task: Task) -> str:
     """The text of the first question whose answer is empty, for the summary."""
     lines = task.questions.splitlines()
@@ -660,6 +737,15 @@ def main() -> int:
     action_done_parser.add_argument("name")
     action_done_parser.add_argument("outcome", choices=sorted(ACTION_OUTCOMES))
     commands.add_parser("action-reject").add_argument("name")
+    park_parser = commands.add_parser("park")
+    park_parser.add_argument("name")
+    park_parser.add_argument("reason", choices=sorted(PARK_REASONS))
+    park_parser.add_argument("--detail", default="", help="the runner's number: attempts, hours or dollars")
+    park_parser.add_argument("--stash", default="", help="the stash commit that holds the agent's uncommitted work")
+    anomaly_parser = commands.add_parser("anomaly")
+    anomaly_parser.add_argument("task")
+    anomaly_parser.add_argument("what")
+    anomaly_parser.add_argument("done")
     commands.add_parser("summary")
     review_parser = commands.add_parser("review")
     review_parser.add_argument("--since", default=None, help="a commit or a date; default: the newest version tag")
@@ -721,6 +807,16 @@ def main() -> int:
             print(board.shown(action_done(board, path, args.outcome)))
         else:
             gate_reject(path, RULE_NO if read(path).declines else OWNER_ACTIONS[read(path).action])
+        return 0
+    if args.command == "park":
+        parked = park(board, args.name, args.reason, args.detail, args.stash)
+        if parked is None:
+            print(f"board: {args.name} is in neither tasks/doing/ nor tasks/todo/", file=sys.stderr)
+            return EXIT_REFUSED
+        print(board.shown(parked))
+        return 0
+    if args.command == "anomaly":
+        print(board.shown(anomaly(board, args.task, args.what, args.done)))
         return 0
     if args.command == "audit-allowed":
         refusal = audit_refusal(args.tasks_dir.resolve() if args.tasks_dir else board.tasks)

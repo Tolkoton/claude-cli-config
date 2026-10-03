@@ -17,7 +17,8 @@ WHAT IS CHECKED
     done twice;
   - every unfilled `Відповідь:` in blocked/ is found, in each way an owner's file may write the
     line — and a filled one, and the template's hint in a comment, are not;
-  - the six sections are there, in order, each with what the task asks of it;
+  - the seven sections are there, in order, each with what the task asks of it; the anomaly
+    journal's new entries are a section of their own (board 021);
   - origin out of reach: the last known state with a note; nothing known at all: exit 2;
   - the session command and the operator's instruction exist and name the same command.
 """
@@ -94,7 +95,7 @@ def snapshot(root: Path, skip: tuple[str, ...] = ()) -> dict[str, str]:
     return found
 
 
-TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "План", "Кандидати в нові задачі", "Здоров'я"]
+TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
 
 
 def section(document: str, title: str) -> str:
@@ -181,6 +182,9 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
                                               "## 2026-01-03T00:00:00Z — ВІДКЛАДЕНЕ-ПОВЕРНУТЕ — RESUMED\n- Blocked on: —\n")
     write(work, ".engine/overseer/ledger.md", "# ledger\n\n## 2026-01-02T00:00:00Z — task — BUILT\n- Evidence: `bash tests/run_all.sh` 12 suites green; ПРОГІН-ТЕСТІВ\n")
     write(work, ".engine/simplifier/report.md", "# Simplifier\n\n## 2026-02-01T00:00:00Z — pass\n\n### confirm (1)\n- `F-11111111` **a.py:1** — dead_code: ЗНАХІДКА-СПРОЩУВАЧА\n  - evidence: read\n")
+    write(work, "tasks/ANOMALIES.md", "# Журнал аномалій дошки\n\nПише виконавець.\n\n"
+                                      "## 2026-01-01T00:00:00Z — 001-first\n- Що сталося: АНОМАЛІЯ-СТАРА\n- Що зроблено: ЗРОБЛЕНО-СТАРЕ\n\n"
+                                      "## 2026-02-01T00:00:00Z — дошка\n- Що сталося: АНОМАЛІЯ-НОВА\n- Що зроблено: ЗРОБЛЕНО-НОВЕ\n")
     write(work, "evals/baseline/box/results-a.json", json.dumps({"recorded_utc": "2026-01-01T00:00:00Z", "results": [{"pass": True}]}))
     write(work, "evals/baseline/box/results-b.json", json.dumps({"recorded_utc": "2026-02-01T00:00:00Z", "results": [{"pass": True}, {"pass": True}, {"pass": False}]}))
     git(work, "add", "-A")
@@ -215,7 +219,7 @@ r = cli(clone)
 doc = r.stdout
 check("the review runs in a clone that never checked the work branch out", r.returncode == 0 and doc.startswith("# "), r.stderr)
 places = [doc.find(f"\n## {title}") for title in TITLES]
-check("the six sections are there, in the task's order", all(p != -1 for p in places) and places == sorted(places), places)
+check("the seven sections are there, in the task's order", all(p != -1 for p in places) and places == sorted(places), places)
 check("it says which commit of origin it read", commits["second"][:7] in doc.split("\n## ")[0] and f"origin/{BRANCH}" in doc, doc[:400])
 done_part = section(doc, "Зроблено")
 check("without --since the newest version tag is the start: both finished tasks", "v0.1.0" in doc.split("\n## ")[0]
@@ -288,6 +292,20 @@ check("a task that needs the owner present is under «Чекає на власн
       and "ЗАДАЧА-З-ВЛАСНИКОМ" in attended_part and "tasks/README.md" in attended_part, waiting)
 check("…and an ordinary todo task is not there", "020-free.md" not in attended_part and "030-stands.md" not in attended_part, attended_part)
 check("…its unanswered-question count is not disturbed by it", "040-attended.md" not in waiting.split("### Задачі, що потребують вашої присутності", 1)[0], waiting)
+
+# --- the anomaly journal (board 021) ------------------------------------------------------------
+print("anomalies")
+odd = section(doc, "Аномалії")
+check("the journal's entries are a section of their own: time, task, what happened, what was done", all(word in odd for word in
+      ("2026-01-01 00:00 UTC — `001-first`", "АНОМАЛІЯ-СТАРА", "ЗРОБЛЕНО-СТАРЕ", "`дошка`", "АНОМАЛІЯ-НОВА", "ЗРОБЛЕНО-НОВЕ"))
+      and "Нових записів за період: 2; усього в журналі `tasks/ANOMALIES.md`: 2" in odd and odd.find("АНОМАЛІЯ-СТАРА") < odd.find("АНОМАЛІЯ-НОВА"), odd)
+odd = section(cli(clone, "--since", "2026-01-15").stdout, "Аномалії")
+check("--since shows the new entries only, and says how many the journal holds", "АНОМАЛІЯ-НОВА" in odd and "АНОМАЛІЯ-СТАРА" not in odd
+      and "Нових записів за період: 1; усього в журналі `tasks/ANOMALIES.md`: 2" in odd, odd)
+odd = section(cli(clone, "--since", commits["second"]).stdout, "Аномалії")
+check("nothing new since the last review: the section says so with a zero", "Нових записів за період: 0" in odd and "АНОМАЛІЯ" not in odd, odd)
+odd = section(cli(clone, "--branch", "main").stdout, "Аномалії")
+check("no journal at all: the section says the runner met nothing odd", "порожній" in odd and "АНОМАЛІЯ" not in odd, odd)
 
 # --- the plan, the candidates, the health -----------------------------------------------------
 print("plan, candidates, health")

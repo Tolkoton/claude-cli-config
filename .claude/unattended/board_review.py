@@ -14,13 +14,14 @@ state this clone knows (its remote-tracking ref) is shown, and the document says
 The runner's own state — `.claude/state/board/` — is not in git; it is read when the review runs
 on the runner's machine and replaced by what git shows when it does not.
 
-WHAT IT SHOWS, in six sections: the state now; what was done since `--since` (default: the
+WHAT IT SHOWS, in seven sections: the state now; what was done since `--since` (default: the
 newest version tag), each finished task with the owner's parts of its report; everything that
 waits for the owner — every unfilled `Відповідь:` in blocked/ with the text above it, the
 tasks that need the owner present (`Потрібна присутність власника: так`, board 016), the
-settings proposals, the open escalations, the parked items, the rule proposals; the plan; the
-candidates for new tasks; the health. `--since` narrows what was DONE (and the candidates and the
-costs that come from it); what waits and what is planned is always shown whole. The last line is
+settings proposals, the open escalations, the parked items, the rule proposals; the new entries of the anomaly journal
+tasks/ANOMALIES.md (board 021: what the runner found odd and worked past); the plan; the
+candidates for new tasks; the health. `--since` narrows what was DONE (and the anomalies, the
+candidates and the costs that come from it); what waits and what is planned is always shown whole. The last line is
 the command for the next review.
 
 Exit 0: the document is on stdout. Exit 2: no document — the branch is known neither to origin
@@ -55,6 +56,7 @@ PARKED = re.compile(r"^## (\S+) — (.+) — (PARKED|RESUMED|SURFACED)[ \t]*$", 
 PROPOSAL = re.compile(r"^## (RP-\w+) — \S+ — PROPOSED[ \t]*$", re.MULTILINE)
 GOLDEN = re.compile(r"^evals/baseline/[^/]+/results-[^/]+\.json$")
 FINDING_MAX = 260
+ANOMALY = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) — (.+)$")
 # The runner's states (board-runner.sh), as the owner reads them.
 STATES = {
     "running": "працює",
@@ -140,6 +142,7 @@ class Since:
     shown: str
     revisions: tuple[str, ...]  # what `git log` takes to list the period
     utc: datetime | None        # the same moment for the runner's records; None: from the start
+    commit: str = ""            # the commit the period starts after, when it was named by one
 
 
 def as_utc(text: str) -> datetime | None:
@@ -161,7 +164,7 @@ def since(src: Source, given: str | None) -> Since:
     if commit:
         moment = as_utc(git(src.root, "log", "-1", "--format=%cI", commit).stdout)
         what = f"мітки версії `{label}`" if given is None else f"commit-а `{label}`"
-        return Since(f"від {what} ({commit[:7]}, {stamp(moment)})", (f"{commit}..{src.sha}",), moment)
+        return Since(f"від {what} ({commit[:7]}, {stamp(moment)})", (f"{commit}..{src.sha}",), moment, commit)
     moment = as_utc(label)
     if moment is None:
         raise ReviewError(f"--since {label}: neither a commit of this repository nor a date (2026-10-03 or 2026-10-03T14:00:00Z)")
@@ -458,6 +461,30 @@ def waiting_section(src: Source, state: Path) -> list[str]:
             "### Пропозиції правил", "", *rule_lines(src)]
 
 
+# ------------------------------------------------------------------ anomalies
+
+
+def anomalies_section(src: Source, period: Since) -> list[str]:
+    """The entries of tasks/ANOMALIES.md written in the period, oldest first. The journal only
+    grows at its end, so after a commit the new entries are those past the ones it already had;
+    after a date they are told by their own time."""
+    path = f"tasks/{board.ANOMALIES}"
+    entries = [(match, body) for heading, body in sections(src.show(path)) if (match := ANOMALY.match(heading))]
+    if not entries:
+        return ["Журнал аномалій (`tasks/ANOMALIES.md`) порожній: виконавець не зустрів нічого дивного."]
+    if period.commit:
+        fresh = entries[sum(1 for heading, _ in sections(git(src.root, "show", f"{period.commit}:{path}").stdout) if ANOMALY.match(heading)):]
+    else:
+        fresh = [(match, body) for match, body in entries
+                 if period.utc is None or ((when := as_utc(match.group(1).replace("Z", "+00:00"))) is not None and when >= period.utc)]
+    lines = [(f"Нових записів за період: {len(fresh)}; усього в журналі `tasks/ANOMALIES.md`: {len(entries)}. Це те, що виконавець вважав дивним, "
+              "записав і пішов далі; задачі, які він сам переніс у `blocked/`, стоять також у «Чекає на власника»."), ""]
+    for match, body in fresh:
+        lines += [f"- **{stamp(as_utc(match.group(1).replace('Z', '+00:00')))} — `{match.group(2)}`**",
+                  *(f"  {line}" for line in body.splitlines() if line.strip())]
+    return lines
+
+
 # ------------------------------------------------------------------ plan, candidates, health
 
 
@@ -596,6 +623,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
     for title, body in (("Стан зараз", now_section(src, state, now)),
                         ("Зроблено", done_section(src, stems, costs)),
                         ("Чекає на власника", waiting_section(src, state)),
+                        ("Аномалії", anomalies_section(src, period)),
                         ("План", plan_section(src)),
                         ("Кандидати в нові задачі", candidates_section(src, stems, period)),
                         ("Здоров'я", health_section(src, costs, period))):

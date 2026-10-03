@@ -50,7 +50,7 @@ On the Linux server, prefer the unit: `sudo cp claude-unattended.service
 bash .claude/unattended/board-runner.sh            # until nothing can move, then stop with a summary
 bash .claude/unattended/board-runner.sh --once     # one task
 bash .claude/unattended/board-runner.sh --status   # the status line and the board; runs nothing
-bash .claude/unattended/board-runner.sh --retry    # after `stalled` or `deadline`: a fresh clock and count
+bash .claude/unattended/board-runner.sh --retry    # the task left in doing/ gets a fresh clock and count
 bash .claude/unattended/board-runner.sh --stop-after-task   # the only way to stop a working runner
 ```
 
@@ -80,10 +80,23 @@ It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
 A session that ends with the task still open is continued (`--resume`); a usage-limit notice
 waits 15 minutes. When the agent has moved the task to `done/` or `blocked/` the runner pushes
-the branch and takes the next one. It stops — always with `.claude/state/board/summary.md` —
-when `todo/` is empty or everything left waits for the owner (exit 0), after three attempts in a
-row without a commit, after twelve hours on one task, or when the task's budget
-(`BOARD_MAX_USD`) is spent (exit 1).
+the branch and takes the next one.
+
+One task never stops the board. After three attempts in a row without a commit, after twelve
+hours on one task, or when the task's budget (`BOARD_MAX_USD`) is spent, the runner parks the
+task itself (`board.py park`): it goes to `tasks/blocked/` with a section `## Чому зупинилась` and
+a question to the owner, the agent's uncommitted work outside `tasks/` goes into a git stash that
+section names, the event is written into the anomaly journal `tasks/ANOMALIES.md`, and the next
+task is taken. Any answer returns the task to `todo/` with a fresh clock and count — after a
+budget stop, with one more budget of the same size. Everything else that is odd (a push that
+failed, a task that vanished from the board) is one more journal entry, not a stop; the review
+shows the new entries in a section of their own.
+
+It stops — always with `.claude/state/board/summary.md` — when `todo/` is empty or everything
+left waits for the owner, or on a soft stop (exit 0); and with `state=error` (exit 1) only on what
+it cannot work past: a pull that conflicts (`reason=pull-conflict`), claude logged out
+(`reason=logged-out`; the task stays in `doing/` and the next start continues it), a git or
+`board.py` failure after which nothing can be committed.
 
 What to read, in `.claude/state/board/`: `status` (one line: `state=… task=… since=<UTC>
 [reason=…]`), `events.log`, `costs.json`, `summary.md`, `logs/`. The numbers and paths are

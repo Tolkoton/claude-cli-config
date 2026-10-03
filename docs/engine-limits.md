@@ -292,6 +292,16 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   the cap, never later.
 - **The usage-limit notice is recognised by its wording** (a short reply containing "hit your …
   limit"). A notice worded differently counts as an attempt without a commit; three of those
-  stop the runner, which is the safe side.
+  park the task in `blocked/`, which is the safe side.
+- **A logged-out claude is recognised by its wording too** (a short error reply with "Please run
+  /login", "Invalid API key", "Not logged in", an expired or revoked OAuth token). The wording was
+  taken from the CLI's messages, not from a live logged-out run. Worded differently, it is three
+  attempts without a commit per task: every task in `todo/` is parked in `blocked/` in turn, at no
+  cost, each with a journal entry — noisy, and undone by answering the questions.
+- **A parked task's uncommitted work is in a git stash on the runner's machine.** A stash is
+  never pushed: the work is lost with that clone, and `git stash` takes untracked files that
+  were not the agent's as well (ignored files stay). The stash commit is named in the task file.
+- **The anomaly journal is written by the runner only.** What a hook, the gate or an agent finds
+  odd goes to their own records (escalations, parked items), not to `tasks/ANOMALIES.md`.
 - **The mode file is shared.** While the runner lives, `.claude/state/overseer/mode` says
   `unattended` for every session in the repository, an interactive one included.

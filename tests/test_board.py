@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -237,6 +238,51 @@ check("only the fully answered task returns to todo/", r.returncode == 0 and r.s
       and (root / "tasks/todo/004-full.md").is_file() and (root / "tasks/blocked/003-open.md").is_file()
       and (root / "tasks/blocked/005-none.md").is_file(), r.stdout + r.stderr)
 check("its text is untouched", (root / "tasks/todo/004-full.md").read_text(encoding="utf-8") == task(questions=q_full))
+
+# --- park and the anomaly journal (board 021) ----------------------------------------------------
+print("park: the runner gives up on a task, not on the board")
+root = new_board()
+put(root, "doing", "007-stuck.md", task())
+put(root, "todo", "008-next.md", task())
+r = cli(root, "park", "007-stuck", "no-commit", "--detail", "3", "--stash", "abc123")
+parked = root / "tasks/blocked/007-stuck.md"
+text = parked.read_text(encoding="utf-8") if parked.is_file() else ""
+check("the task moves from doing/ to blocked/", r.returncode == 0 and r.stdout.strip() == "tasks/blocked/007-stuck.md"
+      and not (root / "tasks/doing/007-stuck.md").exists(), r.stdout + r.stderr)
+check("«Чому зупинилась» stands before the questions, dated in UTC, with the reason and the stash", text.index("## Чому зупинилась") < text.index("## Питання до власника")
+      and re.search(r"^- \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — 3 спроб\(и\) поспіль не дали жодного commit-а", text, re.MULTILINE) is not None
+      and "git stash apply abc123" in text, text)
+check("the task's own text is kept as it was", text.startswith(task().rstrip("\n").split("## Питання до власника")[0].rstrip("\n")), text)
+check("the questions stay the last section and the new one waits for an answer", board.read(parked).answers == ("",)
+      and "1. Задача застрягла" in board.read(parked).questions and cli(root, "unblock").stdout == "", board.read(parked))
+journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("the journal is made with its heading and one entry: time, task, what happened, what was done", journal.startswith("# Журнал аномалій дошки\n")
+      and re.search(r"\n## \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — 007-stuck\n- Що сталося: 3 спроб\(и\).*\n- Що зроблено: задачу перенесено в `blocked/`", journal) is not None, journal)
+check("the board goes on: the next task is offered", cli(root, "next").stdout.strip() == "tasks/todo/008-next.md")
+parked.write_text(text.replace("Відповідь:", "Відповідь: продовжити"), encoding="utf-8")
+check("any answer returns the parked task to todo/", cli(root, "unblock").stdout.split() == ["007-stuck.md"] and (root / "tasks/todo/007-stuck.md").is_file())
+r = cli(root, "park", "007-stuck", "returned")
+text = parked.read_text(encoding="utf-8")
+check("a task in todo/ can be parked too; a second stop adds a line to the one section and a second question", r.returncode == 0
+      and text.count("## Чому зупинилась") == 1 and text.count("\n- 20") == 2 and "агент повернув задачу" in text
+      and board.read(parked).answers == ("продовжити", "") and "\n2. Агент не закінчив" in text, text)
+check("…and a second journal entry under the first", (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8").count("\n## ") == 2)
+for reason, words in (("deadline", "довше за 12 год"), ("budget", "бюджет: 12 USD")):
+    put(root, "doing", "009-other.md", "# Без розділу питань\n\nЗалежить від: —\n")
+    r = cli(root, "park", "009-other", reason, "--detail", "12")
+    text = (root / "tasks/blocked/009-other.md").read_text(encoding="utf-8")
+    check(f"{reason}: the reason is worded, and a task without a questions section gets one", r.returncode == 0 and words in text
+          and board.read(root / "tasks/blocked/009-other.md").answers == ("",) and "git stash" not in text, text)
+    (root / "tasks/blocked/009-other.md").unlink()
+r = cli(root, "park", "999-nowhere", "no-commit")
+check("the negative cases: a task that is in neither doing/ nor todo/ is refused, and so is an unknown reason", r.returncode == 2
+      and "neither" in r.stderr and cli(root, "park", "008-next", "because").returncode == 2 and (root / "tasks/todo/008-next.md").is_file(), r.stderr)
+before = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+r = cli(root, "anomaly", "-", "ЩОСЬ-ДИВНЕ", "ПІШОВ-ДАЛІ")
+after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("anomaly: one more entry at the end, for the board as a whole, nothing above it changed", r.returncode == 0 and after.startswith(before)
+      and re.search(r"\n## \S+Z — дошка\n- Що сталося: ЩОСЬ-ДИВНЕ\n- Що зроблено: ПІШОВ-ДАЛІ\n$", after) is not None, after)
+check("the journal is not a task: next, summary and unblock do not see it", "ANOMALIES" not in cli(root, "summary").stdout + cli(root, "next").stdout)
 
 # --- import-inbox -------------------------------------------------------------------------------
 print("import-inbox")

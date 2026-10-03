@@ -19,9 +19,22 @@
 #   while it is open    a session that ended with the task still in doing/ is continued
 #                       (--resume); a usage-limit notice waits 15 minutes and is not an attempt
 #   the task is closed  when the agent moved it to done/ or blocked/. Then: push, next task
-#   it stops            three attempts in a row without a new commit; a task older than twelve
-#                       hours; the task's budget spent; todo/ empty or everything left waiting
-#                       for the owner — always with a summary
+#   a task is stuck     three attempts in a row without a new commit; a task older than twelve
+#                       hours; the task's budget spent: the runner PARKS the task and takes the
+#                       next one (see below) — one task never stops the board
+#   it stops            todo/ empty or everything left waiting for the owner; a soft stop; and the
+#                       few critical things below — always with a summary
+#
+# ONE TASK NEVER STOPS THE BOARD (board 021). A stuck task is moved to tasks/blocked/ by the runner
+# itself (`board.py park`): a section «Чому зупинилась», a question to the owner, an entry in the
+# anomaly journal tasks/ANOMALIES.md, one commit — and the next task is taken. Uncommitted work
+# the agent left outside tasks/ is put into a git stash named in that section, so the next task
+# starts on a clean tree and nothing is lost. The owner's answer returns the task to todo/ with a
+# fresh clock and count (after a budget stop: with one more budget). Everything else that is odd
+# — a push that failed, a task that vanished from the board — is written into the journal and the
+# work goes on. THE WHOLE BOARD STOPS only on: a pull that conflicts (reason=pull-conflict);
+# claude logged out (reason=logged-out; the task stays in doing/ and is continued by the next
+# start); a git or board.py failure after which nothing can be committed; the soft stop.
 #
 # STOPPING IT (board 019). Never by killing the process: the agent then loses the uncommitted
 # work of its task. `--stop-after-task` puts the flag .claude/state/board/stop-after-task; the
@@ -30,11 +43,11 @@
 # the command sets nothing; a flag left by a runner that died is removed when the next one starts.
 #
 # WHAT THE OPERATOR READS, in .claude/state/board/:
-#   status      one line: state=<running|waiting-limit|idle|waiting-owner|stopped|stalled|deadline|error>
+#   status      one line: state=<running|waiting-limit|idle|waiting-owner|stopped|error>
 #               task=<name|-> since=<UTC> [reason=<word>]
 #   events.log  one UTC line per event      costs.json  per task: attempts, sessions, cost
 #   summary.md  written at every stop       logs/       the raw output of every attempt
-# Exit 0: idle, waiting-owner, stopped (--once). Exit 1: stalled, deadline, error.
+# Exit 0: idle, waiting-owner, stopped (--once, --stop-after-task). Exit 1: error.
 #
 # A GATE QUESTION (tasks/blocked/9NN-gate-escalation-*.md, written by gate.py when the Stop gate
 # gives up) is the one task the runner finishes itself. It commits and pushes the question as
@@ -55,8 +68,9 @@
 # outcome and the task returns to todo/ for the agent to check and report; a rule question the
 # runner acted on goes straight to done/ with a short report, no agent is started for it.
 #
-# THE RUNNER MOVES A TASK INTO doing/; ONLY THE AGENT MOVES IT OUT. Gate questions
-# and rule questions apart, the runner writes no report and judges no work. It commits nothing
+# THE RUNNER MOVES A TASK INTO doing/; THE AGENT MOVES IT OUT — or the runner parks it in
+# blocked/ when it is stuck. Gate questions and rule questions apart, the runner writes no report
+# and judges no work. It commits nothing
 # but tasks/ and, after apply-settings, .claude/settings.json, after a rule action
 # .engine/rules.md and .engine/rule-proposals.md — and only on the work branch, which must
 # be an unattended/* branch: hooks do not see a commit made from a script, so the check is here.
@@ -228,12 +242,33 @@ board_commit() {
   event "commit $(git rev-parse --short HEAD) $1"
 }
 
-push_branch() {
+# note_anomaly <task|-> <what happened> <what was done>: one entry in tasks/ANOMALIES.md, in a
+# commit of its own. It never stops anything: a journal that cannot be committed now is committed
+# with the next change under tasks/.
+note_anomaly() {
+  board anomaly "$1" "$2" "$3" > /dev/null || return 0
+  event "anomaly $1 $2"
+  [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] || return 0
+  git add -- tasks/ANOMALIES.md >> "$STATE/logs/git.log" 2>&1 \
+    && git commit -q -m "board: anomaly — ${1/#-/the board}: $2" -- tasks/ANOMALIES.md >> "$STATE/logs/git.log" 2>&1
+  return 0
+}
+
+# critical <task|-> <reason-word> <one sentence> <what happened, for the journal>: the few things
+# that stop the whole board. The journal entry is committed and pushed first when that is possible.
+critical() {
+  note_anomaly "$1" "$4" "дошку зупинено (причина \`$2\`): це одна з небагатьох речей, які зупиняють усю дошку. Після усунення причини виконавця треба запустити знову."
+  [ "$2" = pull-conflict ] || push_branch quiet
+  finish error "$1" "$2" "$3"
+}
+
+push_branch() {  # push_branch [quiet]: quiet = a failure is an event only, no journal entry
   [ "$PUSH" -eq 1 ] || return 0
   if git push -q "$REMOTE" "$BRANCH" >> "$STATE/logs/git.log" 2>&1; then
     event "pushed $(git rev-parse --short HEAD)"
   else
     event "push-failed $(git rev-parse --short HEAD)"; say "push failed (see $STATE/logs/git.log); it is tried again after the next task"
+    [ -n "${1:-}" ] || note_anomaly "${TASK_NAME:--}" "гілку не вдалося надіслати в $REMOTE (push відхилено або $REMOTE недосяжний)" "роботу продовжено; надсилання буде повторено після наступної задачі"
   fi
 }
 
@@ -243,7 +278,8 @@ sync_branch() {
   git show-ref --verify --quiet "refs/remotes/$REMOTE/$BRANCH" || return 0
   if ! git pull -q --rebase --autostash "$REMOTE" "$BRANCH" >> "$STATE/logs/git.log" 2>&1; then
     git rebase --abort >> "$STATE/logs/git.log" 2>&1
-    finish error "${TASK_NAME:--}" pull-conflict "pull --rebase of $BRANCH from $REMOTE did not apply cleanly; the rebase was aborted, nothing is lost. Resolve it by hand, then start the runner again"
+    critical "${TASK_NAME:--}" pull-conflict "pull --rebase of $BRANCH from $REMOTE did not apply cleanly; the rebase was aborted, nothing is lost. Resolve it by hand, then start the runner again" \
+      "конфлікт під час pull --rebase гілки $BRANCH з $REMOTE; виконавець його не розв'язав, rebase скасовано, нічого не втрачено"
   fi
 }
 
@@ -374,8 +410,27 @@ intake() {
   fi
 }
 
-# run_task <tasks/doing/NAME.md>: attempts until the agent moved the task out of doing/.
-# Sets OUTCOME to done or blocked; every other ending is a `finish`.
+# park_task <stem> <reason> <detail>: the runner gives up on this task, not on the board (board 021).
+# What the agent left uncommitted outside tasks/ goes into a stash the task file names; the task
+# goes to blocked/ with the reason and a question; the journal gets its entry; one commit.
+park_task() {
+  local stem="$1" reason="$2" detail="$3" stash="" before after
+  before=$(git rev-parse -q --verify refs/stash 2>/dev/null)
+  git stash push -q -u -m "board: $stem parked ($reason)" -- . ':(exclude)tasks' >> "$STATE/logs/git.log" 2>&1
+  after=$(git rev-parse -q --verify refs/stash 2>/dev/null)
+  [ "$after" != "$before" ] && stash="$after"
+  board park "$stem" "$reason" --detail "$detail" ${stash:+--stash "$stash"} > /dev/null \
+    || finish error "$stem" park "board.py park $stem $reason failed"
+  [ "$reason" = budget ] && memo rebudget "$stem"
+  board_commit "board: $stem → blocked — the runner parked it ($reason); the board goes on" \
+    || finish error "$stem" commit "cannot commit the parked task"
+  event "task-parked $stem $reason${stash:+ stash=$stash}"
+  say "$stem: parked in blocked/ ($reason)${stash:+; uncommitted work kept in stash $stash}"
+  OUTCOME=blocked
+}
+
+# run_task <tasks/doing/NAME.md>: attempts until the task left doing/ — moved by the agent to
+# done/ or blocked/, or parked in blocked/ by the runner. Sets OUTCOME to done, blocked or missing.
 run_task() {
   local file="$1" stem place session before after n out note
   local -a flags
@@ -387,19 +442,21 @@ run_task() {
     case "$place" in
       done|blocked) OUTCOME="$place"; return 0 ;;
       doing) ;;
-      *) finish error "$stem" task-vanished "the task is neither in doing/, done/ nor blocked/ (found: $place)" ;;
+      todo) park_task "$stem" returned ""; return 0 ;;
+      *) note_anomaly "$stem" "задача зникла з дошки: її немає ні в doing/, ні в done/, ні в blocked/, ні в todo/" "виконавець узяв наступну задачу; файл задачі можна повернути з історії git"
+         OUTCOME=missing; return 0 ;;
     esac
     if [ "$(memo get "$stem" age_sec)" -ge "$TASK_MAX" ]; then
-      finish deadline "$stem" deadline "the task has been open for more than $((TASK_MAX / 3600)) hour(s). To give it a fresh clock: board-runner.sh --retry"
+      park_task "$stem" deadline "$((TASK_MAX / 3600))"; return 0
     fi
     if [ "$(memo get "$stem" idle)" -ge "$STALL_ATTEMPTS" ]; then
-      finish stalled "$stem" no-commit "$STALL_ATTEMPTS attempts in a row made no new commit. Look at $STATE/logs/, then: board-runner.sh --retry"
+      park_task "$stem" no-commit "$STALL_ATTEMPTS"; return 0
     fi
     flags=(--settings .claude/settings.json --permission-mode auto --output-format json)
     if [ -n "$MAX_USD" ]; then
       note=$(memo get "$stem" left "$MAX_USD")
       if [ "$note" = "0.00" ]; then
-        finish stalled "$stem" budget "the task has spent its budget of $MAX_USD USD ($(memo get "$stem" cost) recorded). Raise BOARD_MAX_USD to continue"
+        park_task "$stem" budget "$MAX_USD"; return 0
       fi
       flags+=(--max-budget-usd "$note")
     fi
@@ -421,6 +478,10 @@ run_task() {
     note=$(memo record "$stem" "$out" "$([ "$before" != "$after" ] && echo 1 || echo 0)")
     event "attempt-end $stem $n cost=$(memo get "$stem" cost) commit=$([ "$before" != "$after" ] && echo yes || echo no)${note:+ $note}"
     publish_gate_questions
+    if [ "$note" = "auth" ] && [ "$(board where "$stem")" = "doing" ]; then
+      critical "$stem" logged-out "claude is logged out (see $out); the task stays in doing/. Log in on this machine (claude, then /login), then start the runner again" \
+        "claude розлогінився: сесія відповіла лише проханням увійти; задача лишилась у doing/"
+    fi
     if [ "$note" = "limit" ] && [ "$(board where "$stem")" = "doing" ]; then
       status waiting-limit "$stem"
       say "usage limit; waiting $LIMIT_WAIT s"

@@ -37,10 +37,13 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
    never takes them; they are done in an interactive session, not in this one), the settings proposals, the open escalations,
    the parked items and the rule proposals: each either gets an answer, becomes a new task, or waits.
-4. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
+4. **Аномалії** — what the runner found odd, wrote into `tasks/ANOMALIES.md` and worked past:
+   a task it parked in `blocked/` itself (its question is in the section above), a failed push, a
+   stop of the whole board. Say each in a sentence; one that needs a fix is a new task.
+5. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
    rewritten task is a file for the inbox (below).
-5. **Кандидати в нові задачі** — for each: a task now, later, or never.
-6. **Здоров'я** — say it plainly; a red number is a candidate for a task.
+6. **Кандидати в нові задачі** — for each: a task now, later, or never.
+7. **Здоров'я** — say it plainly; a red number is a candidate for a task.
 
 Never answer for the owner and never guess an answer from an earlier remark. Two answers act by
 themselves, so read them back and get an explicit yes before writing them: `так` under a question

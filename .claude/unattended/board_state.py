@@ -10,9 +10,15 @@ a row made no commit, and what every attempt reported as its cost.
     board_state.py <state-dir> retry  <task>                 a fresh clock and a fresh count
     board_state.py <state-dir> record <task> <output> <0|1>  book one attempt; 1 = it made a commit.
                                                              prints `limit` when the session only
-                                                             answered with a usage-limit notice
+                                                             answered with a usage-limit notice,
+                                                             `auth` when it only said that claude
+                                                             is logged out
+    board_state.py <state-dir> rebudget <task>               what is spent so far no longer counts
+                                                             against the cap (the owner answered a
+                                                             task parked for its budget)
     board_state.py <state-dir> get    <task> <field> [cap]   age_sec | session | idle | cost | attempts
-                                                             | left (cap minus cost, two decimals)
+                                                             | left (cap minus what was spent since
+                                                             the last rebudget, two decimals)
     board_state.py <state-dir> finish <task> <outcome>       done | blocked: close the entry
     board_state.py <state-dir> report                        one line per task and the total
 
@@ -36,6 +42,10 @@ STAMP = "%Y-%m-%dT%H:%M:%SZ"
 # The same notice evals/run_audit_scenarios.py looks for. A session that hit the limit answers
 # with a short notice and does nothing else; a long reply that merely talks about limits is work.
 USAGE_LIMIT = re.compile(r"hit your (?:session|usage|weekly|daily|monthly|\w+) limit|usage limit (?:reached|exceeded)", re.IGNORECASE)
+# What a logged-out claude answers instead of working (premise PR-board-07: the wording is taken
+# from the CLI's messages, not from a live logged-out run). Not the task's fault and not an attempt.
+LOGGED_OUT = re.compile(r"please run /login|invalid api key|not logged in|authentication_error|OAuth token (?:has expired|has been revoked|revoked)",
+                        re.IGNORECASE)
 NOTICE_MAX_CHARS = 400
 
 
@@ -89,6 +99,13 @@ def is_limit_notice(payload: JsonObj | None, text: str) -> bool:
     return len(reply) <= NOTICE_MAX_CHARS and bool(USAGE_LIMIT.search(reply))
 
 
+def is_logged_out(payload: JsonObj | None, text: str) -> bool:
+    if payload is None:
+        return bool(LOGGED_OUT.search(text[:2000]))
+    reply = str(payload.get("result") or "")
+    return bool(payload.get("is_error")) and len(reply) <= NOTICE_MAX_CHARS and bool(LOGGED_OUT.search(reply))
+
+
 def cost_of(attempts: list[JsonObj]) -> float:
     highest: dict[str, float] = {}
     for index, attempt in enumerate(attempts):
@@ -97,13 +114,15 @@ def cost_of(attempts: list[JsonObj]) -> float:
     return round(sum(highest.values()), 4)
 
 
-def record(found: JsonObj, output: Path, committed: bool) -> bool:
+def record(found: JsonObj, output: Path, committed: bool) -> str:
+    """Book one attempt. Returns `limit`, `auth` or "" — the first two are not the task's attempts."""
     payload, text = read_output(output)
     limit = is_limit_notice(payload, text)
+    auth = not limit and is_logged_out(payload, text or read_output(output.with_name(output.name + ".err"))[1])
     reported = (payload or {}).get("total_cost_usd", 0.0)
     session = str((payload or {}).get("session_id") or "")
     found["attempts"].append({
-        "utc": now(), "session_id": session, "committed": committed, "limit": limit,
+        "utc": now(), "session_id": session, "committed": committed, "limit": limit, "auth": auth,
         "reported_usd": float(reported) if isinstance(reported, (int, float)) else 0.0,
         "output": output.name,
     })
@@ -113,9 +132,9 @@ def record(found: JsonObj, output: Path, committed: bool) -> bool:
     found["cost_usd"] = cost_of(found["attempts"])
     if committed:
         found["attempts_without_commit"] = 0
-    elif not limit:
+    elif not limit and not auth:
         found["attempts_without_commit"] = int(found["attempts_without_commit"]) + 1
-    return limit
+    return "limit" if limit else "auth" if auth else ""
 
 
 def get(found: JsonObj, field: str, cap: str) -> str:
@@ -131,7 +150,7 @@ def get(found: JsonObj, field: str, cap: str) -> str:
     if field == "attempts":
         return str(len(found["attempts"]))
     if field == "left":
-        return f"{max(0.0, float(cap) - float(found['cost_usd'])):.2f}"
+        return f"{max(0.0, float(cap) - (float(found['cost_usd']) - float(found.get('budget_from', 0.0)))):.2f}"
     raise SystemExit(f"board_state: unknown field {field!r}")
 
 
@@ -159,13 +178,17 @@ def main(argv: list[str]) -> int:
         return 2
     if command == "retry":
         old = data["tasks"].get(rest[0], {})
-        data["tasks"][rest[0]] = {"cost_usd": old.get("cost_usd", 0.0), "attempts": old.get("attempts", [])}
+        data["tasks"][rest[0]] = {"cost_usd": old.get("cost_usd", 0.0), "attempts": old.get("attempts", []),
+                                  "budget_from": old.get("budget_from", 0.0)}
     found = entry(data, rest[0])
     if command in ("begin", "retry"):
         pass
+    elif command == "rebudget":
+        found["budget_from"] = float(found["cost_usd"])
     elif command == "record" and len(rest) == 3:
-        if record(found, Path(rest[1]), rest[2] == "1"):
-            print("limit")
+        note = record(found, Path(rest[1]), rest[2] == "1")
+        if note:
+            print(note)
     elif command == "get" and len(rest) >= 2:
         print(get(found, rest[1], rest[2] if len(rest) > 2 else "0"))
         return 0

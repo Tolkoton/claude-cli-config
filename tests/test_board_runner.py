@@ -13,6 +13,10 @@ and then does what its script for that call says — the things tasks/README.md 
     idle            do nothing
     limit           answer with a usage-limit notice
     garbage         print something that is not JSON
+    dirty           leave an uncommitted file outside tasks/, commit nothing
+    auth            answer only that claude is logged out
+    return          move the task back to todo/ and commit — neither done nor a question
+    vanish          delete the task file and commit
 
 FAKE_STOP_AT=<n> makes call n ask for a soft stop while it runs — through the runner's own
 `--stop-after-task`, or (FAKE_STOP_HOW=file) by creating the flag file itself.
@@ -92,12 +96,22 @@ elif step == "gateq":
     Path("tasks/blocked/900-gate-escalation-20261003T101500Z.md").write_text(
         "# 900\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація воріт: 2026-10-03T10:15:00Z\n\n"
         "## Питання до власника\n1. Закрити?\n   Відповідь:\n")
+elif step == "dirty":
+    Path(f"half-{n}.txt").write_text("half done\n")
+elif step == "return" and doing:
+    doing[0].rename(Path("tasks/todo") / doing[0].name)
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", "back to todo")
+elif step == "vanish" and doing:
+    doing[0].unlink()
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", "gone")
 elif step == "limit":
     result = "You've hit your session limit · resets 3pm (UTC)"
+elif step == "auth":
+    result = "Invalid API key · Please run /login"
 elif step == "garbage":
     print("Error: something broke before a session existed")
     sys.exit(1)
-print(json.dumps({"type": "result", "is_error": step == "limit", "result": result,
+print(json.dumps({"type": "result", "is_error": step in ("limit", "auth"), "result": result,
                   "session_id": session, "total_cost_usd": costs[session]}))
 '''
 
@@ -271,18 +285,20 @@ r = w.run()
 check("the second call does not resume", len(w.calls()) == 2 and "--resume" not in w.argv(1) and w.has("tasks/done/001-first/report.md"), r.stdout + r.stderr)
 
 # --- three attempts without a commit ----------------------------------------------------------------
-print("three attempts in a row without a commit")
+print("three attempts in a row without a commit: the task is parked, the board is not stopped")
 w = World("idle idle idle idle idle")
 w.put("todo", "001-first.md")
 r = w.run()
-check("the runner stops after three: exit 1, state=stalled", r.returncode == 1 and len(w.calls()) == 3 and "state=stalled task=001-first" in w.status()
-      and "reason=no-commit" in w.status(), w.status())
-check("the task stays in doing/", w.has("tasks/doing/001-first.md"))
+check("after three the runner parks the task in blocked/ and ends as waiting-owner, exit 0", r.returncode == 0 and len(w.calls()) == 3
+      and w.has("tasks/blocked/001-first.md") and not w.has("tasks/doing/001-first.md") and "state=waiting-owner" in w.status(), w.status() + r.stdout + r.stderr)
 r = w.run()
-check("a restart does not get three more: the count is the task's", r.returncode == 1 and len(w.calls()) == 3, len(w.calls()))
+check("a restart does not touch it: it waits for the owner", r.returncode == 0 and len(w.calls()) == 3 and w.has("tasks/blocked/001-first.md"), len(w.calls()))
 (w.home / "plan").write_text("idle idle idle idle done")
-r = w.run("--retry")
-check("--retry gives a fresh count; the task then finishes", r.returncode == 0 and w.has("tasks/done/001-first/report.md") and len(w.calls()) == 5, r.stdout + r.stderr)
+parked = w.repo / "tasks/blocked/001-first.md"
+parked.write_text(parked.read_text(encoding="utf-8").replace("Відповідь:", "Відповідь: продовжити"), encoding="utf-8")
+r = w.run()
+check("the owner's answer returns it with a fresh count and a fresh conversation; the task then finishes", r.returncode == 0
+      and w.has("tasks/done/001-first/report.md") and len(w.calls()) == 5 and "--resume" not in w.argv(3), r.stdout + r.stderr)
 
 print("a commit resets the count; the count is per task")
 w = World("idle idle work idle idle done idle idle done")
@@ -306,15 +322,20 @@ check("the default wait is 15 minutes, the limit 12 hours, the stall 3 attempts"
 
 # --- twelve hours ----------------------------------------------------------------------------------------
 print("a task older than the limit")
-w = World("idle")
+w = World("done")
 w.put("doing", "001-first.md")
 w.state.mkdir(parents=True)
 old = (datetime.now(UTC) - timedelta(hours=13)).strftime("%Y-%m-%dT%H:%M:%SZ")
 (w.state / "costs.json").write_text(json.dumps({"tasks": {"001-first": {"started_utc": old, "session_id": "s9", "attempts_without_commit": 0,
                                                                         "cost_usd": 0.0, "attempts": []}}}))
+w.put("todo", "002-second.md")
 r = w.run()
-check("started 13 hours ago: state=deadline, exit 1, claude not called", r.returncode == 1 and "state=deadline task=001-first" in w.status()
-      and len(w.calls()) == 0, w.status() + r.stdout + r.stderr)
+check("started 13 hours ago: parked without one more call (reason deadline); the next task is done by the one call", r.returncode == 0
+      and w.has("tasks/blocked/001-first.md") and "довше за 12 год" in (w.repo / "tasks/blocked/001-first.md").read_text(encoding="utf-8")
+      and len(w.calls()) == 1 and w.has("tasks/done/002-second/report.md"), w.status() + r.stdout + r.stderr)
+w = World("idle")
+w.put("doing", "001-first.md")
+w.state.mkdir(parents=True)
 (w.state / "costs.json").write_text(json.dumps({"tasks": {"001-first": {"started_utc": (datetime.now(UTC) - timedelta(hours=11)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                                     "session_id": "s9", "attempts_without_commit": 0, "cost_usd": 0.0, "attempts": []}}}))
 (w.home / "plan").write_text("done")
@@ -329,8 +350,17 @@ r = w.run(BOARD_MAX_USD="3", FAKE_COST="2")
 first, second = w.argv(0), w.argv(1)
 check("the first call may spend the whole cap", first[first.index("--max-budget-usd") + 1] == "3.00", first)
 check("the second call gets what is left", second[second.index("--max-budget-usd") + 1] == "1.00", second)
-check("with the cap spent the runner stops: state=stalled reason=budget, exit 1, no third call",
-      r.returncode == 1 and len(w.calls()) == 2 and "state=stalled task=001-first" in w.status() and "reason=budget" in w.status(), w.status())
+check("with the cap spent the task is parked (reason budget): exit 0, no third call", r.returncode == 0 and len(w.calls()) == 2
+      and w.has("tasks/blocked/001-first.md") and "бюджет: 3 USD" in (w.repo / "tasks/blocked/001-first.md").read_text(encoding="utf-8")
+      and " task-parked 001-first budget" in (w.state / "events.log").read_text(), w.status() + r.stdout + r.stderr)
+parked = w.repo / "tasks/blocked/001-first.md"
+parked.write_text(parked.read_text(encoding="utf-8").replace("Відповідь:", "Відповідь: так, продовжити"), encoding="utf-8")
+(w.home / "plan").write_text("x x done")
+r = w.run(BOARD_MAX_USD="3", FAKE_COST="2")
+third = w.argv(2)
+check("the owner's answer gives it one more budget of the same size; the 4 USD already spent stay on its bill", len(w.calls()) == 3
+      and third[third.index("--max-budget-usd") + 1] == "3.00" and w.has("tasks/done/001-first/report.md")
+      and w.costs()["001-first"]["cost_usd"] == 6.0, (third, w.costs()))
 
 # --- blocked, answered, unblocked ------------------------------------------------------------------------
 print("a task that needs the owner")
@@ -442,8 +472,12 @@ head = w.head()
 r = w.run()
 check("exit 1, state=error reason=pull-conflict, claude not called", r.returncode == 1 and "state=error" in w.status()
       and "reason=pull-conflict" in w.status() and len(w.calls()) == 0, w.status() + r.stdout)
-check("the rebase was aborted: HEAD where it was, no rebase in progress", w.head() == head and not (w.repo / ".git/rebase-merge").exists()
-      and not (w.repo / ".git/rebase-apply").exists())
+check("the rebase was aborted: nothing of the work moved, no rebase in progress", w.head("HEAD~1") == head and not (w.repo / ".git/rebase-merge").exists()
+      and not (w.repo / ".git/rebase-apply").exists(), w.log()[:3])
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("the one commit on top is the journal entry: the conflict, and that the whole board stopped", w.log()[0].startswith("board: anomaly — the board:")
+      and "конфлікт під час pull" in journal and "дошку зупинено (причина `pull-conflict`)" in journal
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal)
 
 # --- one runner at a time; the mode file -------------------------------------------------------------------------------
 print("the lock and the mode file")
@@ -1013,8 +1047,119 @@ check("a flag left over from a runner that died does not stop the new one: remov
       r.returncode == 0 and len(w.calls()) == 1 and w.has("tasks/done/001-first/report.md") and "state=idle" in w.status()
       and not (w.state / "stop-after-task").exists() and " stop-flag-stale" in events(w), w.status() + events(w))
 
+# --- one task never stops the board (board 021) ---------------------------------------------------------------------------
+print("one task never stops the board: a stuck task is parked with its reason, the next one goes")
+w = World("dirty idle idle done")
+w.put("todo", "001-stuck.md")
+w.put("todo", "002-next.md")
+base = w.head()
+r = w.run()
+text = (w.repo / "tasks/blocked/001-stuck.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-stuck.md") else ""
+check("the stuck task is in blocked/, the next task is done, the runner exits 0", r.returncode == 0 and len(w.calls()) == 4 and text != ""
+      and not w.has("tasks/doing/001-stuck.md") and w.has("tasks/done/002-next/report.md") and "state=waiting-owner" in w.status(), w.status() + r.stdout + r.stderr)
+why, _, asked = text.partition("## Питання до власника")
+check("the task file says why it stopped, in a section of its own before the questions", "## Чому зупинилась" in why
+      and "3 спроб(и) поспіль не дали жодного commit-а" in why and "Що зробити" in why.split("## Чому зупинилась")[0], text)
+check("…and asks the owner, with an empty answer line", "1. Задача застрягла" in asked and asked.rstrip().endswith("Відповідь:"), asked)
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+entry = journal.split("\n## ")[-1]
+check("the anomaly journal has the entry: UTC time, the task, what happened, what was done", journal.startswith("# Журнал аномалій дошки")
+      and entry.split(" — ")[0].endswith("Z") and "T" in entry.split(" — ")[0] and entry.splitlines()[0].endswith("— 001-stuck")
+      and "- Що сталося: 3 спроб(и)" in entry and "- Що зроблено: задачу перенесено в `blocked/`" in entry, journal)
+subjects = w.log(f"{base}..HEAD")
+check("one commit holds the move and the journal, and it is pushed", "board: 001-stuck → blocked — the runner parked it (no-commit); the board goes on" in subjects
+      and set(sh(w.repo, "git", "show", "--name-only", "--format=", f"HEAD~{subjects.index('board: 001-stuck → blocked — the runner parked it (no-commit); the board goes on')}").stdout.split())
+      == {"tasks/ANOMALIES.md", "tasks/blocked/001-stuck.md", "tasks/doing/001-stuck.md"} and w.origin_head() == w.head(), subjects)
+stash = sh(w.repo, "git", "rev-parse", "-q", "--verify", "refs/stash", ok=False).stdout.strip()
+check("the uncommitted work of the stuck task is in a stash the task file names; the next task began on a clean tree", stash != ""
+      and f"git stash apply {stash}" in why and "half-0.txt" in sh(w.repo, "git", "show", "--name-only", "--format=", f"{stash}^3", ok=False).stdout
+      and not w.has("half-0.txt") and sh(w.repo, "git", "status", "--porcelain").stdout == "", sh(w.repo, "git", "status", "--porcelain").stdout + why)
+check("events and costs: the task is recorded as parked and blocked", " task-parked 001-stuck no-commit stash=" in events(w)
+      and w.costs()["001-stuck"]["outcome"] == "blocked" and "001-stuck" in (w.state / "summary.md").read_text(encoding="utf-8"), events(w))
+check("the next task had a conversation of its own", "--resume" not in w.argv(3) and "tasks/doing/002-next.md" in w.argv(3)[1], w.argv(3))
+
+w = World("idle idle idle idle idle idle done")
+w.put("todo", "001-stuck.md")
+w.put("todo", "002-stuck-too.md")
+w.put("todo", "003-fine.md")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("two stuck tasks in a row: both parked, the third done, two journal entries in order", r.returncode == 0 and len(w.calls()) == 7
+      and w.has("tasks/blocked/001-stuck.md") and w.has("tasks/blocked/002-stuck-too.md") and w.has("tasks/done/003-fine/report.md")
+      and journal.count("\n## ") == 2 and journal.index("— 001-stuck") < journal.index("— 002-stuck-too"), journal + w.status())
+
+w = World("idle idle idle x idle idle idle")
+w.put("todo", "001-stuck.md")
+w.run()
+parked = w.repo / "tasks/blocked/001-stuck.md"
+parked.write_text(parked.read_text(encoding="utf-8").replace("Відповідь:", "Відповідь: ще раз"), encoding="utf-8")
+(w.home / "plan").write_text("x x x idle idle idle")
+r = w.run()
+text = parked.read_text(encoding="utf-8")
+check("parked a second time: one section with two dated lines, a second question, the first answer kept", r.returncode == 0
+      and text.count("## Чому зупинилась") == 1 and text.count("спроб(и) поспіль") == 2 and "Відповідь: ще раз" in text
+      and "2. Задача застрягла" in text and text.rstrip().endswith("Відповідь:"), text)
+
+w = World("return done")
+w.put("todo", "001-odd.md")
+w.put("todo", "002-next.md")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-odd.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-odd.md") else ""
+check("the agent put its task back into todo/: parked with that reason instead of being taken again for ever", r.returncode == 0
+      and len(w.calls()) == 2 and "агент повернув задачу" in text and w.has("tasks/done/002-next/report.md"), w.status() + r.stdout + r.stderr)
+
+w = World("vanish done")
+w.put("todo", "001-gone.md")
+w.put("todo", "002-next.md")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("a task that vanished from the board: written into the journal, the next task is done, exit 0", r.returncode == 0 and len(w.calls()) == 2
+      and "— 001-gone" in journal and "задача зникла з дошки" in journal and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status()
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "" and w.origin_head() == w.head(), w.status() + journal + r.stderr)
+
+print("…and what does stop the whole board")
+w = World("auth done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("claude is logged out: the whole board stops — exit 1, state=error reason=logged-out, one call, the next task not started", r.returncode == 1
+      and len(w.calls()) == 1 and "state=error task=001-first" in w.status() and "reason=logged-out" in w.status() and w.has("tasks/todo/002-second.md"), w.status() + r.stdout)
+check("…the task stays in doing/ (it is not its fault), the journal says so and is pushed", w.has("tasks/doing/001-first.md")
+      and "claude розлогінився" in journal and "дошку зупинено (причина `logged-out`)" in journal and w.origin_head() == w.head()
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal)
+r = w.run()
+check("after the login the next start goes on: the logged-out call was no attempt, both tasks are done", r.returncode == 0 and len(w.calls()) == 3
+      and w.has("tasks/done/001-first/report.md") and w.has("tasks/done/002-second/report.md")
+      and w.costs()["001-first"]["attempts"][0]["auth"] is True and w.costs()["001-first"]["attempts_without_commit"] == 0, w.status() + str(w.costs()))
+w = World("idle idle idle done")
+w.put("todo", "001-stuck.md")
+w.put("todo", "002-next.md")
+r = w.run(FAKE_STOP_AT="0", FAKE_STOP_HOW="file")
+check("the soft stop holds after a parked task too: parked, stopped, the next one not started", r.returncode == 0 and len(w.calls()) == 3
+      and w.has("tasks/blocked/001-stuck.md") and w.has("tasks/todo/002-next.md") and "state=stopped task=001-stuck" in w.status()
+      and "reason=stop-after-task" in w.status(), w.status() + r.stdout)
+w = World("done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+os.rename(w.origin, w.dir / "origin-away.git")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("origin out of reach is not critical: both tasks are done, each failed push is in the journal", r.returncode == 0 and len(w.calls()) == 2
+      and w.has("tasks/done/002-second/report.md") and journal.count("гілку не вдалося надіслати") >= 2
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal + r.stdout)
+w = World("done")
+w.put("todo", "001-first.md")
+r = w.run()
+check("the negative case: nothing odd happened — no journal is made", r.returncode == 0 and not w.has("tasks/ANOMALIES.md"))
+head_text = runner_text.split("set -uo pipefail")[0]
+check("the runner's head no longer lists stalled or deadline among its states and names what stops the board",
+      "stalled|deadline" not in head_text and "ONE TASK NEVER STOPS THE BOARD" in head_text and "logged-out" in head_text and "pull-conflict" in head_text)
+
 for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
     words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
+    check(f"{manual} tells the owner where a stuck task goes, where the journal is and what stops the whole board",
+          "tasks/ANOMALIES.md" in words and "Чому зупинилась" in words and "Одна задача не зупиняє дошку" in words and "розлогінився" in words)
     check(f"{manual} tells the operator to stop the runner this way only, and not to kill it",
           "як зупинити виконавця" in words and "Лише так" in words and "board-runner.sh --stop-after-task" in words
           and "не вбивайте" in words and ".claude/state/board/stop-after-task" in words)
