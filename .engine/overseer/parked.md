@@ -162,13 +162,14 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Continued with: the package-2b records and report.
 - Closed: 2026-10-03 (board task 004; was PARKED) — the owner supplied the program inside the repository: commit b9cf3aa `plan: night program 1 verbatim in docs/plan/night-1.md`. It was run: item 0.1–0.2 at 371e02c, package A report at 0e2b0fa, package B report at d6b9947; its item 0.3 is the N0.3 entry below.
 
-## 2026-10-03T10:30:00Z — B-wiring-stuck-bash — PARKED
+## 2026-10-03T10:30:00Z — B-wiring-stuck-bash — RESUMED
 - Blocked on: `.claude/settings.json` is owner-only (protect-paths.sh) and the stuck counter on Bash results needs a PostToolUse / PostToolUseFailure entry for `Bash`
 - Class: human-input
 - Reversibility: `git checkout -- .claude/settings.json`; tests/test_settings_proposal.py holds on both sides of the apply
 - Evidence: since board 008 (2026-10-03) the two groups are in docs/tasks/settings.json; tests/test_settings_proposal.py 17/17. The merge script, its fragment and their test are removed: the script wrote the live file directly and left the proposal's test red
 - Unblocks when: the owner runs `cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py` (prints APPLIED) and restarts Claude Code, or answers «так» to board task 008 and the board runner runs it
 - Continued with: the rest of package B, which needs no new wiring
+- Closed: 2026-10-03 (board task 008; was PARKED) — the owner answered «так» and the board runner applied the proposal at 18:46:56Z: commit febfdff `settings: the proposal docs/tasks/settings.json applied on the owner's answer (008-stuck-counter-wiring)`, 22 added lines, the two handlers only. `tests/test_settings_proposal.py` prints APPLIED (17/17). Seen live in the next session: three identical failing Bash commands in a row produced the stuck protocol from the PostToolUseFailure hook.
 
 ## 2026-10-03T11:20:00Z — N0.3-full-audit — RESUMED
 - Blocked on: the headless Claude Code sessions of the audit are not logged in on this machine (`claude auth status` → loggedIn false; every run ended "Not logged in · Please run /login"); a credential only the owner can supply. The attempt cost $0.00 and recorded 21 tooling errors, so its file was set aside, not committed

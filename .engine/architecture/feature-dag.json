@@ -69,9 +69,8 @@
       "id": "B5",
       "title": "stuck counter on Bash results: settings wiring (OWNER)",
       "deps": [],
-      "status": "parked",
-      "parked_on": "parked.md B-wiring-stuck-bash: cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py (board 008)",
-      "evidence": "parked.md B-wiring-stuck-bash: cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py (board 008)"
+      "status": "done",
+      "evidence": "febfdff (applied by the board runner on the owner's answer, board 008); tests/test_settings_proposal.py APPLIED 17/17; the stuck protocol seen live on the third identical Bash failure"
     },
     {
       "id": "C8b",
