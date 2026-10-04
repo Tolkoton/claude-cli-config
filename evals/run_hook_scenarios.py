@@ -325,7 +325,6 @@ def main() -> int:
     args = parser.parse_args()
     if bool(args.sandbox) == bool(args.engine_ref):
         parser.error("give exactly one of --sandbox and --engine-ref")
-    whole_set = not (args.only or args.record_only or args.hooks_dir) and args.scenarios == here / "scenarios" / "hooks"
 
     temp_root: Path | None = None
     if args.engine_ref:
@@ -345,6 +344,8 @@ def main() -> int:
 
 
 def run_all(args: argparse.Namespace, here: Path) -> int:
+    # Only a run of the whole shipped set against the sandbox's own hooks is a fact about the engine.
+    whole_set = not (args.only or args.record_only or args.hooks_dir) and args.scenarios == here / "scenarios" / "hooks"
     sandbox = args.sandbox.resolve()
     info_file = sandbox / "SANDBOX-INFO.json"
     if not info_file.is_file():

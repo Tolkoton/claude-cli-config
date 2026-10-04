@@ -8,7 +8,10 @@ green and one red suite, and calls the golden-set runner's own recorder:
 
   - a whole run leaves the record: time (UTC), commit, dirty tree or not, suites, green, the red by name;
   - the fast subset leaves its own file and does not touch the full one;
-  - the negative cases: a filtered run and --list leave nothing, and a record is replaced, never appended.
+  - the negative cases: a filtered run and --list leave nothing, and a record is replaced, never appended;
+  - the golden-set runner: its recorder, and a REAL partial run (--only; a temporary sandbox of HEAD,
+    about a second), which must end normally and record nothing. The whole set's own record is seen
+    by running it (46 s): the release check and the task's report do that, not this suite.
 """
 
 from __future__ import annotations
@@ -99,10 +102,10 @@ check("the record: time (UTC), the commit of the repository, the ref, scenarios,
       re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", str(golden.get("recorded_utc"))) is not None and golden.get("commit") == head
       and golden.get("engine_ref") == "HEAD" and golden.get("scenarios") == 3 and golden.get("green") == 2 and golden.get("red") == ["b"]
       and golden.get("compare") == "results-task-033.json" and golden.get("differences") == 1 and golden.get("dirty") is True, golden)
-source = (ROOT / "evals/run_hook_scenarios.py").read_text(encoding="utf-8")
-check("a partial or foreign run is not recorded: the call stands behind --only, --record-only, --hooks-dir and --scenarios",
-      "whole_set = not (args.only or args.record_only or args.hooks_dir) and args.scenarios == here / \"scenarios\" / \"hooks\"" in source
-      and source.count("record_health(") == 2 and "    if whole_set:\n        record_health(" in source)
+partial = Path(tempfile.mkdtemp(prefix="health-partial-"))
+r = sh(ROOT, sys.executable, "evals/run_hook_scenarios.py", "--engine-ref", "HEAD", "--only", "no-scenario-has-this-id", ENGINE_HEALTH_DIR=str(partial))
+check("the negative case, the REAL runner: a partial run (--only) ends normally and leaves no record", r.returncode == 0
+      and "PASS 0/0" in r.stdout and list(partial.iterdir()) == [], r.stdout[-300:] + r.stderr[-300:])
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)
