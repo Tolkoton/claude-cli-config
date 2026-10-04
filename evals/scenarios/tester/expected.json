@@ -1,0 +1,22 @@
+{
+  "boundary": {
+    "what": "a boundary that is inclusive: the item is reordered when on_hand EQUALS the reorder point, not only below it",
+    "slug": "reorder-flag", "module": "inventory", "function": "needs_reorder",
+    "wrong_does": "compares with < : an item exactly at the reorder point is not flagged"
+  },
+  "rounding": {
+    "what": "a rounding rule unlike the rest of the module: ties go to the even cent, stated through the premise",
+    "slug": "sales-tax", "module": "pricing", "function": "add_tax",
+    "wrong_does": "rounds half up, as apply_discount and total do"
+  },
+  "empty": {
+    "what": "an empty input that is an error: an average of nothing raises, although the neighbouring total() returns 0.00",
+    "slug": "average-price", "module": "pricing", "function": "average",
+    "wrong_does": "returns 0.00 for an empty iterable"
+  },
+  "order": {
+    "what": "the order of the checks: with two reasons to refuse, the SKU mismatch is the one reported",
+    "slug": "stock-transfer", "module": "inventory", "function": "transfer",
+    "wrong_does": "calls reserve() first, so a wrong article with too large a quantity is reported as a stock shortage"
+  }
+}
