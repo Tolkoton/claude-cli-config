@@ -766,15 +766,18 @@ OLD_SETTINGS, NEW_SETTINGS = '{"hooks": {}}\n', '{"hooks": {"PostToolUse": []}}\
 STUB_TEST = 'import sys\nfrom pathlib import Path\nsys.exit(1 if "red" in Path(".claude/settings.json").read_text() else 0)\n'
 
 
-def proposal_world(plan: str = "done", proposal: str = NEW_SETTINGS) -> tuple[World, str]:
+def proposal_world(plan: str = "done", proposal: str = NEW_SETTINGS, own_test: bool = True) -> tuple[World, str]:
     """A repository with a live settings file, a proposal and its test; 008 waits in blocked/ with
-    the question and the offer an agent wrote (board.py action-line). Returns the world and the offer."""
+    the question and the offer an agent wrote (board.py action-line). Returns the world and the offer.
+    `own_test=False` is an installed project: it has no test of its own, only the shipped check."""
     w = World(plan)
     for rel, text in ((".claude/settings.json", OLD_SETTINGS), ("docs/tasks/settings.json", proposal),
-                      ("tests/test_settings_proposal.py", STUB_TEST)):
+                      ("tests/test_settings_proposal.py", STUB_TEST if own_test else "")):
+        if not text:
+            continue
         (w.repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (w.repo / rel).write_text(text)
-    sh(w.repo, "git", "add", ".claude/settings.json", "docs", "tests")
+    sh(w.repo, "git", "add", ".claude/settings.json", "docs", *(["tests"] if own_test else []))
     sh(w.repo, "git", "commit", "-q", "-m", "settings and the proposal")
     offer = sh(w.repo, sys.executable, str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "action-line", "apply-settings").stdout.strip()
     w.put("blocked", "008-wiring.md", task(questions=f"1. Застосувати пропозицію налаштувань?\n   {offer}\n   Відповідь:\n"))
@@ -880,6 +883,22 @@ w.run()
 back = (w.repo / "tasks/done/008-wiring/task.md").read_text(encoding="utf-8")
 check("the previous file is put back, nothing is committed for it, the agent is told", live_settings(w) == OLD_SETTINGS and "action-failed apply-settings" in events(w)
       and "попередній" in back and not any(s.startswith("settings:") for s in w.log()), events(w))
+
+print("board 038: an installed project — no test of its own, the shipped check decides")
+w, offer = proposal_world(own_test=False)
+w.run()
+owner_answers(w, "008-wiring.md", "так")
+w.run()
+check("the owner's «так» applies the proposal there as here: applied, committed by itself, the agent closes the task",
+      live_settings(w) == NEW_SETTINGS and "action-applied apply-settings 008-wiring.md" in events(w) and not w.has("tests/test_settings_proposal.py")
+      and "settings: the proposal docs/tasks/settings.json applied on the owner's answer (008-wiring)" in w.log()
+      and w.has("tasks/done/008-wiring/report.md") and sh(w.repo, "git", "status", "--porcelain").stdout == "", events(w))
+w, offer = proposal_world(own_test=False, proposal='{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "bash .claude/hooks/ghost.sh"}]}]}}\n')
+w.run()
+owner_answers(w, "008-wiring.md", "так")
+w.run()
+check("a proposal the check refuses (a handler runs a script the project lacks): the live file is untouched, the agent is told",
+      live_settings(w) == OLD_SETTINGS and "action-failed apply-settings" in events(w) and not any(s.startswith("settings:") for s in w.log()), events(w))
 
 print("board 008: any other answer is an instruction; an action outside the list is never run")
 w, offer = proposal_world()

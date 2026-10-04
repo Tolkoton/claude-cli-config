@@ -112,6 +112,8 @@ expected = {
     "user/skills/live-build/SKILL.md": "user",
     "user/settings.json": "user",
     "docs/tasks/settings.json": "project",
+    ".claude/unattended/settings_check.py": "engine",
+    ".claude/unattended/owner_action.py": "engine",
     "docs/tasks/effective-before-split.json": "project",
     "evals/settings_parity.py": "project",
     "evals/permission_rules.py": "project",

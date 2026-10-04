@@ -103,6 +103,13 @@ project  tasks/
 user     user/settings.json
 user     user/**
 
+# --- the settings proposal (board 038): the project's. No agent may edit .claude/settings.json; -
+# --- it proposes the whole file here and the owner's «так» has the board runner apply it --------
+# --- (.claude/unattended/owner_action.py, checked by settings_check.py beside it — both the ------
+# --- engine's, above). No seed file: engine.py creates the proposal once as a copy of the --------
+# --- project's OWN live settings, and keeps it identical only while it was identical. ------------
+project  docs/tasks/settings.json
+
 # --- proposals for the owner's hands, the measuring instruments and their fixtures ---------
 project  docs/tasks/
 project  docs/engine-limits.md

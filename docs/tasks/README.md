@@ -145,5 +145,20 @@ test red). The owner types the command, or answers `так` on the task board un
 that offers it: `board-runner.sh` then runs exactly this through
 `.claude/unattended/owner_action.py`, for exactly the proposal the question named (its sha256
 is in the offer), puts the previous file back if the test goes red, and commits the applied
-file. No agent can: `protect-paths.sh` refuses the file, and `owner_action.py` refuses inside a
+file. Before the copy it runs `.claude/unattended/settings_check.py`: a proposal that is not
+Claude Code's shape, runs a hook script the project lacks, or drops the overseer's handlers is
+never copied. No agent can: `protect-paths.sh` refuses the file, and `owner_action.py` refuses inside a
 Claude Code session.
+
+## The same mechanism in an installed project (board 038)
+
+`engine.py install` and `update` give every project this mechanism. The proposal
+`docs/tasks/settings.json` is the project's file: created once as a copy of the project's own
+live `.claude/settings.json` (nothing is proposed), it follows that file through an update only
+while it was identical to it (`follow` in the report) — a proposal that differs is never
+touched, and the report says the live file moved under it. The check
+`.claude/unattended/settings_check.py` and the action `owner_action.py` are the engine's and
+ship like any engine file. A project has no `tests/test_settings_proposal.py` unless it writes
+one; then the shipped check alone decides, and with one, both do.
+`tests/test_settings_proposal_install.py` shows a fresh install, an update from a version
+without the mechanism, and proposal → «так» → applied on a synthetic project.

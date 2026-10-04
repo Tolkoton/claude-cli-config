@@ -5,12 +5,14 @@
     owner_action.py [--root DIR] promote-rule <sha256>
     owner_action.py [--root DIR] reject-rule <sha256>
 
-`apply-settings` is the one way the shared settings change: the proposal docs/tasks/settings.json
-is copied over .claude/settings.json and tests/test_settings_proposal.py is run — the command
-the owner would type, `cp docs/tasks/settings.json .claude/settings.json && python3
-tests/test_settings_proposal.py`. `<sha256>` is the proposal the owner said «так» to (the agent
-wrote it under its question, board.py `action-line`); a proposal that changed since is not the
-one that was approved and is not applied. A red test puts the previous file back.
+`apply-settings` is the one way the shared settings change, in the engine's repository and in
+every project it is installed into (board 038): settings_check.py, which ships with the engine,
+judges the proposal docs/tasks/settings.json against the live file; a sound proposal is copied
+over .claude/settings.json; and a project that keeps a test of its own in
+tests/test_settings_proposal.py (the engine's repository does) has it run on the result.
+`<sha256>` is the proposal the owner said «так» to (the agent wrote it under its question,
+board.py `action-line`); a proposal that changed since is not the one that was approved and is
+not applied. A refused proposal is never copied; a red test puts the previous file back.
 
 `promote-rule` is the one way a lesson becomes a rule (board 040): the owner answered «так» under
 a rule question, whose offer names the sha256 of the proposal's id and the exact rule text. The
@@ -22,8 +24,8 @@ An agent may not edit .claude/settings.json (protect-paths.sh) and may not get t
 this script either: it refuses inside a Claude Code session, as gate.py --close-escalation does.
 A hook sees the command an agent types, never one run from a script, so the check is here.
 
-Exit 0: applied (or the live file already was the proposal). 1: the test went red, the previous
-file is back. 2: refused — inside a session, or not an action of the list. 3: stale — the
+Exit 0: applied (or the live file already was the proposal). 1: the check refused the proposal
+(the live file untouched) or the test went red (the previous file is back). 2: refused — inside a session, or not an action of the list. 3: stale — the
 proposal is missing or is not the one the sha256 names.
 """
 
@@ -39,20 +41,30 @@ from typing import Any
 
 PROPOSAL = "docs/tasks/settings.json"
 LIVE = ".claude/settings.json"
-TEST = "tests/test_settings_proposal.py"
+CHECK = "settings_check.py"  # beside this file: it ships with the engine
+TEST = "tests/test_settings_proposal.py"  # the project's own, when it keeps one
 EXIT_FAILED, EXIT_REFUSED, EXIT_STALE = 1, 2, 3
 
 
 def apply_settings(root: Path, approved: str) -> int:
     proposal, live, test = root / PROPOSAL, root / LIVE, root / TEST
-    if not (proposal.is_file() and live.is_file() and test.is_file()):
-        print(f"owner-action: apply-settings needs {PROPOSAL}, {LIVE} and {TEST}; one is missing", file=sys.stderr)
+    if not (proposal.is_file() and live.is_file()):
+        print(f"owner-action: apply-settings needs {PROPOSAL} and {LIVE}; one is missing", file=sys.stderr)
         return EXIT_STALE
     wanted = proposal.read_bytes()
     found = hashlib.sha256(wanted).hexdigest()
     if found != approved:
         print(f"owner-action: {PROPOSAL} is {found}, the owner approved {approved or '(no sha256)'}; not applied", file=sys.stderr)
         return EXIT_STALE
+    check = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / CHECK), "--root", str(root)], capture_output=True, text=True, check=False)
+    print(check.stdout[-2000:] + check.stderr[-2000:])
+    if check.returncode != 0:
+        print(f"owner-action: {CHECK} refused the proposal (exit {check.returncode}); {LIVE} is untouched", file=sys.stderr)
+        return EXIT_FAILED
+    if not test.is_file():
+        live.write_bytes(wanted)
+        print(f"owner-action: {PROPOSAL} ({found}) applied to {LIVE}; {CHECK} passes")
+        return 0
     before = live.read_bytes()
     live.write_bytes(wanted)
     ran = subprocess.run([sys.executable, str(test)], cwd=root, capture_output=True, text=True, check=False)
@@ -61,7 +73,7 @@ def apply_settings(root: Path, approved: str) -> int:
         live.write_bytes(before)
         print(f"owner-action: {TEST} failed after the copy (exit {ran.returncode}); the previous {LIVE} is back", file=sys.stderr)
         return EXIT_FAILED
-    print(f"owner-action: {PROPOSAL} ({found}) applied to {LIVE}; {TEST} passes")
+    print(f"owner-action: {PROPOSAL} ({found}) applied to {LIVE}; {CHECK} and {TEST} pass")
     return 0
 
 

@@ -29,7 +29,10 @@ engine file as installed. That is how an update tells "unchanged since install" 
 from "edited here" (report it, keep it). One exception to "keep it": a kept `.claude/settings.json`
 gains the overseer's two handlers when it lacks them (`wire` in the report names each one) — the
 audit runs through them and through nothing else; a file that is not readable JSON is left alone
-and the report carries the text to add. A project copied by hand before this installer existed
+and the report carries the text to add. The settings proposal `docs/tasks/settings.json` is the
+project's: created once as a copy of the project's own live settings, and kept identical to them
+(`follow`) only while it was identical before the run — a proposal that differs is never touched.
+A project copied by hand before this installer existed
 has no lock; then each file is compared with every version the engine ever had at that path —
 any match is an untouched engine file (replace it), no match is an edit (keep it).
 
@@ -145,6 +148,11 @@ RELEASE_ENVIRONMENT = "evals/environment.py"
 SETTINGS = ".claude/settings.json"
 SETTINGS_LOCAL = ".claude/settings.local.json"
 OVERSEER_SCRIPT = "overseer_verdict.py"
+# The settings proposal (board 038). An agent may not edit the settings file; it proposes the whole
+# file here and the owner's «так» has the board runner copy it over the live one. A project gets
+# the proposal as a copy of ITS OWN live settings — nothing is proposed yet — and a proposal that
+# is identical to the live file stays identical when an update changes that file.
+PROPOSAL = "docs/tasks/settings.json"
 SUPERVISOR_STOP_FIRST = "unattended supervisor appears live ({why}): stop it first; the state is not moved"
 
 
@@ -573,7 +581,7 @@ def gitignore_with_block(current: str | None, patterns: list[str]) -> str:
 
 @dataclass
 class Action:
-    verb: str  # add, update, chmod, keep, remove, seed, reseed, move, block, wire
+    verb: str  # add, update, chmod, keep, remove, seed, reseed, move, block, wire, follow
     path: str
     detail: str = ""
     blob: str = ""
@@ -763,6 +771,10 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
             blobs_needed.add(seed_entry.blob)
             seeded.add(target_path)
 
+    # 3b. The settings proposal follows the live settings file (when this ref's map knows it).
+    if any(r.pattern == PROPOSAL and r.owner == "project" for r in rules):
+        plan_proposal(src, plan, seeded_before, seeded)
+
     # 4. Reports only: the engine's own records left behind by an old copy, machine state in git.
     for path in sorted(history):
         if path in seeded_targets or owned(path) != "project" or not path.startswith(".claude/"):
@@ -909,11 +921,47 @@ def plan_wiring(src: EngineSource, plan: Plan, commit: str) -> None:
     plan.contents["wire:" + SETTINGS] = (json.dumps(current, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
+def plan_proposal(src: EngineSource, plan: Plan, seeded_before: set[str], seeded: set[str]) -> None:
+    """The settings proposal of a project. Missing: created once as a copy of the live settings
+    file as this run leaves it, so nothing is proposed. Identical to the live file that this run
+    changes: it follows. Different from it (something is proposed, or was proposed and never
+    applied): never touched — a note says the live file moved under it."""
+    live, target = plan.project / SETTINGS, plan.project / PROPOSAL
+    before = live.read_bytes() if live.is_file() and not live.is_symlink() else None
+    after = before
+    for action in plan.actions:
+        if action.path != SETTINGS:
+            continue
+        if action.verb == "wire":
+            after = plan.contents["wire:" + SETTINGS]
+        elif action.verb in ("add", "update"):
+            after = src.read({action.blob})[action.blob]
+    if after is None or target.is_symlink() or (target.exists() and not target.is_file()):
+        return
+    if not target.exists():
+        if PROPOSAL in seeded_before:
+            return  # created once; the project deleted it
+        plan.contents["live:" + SETTINGS] = after
+        plan.actions.append(Action("seed", PROPOSAL, f"a copy of the project's {SETTINGS}: nothing is proposed yet", blob="live:" + SETTINGS, mode="100644"))
+        seeded.add(PROPOSAL)
+        return
+    if after == before:
+        return
+    if target.read_bytes() == before:
+        plan.contents["follow:" + PROPOSAL] = after
+        plan.actions.append(Action("follow", PROPOSAL, f"it was identical to {SETTINGS}, which this run changes; kept identical — nothing was proposed, nothing is"))
+    else:
+        plan.notes.append(
+            f"{PROPOSAL} differs from {SETTINGS}, and this run changes {SETTINGS}: the proposal was written against the "
+            "previous file and is left as it is. Bring the change into it before it is applied, or applying it undoes the update"
+        )
+
+
 def apply_plan(plan: Plan) -> None:
     apply_migration(plan.project, plan.actions)  # first: a seed or an add must never land on a moving file
     for action in plan.actions:
         target = plan.project / action.path
-        if action.verb in ("block", "wire"):
+        if action.verb in ("block", "wire", "follow"):
             target.write_bytes(plan.contents[f"{action.verb}:{action.path}"])
             continue
         if action.verb in WRITING_VERBS:

@@ -72,8 +72,11 @@ arrives by the pull or the inbox, the runner itself runs `gate.py --close-escala
 that task to `done/` — no agent is started for it (`.claude/references/gate.md`). An action the
 owner approved with `так` under a question that offers it (`Дія виконавця: apply-settings <sha256>`)
 the runner takes itself, through `owner_action.py`, whose list is short: the settings
-proposal is copied over `.claude/settings.json`, its test run, the file committed, and the task
-returned to `todo/` with the outcome in place of the offer (`docs/tasks/README.md`). A lesson
+proposal is checked by `settings_check.py` (it ships with the engine, so this works in every
+project), copied over `.claude/settings.json`, the project's own `tests/test_settings_proposal.py`
+run when it keeps one, the file committed, and the task returned to `todo/` with the outcome in
+place of the offer. `engine.py` gives a project its `docs/tasks/settings.json` as a copy of its
+own live settings. A lesson
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
 `Дія виконавця: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the
