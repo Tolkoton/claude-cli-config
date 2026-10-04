@@ -20,6 +20,8 @@ and then does what its script for that call says — the things tasks/README.md 
     tidy            commit everything that is uncommitted (what the runner asks for when a closed
                     task left the tree dirty, board 029)
     <step>-dirty    do <step>, then stage a file outside tasks/ and leave it uncommitted
+    note            write an entry into the anomaly journal as an agent does (`board.py anomaly …
+                    --source агент`), commit nothing, leave the task in doing/ (board 035)
     refused         claim one unit complete three times; each claim is audited through the REAL
                     overseer hooks (overseer_stop.py, overseer_verdict.py — the Stop, PreToolUse
                     and SubagentStop envelopes a session would send) and answered BLOCK. What the
@@ -28,6 +30,7 @@ and then does what its script for that call says — the things tasks/README.md 
 
 FAKE_STOP_AT=<n> makes call n ask for a soft stop while it runs — through the runner's own
 `--stop-after-task`, or (FAKE_STOP_HOW=file) by creating the flag file itself.
+FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
     gateq           the Stop gate gave up during the session: a gate question appears in blocked/,
                     uncommitted, and the task stays in doing/
 
@@ -44,6 +47,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -69,10 +73,11 @@ with calls.open("a") as f:
 plan = (home / "plan").read_text().split()
 step = plan[n] if n < len(plan) else "done"
 if os.environ.get("FAKE_STOP_AT") == str(n):   # the operator asks for a soft stop during this call
+    kind = os.environ.get("FAKE_STOP_KIND", "task")
     if os.environ.get("FAKE_STOP_HOW") == "file":
-        Path(".claude/state/board/stop-after-task").touch()
+        Path(f".claude/state/board/stop-after-{kind}").touch()
     else:
-        asked = subprocess.run(["bash", os.environ["FAKE_RUNNER"], "--stop-after-task"], capture_output=True, text=True)
+        asked = subprocess.run(["bash", os.environ["FAKE_RUNNER"], f"--stop-after-{kind}"], capture_output=True, text=True)
         (home / "stop-asked").write_text(f"{asked.returncode}\n{asked.stdout}{asked.stderr}")
 session = argv[argv.index("--resume") + 1] if "--resume" in argv else f"s{n + 1}"
 costs = json.loads((home / "costs").read_text()) if (home / "costs").exists() else {}
@@ -108,6 +113,9 @@ elif step == "gateq":
         "## Питання до власника\n1. Закрити?\n   Відповідь:\n")
 elif step == "dirty":
     Path(f"half-{n}.txt").write_text("half done\n")
+elif step == "note":
+    subprocess.run([sys.executable, os.environ["FAKE_BOARD"], "--root", ".", "anomaly", doing[0].stem if doing else "-",
+                    "АГЕНТ-ПОБАЧИВ-ДИВНЕ", "АГЕНТ-ПІШОВ-ДАЛІ", "--source", "агент"], check=True, capture_output=True)
 elif step == "return" and doing:
     doing[0].rename(Path("tasks/todo") / doing[0].name)
     git("add", "-A", "tasks"); git("commit", "-q", "-m", "back to todo")
@@ -220,7 +228,8 @@ class World:
         full = {**{k: v for k, v in os.environ.items() if not k.startswith("BOARD_")},
                 "CLAUDE_PROJECT_DIR": str(self.repo), "BOARD_CLAUDE": str(self.fake),
                 "BOARD_INBOX": str(self.inbox), "BOARD_PAUSE_SEC": "0", "BOARD_LIMIT_WAIT_SEC": "0",
-                "FAKE_HOME": str(self.home), "FAKE_RUNNER": str(RUNNER), "FAKE_HOOKS": str(ROOT / ".claude/hooks")}
+                "FAKE_HOME": str(self.home), "FAKE_RUNNER": str(RUNNER), "FAKE_HOOKS": str(ROOT / ".claude/hooks"),
+                "FAKE_BOARD": str(ROOT / ".claude/unattended/board.py")}
         # The suite itself may run inside a Claude Code session; the runner under test is the
         # owner's process unless a case says otherwise (CLAUDECODE="1").
         for name in ("CLAUDE_UNATTENDED_SESSION", "CLAUDECODE"):
@@ -585,6 +594,12 @@ def alive(pid: int) -> bool:
 check("TERM: the session goes down with the runner", child > 0 and not alive(child), child)
 check("…the mode file is restored, the lock released, the status says so", not w.has(".claude/state/overseer/mode") and not (w.state / "lock").exists()
       and "state=error" in w.status() and "reason=killed" in w.status(), w.status())
+killed = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("…and the stop is in the anomaly journal, under the task (board 035: every stop with state=error)", "— 001-first\n- Що сталося: виконавця вбито сигналом" in killed
+      and "причина killed" in killed, killed)
+r = w.run()
+check("…which the next start commits before anything else and pushes", "board: anomaly journal — entries written by a hook, the gate or the agent" in w.log()
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "" and w.origin_head() == w.head(), str(w.log()) + r.stderr)
 
 # --- board 005: the gate's escalation is closed through the board ----------------------------------
 GATE = ROOT / ".claude/hooks/gate.py"
@@ -1025,7 +1040,8 @@ check("017 left in doing/ by the owner's session: the runner does not continue i
       and len(w.calls()) == 0 and w.has("tasks/doing/017-block-dangerous-push-hardening.md") and "state=waiting-owner" in w.status()
       and "reason=attended" in w.status(), w.status() + r.stdout + r.stderr)
 r = w.run("--retry")
-check("…nor with --retry", len(w.calls()) == 0 and w.has("tasks/doing/017-block-dangerous-push-hardening.md"), w.status())
+check("--retry is gone (board 035): an unknown option, exit 2, nothing runs", r.returncode == 2 and "unknown option '--retry'" in r.stderr
+      and len(w.calls()) == 0 and w.has("tasks/doing/017-block-dangerous-push-hardening.md"), r.stderr + w.status())
 w = World("done")
 w.put("todo", "017-ordinary.md", ATTENDED_017.replace("Потрібна присутність власника: так", "Потрібна присутність власника: ні").replace("Залежить від: 016", "Залежить від: —"))
 r = w.run()
@@ -1367,6 +1383,189 @@ for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
           "Задача закривається з чистим робочим деревом" in words and "один раз отримує хід назад" in words and "нічого не видаляє" in words)
 check("the runner's own head and the unattended README name the option",
       "--stop-after-task" in runner_text.split("set -uo pipefail")[0] and "--stop-after-task" in (ROOT / ".claude/unattended/README.md").read_text(encoding="utf-8"))
+
+# --- board 035: the runner's reliability ---------------------------------------------------------------------------------
+print("board 035: --stop-after-attempt — the attempt in hand ends, the task stays in doing/ and the next start continues it")
+w = World("work-dirty idle done tidy done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run(FAKE_STOP_AT="0", FAKE_STOP_KIND="attempt")
+asked = (w.home / "stop-asked").read_text(encoding="utf-8")
+check("the command, given while an attempt is running, exits 0 and says the runner will stop after its current attempt",
+      asked.startswith("0\n") and "current attempt" in asked and "001-first" in asked, asked)
+check("one attempt, and the runner stops: the task is still in doing/ — not closed, not parked — and the next one is not started", r.returncode == 0
+      and len(w.calls()) == 1 and w.has("tasks/doing/001-first.md") and not w.has("tasks/blocked/001-first.md") and w.has("tasks/todo/002-second.md"), r.stdout + r.stderr)
+check("state=stopped, the task named, reason=stop-after-attempt; the flag removed, the lock released", "state=stopped task=001-first" in w.status()
+      and "reason=stop-after-attempt" in w.status() and not (w.state / "stop-after-attempt").exists() and not (w.state / "lock").exists(), w.status())
+check("what the attempt committed is pushed; what it left uncommitted is still in the working tree, untouched", w.log("-1") == ["work 0"]
+      and w.origin_head() == w.head() and porcelain(w) == "A  left-0.txt\n" and sh(w.repo, "git", "stash", "list").stdout == "", porcelain(w))
+check("the stop is in the events and the summary", " stop-requested after-attempt " in events(w) and " stop stopped stop-after-attempt 001-first" in events(w)
+      and "stop-after-attempt" in (w.state / "summary.md").read_text(encoding="utf-8"), events(w))
+started = w.costs()["001-first"]["started_utc"]
+r = w.run()
+check("the next start continues the task: the same conversation (--resume s1), the continue prompt, the task's clock and attempts kept",
+      "--resume" in w.argv(1) and w.argv(1)[w.argv(1).index("--resume") + 1] == "s1" and w.argv(1)[1].startswith("Continue")
+      and w.costs()["001-first"]["started_utc"] == started and w.log().count("board: 001-first → doing") == 1, w.argv(1))
+check("…to its end, the file the first attempt left is still known as the task's own (one cleaning turn), then the next task: idle, clean tree",
+      r.returncode == 0 and len(w.calls()) == 5 and w.has("tasks/done/001-first/report.md") and w.has("tasks/done/002-second/report.md")
+      and "the leftovers" in w.log() and "state=idle" in w.status() and porcelain(w) == "", w.status() + porcelain(w) + r.stderr)
+
+w = World("work idle done done")
+w.put("todo", "001-first.md")
+r = w.run(FAKE_STOP_AT="0", FAKE_STOP_KIND="attempt", FAKE_STOP_HOW="file")
+check("the flag file alone is enough: one attempt, stopped, the task in doing/", r.returncode == 0 and len(w.calls()) == 1
+      and w.has("tasks/doing/001-first.md") and "reason=stop-after-attempt" in w.status(), w.status())
+w = World("work idle done done")
+w.put("todo", "001-first.md")
+r = w.run()
+check("the negative case: no flag — the same plan runs the task to its end in three attempts", r.returncode == 0 and len(w.calls()) == 3
+      and w.has("tasks/done/001-first/report.md") and "state=idle" in w.status(), w.status())
+
+w = World("limit done")
+w.put("todo", "001-first.md")
+began = time.monotonic()
+r = w.run(FAKE_STOP_AT="0", FAKE_STOP_KIND="attempt", BOARD_LIMIT_WAIT_SEC="60")
+check("asked for during an attempt that ended on the usage limit: the runner stops at once instead of waiting for the limit",
+      r.returncode == 0 and len(w.calls()) == 1 and time.monotonic() - began < 30 and "reason=stop-after-attempt" in w.status()
+      and w.has("tasks/doing/001-first.md"), w.status())
+
+w = World("done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run(FAKE_STOP_AT="0", FAKE_STOP_KIND="attempt")
+check("the attempt in hand closed its task: the runner stops all the same, the next task is not started", r.returncode == 0 and len(w.calls()) == 1
+      and w.has("tasks/done/001-first/report.md") and w.has("tasks/todo/002-second.md") and "state=stopped task=001-first" in w.status()
+      and "reason=stop-after-attempt" in w.status() and w.origin_head() == w.head(), w.status())
+
+w = World("done")
+w.put("todo", "001-first.md")
+r = w.run("--stop-after-attempt")
+check("no runner is working: --stop-after-attempt refuses (exit 1) and leaves no flag", r.returncode == 1 and "no runner" in r.stderr
+      and not (w.state / "stop-after-attempt").exists() and len(w.calls()) == 0, r.stdout + r.stderr)
+w.state.mkdir(parents=True, exist_ok=True)
+(w.state / "stop-after-attempt").touch()
+r = w.run()
+check("a stop-after-attempt flag left by a runner that died does not stop the new one", r.returncode == 0 and len(w.calls()) == 1
+      and w.has("tasks/done/001-first/report.md") and not (w.state / "stop-after-attempt").exists() and " stop-flag-stale" in events(w), w.status())
+
+print("board 035: the uncommitted work of a parked task is on a branch of its own in origin")
+WIP_NAME = re.compile(r"^wip/001-stuck/\d{8}T\d{6}Z$")
+
+
+def wip_refs(where: Path) -> list[str]:
+    return sh(where, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/wip").stdout.split()
+
+
+w = World("dirty idle idle done")
+w.put("todo", "001-stuck.md")
+w.put("todo", "002-next.md")
+r = w.run()
+remote = wip_refs(w.origin)
+branch = remote[0] if remote else ""
+text = (w.repo / "tasks/blocked/001-stuck.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-stuck.md") else ""
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("origin has exactly one branch wip/<task>/<UTC time>", len(remote) == 1 and WIP_NAME.match(branch) is not None, remote)
+shown = sh(w.origin, "git", "show", "--name-only", "--format=%P%n%s", branch, ok=False).stdout.split("\n")
+taken = sh(w.repo, "git", "log", "--format=%H", "--grep", "001-stuck → doing").stdout.strip()
+check("it is one commit on top of the commit the task was parked at, and holds the agent's uncommitted file and nothing under tasks/",
+      shown[0] == taken and shown[1].startswith("wip: 001-stuck") and [line for line in shown[2:] if line] == ["half-0.txt"], shown)
+check("the work branch in origin does not carry that file", "half-0.txt" not in sh(w.origin, "git", "ls-tree", "-r", "--name-only", "unattended/work").stdout)
+check("the task file and the anomaly journal name the branch and say it is in origin", f"у гілці `{branch}` в origin" in text
+      and f"у гілці `{branch}` в origin" in journal and f" wip-pushed {branch} " in events(w) and f"wip={branch}" in events(w), text + journal)
+check("the stash on the server is still there as well, and the next task ran on a clean tree to its end", "git stash apply " in text
+      and w.has("tasks/done/002-next/report.md") and porcelain(w) == "", text)
+elsewhere = w.dir / "elsewhere"
+sh(w.dir, "git", "clone", "-q", "-b", "unattended/work", str(w.origin), str(elsewhere))
+command = re.search(r"`(git fetch origin wip/\S+ && git cherry-pick -n FETCH_HEAD)`", text)
+back = subprocess.run(command.group(1) if command else "false", shell=True, cwd=elsewhere, capture_output=True, text=True, check=False)
+check("the command the task file gives brings the work back in ANOTHER clone — the server is not needed", back.returncode == 0
+      and (elsewhere / "half-0.txt").is_file() and (elsewhere / "half-0.txt").read_text() == "half done\n", back.stderr + text)
+
+w = World("dirty idle idle done")
+w.put("todo", "001-stuck.md")
+r = w.run("--no-push")
+text = (w.repo / "tasks/blocked/001-stuck.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-stuck.md") else ""
+local = wip_refs(w.repo)
+check("the negative case, a branch that could not be sent (--no-push): it is kept here, and nothing says it is in origin", wip_refs(w.origin) == []
+      and len(local) == 1 and f"у гілці `{local[0]}` — лише на сервері виконавця" in text and "в origin (" not in text
+      and f" wip-local {local[0]} " in events(w), text + events(w))
+w = World("idle idle idle done")
+w.put("todo", "001-stuck.md")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-stuck.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-stuck.md") else ""
+check("the negative case, nothing uncommitted: no branch is made and none is named", text != "" and wip_refs(w.origin) == [] and wip_refs(w.repo) == []
+      and "wip/" not in text and "Незакомічену" not in text, text)
+
+print("board 035: one journal for everything odd — the agent, the gate, every stop with state=error")
+OTHERS = "board: anomaly journal — entries written by a hook, the gate or the agent"
+w = World("note done")
+w.put("todo", "001-first.md")
+base = w.head()
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("an entry the agent wrote during its attempt says so, and the runner commits it by itself right after the attempt",
+      "— 001-first\n- Що сталося: АГЕНТ-ПОБАЧИВ-ДИВНЕ\n- Що зроблено: АГЕНТ-ПІШОВ-ДАЛІ\n- Хто записав: агент\n" in journal
+      and w.log(f"{base}..HEAD") == ["001-first: done", OTHERS, "board: 001-first → doing"], w.log(f"{base}..HEAD"))
+check("…the commit holds the journal alone; the board goes on to the end with a clean tree, pushed", r.returncode == 0 and len(w.calls()) == 2
+      and sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split() == ["tasks/ANOMALIES.md"]
+      and "state=idle" in w.status() and porcelain(w) == "" and w.origin_head() == w.head(), w.status() + porcelain(w))
+
+w = World("")
+stamp, name = escalate(w)
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("the gate's escalation is in the journal, written by the gate: the stamp, the reason, the question it asked", journal.count("\n## ") == 1
+      and f"ескалація {stamp}" in journal and f"`tasks/blocked/{name}`" in journal and "- Хто записав: ворота (gate.py)" in journal, journal)
+r = w.run()
+check("…and the runner commits it, apart from the question", OTHERS in w.log() and "tasks/" not in porcelain(w) and w.origin_head() == w.head()
+      and sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split() == ["tasks/ANOMALIES.md"], str(w.log()) + porcelain(w))
+
+w = World("done")
+w.put("doing", "001-one.md")
+w.put("doing", "002-two.md")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("a stop with state=error (two tasks in doing/) is in the journal: the state, the reason word, what to do", r.returncode == 1
+      and "state=error" in w.status() and "reason=board" in w.status() and journal.count("\n## ") == 1 and "— дошка\n" in journal
+      and "зі станом `error` (причина `board`)" in journal and "- Хто записав: виконавець" in journal and len(w.calls()) == 0, w.status() + journal)
+check("…committed and pushed, so the owner sees it in the branch", porcelain(w) == "" and w.origin_head() == w.head()
+      and any(line.startswith("board: anomaly — the board:") for line in w.log("-1")), w.log("-2"))
+w = World("done", branch="main")
+w.put("todo", "001-first.md")
+r = w.run(BOARD_BRANCH="main")
+check("the negative case: a stop because the branch is not a work branch writes nothing into that branch", r.returncode == 1
+      and "reason=branch" in w.status() and not w.has("tasks/ANOMALIES.md") and porcelain(w) == "", w.status() + porcelain(w))
+
+print("board 035: a gate question whose escalation was closed another way is removed by the runner")
+w = World("")
+stamp, name = escalate(w)
+stem = name.removesuffix(".md")
+w.run()
+r = w.run()
+check("the negative case: while the escalation is open the unanswered question stays in blocked/, run after run", w.has(f"tasks/blocked/{name}")
+      and "gate-question-swept" not in events(w) and "state=waiting-owner" in w.status(), events(w))
+terminal = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(w.repo)}
+closed = subprocess.run([sys.executable, str(GATE), "--close-escalation", stamp], cwd=w.repo, env=terminal, capture_output=True, text=True, check=False)
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+report = (w.repo / f"tasks/done/{stem}/report.md").read_text(encoding="utf-8") if w.has(f"tasks/done/{stem}/report.md") else ""
+check("the owner closed the escalation in a terminal: the question leaves blocked/ for done/ with a report that says why", closed.returncode == 0
+      and not w.has(f"tasks/blocked/{name}") and w.has(f"tasks/done/{stem}/task.md") and "закрито іншим шляхом" in report and stamp in report, closed.stderr + report)
+check("…with an entry in the journal that names the question and the escalation", f"— {stem}\n- Що сталося: питання воріт лежало в `blocked/` без відповіді" in journal
+      and stamp in journal.split(f"— {stem}\n")[-1] and "сам прибрав питання" in journal, journal)
+check("…in one commit with the journal, pushed; no agent was started; nothing waits any more",
+      w.log("-1") == [f"board: {stem} → done — gate escalation {stamp} was closed another way; the question is removed"]
+      and "tasks/ANOMALIES.md" in sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD").stdout and w.origin_head() == w.head()
+      and w.calls() == [] and f"gate-question-swept {stamp} {name}" in events(w) and "state=idle" in w.status(), str(w.log("-2")) + w.status())
+
+runner_head = runner_text.split("set -uo pipefail")[0]
+check("the runner's head names --stop-after-attempt, the wip branch and the one journal, and --retry is gone from it and from the README",
+      "--stop-after-attempt" in runner_head and "wip/<task>/<UTC>" in runner_head and "ONE JOURNAL FOR EVERYTHING ODD" in runner_head
+      and "--retry" not in runner_text and "--retry" not in (ROOT / ".claude/unattended/README.md").read_text(encoding="utf-8"))
+for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
+    words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
+    check(f"{manual} (board 035): the stop after an attempt, the wip branch in origin, who writes the journal, the question that removes itself",
+          "board-runner.sh --stop-after-attempt" in words and "wip/<задача>/<час UTC>" in words and "--source агент" in words
+          and "закрито іншим шляхом" in words and "git stash (команда" not in words)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

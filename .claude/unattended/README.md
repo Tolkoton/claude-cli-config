@@ -50,14 +50,18 @@ On the Linux server, prefer the unit: `sudo cp claude-unattended.service
 bash .claude/unattended/board-runner.sh            # until nothing can move, then stop with a summary
 bash .claude/unattended/board-runner.sh --once     # one task
 bash .claude/unattended/board-runner.sh --status   # the status line and the board; runs nothing
-bash .claude/unattended/board-runner.sh --retry    # the task left in doing/ gets a fresh clock and count
-bash .claude/unattended/board-runner.sh --stop-after-task   # the only way to stop a working runner
+bash .claude/unattended/board-runner.sh --stop-after-task      # stop a working runner once its task is closed
+bash .claude/unattended/board-runner.sh --stop-after-attempt   # …or once the attempt in hand has ended
 ```
 
 To stop a runner, never kill it — the agent loses the uncommitted work of its task. `--stop-after-task`
 puts the flag `.claude/state/board/stop-after-task`; the runner looks at it between tasks, so the
 current task is finished and pushed, then the runner stops with `state=stopped
-reason=stop-after-task` and removes the flag. With no runner working the command sets nothing
+reason=stop-after-task` and removes the flag. `--stop-after-attempt` is the quicker one: the flag
+`stop-after-attempt` is looked at before and after every attempt, so the session in hand ends by
+itself, what it committed is pushed, and the runner stops with `reason=stop-after-attempt`; the
+task stays in `doing/` with its uncommitted work, its conversation, its clock and its count, and
+the next start continues it (`--resume`). With no runner working either command sets nothing
 and says so; a flag left by a runner that died is removed when the next one starts.
 
 Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
@@ -87,12 +91,19 @@ hours on one task, when the task's budget (`BOARD_MAX_USD`) is spent, or when th
 row answered BLOCK on one of its units (the Stop hook then leaves a marker with the verdicts and
 stops the session; the agent is asked nothing), the runner parks the
 task itself (`board.py park`): it goes to `tasks/blocked/` with a section `## Чому зупинилась` and
-a question to the owner, the agent's uncommitted work outside `tasks/` goes into a git stash that
-section names, the event is written into the anomaly journal `tasks/ANOMALIES.md`, and the next
-task is taken. Any answer returns the task to `todo/` with a fresh clock and count — after a
+a question to the owner, the agent's uncommitted work outside `tasks/` becomes one commit on a
+branch of its own, `wip/<task>/<UTC>`, pushed to origin (and a git stash on this machine as well) —
+that section names both and gives the command that brings the work back in any clone —, the event
+is written into the anomaly journal `tasks/ANOMALIES.md`, and the next task is taken. Any answer returns the task to `todo/` with a fresh clock and count — after a
 budget stop, with one more budget of the same size. Everything else that is odd (a push that
 failed, a task that vanished from the board) is one more journal entry, not a stop; the review
-shows the new entries in a section of their own.
+shows the new entries in a section of their own. The journal is the one place for everything odd:
+the Stop gate writes its escalation there, the stuck counter its third identical failure, the agent
+what it met (`board.py anomaly … --source агент`), and every entry says who wrote it; the runner
+commits what the others wrote before every pull and after every attempt. Every stop with
+`state=error` leaves an entry too (not when the checkout is off the work branch). A gate question
+nobody answered whose escalation the owner closed in a terminal goes to `done/` by itself, with an
+entry.
 
 A task closes with a clean tree. When the agent has moved its task to `done/` or `blocked/`, the
 runner looks at `git status`; files that are uncommitted now and were not when the task began are

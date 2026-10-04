@@ -37,13 +37,16 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
    never takes them; they are done in an interactive session, not in this one), the settings proposals, the open escalations,
    the parked items and the rule proposals: each either gets an answer, becomes a new task, or waits.
-4. **Аномалії** — what the runner found odd, wrote into `tasks/ANOMALIES.md` and worked past:
-   a task it parked in `blocked/` itself (its question is in the section above), a failed push, a
-   stop of the whole board. Say each in a sentence; one that needs a fix is a new task.
+4. **Аномалії** — what the runner, the gate, a hook or the agent found odd, wrote into
+   `tasks/ANOMALIES.md` and worked past (each entry says who wrote it): a task the runner parked in
+   `blocked/` itself (its question is in the section above; its uncommitted work is on the `wip/…`
+   branch the entry names), a failed push, a gate escalation, a stop of the whole board. Say each in a sentence; one that needs a fix is a new task.
 5. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
    rewritten task is a file for the inbox (below).
 6. **Кандидати в нові задачі** — for each: a task now, later, or never.
-7. **Здоров'я** — say it plainly; a red number is a candidate for a task.
+7. **Здоров'я** — say it plainly; a red number is a candidate for a task. The test and golden-set
+   lines come from the machine records of the runs themselves (time, commit, green of all); where
+   the document says there is no record, say that, do not fill it in from memory.
 
 Never answer for the owner and never guess an answer from an earlier remark. Two answers act by
 themselves, so read them back and get an explicit yes before writing them: `так` under a question

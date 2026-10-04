@@ -25,7 +25,9 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py audit-allowed           exit 0 only when the one task in doing/ asks for the audit
     board.py gate-answers            the gate's questions in blocked/ that the owner answered
                                      «закрити»: one `name<TAB>stamp<TAB>sha256` line each
-    board.py gate-done <name> <closed|absent>   such a task goes to done/ with its report
+    board.py gate-done <name> <closed|absent|elsewhere>   such a task goes to done/ with its report
+    board.py gate-closed             the gate's questions in blocked/ that nobody answered and whose
+                                     escalation is closed already: one `name<TAB>stamp` line each
     board.py gate-reject <name>      its answer is wiped and the question asked again
     board.py owner-actions           blocked/ tasks that carry an allowed action the owner answered
                                      «так» (a rule proposal: also «ні»): one
@@ -33,9 +35,11 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py action-line <action>    the line an agent writes under its question to offer the action
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
-    board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--verdicts FILE]
-                                     the runner gives up on a task, not on the board (see below)
-    board.py anomaly <task|-> <what happened> <what was done>   one entry in tasks/ANOMALIES.md
+    board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--wip BRANCH [--wip-remote NAME]]
+                 [--verdicts FILE]   the runner gives up on a task, not on the board (see below)
+    board.py anomaly <task|-> <what happened> <what was done> [--source WHO]
+                                     one entry in tasks/ANOMALIES.md; WHO wrote it: виконавець
+                                     (the default), агент, ворота, hook <name>
     board.py summary                 the board in a dozen lines, for the owner
     board.py review [--since <commit|date>] [--offline]
                                      the owner's review: one markdown document about the work
@@ -81,9 +85,18 @@ back into todo/, three overseer BLOCKs in a row on one unit (board 031: the Stop
 marker, `--verdicts` writes its verdicts into the task) — `park` moves it to blocked/ itself, with a section `## Чому зупинилась` (one
 dated line per stop, placed before the questions) and a question to the owner with an empty
 `Відповідь:`; any answer returns it to todo/ like every answered task. The same call writes the
-event into THE ANOMALY JOURNAL, tasks/ANOMALIES.md: `## <UTC> — <task or дошка>` with two lines,
-what happened and what was done. Everything odd goes there instead of stopping the work; the
-runner writes it and commits it with tasks/, and the review shows the new entries.
+event into THE ANOMALY JOURNAL, tasks/ANOMALIES.md: `## <UTC> — <task or дошка>` with three lines
+— what happened, what was done, who wrote it. Everything odd goes there instead of stopping the
+work, whoever met it (board 035): the runner, the Stop gate when it escalates, a hook (`note`,
+which gate.py and lesson_queue.py call), the agent (`anomaly … --source агент`). The runner
+commits it with tasks/, and the review shows the new entries. The agent's uncommitted work of a
+parked task is kept on a branch `wip/<task>/<UTC>` the runner pushed (`--wip`, `--wip-remote`)
+and in a stash on the runner's machine (`--stash`); the task file and the journal name both.
+
+A gate question whose escalation was CLOSED ANOTHER WAY (board 035) — the owner ran `gate.py
+--close-escalation` in a terminal, so the stamp is among the closed ones in
+.claude/state/gate/escalations.json — and that nobody answered asks nothing any more:
+`gate-closed` lists it and the runner moves it to done/ (`gate-done <name> elsewhere`).
 
 `--root DIR` names the repository (default: the one this file is installed in).
 """
@@ -492,6 +505,23 @@ def gate_answers(board: Board) -> list[str]:
     return lines
 
 
+def gate_closed(board: Board, root: Path) -> list[str]:
+    """Unanswered gate questions in blocked/ whose escalation is recorded as closed. A stamp the
+    state file does not know (another machine, a lost file) proves nothing and is left alone."""
+    try:
+        data = json.loads((root / ".claude/state/gate/escalations.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    rows = data.get("closed") if isinstance(data, dict) else None
+    closed = {str(e.get("stamp")) for e in rows if isinstance(e, dict)} if isinstance(rows, list) else set()
+    lines: list[str] = []
+    for path in board.files("blocked"):
+        task = read(path)
+        if task.gate in closed and not any(task.answers):
+            lines.append(f"{path.name}\t{task.gate}")
+    return lines
+
+
 def gate_task(board: Board, name: str) -> Path | None:
     path = board.tasks / "blocked" / Path(name).name
     return path if path.is_file() and TASK_NAME.match(path.name) and read(path).gate else None
@@ -504,6 +534,9 @@ def gate_done(board: Board, path: Path, outcome: str) -> Path:
     if outcome == "closed":
         changed = (f"Ескалацію воріт {stamp} закрито за вашою відповіддю «закрити» ({now}, виконавець дошки). "
                    "Наглядач знову приймає роботу з цими файлами.")
+    elif outcome == "elsewhere":
+        changed = (f"Ескалацію воріт {stamp} закрито іншим шляхом — командою `gate.py --close-escalation` у терміналі, "
+                   f"а не відповіддю на це питання. Питання більше нічого не питає, тому виконавець сам прибрав його з дошки ({now}).")
     else:
         changed = (f"Ескалація воріт {stamp} на момент вашої відповіді вже не була відкрита (її закрито раніше "
                    f"або запису про неї немає). Питання прибрано з дошки ({now}, виконавець дошки).")
@@ -512,8 +545,8 @@ def gate_done(board: Board, path: Path, outcome: str) -> Path:
     path.rename(target / "task.md")
     (target / "report.md").write_text(
         f"# Звіт: {path.stem}\n\n## Що змінилось для власника\n- {changed}\n\n"
-        "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було, лише ваша відповідь.\n",
-        encoding="utf-8")
+        "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було"
+        + (".\n" if outcome == "elsewhere" else ", лише ваша відповідь.\n"), encoding="utf-8")
     return target
 
 
@@ -606,7 +639,9 @@ def audit_refusal(tasks: Path) -> str | None:
 
 ANOMALIES = "ANOMALIES.md"
 ANOMALIES_HEAD = ("# Журнал аномалій дошки\n\nУсе дивне, що сталося під час роботи виконавця: воно записується сюди, а не зупиняє дошку. "
-                  "Пише виконавець; найновіший запис унизу. Огляд (`board.py review`) показує нові записи окремим розділом.\n")
+                  "Пишуть виконавець, ворота, hook-и й агент — у кожному записі сказано, хто; найновіший запис унизу. "
+                  "Огляд (`board.py review`) показує нові записи окремим розділом.\n")
+RUNNER = "виконавець"  # who writes the journal unless told otherwise
 WHY = "## Чому зупинилась"
 # reason → (what happened, the question). {n} is the runner's number: attempts, hours, dollars.
 PARK_REASONS = {
@@ -632,13 +667,25 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def anomaly(board: Board, task: str, what: str, done: str) -> Path:
+def anomaly(board: Board, task: str, what: str, done: str, source: str = RUNNER) -> Path:
     """Append one entry to tasks/ANOMALIES.md (made with its heading the first time)."""
     path = board.tasks / ANOMALIES
     text = path.read_text(encoding="utf-8") if path.is_file() else ANOMALIES_HEAD
-    entry = f"\n## {utc_now()} — {task if task and task != '-' else 'дошка'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
+    what, done, source = (" ".join(part.split()) for part in (what, done, source or RUNNER))
+    entry = (f"\n## {utc_now()} — {task if task and task != '-' else 'дошка'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
+             f"- Хто записав: {source}\n")
     path.write_text(text.rstrip("\n") + "\n" + entry, encoding="utf-8")
     return path
+
+
+def note(root: Path, source: str, what: str, done: str) -> Path | None:
+    """The journal entry of a hook or of the gate (board 035): filed under the task in doing/,
+    else under the board. None when the project has no board. The runner commits it."""
+    board = Board(root / "tasks")
+    if not board.tasks.is_dir():
+        return None
+    doing = board.files("doing")
+    return anomaly(board, doing[0].stem if len(doing) == 1 else "-", what, done, source)
 
 
 def blocks_of(marker: Path | None) -> tuple[str, list[str]]:
@@ -655,7 +702,22 @@ def blocks_of(marker: Path | None) -> tuple[str, list[str]]:
     return (str(data.get("unit", "")) if isinstance(data, dict) else ""), lines
 
 
-def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts: Path | None = None) -> Path | None:
+def saved_work(stash: str, wip: str, remote: str) -> str:
+    """Where the runner put the agent's uncommitted work, with the command that brings it back."""
+    if not (stash or wip):
+        return ""
+    parts = []
+    if wip and remote:
+        parts.append(f"у гілці `{wip}` в {remote} (повернути в робоче дерево: `git fetch {remote} {wip} && git cherry-pick -n FETCH_HEAD`)")
+    elif wip:
+        parts.append(f"у гілці `{wip}` — лише на сервері виконавця, надіслати її не вдалося (надіслати: `git push origin {wip}`)")
+    if stash:
+        parts.append(f"у сховку git на сервері виконавця (`git stash apply {stash}`)")
+    return " Незакомічену роботу агента виконавець зберіг " + " і ".join(parts) + "."
+
+
+def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts: Path | None = None,
+         wip: str = "", remote: str = "") -> Path | None:
     """The runner gives up on a task: doing/ (or todo/) → blocked/, with the reason, a question
     for the owner and an entry in the anomaly journal. None when the task is in neither.
     `verdicts` (reason three-blocks) is the hook's marker: its verdicts are written under the reason."""
@@ -665,7 +727,7 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
         return None
     unit, refused = blocks_of(verdicts)
     what, question = (part.format(n=unit or detail) for part in PARK_REASONS[reason])
-    saved = (f" Незакомічену роботу агента виконавець зберіг у сховку git: `git stash apply {stash}`." if stash else "")
+    saved = saved_work(stash, wip, remote)
     line = "\n".join([f"- {utc_now()} — {what}; виконавець переніс задачу в `blocked/` і взяв наступну.{saved}", *refused])
     text = source.read_text(encoding="utf-8").rstrip("\n") + "\n"
     if not QUESTIONS.search(text):
@@ -750,7 +812,8 @@ def main() -> int:
     commands.add_parser("gate-answers")
     gate_done_parser = commands.add_parser("gate-done")
     gate_done_parser.add_argument("name")
-    gate_done_parser.add_argument("outcome", choices=("closed", "absent"))
+    gate_done_parser.add_argument("outcome", choices=("closed", "absent", "elsewhere"))
+    commands.add_parser("gate-closed")
     commands.add_parser("gate-reject").add_argument("name")
     commands.add_parser("owner-actions")
     commands.add_parser("action-line").add_argument("action", choices=sorted(ACTION_FILES))
@@ -763,11 +826,14 @@ def main() -> int:
     park_parser.add_argument("reason", choices=sorted(PARK_REASONS))
     park_parser.add_argument("--detail", default="", help="the runner's number: attempts, hours or dollars")
     park_parser.add_argument("--stash", default="", help="the stash commit that holds the agent's uncommitted work")
+    park_parser.add_argument("--wip", default="", help="the branch that holds the agent's uncommitted work as one commit")
+    park_parser.add_argument("--wip-remote", default="", help="the remote the branch was pushed to; empty: it is on this machine only")
     park_parser.add_argument("--verdicts", type=Path, default=None, help="three-blocks: the marker the Stop hook left, with the overseers' verdicts")
     anomaly_parser = commands.add_parser("anomaly")
     anomaly_parser.add_argument("task")
     anomaly_parser.add_argument("what")
     anomaly_parser.add_argument("done")
+    anomaly_parser.add_argument("--source", default=RUNNER, help="who writes: виконавець (default), агент, ворота, hook <name>")
     commands.add_parser("summary")
     review_parser = commands.add_parser("review")
     review_parser.add_argument("--since", default=None, help="a commit or a date; default: the newest version tag")
@@ -803,6 +869,10 @@ def main() -> int:
         for line in gate_answers(board):
             print(line)
         return 0
+    if args.command == "gate-closed":
+        for line in gate_closed(board, root):
+            print(line)
+        return 0
     if args.command in ("gate-done", "gate-reject"):
         path = gate_task(board, args.name)
         if path is None:
@@ -831,14 +901,14 @@ def main() -> int:
             gate_reject(path, RULE_NO if read(path).declines else OWNER_ACTIONS[read(path).action])
         return 0
     if args.command == "park":
-        parked = park(board, args.name, args.reason, args.detail, args.stash, args.verdicts)
+        parked = park(board, args.name, args.reason, args.detail, args.stash, args.verdicts, args.wip, args.wip_remote)
         if parked is None:
             print(f"board: {args.name} is in neither tasks/doing/ nor tasks/todo/", file=sys.stderr)
             return EXIT_REFUSED
         print(board.shown(parked))
         return 0
     if args.command == "anomaly":
-        print(board.shown(anomaly(board, args.task, args.what, args.done)))
+        print(board.shown(anomaly(board, args.task, args.what, args.done, args.source)))
         return 0
     if args.command == "audit-allowed":
         refusal = audit_refusal(args.tasks_dir.resolve() if args.tasks_dir else board.tasks)

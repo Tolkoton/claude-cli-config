@@ -19,8 +19,9 @@ newest version tag), each finished task with the owner's parts of its report; ev
 waits for the owner — every unfilled `Відповідь:` in blocked/ with the text above it, the
 tasks that need the owner present (`Потрібна присутність власника: так`, board 016), the
 settings proposals, the open escalations, the parked items, the rule proposals; the new entries of the anomaly journal
-tasks/ANOMALIES.md (board 021: what the runner found odd and worked past); the plan; the
-candidates for new tasks; the health. `--since` narrows what was DONE (and the anomalies, the
+tasks/ANOMALIES.md (board 021: what the runner — and since board 035 the gate, a hook or the agent — found odd and worked past); the plan; the
+candidates for new tasks; the health — the last runs of the suites and of the golden set from the machine
+records the tools leave in .claude/state/health/ (board 035), not from anybody's prose. `--since` narrows what was DONE (and the anomalies, the
 candidates and the costs that come from it); what waits and what is planned is always shown whole. The last line is
 the command for the next review.
 
@@ -474,8 +475,8 @@ def anomalies_section(src: Source, period: Since) -> list[str]:
     else:
         fresh = [(match, body) for match, body in entries
                  if period.utc is None or ((when := as_utc(match.group(1).replace("Z", "+00:00"))) is not None and when >= period.utc)]
-    lines = [(f"Нових записів за період: {len(fresh)}; усього в журналі `tasks/ANOMALIES.md`: {len(entries)}. Це те, що виконавець вважав дивним, "
-              "записав і пішов далі; задачі, які він сам переніс у `blocked/`, стоять також у «Чекає на власника»."), ""]
+    lines = [(f"Нових записів за період: {len(fresh)}; усього в журналі `tasks/ANOMALIES.md`: {len(entries)}. Це те, що виконавець, ворота, hook чи агент вважали дивним, "
+              "записали і пішли далі; задачі, які він сам переніс у `blocked/`, стоять також у «Чекає на власника»."), ""]
     for match, body in fresh:
         lines += [f"- **{stamp(as_utc(match.group(1).replace('Z', '+00:00')))} — `{match.group(2)}`**",
                   *(f"  {line}" for line in body.splitlines() if line.strip())]
@@ -564,16 +565,44 @@ def period_costs(costs: dict[str, dict[str, Any]], period: Since) -> list[tuple[
     return spent
 
 
-def test_run_line(src: Source) -> str:
-    runs = [b for b in src.show(".engine/overseer/ledger.md").split("\n## ") if "run_all.sh" in b]
-    if not runs:
-        return "- Повний прогін тестів: запису в `.engine/overseer/ledger.md` немає."
-    evidence = " ".join(line.strip().removeprefix("- ") for line in runs[-1].splitlines()[1:] if "run_all.sh" in line)
-    return f"- Останній повний прогін тестів, за записом у ledger («{runs[-1].splitlines()[0].strip()}»): {evidence[:600]}"
+def machine_record(state: Path, name: str) -> tuple[dict[str, Any], str]:
+    """A record a tool left about its own run (board 035), and where it was run — the time, the
+    commit and whether the tree was dirty — in words. The facts of «Здоров'я» come from these
+    files, written by tests/run_all.sh and evals/run_hook_scenarios.py, not from anybody's prose."""
+    record = load_json(state / "health" / name)
+    if not record:
+        return {}, ""
+    when = as_utc(str(record.get("recorded_utc", "")).replace("Z", "+00:00"))
+    commit = str(record.get("commit") or "")[:7]
+    return record, (f"{stamp(when) if when else 'час не записано'}, commit `{commit or 'невідомий'}`"
+                    + (" з незакоміченими змінами в робочому дереві" if record.get("dirty") else ""))
 
 
-def golden_line(src: Source) -> str:
-    """The newest recorded run of the golden set, by the time written in the file itself."""
+def test_run_lines(state: Path) -> list[str]:
+    lines = []
+    for name, title, command in (("tests-full.json", "Останній повний прогін тестів", "bash tests/run_all.sh"),
+                                 ("tests-fast.json", "Останній швидкий прогін (набір воріт)", "bash tests/run_all.sh --fast")):
+        record, where = machine_record(state, name)
+        if not record:
+            if name == "tests-full.json":
+                lines.append(f"- Повний прогін тестів: машинного запису (`.claude/state/health/{name}`) тут немає — його лишає "
+                             f"`{command}` на машині, де його запущено.")
+            continue
+        red = [str(r) for r in record.get("red") or []]
+        lines.append(f"- {title}, за машинним записом ({where}): {record.get('green')} із {record.get('suites')} наборів зелені"
+                     + (f"; червоні: {', '.join(f'`{r}`' for r in red[:10])}" if red else "") + ".")
+    return lines
+
+
+def golden_line(src: Source, state: Path) -> str:
+    """The golden set: the runner's own record of its last whole run; where this machine has
+    none, the newest results file in the repository, by the time written in the file itself."""
+    record, where = machine_record(state, "golden.json")
+    if record:
+        compared = record.get("compare")
+        differences = record.get("differences")
+        return (f"- Золотий набір, за машинним записом ({where}): {record.get('green')} із {record.get('scenarios')} сценаріїв відповідають очікуванням"
+                + (f"; порівняно з `{compared}` — відмінностей: {differences}" if compared and differences is not None else "") + ".")
     newest: tuple[str, str, list[Any]] | None = None
     for path in sorted(p for p in src.files if GOLDEN.match(p)):
         try:
@@ -585,13 +614,14 @@ def golden_line(src: Source) -> str:
         if isinstance(results, list) and (newest is None or recorded > newest[0]):
             newest = (recorded, path, results)
     if newest is None:
-        return "- Золотий набір: записаних результатів (`evals/baseline/*/results-*.json`) немає."
+        return "- Золотий набір: ні машинного запису (`.claude/state/health/golden.json`), ні записаних результатів (`evals/baseline/*/results-*.json`) немає."
     met = sum(1 for r in newest[2] if isinstance(r, dict) and r.get("pass"))
-    return f"- Золотий набір, найновіший запис `{newest[1]}` ({newest[0] or 'час не записано'}): {met} із {len(newest[2])} сценаріїв відповідають очікуванням."
+    return (f"- Золотий набір: машинного запису прогону тут немає; найновіший файл результатів у репозиторії — `{newest[1]}` "
+            f"({newest[0] or 'час не записано'}): {met} із {len(newest[2])} сценаріїв відповідають очікуванням.")
 
 
-def health_section(src: Source, costs: dict[str, dict[str, Any]], period: Since) -> list[str]:
-    lines = [test_run_line(src), golden_line(src)]
+def health_section(src: Source, state: Path, costs: dict[str, dict[str, Any]], period: Since) -> list[str]:
+    lines = [*test_run_lines(state), golden_line(src, state)]
     context = context_lines(src)
     if context:
         lines.append(f"- Постійний контекст (CLAUDE.md і все, що він імпортує): {context[0]} із {CONTEXT_BUDGET} рядків, файлів: {context[1]}.")
@@ -623,7 +653,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
                         ("Аномалії", anomalies_section(src, period)),
                         ("План", plan_section(src)),
                         ("Кандидати в нові задачі", candidates_section(src, stems, period)),
-                        ("Здоров'я", health_section(src, costs, period))):
+                        ("Здоров'я", health_section(src, state, costs, period))):
         lines += [f"## {title}", "", *body, ""]
     lines += ["---", f"Наступний огляд — лише нове після цього: `python3 .claude/unattended/board.py review --since {src.sha[:12]}`"]
     return "\n".join(lines) + "\n"

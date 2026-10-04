@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -419,6 +420,55 @@ stuck(bash_fail)
 p, o = stuck(bash_fail)
 check("a PostToolUse Bash result with a non-zero exit code counts as a failure too", "STUCK PROTOCOL" in json.dumps(o), p.stdout)
 check("garbage on stdin is a quiet no-op", lq(r, "stuck", stdin=None).returncode == 0)
+
+# board 035: the key is built without what varies between two runs of the same failure
+print("stuck: the same failure with another time, counter and scratch path is the same failure")
+r = project()
+
+
+def varying(n: int) -> dict[str, Any]:
+    scratch = ("/tmp/tmpab12cd", "/tmp/pytest-of-runner/pytest-417/test_load0", "/var/folders/zz/a_very_long_name_0000gn/T/tmpq9w8e7r6t5")[n]
+    return {"hook_event_name": "PostToolUseFailure", "tool_name": "Bash",
+            "tool_input": {"command": f"python3 {scratch}/run.py --since 2026-10-0{n + 1}T0{n}:1{n}:5{n}Z"},
+            "error": (f"[{('Sat Oct  3 10:15:00', 'Sun Oct  4 23:59:01', 'Mon, 05 Oct 2026 07:00:12')[n]}] FAILED {scratch}/test_load.py::test_a "
+                      f"at 2026-10-0{n + 1}T1{n}:05:2{n}Z — attempt {n * 7 + 1} of {n + 3}, {n}.5{n}s, pid {4411 + n * 977}, "
+                      f"commit {('b68fbf14c79b', '0a1b2c3d4e5f', '9f6eb78')[n]}: AssertionError: load failed")}
+
+
+outs = [stuck(varying(n))[1] for n in range(3)]
+check("three failures that differ only in time, counters, pid, commit and scratch directory count as one: the third gives the protocol",
+      outs[0] == {} and outs[1] == {} and "STUCK PROTOCOL" in outs[2].get("hookSpecificOutput", {}).get("additionalContext", ""), outs)
+keys = {lesson_queue.failure_key(lesson_queue.tool_failure_text(varying(n)) or "") for n in range(3)}
+check("…their keys are one key", len(keys) == 1, keys)
+other = varying(0)
+other["error"] = other["error"].replace("load failed", "save failed")
+check("the negative case: a failure that differs in its words has another key, and a long scratch path does not hide them",
+      lesson_queue.failure_key(lesson_queue.tool_failure_text(other) or "") not in keys
+      and lesson_queue.failure_key("x " * 10 + "/tmp/" + "a" * 400 + " REAL-ONE") != lesson_queue.failure_key("x " * 10 + "/tmp/" + "b" * 9 + " REAL-TWO"))
+r = project()
+stuck(varying(0)), stuck(varying(1))
+stuck({"hook_event_name": "PostToolUseFailure", "tool_name": "Bash", "tool_input": {"command": "pytest"}, "error": "ImportError: no module named y"})
+check("the negative case: a different failure in between starts the count over", stuck(varying(2))[1] == {})
+
+print("stuck: the third identical failure is in the board's anomaly journal (board 035)")
+r = project()
+for column in ("todo", "doing", "blocked", "done"):
+    (r / "tasks" / column).mkdir(parents=True, exist_ok=True)
+(r / "tasks/doing/041-in-hand.md").write_text("# 041\n\nЗалежить від: —\n", encoding="utf-8")
+for n in range(2):
+    stuck(varying(n))
+check("the negative case: two failures write nothing", not (r / "tasks/ANOMALIES.md").exists())
+stuck(varying(2))
+journal = (r / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if (r / "tasks/ANOMALIES.md").exists() else ""
+check("the third writes one entry under the task in doing/: what, what was done, and that a hook wrote it", journal.count("\n## ") == 1
+      and "— 041-in-hand\n- Що сталося: та сама невдача 3 раз(и) поспіль" in journal and "load failed" in journal
+      and "- Хто записав: hook lesson_queue.py" in journal, journal)
+r = project()
+if (r / "tasks").exists():
+    shutil.rmtree(r / "tasks")
+for n in range(3):
+    last_out = stuck(varying(n))[1]
+check("a project without a board: the protocol is still given and no tasks/ directory appears", "STUCK PROTOCOL" in str(last_out) and not (r / "tasks").exists())
 
 # ---------------------------------------------------------------- the hooks that carry it
 print("the hooks that carry it: Stop gate, overseer hook")

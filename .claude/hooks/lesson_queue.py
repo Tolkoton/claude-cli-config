@@ -566,8 +566,45 @@ def digest(root: Path) -> str:
 # ------------------------------------------------------------------ stuck
 
 
+# What changes from one run of the same failure to the next (board 035), most specific first: a
+# scratch directory, a clock, an id, a duration, a count. Each is replaced by a fixed mark BEFORE
+# anything is cut to length, so a longer path or a later hour cannot move the cut.
+_MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
+VOLATILE = tuple((re.compile(pattern, re.IGNORECASE), mark) for pattern, mark in (
+    (r"(?:/private)?(?:/var/folders|/var/tmp|/tmp|/dev/shm)/[^\s'\"`:;,)\]]*", "<tmp>"),   # a scratch path, whole
+    (r"\b(?:tmp|pytest-of-|pytest-)[\w.-]{4,}", "<tmp>"),                                # mkdtemp / pytest names
+    (r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<id>"),       # a UUID
+    (r"\b0x[0-9a-f]+\b", "<id>"),                                                        # an address
+    (r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,64}\b", "<id>"),                   # a commit, a digest
+    (r"\b\d{4}-\d\d-\d\d[t ]\d\d:\d\d(?::\d\d)?(?:[.,]\d+)?(?:z|[+-]\d\d:?\d\d)?", "<time>"),
+    (r"\b\d{8}t\d{6}z?\b", "<time>"),
+    (rf"\b(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+)?(?:{_MONTH}\s+\d{{1,2}}|\d{{1,2}}\s+{_MONTH})(?:,?\s+\d{{4}})?", "<time>"),
+    (r"\b\d{4}-\d\d-\d\d\b", "<time>"),
+    (r"\b\d{1,2}:\d\d(?::\d\d)?(?:[.,]\d+)?(?:\s?[ap]m\b)?", "<time>"),
+    (r"\d+(?:[.,]\d+)?\s?(?:ms|µs|us|ns|s|sec|secs|seconds?|min|minutes?|h|hours?)\b", "<n>"),
+    (r"\d+(?:[.,]\d+)*", "<n>"),
+))
+
+
+def stable(text: str) -> str:
+    """The failure's text without what varies between two runs of the same failure."""
+    for pattern, mark in VOLATILE:
+        text = pattern.sub(mark, text)
+    return re.sub(r"(?:<time>[\s,]*)+", "<time> ", re.sub(r"\s+", " ", text.lower())).strip()
+
+
 def failure_key(text: str) -> str:
-    return hashlib.sha256(normalise(text)[:300].encode()).hexdigest()[:12]
+    return hashlib.sha256(stable(text)[:300].encode()).hexdigest()[:12]
+
+
+def journal(root: Path, what: str, done: str) -> None:
+    """The hook's entry in the board's anomaly journal (board 035). Best effort: no board, no entry."""
+    try:
+        board = board_module()
+        if board is not None:
+            board.note(root, "hook lesson_queue.py (лічильник «застряг»)", what, done)
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        pass
 
 
 def note_failure(root: Path, text: str) -> str:
@@ -580,6 +617,8 @@ def note_failure(root: Path, text: str) -> str:
     count = (previous if isinstance(previous, int) else 0) + 1 if state.get("key") == key else 1
     if count >= STUCK_AT:
         write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": 0}) + "\n")
+        journal(root, f"та сама невдача {count} раз(и) поспіль: {clean_essence(stable(text))[:160]}",
+                "агентові показано протокол «застряг» (змінити гіпотезу, а не повторювати спробу); лічильник скинуто, роботу продовжено")
         return STUCK_TEXT.format(n=count, what=clean_essence(text)[:90])
     write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": count}) + "\n")
     return ""
@@ -612,7 +651,7 @@ def tool_failure_text(envelope: dict[str, Any]) -> str | None:
     tool_input = envelope.get("tool_input")
     if isinstance(tool_input, dict):
         command = str(tool_input.get("command") or tool_input.get("file_path") or "")
-    return f"{tool} {command[:80]} :: {detail[:160]}"
+    return f"{tool} {stable(command)[:80]} :: {stable(detail)[:160]}"
 
 
 def run_stuck(root: Path, envelope: dict[str, Any]) -> dict[str, Any]:

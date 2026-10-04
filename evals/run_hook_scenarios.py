@@ -25,6 +25,13 @@ sandbox built by `evals/make_sandbox.sh`, and records what the hook DECIDED:
 ref with --record-only and diff the two result files with `evals/compare.py`:
 the differences are exactly what changed between the versions.
 
+THE MACHINE RECORD (board 035). A run of the whole shipped set against the sandbox's own hooks
+— no --only, no --record-only, no --scenarios or --hooks-dir of your own — leaves
+.claude/state/health/golden.json in this repository: the time (UTC), the commit, the ref the
+sandbox was built from, how many scenarios ran and how many met their expectation, the baseline
+compared against and how many differences. The owner's review reads its «Здоров'я» from there.
+ENGINE_HEALTH_DIR names another directory.
+
 Standard library only, Python 3.12+. Nothing here talks to a model.
 """
 
@@ -276,6 +283,26 @@ def tool_version(*cmd: str) -> str:
     return first_line(out.stdout or out.stderr)
 
 
+def record_health(repo: Path, engine_ref: str, results: list[JsonObj], compare: Path | None, differences: int | None) -> None:
+    """The machine record of a whole run of the golden set (see the head of this file)."""
+    def git(*args: str) -> str:
+        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=False).stdout.strip()
+
+    record = {"what": "evals/run_hook_scenarios.py", "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "commit": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain")), "engine_ref": engine_ref,
+              "scenarios": len(results), "green": sum(1 for r in results if r.get("pass")),
+              "red": [str(r.get("id")) for r in results if r.get("pass") is False],
+              "compare": compare.name if compare else "", "differences": differences}
+    folder = Path(os.environ.get("ENGINE_HEALTH_DIR") or repo / ".claude/state/health")
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        scratch = folder / "golden.json.tmp"
+        scratch.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        scratch.replace(folder / "golden.json")
+    except OSError as exc:
+        print(f"the machine record was not written: {exc}", file=sys.stderr)
+
+
 def main() -> int:
     here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -298,6 +325,7 @@ def main() -> int:
     args = parser.parse_args()
     if bool(args.sandbox) == bool(args.engine_ref):
         parser.error("give exactly one of --sandbox and --engine-ref")
+    whole_set = not (args.only or args.record_only or args.hooks_dir) and args.scenarios == here / "scenarios" / "hooks"
 
     temp_root: Path | None = None
     if args.engine_ref:
@@ -390,6 +418,7 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
             print(f"\nresults written to {args.out}")
 
     total = len(results)
+    differences: int | None = None
     if args.compare and out_file:
         print()
         diff = subprocess.run([sys.executable, str(here / "compare.py"), str(args.compare),
@@ -400,6 +429,9 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
         if diff.returncode == 2:
             return 2
         failed += diff.returncode            # differences count as a failed check
+        differences = diff.returncode
+    if whole_set:
+        record_health(here.parent, args.engine_ref or "", results, args.compare, differences)
     if args.record_only:
         print(f"\nRECORDED {total} scenarios (expectations not enforced)")
         return 0

@@ -37,6 +37,12 @@ python3 evals/run_hook_scenarios.py --engine-ref HEAD   --record-only --out /tmp
 python3 evals/compare.py /tmp/old.json /tmp/new.json --details
 ```
 
+A run of the whole set (the everyday check above; not `--only`, `--record-only`, a `--hooks-dir` or
+`--scenarios` of your own) leaves a machine record in `.claude/state/health/golden.json`: the time
+(UTC), the commit, how many scenarios met their expectation, the baseline and the differences.
+`bash tests/run_all.sh` leaves `tests-full.json` (and `--fast`, `tests-fast.json`) beside it. The
+owner's review takes its «Здоров'я» from these files, not from anybody's words (board 035).
+
 ### Baselines by environment (board 030)
 
 A folder under `baseline/` is named after the environment — the operating system and its version,

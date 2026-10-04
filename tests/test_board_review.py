@@ -206,6 +206,14 @@ def state_files(top: Path, status: str) -> Path:
         "002-second": {"cost_usd": 2.25, "outcome": "done", "attempts": [{"utc": "2026-02-01T00:00:00Z", "session_id": "b", "reported_usd": 2.25}]},
         "009-in-work": {"cost_usd": 0.5, "started_utc": "2026-02-01T00:00:00Z", "attempts": [{"utc": "2026-02-02T00:00:00Z", "session_id": "c", "reported_usd": 0.5}]},
     }}))
+    # board 035: the records the tools leave about their own runs
+    write(state, "health/tests-full.json", json.dumps({"what": "tests/run_all.sh", "mode": "full", "recorded_utc": "2026-02-03T04:05:06Z",
+          "commit": "abcdef0123456789", "dirty": True, "suites": 60, "green": 58, "red": ["tests/test_червоний.py", "tests/test_other.py"]}))
+    write(state, "health/tests-fast.json", json.dumps({"what": "tests/run_all.sh", "mode": "fast", "recorded_utc": "2026-02-04T00:00:00Z",
+          "commit": "1234567890abcdef", "dirty": False, "suites": 30, "green": 30, "red": []}))
+    write(state, "health/golden.json", json.dumps({"what": "evals/run_hook_scenarios.py", "recorded_utc": "2026-02-05T00:00:00Z",
+          "commit": "fedcba9876543210", "dirty": False, "engine_ref": "HEAD", "scenarios": 138, "green": 137, "red": ["x"],
+          "compare": "results-task-033.json", "differences": 1}))
     write(state, "gate/escalations.json", json.dumps({"open": [{"stamp": "ШТАМП-ВОРІТ", "slice": "зріз"}], "closed": []}))
     return state
 
@@ -323,11 +331,19 @@ check("candidates: «Відкладене» and «Чого мені бракув
       and "ВІДКЛАДЕНЕ-002-second" in candidates and "БРАКУВАЛО-002-second" in candidates, candidates)
 check("candidates: the simplifier's findings", "ЗНАХІДКА-СПРОЩУВАЧА" in candidates and "F-11111111" in candidates, candidates)
 health = section(doc, "Здоров'я")
-check("health: the last full test run on record", "ПРОГІН-ТЕСТІВ" in health, health)
-check("health: the newest golden-set file, two of three as expected", "results-b.json" in health and "2 із 3" in health and "results-a.json" not in health, health)
+check("health (board 035): what the ledger says about a test run is not a fact — without the machine record the review says there is none",
+      "ПРОГІН-ТЕСТІВ" not in health and "12 suites" not in health and "tests-full.json" in health and "немає" in health, health)
+check("health: without a machine record of the golden set, the newest results file — two of three as expected", "results-b.json" in health and "2 із 3" in health and "results-a.json" not in health, health)
 check("health: the persistent context, counted through the import", "7 із 200" in health, health)
 check("health: without the state files it says the costs are not visible", "costs.json" in health and "$" not in health, health)
 health = section(with_state, "Здоров'я")
+check("health (board 035): the full run from the machine record — time (UTC), commit, a dirty tree, green of all, the red ones by name",
+      "2026-02-03 04:05 UTC" in health and "`abcdef0`" in health and "незакоміченими змінами" in health and "58 із 60 наборів" in health
+      and "`tests/test_червоний.py`" in health and "ПРОГІН-ТЕСТІВ" not in health, health)
+check("…the gate's fast run beside it, clean tree, nothing red", "30 із 30 наборів" in health and "`1234567`" in health
+      and health.count("незакоміченими змінами") == 1, health)
+check("…and the golden set from its record, not from a results file: 137 of 138, compared, one difference", "137 із 138 сценаріїв" in health
+      and "`fedcba9`" in health and "results-task-033.json" in health and "відмінностей: 1" in health and "results-b.json" not in health, health)
 check("health: the costs of the period (all three tasks since the tag)", "$4.25" in health, health)
 health = section(cli(clone, "--since", "2026-01-15", state=state).stdout, "Здоров'я")
 check("…and of a shorter period only what was spent in it", "$2.75" in health and "$4.25" not in health, health)

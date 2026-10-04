@@ -304,10 +304,28 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   taken from the CLI's messages, not from a live logged-out run. Worded differently, it is three
   attempts without a commit per task: every task in `todo/` is parked in `blocked/` in turn, at no
   cost, each with a journal entry — noisy, and undone by answering the questions.
-- **A parked task's uncommitted work is in a git stash on the runner's machine.** A stash is
-  never pushed: the work is lost with that clone, and `git stash` takes untracked files that
-  were not the agent's as well (ignored files stay). The stash commit is named in the task file.
-- **The anomaly journal is written by the runner only.** What a hook, the gate or an agent finds
-  odd goes to their own records (escalations, parked items), not to `tasks/ANOMALIES.md`.
+- **A parked task's uncommitted work is on a branch `wip/<task>/<UTC>` in origin — when the push
+  worked.** With `--no-push`, or with origin unreachable at that moment, the branch exists on the
+  runner's machine only, the task file says so, and nothing sends it later. The branch (and the
+  stash kept beside it) takes untracked files that were not the agent's as well (ignored files
+  stay). Nobody deletes these branches: they pile up in origin until the owner removes them.
+- **The anomaly journal has four writers, not every hook.** The runner, the Stop gate (an
+  escalation), the stuck counter (the third identical failure) and the agent (by its own command,
+  when it chooses to) write `tasks/ANOMALIES.md`; the deny hooks and the overseer's hooks still keep
+  their own records only. An entry of the gate, a hook or the agent is committed by the runner, so
+  in an interactive session it stays uncommitted until somebody commits it. A stop with
+  `reason=branch` (the checkout is not on the work branch) is not written: the journal would land
+  in a foreign branch.
+- **The stuck counter's key is built by patterns.** Times, dates, durations, numbers, ids of seven
+  or more hex digits and scratch paths (`/tmp`, `/var/folders`, `tmp…`, `pytest-…`) are replaced
+  before the text is cut; a varying part of another shape (a random word, a port name) still makes
+  two keys, and two different failures that differ ONLY in such parts count as one.
+- **The health records are this machine's.** `tests/run_all.sh` and `evals/run_hook_scenarios.py`
+  write `.claude/state/health/*.json` where they run; a review made in another clone shows no test
+  run and falls back to the newest results file for the golden set. A record says what was run on
+  which commit and whether the tree was dirty — not that the commit is the branch's head now.
+- **A gate question is removed only on this machine's record.** The runner sweeps a question when
+  `.claude/state/gate/escalations.json` lists its stamp as closed; a state file that was lost or
+  belongs to another machine proves nothing, and the question stays.
 - **The mode file is shared.** While the runner lives, `.claude/state/overseer/mode` says
   `unattended` for every session in the repository, an interactive one included.

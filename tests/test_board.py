@@ -304,7 +304,37 @@ before = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
 r = cli(root, "anomaly", "-", "ЩОСЬ-ДИВНЕ", "ПІШОВ-ДАЛІ")
 after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
 check("anomaly: one more entry at the end, for the board as a whole, nothing above it changed", r.returncode == 0 and after.startswith(before)
-      and re.search(r"\n## \S+Z — дошка\n- Що сталося: ЩОСЬ-ДИВНЕ\n- Що зроблено: ПІШОВ-ДАЛІ\n$", after) is not None, after)
+      and re.search(r"\n## \S+Z — дошка\n- Що сталося: ЩОСЬ-ДИВНЕ\n- Що зроблено: ПІШОВ-ДАЛІ\n- Хто записав: виконавець\n$", after) is not None, after)
+# board 035: one journal for everything odd — the entry says who wrote it
+r = cli(root, "anomaly", "008-next", "АГЕНТ-ПОБАЧИВ", "АГЕНТ-ЗРОБИВ", "--source", "агент")
+after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("anomaly --source: the agent's entry says the agent wrote it", r.returncode == 0
+      and after.endswith("— 008-next\n- Що сталося: АГЕНТ-ПОБАЧИВ\n- Що зроблено: АГЕНТ-ЗРОБИВ\n- Хто записав: агент\n"), after)
+put(root, "doing", "012-in-hand.md", task())
+noted = board.note(root, "ворота (gate.py)", "ВОРОТА-ЗДАЛИСЯ\nдругий рядок", "ХІД-ЗАКІНЧЕНО")
+after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("note (a hook, the gate): filed under the task in doing/, on one line, with its writer", noted == root / "tasks/ANOMALIES.md"
+      and after.endswith("— 012-in-hand\n- Що сталося: ВОРОТА-ЗДАЛИСЯ другий рядок\n- Що зроблено: ХІД-ЗАКІНЧЕНО\n- Хто записав: ворота (gate.py)\n"), after)
+(root / "tasks/doing/012-in-hand.md").unlink()
+board.note(root, "hook x", "БЕЗ-ЗАДАЧІ", "ДАЛІ")
+check("…and under the board when no task is in doing/", "— дошка\n- Що сталося: БЕЗ-ЗАДАЧІ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
+nowhere = Path(tempfile.mkdtemp(prefix="board-none-"))
+check("the negative case: a project without a board gets no journal and no tasks/ directory",
+      board.note(nowhere, "hook x", "a", "b") is None and not (nowhere / "tasks").exists())
+# board 035: the uncommitted work of a parked task is on a branch in origin, not only in a stash
+put(root, "doing", "013-wip.md", task())
+r = cli(root, "park", "013-wip", "no-commit", "--detail", "3", "--stash", "abc123", "--wip", "wip/013-wip/20261004T110524Z", "--wip-remote", "origin")
+text = (root / "tasks/blocked/013-wip.md").read_text(encoding="utf-8")
+journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+check("park --wip --wip-remote: the task file names the branch in origin, how to bring the work back, and the stash", r.returncode == 0
+      and "у гілці `wip/013-wip/20261004T110524Z` в origin" in text and "git fetch origin wip/013-wip/20261004T110524Z && git cherry-pick -n FETCH_HEAD" in text
+      and "git stash apply abc123" in text, text)
+check("…and so does the journal", "у гілці `wip/013-wip/20261004T110524Z` в origin" in journal.split("\n## ")[-1], journal.split("\n## ")[-1])
+put(root, "doing", "014-wip-local.md", task())
+cli(root, "park", "014-wip-local", "no-commit", "--detail", "3", "--wip", "wip/014-wip-local/20261004T110524Z")
+text = (root / "tasks/blocked/014-wip-local.md").read_text(encoding="utf-8")
+check("the negative case: a branch that was not pushed is never said to be in origin", "лише на сервері виконавця" in text
+      and "в origin (" not in text and "git push origin wip/014-wip-local/20261004T110524Z" in text, text)
 check("the journal is not a task: next, summary and unblock do not see it", "ANOMALIES" not in cli(root, "summary").stdout + cli(root, "next").stdout)
 
 # --- import-inbox -------------------------------------------------------------------------------
@@ -530,6 +560,24 @@ check("the same escalation asked twice is one task", ask(b) == q and len(b.files
 check("the next escalation takes the next number", ask(b, "2026-10-03T11:00:00Z").name == "901-gate-escalation-20261003T110000Z.md")
 done(root, "902-old")
 check("a number in done/ is not reused", ask(b, "2026-10-03T12:00:00Z").name.startswith("903-"))
+# board 035: a question whose escalation was closed another way asks nothing any more
+swept = new_board()
+sb = board.Board(swept / "tasks")
+closed_q, open_q, told_q, lost_q = (ask(sb, f"2026-10-03T1{n}:00:00Z") for n in range(4))
+answer(told_q, "виправ спершу тест")
+(swept / ".claude/state/gate").mkdir(parents=True)
+check("gate-closed, the negative case: without the gate's state file nothing is listed", cli(swept, "gate-closed").stdout == "")
+(swept / ".claude/state/gate/escalations.json").write_text(json.dumps({
+    "open": [{"stamp": "2026-10-03T11:00:00Z"}],
+    "closed": [{"stamp": "2026-10-03T10:00:00Z"}, {"stamp": "2026-10-03T12:00:00Z"}]}), encoding="utf-8")
+check("gate-closed: only the unanswered question whose escalation is recorded as closed — not the open one, not the one "
+      "with the owner's instruction, not the one the state does not know",
+      cli(swept, "gate-closed").stdout == f"{closed_q.name}\t2026-10-03T10:00:00Z\n", cli(swept, "gate-closed").stdout)
+r = cli(swept, "gate-done", closed_q.name, "elsewhere")
+report = (swept / "tasks/done" / closed_q.stem / "report.md").read_text(encoding="utf-8") if r.returncode == 0 else ""
+check("gate-done elsewhere: the question goes to done/ with a report that says it was closed another way, not on an answer",
+      not closed_q.exists() and (swept / "tasks/done" / closed_q.stem / "task.md").is_file() and "закрито іншим шляхом" in report
+      and "2026-10-03T10:00:00Z" in report and "ваша відповідь" not in report, r.stderr + report)
 bare = Path(tempfile.mkdtemp(prefix="board-none-"))
 check("a project without a board gets no task and no tasks/ directory",
       board.gate_question(board.Board(bare / "tasks"), STAMP, 3, "(none)", [], [], "r") is None and not (bare / "tasks").exists())
