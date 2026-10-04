@@ -39,6 +39,8 @@
 # Board 051: test_goals 5.2 s is in (the seal and the quote check stand between an agent and the owner's goals; about
 # sixty runs of goals.py on one synthetic project); test_analyst_evals 1.3 s is in (offline: the paid gate, the scoring).
 # Board 061: test_tester_evals 20 s stays out (about forty pytest runs through uvx on copies of the reference project).
+# Board 071: test_baseline 8 s stays out (about seventy runs of gate.py and baseline.py on synthetic legacy projects);
+# test_board_review, out already, carries the review's part.
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

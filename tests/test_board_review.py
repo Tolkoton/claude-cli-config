@@ -390,6 +390,8 @@ check("a duration is said in days, hours and minutes", elapsed == "1 дн 3 го
 print("origin, not the checkout")
 write(work, "tasks/done/003-third/task.md", task("003 — Третя"))
 write(work, "tasks/done/003-third/report.md", report("003-third"))
+write(work, ".engine/baseline.json", json.dumps({"schema": 1, "tests": ["tests/test_old.py::test_СТАРЕ_ПАДІННЯ_1", "tests/test_old.py::test_СТАРЕ_ПАДІННЯ_2"],
+                                                 "lint": {"a.py": {"F401": 2, "E501": 1}}, "types": {"a.py": {"arg-type": 4}}}))
 git(work, "add", "-A")
 git(work, "commit", "-q", "-m", "board: 003-third → done", date="2026-03-01T00:00:00Z")
 commits["third"] = git(work, "rev-parse", "HEAD")
@@ -398,6 +400,13 @@ before = snapshot(clone, skip=(".git/objects/",))
 refs = git(clone, "for-each-ref")
 r = cli(clone)
 check("a clone that never fetched the newest commit shows it", r.returncode == 0 and "ЗМІНА-003-third" in r.stdout and commits["third"][:7] in r.stdout, r.stderr)
+candidates = section(r.stdout, "Кандидати в нові задачі")
+check("candidates (board 071): every old test failure of the snapshot by name, and how many lint and type findings are left",
+      "`tests/test_old.py::test_СТАРЕ_ПАДІННЯ_1`" in candidates and "`tests/test_old.py::test_СТАРЕ_ПАДІННЯ_2`" in candidates
+      and "лінтера у знімку: 3" in candidates and "типів: 4" in candidates, candidates)
+check("…and a project without a snapshot has no such part", "baseline.json" not in section(doc, "Кандидати в нові задачі"))
+late = section(cli(clone, "--since", "2026-03-15").stdout, "Кандидати в нові задачі")
+check("…the old failures are a standing debt: shown whatever the period", "СТАРЕ_ПАДІННЯ_1" in late and "кандидатів немає" not in late, late)
 check("…and only objects were added: no ref, no index, no HEAD, no FETCH_HEAD, no file of the tree",
       snapshot(clone, skip=(".git/objects/",)) == before and git(clone, "for-each-ref") == refs,
       sorted(set(snapshot(clone, skip=(".git/objects/",)).items()) ^ set(before.items()))[:6])

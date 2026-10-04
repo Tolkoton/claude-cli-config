@@ -188,6 +188,36 @@ such exemption before the overseer, who judges it (check #4). What that rests on
 - **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
   model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.
 
+## The snapshot "as it was" (board 071)
+
+With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).
+What that does not give:
+
+- **The Stop gate sees only the files the turn changed and the tests that map to them.** A test
+  broken by an edit in another module, or a finding that appears in a file the turn did not touch,
+  is seen only by the full run before a commit (`pre_commit`, `ci`). That was always so; in code
+  the engine did not build, the links between modules are less known, so it weighs more there.
+- **A count, not an identity.** Lint and types are compared as a number per (file, rule). Fix one
+  finding and add another of the same rule in the same file, and the number — and the gate — does
+  not move. A file that is renamed starts from zero: its old findings block until they are fixed
+  or the owner records again.
+- **A listed test is not watched.** A test on the list may fail for a new reason and nothing
+  notices; a listed test that was fixed is guarded again only after `baseline.py tighten`. The
+  full layers warn that a fixed entry is still listed; nothing runs `tighten` by itself.
+- **Only what the output names.** Test names and findings are read from the commands' output in
+  the formats `gate.md` lists. Another runner's format reads as "a failure that names nothing",
+  which blocks as without a snapshot — the strict side, but then the snapshot gives that project
+  nothing until its command prints those lines. A test command that stops at the first failure
+  hides everything after an old failure; the gate warns and cannot see past it.
+- **"Only the owner loosens" rests on two things a script can get around.** `record` refuses to
+  loosen when `CLAUDECODE` is set, and its approval lives in `.claude/state/`, which the agent's
+  edit tools may not write. As with every guard here (see "Hooks guard tool calls, not scripts"),
+  a script the agent writes could unset the variable or write the approval; no rule permits it,
+  and it shows in the transcript and in the committed diff of the snapshot, which the review
+  lists by name.
+- **Coverage is not measured**, and old failures are accepted, not excused: each stays in the
+  review as a candidate for a task until someone fixes it.
+
 ## The overseer as a separate agent (board 015 / 018)
 
 Every audit is done by the agent `overseer` in a fresh context, and the verdict is written by

@@ -48,6 +48,13 @@ marks from the AST, configuration from the parsed tables — a string that merel
 is not a finding. The guard calls no tool, so it runs whether or not PROJECT_MARKER exists; a
 missing marker skips only lint, types and tests.
 
+THE SNAPSHOT (stop, pre_commit, ci). With `.engine/baseline.json` (baseline.py) the question is
+"no worse than it was", not "clean": a failing test blocks only when it is not on the snapshot's
+list, a lint or type finding only when the count of its (file, rule) is above the recorded one.
+A failure whose output names no test and no `file:line: message` blocks as before. Without the
+file nothing changes. The bypass guard also watches the snapshot: a diff that adds a test to the
+list or raises a count blocks unless the owner's `baseline.py record` approved exactly that text.
+
 Standard library only; Python 3.11+. The linters are external commands.
 """
 
@@ -83,6 +90,8 @@ COUNT_REL = Path(".claude/state/gate/stop-count.json")
 PARKED_REL = Path(".engine/overseer/parked.md")
 NO_SLICE = "(none)"
 ESCALATIONS_REL = Path(".claude/state/gate/escalations.json")
+BASELINE_FILE = ".engine/baseline.json"
+SNAPSHOT_PART = {"lint": "lint", "typecheck": "types", "tests": "tests"}
 TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 40}
 HEADINGS = {"lint": "LINT FAILED", "typecheck": "TYPECHECK FAILED", "tests": "TESTS FAILED"}
 GATE_KEYS = ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD", "TEST_CMD_FULL", "FORMAT_CMD", "GATE_MAX_BLOCKS",
@@ -496,6 +505,9 @@ def guard_config(
     added: set[int] | None, report: Report,
 ) -> None:
     old, new = old_text(root, layer, rel, diff_ref), new_text(root, layer, rel)
+    if rel == BASELINE_FILE:
+        guard_baseline(root, rel, old, new, report)
+        return
     base = Path(rel).name
     changed: str | None = None
     if base == "pyproject.toml":
@@ -520,6 +532,33 @@ def guard_config(
         f"the diff changes {changed} — a gate that can be re-tuned by the work it judges proves nothing",
         "if the change is meant: add a line `gate-allow: <why, two words at least>` among the "
         f"added lines of {rel}, or put `gate-allow: {rel} — <reason>` in the slice contract",
+    ))
+
+
+def baseline_module() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import baseline
+
+    return baseline
+
+
+def guard_baseline(root: Path, rel: str, old: str | None, new: str | None, report: Report) -> None:
+    """The snapshot only shrinks. A diff that adds a test to its list or raises a count loosens the
+    gate; it passes one way only — the owner's `baseline.py record` approved exactly this text."""
+    snapshot = baseline_module()
+    looser = snapshot.loosened(old, new)
+    if not looser:
+        return
+    if snapshot.sealed(root, new):
+        report.add(Finding(rel, None, "bypass/baseline", "log",
+                           f"the snapshot was loosened ({len(looser)} entr(ies)), approved by the owner's record"))
+        return
+    shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) > 5 else "")
+    report.add(Finding(
+        rel, None, "bypass/baseline", "block",
+        f"the diff loosens the snapshot ({shown}) — the gate is passed by calling the new failure old",
+        f"restore {rel} (`git checkout HEAD -- {rel}`) and fix what got worse; only the owner loosens "
+        "the snapshot, with `python3 .claude/hooks/baseline.py record` in their own terminal",
     ))
 
 
@@ -563,8 +602,10 @@ def test_targets(root: Path, files: list[str]) -> list[str]:
     return targets
 
 
-def run_checks(root: Path, env: dict[str, str], files: list[str], full: bool, report: Report) -> None:
-    """lint, then types, then tests only if those passed — as the Stop hook always did."""
+def check_steps(root: Path, env: dict[str, str], files: list[str], full: bool, report: Report,
+                snapshot: bool = False) -> list[tuple[str, str]]:
+    """The (kind, command) steps of a layer. With a snapshot the default commands are the ones it
+    can be read against: ruff one line per finding, pytest to the end instead of the first failure."""
     configured = {k: env.get(k, "") for k in ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD")}
     if full and env.get("TEST_CMD_FULL"):
         configured["TEST_CMD"] = env["TEST_CMD_FULL"]
@@ -582,31 +623,94 @@ def run_checks(root: Path, env: dict[str, str], files: list[str], full: bool, re
                                f"CODE_EXTENSIONS='{' '.join(exts)}' but no check commands are set in "
                                ".claude/project.env (LINT_CMD / TYPECHECK_CMD / TEST_CMD)",
                                "set them to enable verification for this language"))
-            return
+            return []
         if not py_files and not full:
-            return
+            return []
         scope = "." if full else quoted(py_files)
+        concise, pytest = ("--output-format concise ", "pytest") if snapshot else ("", "pytest -x")
         if pyproject_has(root, "tool.ruff"):
-            steps.append(("lint", f"{prefix}ruff check --force-exclude {scope}"))
+            steps.append(("lint", f"{prefix}ruff check --force-exclude {concise}{scope}"))
         if pyproject_has(root, "tool.mypy"):
             steps.append(("typecheck", f"{prefix}mypy {scope}"))
         if (root / "tests").is_dir() or (root / "test").is_dir():
             if full:
-                steps.append(("tests", f"{prefix}pytest -x --no-header -q"))
+                steps.append(("tests", f"{prefix}{pytest} --no-header -q"))
             else:
                 targets = test_targets(root, files)
                 if targets:
-                    steps.append(("tests", f"{prefix}pytest -x --no-header -q {quoted(targets)}"))
+                    steps.append(("tests", f"{prefix}{pytest} --no-header -q {quoted(targets)}"))
                 else:
                     report.add(Finding(None, None, "tests/unmapped", "log",
                                        "no test file maps to the changed files; tests not run"))
+    return steps
+
+
+def load_snapshot(root: Path, report: Report) -> dict[str, Any] | None:
+    """The snapshot "as it was", or None: no file, or one that cannot be read — then "clean" is asked."""
+    if not (root / BASELINE_FILE).is_file():
+        return None
+    base: dict[str, Any] | None
+    base, problem = baseline_module().load(root)
+    if problem:
+        report.add(Finding(BASELINE_FILE, None, "baseline/unreadable", "warn", f"{problem}; the gate asks for clean",
+                           "restore the file from git, or the owner records it again (baseline.py record)"))
+    return base
+
+
+def judge_step(report: Report, base: dict[str, Any], kind: str, command: str, rc: int, out: str, ms: int,
+               full: bool) -> bool:
+    """A step against the snapshot; True when it got WORSE. A failure that names nothing readable is
+    judged as without a snapshot."""
+    snapshot = baseline_module()
+    part = SNAPSHOT_PART[kind]
+    was = base[part]
+    if kind == "tests":
+        now: Any = set() if rc == 0 else snapshot.failed_tests(out)
+        worse = [(None, f"new failing test: {name}") for name in sorted(now - set(was))]
+        fixed = len(set(was) - now)
+        if was and snapshot.stops_at_first(command):
+            report.add(Finding(None, None, "baseline/exitfirst", "warn",
+                               f"the test command stops at the first failure ({command}): a new failure after an "
+                               "old one is not seen", "drop that option from the test command"))
+    else:
+        now = {} if rc == 0 else snapshot.diagnostic_counts(out, report.root)
+        worse = [(file, f"{rule}: {n} now, {old} in the snapshot") for file, rule, n, old in snapshot.worse_counts(now, was)]
+        fixed = len(snapshot.fixed_counts(now, was))
+    if rc != 0 and not now:
+        record_step(report, kind, command, rc, out, ms)
+        return True
+    report.steps_ms[kind] = report.steps_ms.get(kind, 0) + ms
+    if full and fixed:
+        report.add(Finding(BASELINE_FILE, None, "baseline/stale", "warn",
+                           f"{kind}: {fixed} entr(ies) of the snapshot are fixed and still listed",
+                           "run `python3 .claude/hooks/baseline.py tighten` and commit the file"))
+    if not worse:
+        if rc != 0:
+            report.add(Finding(None, None, f"baseline/{kind}", "log",
+                               f"{kind}: only what the snapshot already lists, nothing new"))
+        return False
+    for file, message in worse[:20]:
+        report.add(Finding(file, None, kind, "block", message,
+                           f"worse than {BASELINE_FILE}; fix it (re-run: {command})"))
+    listed = "\n".join(f"  {file + ': ' if file else ''}{message}" for file, message in worse[:20])
+    tail = "\n".join(out.strip().splitlines()[-TAIL_LINES[kind]:])
+    report.reasons.append(f"{HEADINGS[kind]} — worse than the snapshot {BASELINE_FILE} ({command}):\n{listed}\n{tail}")
+    return True
+
+
+def run_checks(root: Path, env: dict[str, str], files: list[str], full: bool, report: Report) -> None:
+    """lint, then types, then tests only if those passed — as the Stop hook always did."""
+    base = load_snapshot(root, report)
     failed = False
-    for kind, command in steps:
+    for kind, command in check_steps(root, env, files, full, report, snapshot=base is not None):
         if kind == "tests" and failed:
             break
         rc, out, ms = run_shell(root, command)
-        record_step(report, kind, command, rc, out, ms)
-        failed = failed or rc != 0
+        if base is None:
+            record_step(report, kind, command, rc, out, ms)
+            failed = failed or rc != 0
+        else:
+            failed = judge_step(report, base, kind, command, rc, out, ms, full) or failed
 
 
 # ------------------------------------------------------------------ report, counter, escalation
@@ -941,7 +1045,7 @@ def eligible(env: dict[str, str], files: list[str]) -> list[str]:
 
 
 def is_config_file(rel: str) -> bool:
-    return Path(rel).name in ("pyproject.toml", *CONFIG_BASENAMES) or rel == ".claude/project.env"
+    return Path(rel).name in ("pyproject.toml", *CONFIG_BASENAMES) or rel in (".claude/project.env", BASELINE_FILE)
 
 
 def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],

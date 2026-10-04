@@ -27,6 +27,48 @@ findings with rule `simplify/<kind>` — the changed files at `stop`, the whole 
 A declared limit of `stop`: it is incremental, so a defect in an untouched file or a test broken by
 a module with no sibling test is for `pre_commit` and `ci`.
 
+## The snapshot: "no worse than it was" (`baseline.py`)
+
+A project that did not start with the engine has tests that already fail and findings nobody will
+fix today. With `.engine/baseline.json` in the project the three blocking layers ask "did it get
+worse", not "is it clean". **Without the file nothing changes: must be clean.**
+
+| Measured | In the snapshot | Blocks when |
+|---|---|---|
+| tests | the names of the tests failing on the day of the snapshot | a failing test is not on the list |
+| lint | the number of findings per (file, rule) | a count the layer sees is above the recorded one |
+| types | the same | the same |
+
+Counts, not line numbers: lines move with every edit. Coverage is not in the snapshot — a
+percentage would become a target. A failure whose output names nothing readable (a crash, a missing
+tool) blocks as without a snapshot. An unreadable snapshot excuses nothing (`baseline/unreadable`,
+then "clean").
+
+```bash
+python3 .claude/hooks/baseline.py record    # the owner, in their own terminal: take the snapshot
+python3 .claude/hooks/baseline.py tighten   # anyone: drop what was fixed, lower the counts
+python3 .claude/hooks/baseline.py show      # what is left
+```
+
+- **Both run the full commands** (those of `pre_commit` / `ci`). What they read: `FAILED <name>` /
+  `ERROR <name>` (pytest), `FAIL: <name>` (unittest); `<file>:<line>[:<col>]: <message>` with the
+  rule a leading code (`F401`), else a trailing `[code]`, else `other`. With your own `LINT_CMD` /
+  `TEST_CMD` make them print those lines; with the defaults the gate adds
+  `--output-format concise` to ruff and drops pytest's `-x` once a snapshot exists.
+- **The test command must run to the end.** One that stops at the first failure (`-x`,
+  `--maxfail`) stops at an old failure and never shows a new one after it; `record` and the gate
+  warn (`baseline/exitfirst`).
+- **The snapshot only shrinks.** `tighten` removes a listed test that passes and lowers a count that
+  went down, and never adds; from then on that test's failure blocks. The full layers say when a
+  fixed entry is still listed (`baseline/stale`, a warning).
+- **Only the owner loosens it.** A diff of the snapshot that adds a test or raises a count — a
+  first snapshot included — is a bypass (`bypass/baseline`), like an added suppression. It passes one
+  way: `record` run outside a Claude Code session, which writes its approval of exactly that text
+  to `.claude/state/baseline/approved.sha256`. Inside a session `record` refuses to loosen and
+  writes nothing. No `gate-allow` and no contract grant opens this.
+- **The debt stays visible.** `board.py review` lists every old test failure by name under
+  «Кандидати в нові задачі», with the lint and type totals; the engine files no task for them.
+
 ## The Stop counter
 
 `stop_hook_active` is read first. Claude Code sets it on the stop that follows a block, so the gate
@@ -43,7 +85,7 @@ A block when the turn's diff **adds** a `# type: ignore`, a `# noqa`, `pytest.ma
 configuration: the parsed `[tool.ruff]` / `[tool.mypy]` of `pyproject.toml`, any change of
 `ruff.toml`, `.ruff.toml`, `mypy.ini`, `.mypy.ini`, or the values of `LINT_CMD`, `TYPECHECK_CMD`,
 `TEST_CMD`, `TEST_CMD_FULL`, `FORMAT_CMD`, `GATE_MAX_BLOCKS`, `COMPLEXITY_MAX_CYCLOMATIC`,
-`COMPLEXITY_MAX_NESTING` in `.claude/project.env`. Syntax only:
+`COMPLEXITY_MAX_NESTING` in `.claude/project.env`; or **loosens the snapshot** `.engine/baseline.json` (above). Syntax only:
 comments come from the tokenizer, marks from the AST, configuration from the parsed tables, so a
 string, a docstring or a reformat is not a finding.
 
@@ -123,5 +165,5 @@ No file under `.github/workflows/` is shipped; add the step to your pipeline you
 ## Measuring it
 
 `python3 evals/run_gate_evals.py --engine-ref HEAD` — defective files that must be caught, clean
-files that must not be blocked, every layer timed. `bash tests/run_all.sh` runs `tests/test_gate.py`
-and `tests/test_gate_evals.py`. Reference results: `evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json`.
+files that must not be blocked, every layer timed. `bash tests/run_all.sh` runs `tests/test_gate.py`,
+`tests/test_gate_evals.py` and the snapshot's scenes, `tests/test_baseline.py`. Reference results: `evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json`.

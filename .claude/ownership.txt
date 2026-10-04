@@ -47,6 +47,10 @@ project  .engine/overseer/MEMORY.md       seed=templates/project/.engine/oversee
 project  .engine/premises/premise-log.md  seed=templates/project/.engine/premises/premise-log.md
 project  .engine/rules.md                 seed=templates/project/.engine/rules.md
 project  .engine/goals.md                 seed=templates/project/.engine/goals.md
+# The snapshot "as it was" (board 071): no seed — a project has one only after its owner ran
+# `baseline.py record`. Written by that script alone and committed with the project; the owner's
+# approval of its text is machine state (.claude/state/baseline/approved.sha256).
+project  .engine/baseline.json
 project  .engine/**
 
 # --- legacy paths of a project built before package 3c. Still the PROJECT'S data: never ----

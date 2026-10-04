@@ -582,6 +582,24 @@ def plan_section(src: Source) -> list[str]:
     return lines
 
 
+def old_failures(src: Source) -> list[str]:
+    """The snapshot "as it was" (.engine/baseline.json, board 071): every old test failure by name —
+    a candidate for a task, whatever the period; the engine puts no task on the board itself."""
+    try:
+        data = json.loads(src.show(".engine/baseline.json") or "{}")
+        tests = [str(name) for name in data.get("tests", [])]
+        counts = [sum(n for rules in data.get(part, {}).values() for n in rules.values()) for part in ("lint", "types")]
+    except (ValueError, AttributeError, TypeError):
+        return ["### Старі падіння зі знімка «як було» (`.engine/baseline.json`)", "", "Знімок не читається: файл зіпсовано. Ворота, поки так, вимагають чистоти.", ""]
+    if not tests and not any(counts):
+        return []
+    lines = ["### Старі падіння зі знімка «як було» (`.engine/baseline.json`)", "",
+             (f"Тестів, що падали ще на день знімка: {len(tests)}. Ворота їх не блокують; кожен — кандидат у задачу, "
+              "задачею стане, коли її поставите ви. Полагоджене зі знімка прибирає `baseline.py tighten`."), ""]
+    lines += [f"- `{name}`" for name in tests]
+    return [*lines, *([""] if tests else []), f"Старих зауважень лінтера у знімку: {counts[0]}; помилок типів: {counts[1]}.", ""]
+
+
 def candidates_section(src: Source, stems: list[str], period: Since) -> list[str]:
     lines: list[str] = []
     for stem in stems:
@@ -601,6 +619,7 @@ def candidates_section(src: Source, stems: list[str], period: Since) -> list[str
         passes += [f"- {f if len(f) <= FINDING_MAX else f[:FINDING_MAX].rstrip() + '…'}" for f in findings] + [""]
     if passes:
         lines += ["### Знахідки спрощувача для розбору (`.engine/simplifier/report.md`)", "", *passes]
+    lines += old_failures(src)
     return lines or ["За цей період кандидатів немає: у нових звітах немає розділів «Відкладене» чи «Чого мені бракувало», знахідок спрощувача немає."]
 
 
