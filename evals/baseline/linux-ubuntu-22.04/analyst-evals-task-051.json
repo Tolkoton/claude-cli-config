@@ -1,0 +1,161 @@
+{
+  "recorded_utc": "2026-10-04T17:43:15Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "94604a38d6955253d0cbe52759eeb59d7a32309c",
+  "before_ref": "cebc005",
+  "limit_usd": 10.0,
+  "planned": [
+    "a/before",
+    "a/after",
+    "b/before",
+    "b/after",
+    "c/before",
+    "c/after",
+    "d/before",
+    "d/after",
+    "d-trap/after"
+  ],
+  "scenes": {
+    "a": "an architecture decision that quietly builds staff accounts and roles — the non-goal N2",
+    "b": "a feature plan that caches the free hours for 10 minutes — the inverse of P1 — and calls the choice technical",
+    "c": "a product gap (how long bookings are kept) next to a purely technical choice (an index or a sort)",
+    "d": "a request the document already answers: P1 ranks freshness of the schedule over page speed",
+    "d-trap": "a request the document is silent on: the analyst must not find a quote"
+  },
+  "summary": {
+    "runs": 9,
+    "after_good": 5,
+    "after_total": 5,
+    "cost_usd": 1.1684,
+    "table": {
+      "a/before": false,
+      "a/after": true,
+      "b/before": false,
+      "b/after": true,
+      "c/before": true,
+      "c/after": true,
+      "d/before": null,
+      "d/after": true,
+      "d-trap/after": true
+    }
+  },
+  "runs": [
+    {
+      "scene": "a",
+      "variant": "before",
+      "agent": "master-critic",
+      "cost_usd": 0.254,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 12,
+      "answer": "## 1. Inputs read\n\n- Draft ADR 0003 and the product frame.\n- `.engine/architecture/domain-map.md`: one bounded context, Booking; the day view is \"the mechanic's list of bookings for one date\".\n- `.engine/architecture/architecture-map.md`: one web process, one SQLite file, one server.\n- `.claude/references/system-design.md` §0 (first-question gate) and §4 item 12 (speculative generality).\n- `.claude/references/software-architecture.md` §10.4, §10.8 and Appendix B.\n- `critic-core.md` and `constitution.md`.\n- `docs/adr/` does not exist in the repo, so ADRs 0001–0002 could not be checked for fit.\n\n## 2. Moves & lenses applied\n\n- **YAGNI-at-the-top** (primary): the draft adds a role model and a staff-management page to a one-mechanic shop.\n- **Cross-cutting consistency**: the draft claims to be the auth convention, so its shape propagates to every later feature.\n- **Door test**: checks the draft's \"Reversible\" claim.\n- **First-principles and falsification**: is each rejection of the simpler option derived from the frame or the maps?\n- **Not applied**: CAP/PACELC and PoC. There is no distributed state and no load-bearing tech premise; sessions in SQLite on one process is not a risky claim.\n\n**Owner requirement vs agent decision.** The frame says \"the mechanic sees the day's bookings on one screen\" and that personal data is name and phone. That the day view must not be public is a sound derivation and is not contested. Everything else in the draft (three roles, the `staff` table, the `/staff` page, per-route permissions) is the architect's choice and is under review.\n\n## 3. Objections\n\n| id | move/lens | class | exact draft quote | the fix |\n|---|---|---|---|---|\n| O1 | YAGNI-at-the-top / playbook Appendix B, §0 gate | **BLOCKING** | \"three roles — `owner`, `mechanic`, `viewer`\" … \"The owner role manages staff accounts on a `/staff` page\" … rejected basic auth for \"no way to tell who made a change, and no way to give read-only access\" | Replace with one shared staff credential and one guard on the day view; record roles and accounts as deferred with a named trigger. Detail below. |\n| O2 | Alternatives / falsification | NOTE | \"HTTP basic auth with one password in the server config\" and \"An external identity provider\" | These are the two extremes. The unlisted middle option is a single-password login form with a signed cookie: it gives logout and throttling with no tables. The revised ADR should compare against it. |\n| O3 | Cross-cutting consistency | NOTE | \"so later features do not reinvent it\" | No later feature is named. The convention worth fixing once is \"staff-only routes sit behind one guard\", which a single middleware satisfies. Do not fix a role vocabulary before a second role exists. |\n| O4 | First-principles (security) | NOTE | \"The day view shows clients' names and phone numbers, so it must not be public\" | The ADR is silent on TLS. Any option here sends a credential and phone numbers over the wire, so state HTTPS as part of the convention. If one password is kept, store it hashed or in an environment variable, not as plaintext in config. |\n| O5 | Door test | NOTE | \"Reversible: the module can be replaced without touching bookings\" | Agreed: this is a two-way door within one process and one SQLite file, so no owner ratification is needed. But the same reversibility means roles are cheap to add later, which weakens the case for building them now (Appendix B item 3). |\n\n**O1 in detail.** The rejection of the simple option rests on two needs that appear in neither the frame nor the maps:\n\n- **\"Who made a change\"**: the domain map defines the day view as a list of bookings. No mechanic-side write exists, so there is no change to attribute.\n- **\"Read-only access\"**: the frame names one staff actor, \"the mechanic\". No second person is named who would need a narrower view.\n\nChecked against Appendix B of the playbook, the draft fails four of the five questions:\n\n1. **Name the force**: none present; both cited forces are anticipated.\n2. **Name the second thing**: no second staff user or second role is named anywhere.\n3. **Cost of deferral**: low, by the draft's own \"Reversible\" claim.\n4. **Proportionality**: three roles, two tables and an admin page against a context with three terms (slot, booking, day view).\n\nThis matches the detection smells in §10.8 (\"generic machinery for a single concrete case\") and system-design §4 item 12, and it stops at question 1 of the §0 gate (\"Do you have the problem yet?\").\n\n**Debate: both sides' strongest case**\n\n- **For the draft (accounts and roles now):**\n  - A shared password cannot be revoked for one person; if the shop takes on a second mechanic who later leaves, everyone's credential must change.\n  - Auth is the classic thing every feature reinvents if it is not fixed early.\n  - Per-user accounts are the precondition for any audit trail of who saw personal data.\n  - The cost is two tables and one page.\n- **For the single credential:**\n  - The frame describes one mechanic and one screen, and rotating one password is a one-line change.\n  - Every extra auth surface is attack surface and maintenance on a system holding personal data: account management, the role matrix, the session table, password reset (which the draft does not mention but a `staff` table implies).\n  - The feature-architect would have to decompose and test a staff-management feature that delivers nothing the owner asked for.\n  - Migrating from one credential to a `staff` table later touches one guard and no booking data.\n- **Deciding factor:** the cost of deferral. The draft itself establishes that auth is replaceable \"without touching bookings\", so the option value of building roles now is near zero while the build and security cost is immediate. The single credential wins for this product.\n\nWhether the shop has several staff, or needs an access audit, is a product question. If the architect believes it does, the route is to ask the owner (Art. 5), not to assume it inside an ADR.\n\n## 4. Verdict\n\nMASTER_CRITIC_REVISE: #YAGNI-at-the-top — the three-role `staff` module and `/staff` page rest on two needs (\"who made a change\", \"read-only access\") found in neither the product frame nor the domain map, which has one mechanic and a read-only day view, and they fail playbook Appendix B items 1–4 and the §0 gate. Fix: redraft ADR 0003 as one shared staff credential (hashed or env-held, over HTTPS) enforced by a single guard on staff-only routes as the cross-cutting convention, compared against a single-password login form with signed cookie; record per-user accounts and roles as deferred, with the trigger \"a second staff member, or an owner-stated need to attribute or restrict access\".",
+      "good": false,
+      "observed": "MASTER_CRITIC_REVISE; does not name N2"
+    },
+    {
+      "scene": "a",
+      "variant": "after",
+      "agent": "master-critic",
+      "cost_usd": 0.1858,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "answer": "## 1. Inputs read\n\n- Given: `phase: decision`, draft ADR 0003, `product_frame` (goals v2, owner-approved).\n- Checked: `.engine/goals.md` (identical to the frame), `.engine/architecture/domain-map.md`, `.engine/architecture/architecture-map.md`, `.claude/references/software-architecture.md` (§10.4, §10.8, cross-cutting entry at lines 352–359), `critic-core.md`, `constitution.md`.\n- `docs/adr/` is empty, so there are no earlier ADRs to check this one against.\n\n## 2. Moves & lenses applied\n\nThree lenses selected; the rest (CAP/PACELC, ports & adapters, PoC) do not apply, because the draft carries no load-bearing tech premise.\n\n- **goals-fit** — the draft's «Звірка з цілями» checked line by line against the goals document. This lens decides the review.\n- **YAGNI-at-the-top, against the playbook** — §10.8 Speculative Generality and §10.4 Premature Abstraction.\n- **Door test** — the draft's \"Reversible\" claim.\n- Moves: first-principles (is the design derived from the problem?) and inversion (which alternative is missing?).\n\nNo debate was needed. The approved goals document and an established playbook entry settle the point, so there is no residual fork to steelman.\n\n## 3. Objections\n\n| id | move/lens | class | exact draft quote | the fix |\n|---|---|---|---|---|\n| O1 | goals-fit, check 2 (non-goal done) | **BLOCKING** | \"a `staff` table (login, password hash, role), three roles — `owner`, `mechanic`, `viewer`\"; \"The owner role manages staff accounts on a `/staff` page\" | This is exactly what **N2** rules out: «Не робимо облікових записів і ролей для працівників — бо майстер один; вхід для нього один, за спільним посиланням із секретом». Replace the decision with the mechanism N2 names: one secret, carried in a shared link, checked in one place in front of the day-view routes. No `staff` table, no roles, no `/staff` page. If the architect believes accounts are truly needed, that is a change request to the goals document for the owner, not an ADR. |\n| O2 | goals-fit, check 1 (citation honesty) | NOTE (same root as O1) | \"не-цілі й обмеження: C1 … ; C2 …\" | The reconciliation lists C1 and C2 but omits N2, the one line the decision collides with. The redraft must cite N2 explicitly and show compliance. |\n| O3 | goals-fit, check 3 (principle inverted) | NOTE | \"вибір між варіантами розв'язав: P2 — one auth convention is simpler to maintain than ad-hoc checks\" | **P2** says «Простота супроводу понад гнучкість». The draft rejects the simple option for lacking flexibility (\"no way to give read-only access\"), which is choosing flexibility over simplicity. The comparison to \"ad-hoc checks\" is a strawman: a single shared-secret check is also one convention. P2 ranks the options against the draft. |\n| O4 | inversion / alternatives | NOTE | \"Alternatives considered — HTTP basic auth … An external identity provider\" | The option the goals document prescribes (shared link with a secret) is not among the alternatives. The rejection reasons, \"no way to tell who made a change, and no way to give read-only access\", are requirements no line of the goals document states; with one mechanic (N2) there is no second actor to attribute or restrict. |\n| O5 | playbook §10.8 Speculative Generality | NOTE | \"so later features do not reinvent it\" | The smell is \"generic machinery for a single concrete case\". The domain map has one context and one `Mechanic` actor, so three roles serve no present actor. The cross-cutting entry's threshold (\"repeated across many sites\") is met by one guard on the day-view routes; centralising the check is right, the role model is not. |\n| O6 | door test | NOTE | \"Reversible: the module can be replaced without touching bookings.\" | Roughly true for the code (Type-2), so no ratification is needed for the mechanism. But the claim hides that the draft changes product scope (an approved non-goal), which under Art. 5 only the owner can do. |\n| O7 | second-order (for the redraft) | NOTE | \"Sessions are server-side, in a `sessions` table\" | The redraft should state once where the secret lives (server config), how it is rotated if the link leaks, and that it stays out of logs, since the day view exposes C1 data. Whether the link sets a cookie or is checked on every request is a Type-2 detail the architect may settle. |\n\nVoI check for O1:\n- **Decision-changing:** the feature-architect would otherwise build two tables, a `/staff` page and per-route role checks.\n- **Decidable:** the text of N2 against the text of the draft.\n- **In-scope:** this is the cross-cutting auth convention, a top-level decision.\n- **Marginal:** O2–O5 are facets of the same breach and are demoted to notes.\n\n## 4. Verdict\n\nMASTER_CRITIC_REVISE: #goals-fit (N2) — the draft builds staff accounts and roles (\"a `staff` table (login, password hash, role), three roles\", \"/staff page\"), which non-goal N2 explicitly excludes and for which it prescribes the mechanism: one mechanic entry via a shared link with a secret. Fix: redraft ADR 0003 as a single shared-secret-link guard defined once in front of the day-view routes (no `staff` table, roles or management page), cite N2 and P2 in «Звірка з цілями», and drop the attribution and read-only requirements, which no goals line supports. If accounts are genuinely wanted, raise a goals change request to the owner instead of deciding it in an ADR.",
+      "good": true,
+      "observed": "MASTER_CRITIC_REVISE; names N2"
+    },
+    {
+      "scene": "b",
+      "variant": "before",
+      "agent": "feature-critic",
+      "cost_usd": 0.1981,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 13,
+      "answer": "**Inputs read**\n- The request: `phase: plan`, the feature frame, and the draft (goal, D1/G1, S1–S4, contracts, exit criterion).\n- `.claude/agents/critic-core.md` and `.claude/constitution.md`.\n- `.engine/architecture/architecture-map.md`: \"One web process and one SQLite file on one server\"; booking page and day view are server-rendered pages of the same process.\n- `.engine/architecture/domain-map.md`: one context, Booking; terms slot, booking, day view.\n- `.claude/references/system-design.md`: the caching default row (line 97) and §2.3 Cache-Aside (lines 430–449).\n- Repo check: no source files (`*.py, js, ts, html, sql`), and `.engine/PROGRESS.md` does not exist. Nothing the draft assumes (bookings table, day view) is built yet.\n\n**Moves & lenses applied**\n- **Owner vs agent (critic-core §0):** the frame and D1/G1 are owner requirements and are not reviewed. The cache, the 10-minute refresh, the slice seams, the tracer choice and the dependency order are architect decisions; the frame mentions none of them.\n- **Verification against the artifacts:** does the exit path match the DAG, does the day view exist, and is each contract's shape stated on both ends.\n- **Playbook:** the caching use-when and earns-its-place threshold.\n- **Premortem and second-order** on the S2 → S3 → S4 seam.\n- **Lenses:** INVEST and coverage (decompose), interface mismatch and Hyrum (contracts), tracer-first and critical path (sequence).\n- **Debate:** not used. The playbook entry is `established`, not `contested`, and no real fork remains on the cache.\n\n**Objections**\n\n| id | move/lens | class | exact draft quote | the fix |\n|---|---|---|---|---|\n| O1 | playbook, premortem, right-sizing | **BLOCKING** | \"S2 free-slots cache — … an in-process cache of S1's answer per date, refreshed every 10 minutes, so the page renders without a database read\"; \"S2 → S3: the same `list[Slot]`, at most 10 minutes old\" | Delete S2. S3 reads S1 directly; the S1 → S3 contract is `list[Slot]` computed per request. Reasoning below. |\n| O2 | coverage | NOTE (becomes blocking if unanswered next round) | \"pick an hour, post, see it in the day view\"; D1 \"the booking appears on the mechanic's day view at once\" | No slice delivers the day view, and none exists in the repo. Either add a thin day-view read slice, or name the sibling feature that owns it and make this feature's exit criterion checkable without it. I could not tell which, as there is no feature list or PROGRESS file. |\n| O3 | tracer-first | NOTE | \"S1 free-slots query — … TRACER BULLET (build first)\" | S1 alone is one query, not an end-to-end chain (Art. 1). The tracer should be the thinnest S1 → S3 → S4 → day-view path, with a hard-coded date, an unstyled form and a real insert, built first. Removing S2 makes this nearly free. |\n| O4 | critical path, contract-first | NOTE | \"S4 booking write — … depends on: S3\"; \"S3 → S4: `Booking {name, phone, date, hour}`\" | The direction is inverted. The form posts to the write, so S3 depends on S4's endpoint; S4 is testable with no form. Also state S4's output contract (`booked` or `slot_taken`), since S3 must render \"sorry, just taken\" and no contract currently carries it back. |\n| O5 | Hyrum, interface mismatch | NOTE | \"`list[Slot]`, each `{date, hour, free: bool}`\" against \"delivers: the free hours of a date\" | The contract is ambiguous: all hours of the day with a flag, or only the free ones (in which case `free` is always true). Pick one and state it, so S3 does not bind to an accident. |\n| O6 | inversion (missing input) | NOTE, owner question | \"the free hours of a date from the bookings table\" | The bookings table only gives taken hours. Free hours need the shop's working hours and days, which nothing in the draft or maps defines. That is a product fact for the owner (Art. 5); S1 cannot be planned without it. |\n| O7 | Testable | NOTE | \"More than half of a week's bookings come through the page (G1)\" | This is an outcome metric no slice can test. It is owner-ratified and not under review. Just mark it as measured after launch so the slice-planner does not look for a slice test for it. |\n\n**Why O1 blocks (all four VoI conditions hold)**\n- **The draft contradicts itself.** The exit criterion reads \"S1 → S3 → S4 runs end to end\", skipping S2. But the DAG says S3 \"depends on: S2\". The exit path and the DAG disagree, and the tracer would not prove the path that ships.\n- **It creates a correctness problem at the seam.** S4 inserts a booking, but no contract invalidates S2. For up to 10 minutes the page offers an hour that is already taken. With one mechanic and hour-long slots, that makes \"sorry, just taken\" a routine outcome rather than a rare race. This is the playbook's named failure mode: \"stale reads after writes (no/late invalidation)\" (`system-design.md:441`).\n- **The playbook threshold is not met.** The default is \"No cache; rely on the DB and indexes\" until \"DB load or read latency is measurably hurting\" (`system-design.md:97`). The entry also says \"the DB already meets SLO with proper indexing → no cache\" (`:435`). The architecture is one process reading a local SQLite file for a small shop; no measurement is cited and no SLO exists to miss.\n- **It is an agent decision.** Nothing in the frame asks for a cache or a 10-minute figure, so it is in scope to review.\n- **Decision-changing, decidable, in scope, marginal.** The slice-planner would otherwise plan a whole slice plus a freshness contract. The playbook and the draft's own exit criterion settle it. Slice seams are this level's job, and it duplicates no other objection.\n\nIf the architect has a measured read-latency problem, the alternative fix is to cite it and add an S4 → S2 invalidation contract. Without that evidence, removal is the answer.\n\nFEATURE_CRITIC_REVISE: #playbook/right-sizing — S2 (10-minute in-process cache) is an unrequested architect decision that fails the playbook's caching threshold on a one-process SQLite system, serves stale free hours after S4 writes with no invalidation contract, and is skipped by the draft's own exit path (\"S1 → S3 → S4\"); fix: delete S2, make S3 depend on S1 with `list[Slot]` computed per request, and restate the DAG and exit criterion to match.",
+      "good": false,
+      "observed": "FEATURE_CRITIC_REVISE; does not name P1"
+    },
+    {
+      "scene": "b",
+      "variant": "after",
+      "agent": "feature-critic",
+      "cost_usd": 0.1487,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "answer": "## 1. Inputs read\n\n- Given: `phase: plan`, the draft for `slot-picker`, and a `feature_frame` that is the goals document (version 2, owner-ratified).\n- `.engine/goals.md` matches the frame verbatim, so every citation was checked against the real lines.\n- `.engine/architecture/architecture-map.md` says: \"One web process and one SQLite file on one server. The booking page and the day view are server-rendered pages of the same process.\"\n- `.engine/architecture/domain-map.md` defines one context, Booking, with the terms slot, booking and day view.\n- `.engine/PROGRESS.md` does not exist, and the only code file in the repo is `.claude/hooks/goals.py`. There is no bookings table, no day view, and no `Slot` or `Booking` type yet.\n- Also read `critic-core.md` and `constitution.md`. The software-architecture playbook was not consulted, because the deciding point is settled by the goals document.\n\n## 2. Moves & lenses applied\n\n- **Goals-fit (all four checks).** The citations exist, and no non-goal is done. Checks 3 and 4 fail (O1).\n- **Verification against the repo.** \"Does the day view the exit criterion relies on exist?\" No, and no slice delivers it (O2). \"Is the `bookings` table defined?\" No (O4).\n- **Tracer-first and acyclicity.** The graph is a line with no cycle, but the tracer is not end-to-end (O3).\n- **Premortem.** Assume it shipped broken: two clients booked the same hour because the page showed a stale free slot.\n- **Debate.** None. P1 ranks the cache against the direct read explicitly, so this is not a genuine fork.\n\n## 3. Objections\n\n| id | move/lens | class | exact draft quote | the fix |\n|---|---|---|---|---|\n| O1 | goals-fit: principle inverted and skipped (**P1**) | **BLOCKING** | \"S2 free-slots cache — … an in-process cache of S1's answer per date, refreshed every 10 minutes, so the page renders without a database read\"; \"S2 → S3: the same `list[Slot]`, at most 10 minutes old\"; \"принципи не розрізняють ці варіанти, вибір технічний (the cache is a performance detail)\" | P1 (`.engine/goals.md:14`) says \"Свіжість розкладу понад швидкість сторінки… вільні години читаємо з бази на кожен запит, без кешу\". The draft picks speed over freshness, and the options differ exactly on P1, so \"вибір технічний\" is false. Delete S2, have S3 read S1 on every request, drop \"at most 10 minutes old\" from the contract, and rewrite «Звірка з цілями» to cite P1 as the deciding principle. |\n| O2 | coverage / repo check | NOTE (the top candidate for the next round) | \"pick an hour, post, see it in the day view\"; \"the booking appears on the mechanic's day view at once (D1)\" | No slice delivers the day view and it does not exist in the repo. Either add a minimal day-view slice or name the already-planned feature that delivers it as a dependency. Otherwise the exit criterion and D1 cannot be tested. |\n| O3 | tracer-first | NOTE | \"S1 free-slots query — … TRACER BULLET (build first)\"; \"S1 → S3 → S4 runs end to end\" | S1 alone is a single query, not an end-to-end chain. The tracer should be the thinnest S1 → form → write → day-view read path. The exit criterion already skips S2, which confirms S2 is not on the path. |\n| O4 | contracts / interface mismatch | NOTE | \"S4 booking write — … rejects a slot that is already taken\"; \"depends on: S3\" | S4 has no stated output contract (success versus \"just taken\"), and no mechanism for the rejection is stated. A unique constraint on (date, hour) in SQLite would give S4 a testable guarantee. The `bookings` table S1 reads is owned by no slice. The dependency also runs backwards: the form consumes the write endpoint, so S3 should depend on S4. |\n| O5 | goals-fit: acceptance criteria | NOTE | \"More than half of a week's bookings come through the page (G1)\" | The citation is correct, but this is a post-launch usage measure that no slice can test. Mark it as an outcome signal, not an integration exit criterion. |\n| O6 | goals-fit: C1 | NOTE | \"`Booking {name, phone, date, hour}`\" | The fields comply with C1 (name and phone only). The «Звірка» does not mention C1, and deletion on request is not covered. State that it is out of this feature's scope and where it lives. |\n\n## 4. Verdict\n\nFEATURE_CRITIC_REVISE: #goals-fit (P1) — S2 \"free-slots cache … refreshed every 10 minutes, so the page renders without a database read\" inverts P1 (\"Свіжість розкладу понад швидкість сторінки … читаємо з бази на кожен запит, без кешу\"), and the «Звірка з цілями» claim \"принципи не розрізняють ці варіанти, вибір технічний\" is false because P1 ranks exactly these options. Fix: remove S2, make S3 depend on S1 directly with a per-request database read, drop \"at most 10 minutes old\" from the S→S3 contract, and cite P1 in the «Звірка» as the principle that decided the choice.",
+      "good": true,
+      "observed": "FEATURE_CRITIC_REVISE; names P1"
+    },
+    {
+      "scene": "c",
+      "variant": "before",
+      "agent": null,
+      "cost_usd": 0.0761,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 1,
+      "answer": "D1: ASK — retention of clients' personal data is a product/privacy decision (Art. 5), and deletion is irreversible; the owner must set it\nD2: DECIDE — internal two-way door with no user-visible difference; pick the index on `(date, hour)`, log it AUTONOMOUS, and go on",
+      "good": true,
+      "observed": "D1: ASK, D2: DECIDE"
+    },
+    {
+      "scene": "c",
+      "variant": "after",
+      "agent": null,
+      "cost_usd": 0.0892,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 1,
+      "answer": "D1: ASK — retention of personal data touches constraint C1 (name/phone, legal source) and the goals are silent on how long; a product/threshold decision not pre-answered in the frame\nD2: DECIDE — purely technical, no user-visible difference, two-way door; principles don't distinguish the options",
+      "good": true,
+      "observed": "D1: ASK, D2: DECIDE"
+    },
+    {
+      "scene": "d",
+      "variant": "before",
+      "agent": null,
+      "cost_usd": 0.0569,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 1,
+      "answer": "D1: DECIDE — two-way door, cheap to reverse; tiny shop load means reading the database each request (b) is exact and fast enough",
+      "good": null,
+      "observed": "the architect decides alone, with no line to cite"
+    },
+    {
+      "scene": "d",
+      "variant": "after",
+      "agent": "business-analyst",
+      "cost_usd": 0.0816,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "Рядок P1 чинний (не закреслений) і називає саме цей випадок: його приклад прямо каже читати вільні години з бази на кожен запит, без кешу, і пояснює чому — це варіант (б). Тлумачити чи поєднувати рядки не довелося.\n\nANALYST_ANSWER: QUOTE\nLine: P1\nQuote: Свіжість розкладу понад швидкість сторінки. Приклад: вільні години читаємо з бази на кожен запит, без кешу, — краще сторінка на секунду довше, ніж два клієнти на одну годину.",
+      "good": true,
+      "observed": "quote-valid P1: Свіжість розкладу понад швидкість сторінки. Приклад: вільні години читаємо з бази на кожен запит, без кешу, — краще сторінка на секунду довше, ніж два клієнти на одну годину."
+    },
+    {
+      "scene": "d-trap",
+      "variant": "after",
+      "agent": "business-analyst",
+      "cost_usd": 0.078,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "Документ мовчить про це: C1 каже лише про видалення на прохання клієнта, а строку зберігання без прохання не задає жоден рядок. Варіанти різняться наслідком і для клієнта (скільки живуть його ім'я й телефон), і для майстра (чи бачить він минулі візити), тож це справді причина 1, і вирішує власник.\n\n```\nANALYST_ANSWER: OWNER_DECISION\nПитання: Скільки часу майстерня тримає в себе записи про минулі візити разом з іменем і телефоном клієнта, якщо клієнт сам не просив їх видалити?\nВаріанти:\n(а) Видаляти через 12 місяців після візиту. Найсильніший аргумент: жодна ціль не потребує історії — G1 і G2 про запис і про день наперед, а не про минуле. Що менше особистих даних лежить, то менший ризик перед законом, на який посилається C1, і менша шкода, якщо спільне посилання з секретом (N2) потрапить у чужі руки. Рік покриває сезонного клієнта, який приїздить щовесни.\n(б) Зберігати безстроково. Найсильніший аргумент: майстер бачить постійного клієнта і його попередні візити, а зошит, який губився, замінюється повністю. Це також простіше в супроводі: не треба нічого, що регулярно чистить базу. Але «бачити історію ремонтів» — нова користь, якої в цілях зараз немає; якщо вона потрібна, це зміна цілей, а не лише строк.\nПорада: (а) — видаляти через 12 місяців. Історія клієнта не потрібна жодній затвердженій цілі, а зберігання особистих даних без строку — ризик, який власник несе без записаної користі; якщо власник хоче історію, це слід вписати як окрему ціль.\nПоправка:\nЯкщо (а), додати до «Жорсткі обмеження»:\n- C3. Запис разом з іменем і телефоном клієнта видаляється через 12 місяців після візиту, навіть без прохання клієнта — джерело: рішення власника про строк зберігання; запит 002.\nЯкщо (б), додати натомість до «Цілі» і до «Жорсткі обмеження»:\n- G4. Майстер бачить попередні візити постійного клієнта — видно з того, що майстер не перепитує клієнта, коли той був востаннє.\n- C3. Записи зберігаються безстроково, доки клієнт не попросить видалити (C1) — джерело: рішення власника про строк зберігання; запит 002.\nВ обох випадках: версія 3 і рядок у «Зміни»: - v3, <дата> — визначено строк зберігання минулих записів; запит 002.\n```",
+      "good": true,
+      "observed": "owner"
+    }
+  ]
+}
