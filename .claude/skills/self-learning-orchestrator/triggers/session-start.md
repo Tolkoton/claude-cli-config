@@ -79,7 +79,7 @@ Do not dump the full memory content — the user already knows what's there. Jus
 
 ## What to do if memory is missing
 
-- **No CLAUDE.md**: workable but degraded. Mention this. Offer to invoke `claude-code-project-scaffolding` later.
+- **No CLAUDE.md**: workable but degraded. Mention this.
 - **No `~/.claude/memory/`**: workable but degraded. Mention this. Offer to start the structure at session-end.
 - **No `decisions.md`**: workable. Mention it. Offer to start one when the first ADR-worthy decision happens.
 
@@ -101,7 +101,7 @@ When in doubt, trust git over the memory files. Memory files are descriptive of 
 - Does not write to memory. This is read-only.
 - Does not start any task work — that's the next user message.
 - Does not run code or tests beyond `git status / log` for context.
-- Does not invoke other skills. Their cue phrases come later as the user's task unfolds.
+- Does not invoke other skills.
 
 ## Cost vs. benefit
 

@@ -85,7 +85,7 @@ Example:
 - There's a **distinct trigger phrase** users could naturally say to activate it.
 
 **Process**:
-1. Draft a new SKILL.md following the `skill-creator` conventions (YAML frontmatter with pushy description, imperative body, examples).
+1. Draft a new SKILL.md (YAML frontmatter with pushy description, imperative body, examples).
 2. Move the canonical content out of MEMORY.md into the skill.
 3. In the MEMORY.md location, leave a one-line breadcrumb: "See ~/.claude/skills/<name>/SKILL.md (promoted on <date>)."
 4. Install in `~/.claude/skills/<name>/`.

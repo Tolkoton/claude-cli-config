@@ -26,15 +26,7 @@ A useful heuristic: if you can explain the choice in a single inline comment, do
 
 ## If both filters pass: write the ADR
 
-Speak the cue phrase aloud so the per-skill activates:
-
-> "This is an ADR-worthy decision; let me apply the ADR-lite format."
-
-This triggers `decisions-log-adr-lite`, which has the full template. If that skill is not installed, use the inline fallback below.
-
-### Inline fallback template
-
-If `decisions-log-adr-lite` is not available, append this directly to `decisions.md` at the project root (create the file if missing):
+Append this to `decisions.md` at the project root (create the file if missing):
 
 ```markdown
 ## YYYY-MM-DD: <short title in present tense>

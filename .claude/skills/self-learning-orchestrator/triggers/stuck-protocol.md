@@ -37,17 +37,7 @@ If writing this exposes that approaches (1)–(3) are all variations of the same
 
 ### Tier 1 — Re-read existing memory
 
-Before generating more hypotheses, check if past-you (or past-Claude) already solved this. Speak the cue phrase aloud:
-
-> "Let me search past chats and memory for similar stuck states."
-
-Then:
-
-```
-conversation_search "<symptom keywords from the error>"
-```
-
-And:
+Before generating more hypotheses, check if past-you (or past-Claude) already solved this:
 
 ```
 grep -r "<symptom keywords>" ~/.claude/memory/ .engine/architecture/MEMORY.md CLAUDE.md decisions.md 2>/dev/null
@@ -55,13 +45,8 @@ grep -r "<symptom keywords>" ~/.claude/memory/ .engine/architecture/MEMORY.md CL
 
 If you find anything — read it, apply the lesson, re-attempt. If it resolves, **add the symptom keywords to the matched MEMORY entry** so it's more searchable next time.
 
-### Tier 2 — Apply execution-feedback-debugging discipline
+### Tier 2 — Debug from execution feedback
 
-Speak the cue phrase to activate the skill:
-
-> "Let me apply the execution-feedback-debugging five-phase loop."
-
-If that skill is not installed, the inline version:
 1. **Reproduce**: write the smallest possible script/test that fails the same way. If you can't, the bug is not what you think it is.
 2. **Isolate**: bisect. Comment out half the code. Does it still fail? Halve again.
 3. **Hypothesize**: write down WHY mechanism, not just WHAT symptom.
@@ -72,11 +57,7 @@ If after this you're still stuck, your hypothesis is wrong. Go to Tier 3.
 
 ### Tier 3 — Re-plan
 
-Often "stuck" means the original approach was wrong from the start. Speak the cue phrase:
-
-> "Let me re-enter plan mode and re-decompose this."
-
-Or hit Shift+Tab twice to enter plan mode explicitly. In plan mode:
+Often "stuck" means the original approach was wrong from the start. Re-plan:
 - Restate the goal in fresh language.
 - Identify what assumptions you made at the start that turned out wrong.
 - Propose a different approach entirely. Not a variation — a different shape.
@@ -84,11 +65,7 @@ Or hit Shift+Tab twice to enter plan mode explicitly. In plan mode:
 
 ### Tier 4 — Reduce scope
 
-If a different approach also looks hard, the problem may be too large for one task. Apply:
-
-> "Let me invoke feature-architect to decompose this further."
-
-Or inline: identify a smaller sub-problem that, if solved, would unblock you. Solve that, commit it, then re-attempt the original.
+If a different approach also looks hard, the problem may be too large for one task. Decompose it further with `/feature-architect`, or inline: identify a smaller sub-problem that, if solved, would unblock you. Solve that, commit it, then re-attempt the original.
 
 ### Tier 5 — Ask the user
 

@@ -140,7 +140,7 @@ flowchart LR
   LES["lesson capture (in flow)"] -->|append| LQ[".engine/lesson-queue.md"]
   WRAP["session end"] -->|drains| LQ
   WRAP -->|classify into| MEM
-  STK["stuck protocol"] -.->|tier 2/3| dbg[execution-feedback-debugging / plan-mode]
+  STK["stuck protocol"] -.->|tier 2/3| dbg[debug loop / re-plan]
   MM["periodic maintenance"] -->|prune / promote| MEM
 ```
 

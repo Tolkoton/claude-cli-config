@@ -82,7 +82,6 @@ Look across all memory layers for promotion candidates:
 |---|---|---|
 | MEMORY.md entry referenced in ≥3 projects' stuck-protocol searches | New `~/.claude/skills/<name>/` skill | Pattern is general and recurring |
 | `decisions.md` rule consistently applied across multiple tasks | CLAUDE.md convention | Should be automatic, not re-derived |
-| `claude-progress.md` template variation used in 5+ tasks | New version of the `progress-file-for-long-tasks` skill | Workflow innovation |
 | Reflection that recurs in ≥3 task reflections.md | MEMORY.md tech-scope entry | Was tech-scope all along |
 
 Promotion is rare — most reviews produce 0–2 promotions. The act of looking is what matters; finding none is a successful review.

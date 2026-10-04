@@ -16,11 +16,7 @@ This trigger orchestrates *three* concerns in the right order: review, memory up
 
 ### Step 1 — Self-review
 
-Speak the cue phrase:
-
-> "Let me run the pre-commit self-review checklist."
-
-This activates the `pre-commit-self-review-checklist` skill, which walks the 8-section checklist (correctness, conventions, types, tests, security, performance, style, commit hygiene). If that skill is not installed, the inline minimum:
+The minimum:
 
 ```bash
 uv run ruff format . && uv run ruff check . && uv run mypy src && uv run pytest -q
@@ -47,11 +43,7 @@ Examples that look like conventions but aren't:
 
 **Q2: Was there a substantive decision in this change?**
 
-If yes — invoke decision-checkpoint:
-
-> "This change involved a decision worth recording. Let me apply the decision-checkpoint protocol."
-
-This dispatches to `triggers/decision-checkpoint.md` (or to the `decisions-log-adr-lite` skill). The ADR is committed in the **same commit** as the code that implements it.
+If yes — follow `triggers/decision-checkpoint.md`. The ADR is committed in the **same commit** as the code that implements it.
 
 **Q3: Was there a non-obvious bug found and fixed in this work?**
 
