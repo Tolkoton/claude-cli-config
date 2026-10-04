@@ -125,10 +125,9 @@ def _get_project_dir() -> Path:
 
 
 def _load_project_env(project_dir: Path) -> dict[str, str]:
-    """Parse .claude/project.env as KEY="value" or KEY=value lines.
+    """.claude/project.env as gate.py reads it (one reader for every hook).
     Prints a stderr warning when the file is absent; returns {} on any error."""
     env_path = project_dir / ".claude" / "project.env"
-    result: dict[str, str] = {}
     try:
         text = env_path.read_text(encoding="utf-8")
     except OSError:
@@ -137,20 +136,11 @@ def _load_project_env(project_dir: Path) -> dict[str, str]:
             "using built-in defaults. See docs/TEMPLATE-SETUP.md.",
             file=sys.stderr,
         )
-        return result
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, _, raw = line.partition("=")
-        key = key.strip()
-        # Strip surrounding quotes (single or double).
-        value = raw.strip().strip('"').strip("'")
-        if key:
-            result[key] = value
-    return result
+        return {}
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import gate
+
+    return gate.parse_env_text(text)
 
 
 def _split_list(raw: str) -> list[str]:

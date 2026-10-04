@@ -141,17 +141,12 @@ class Outcome:
 
 
 def project_env(root: Path) -> dict[str, str]:
-    """KEY="value" lines of .claude/project.env; a missing file is an empty config."""
-    values: dict[str, str] = {}
-    try:
-        text = (root / ".claude" / "project.env").read_text(encoding="utf-8")
-    except OSError:
-        return values
-    for line in text.splitlines():
-        match = re.match(r"^\s*([A-Z_]+)\s*=\s*(.*?)\s*$", line)
-        if match and not line.lstrip().startswith("#"):
-            values[match.group(1)] = match.group(2).strip("\"'")
-    return values
+    """KEY="value" lines of .claude/project.env; a missing file is an empty config. gate.py owns
+    the reading, so the hooks cannot disagree about a value."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import gate as gate_module
+
+    return gate_module.load_env(root)
 
 
 def git(root: Path, *args: str) -> str:
