@@ -50,7 +50,6 @@ import json
 import re
 import sys
 from collections import Counter
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,10 +86,6 @@ CORRIDOR = (5, 20)
 MIN_SAMPLE = 10
 RETURNED_SHARE = 0.6
 MIN_LINE = 12
-
-
-def utc_now() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def glob_match(pattern: str, rel: str) -> bool:
@@ -309,7 +304,7 @@ def route(root: Path, result: dict[str, list[Any]], title: str) -> list[Finding]
     def disagreed(f: Finding) -> bool:
         return bool(f.get("second_opinion", {}).get("verdict") == "disagree")
 
-    lines = [f"\n## {utc_now()} — {title}\n"]
+    lines = [f"\n## {simplify_signals.utc_now()} — {title}\n"]
     for action in ("confirm", "flag_only"):
         chosen = sorted((f for f in result["findings"] if f["proposed_action"] == action), key=lambda f: not disagreed(f))
         lines.append(f"\n### {action} ({len(chosen)})\n")
@@ -344,7 +339,7 @@ def decide(root: Path, ident: str, answer: str) -> tuple[int, str]:
     if decision is None or not re.fullmatch(r"F-[0-9a-f]{8}", ident):
         return 1, "usage: decide F-xxxxxxxx так|ні"
     verdicts = [r.get("verdict") for r in second_log(root) if r.get("finding") == ident]
-    row = {"utc": utc_now(), "finding": ident, "decision": decision, "second_opinion": verdicts[-1] if verdicts else None}
+    row = {"utc": simplify_signals.utc_now(), "finding": ident, "decision": decision, "second_opinion": verdicts[-1] if verdicts else None}
     append(root / DECISIONS_REL, json.dumps(row, ensure_ascii=False) + "\n")
     return 0, f"recorded in {DECISIONS_REL}: {ident} — {decision}" + (f"; the second model said {verdicts[-1]}" if verdicts else "")
 
@@ -378,7 +373,7 @@ def accept(root: Path, reason: str, verdict: Path) -> tuple[int, str]:
     if standing:
         return 1, ("the simplifier's verdict still holds " + ", ".join(f"{f['proposed_action']} {f['target']}" for f in standing)
                    + ": the overrun is not justified — make the change smaller")
-    stamp = utc_now()
+    stamp = simplify_signals.utc_now()
     digest = hashlib.sha256(verdict.read_bytes()).hexdigest()[:12]
     figures = "\n".join(f"  - {line}" for line in outcome.lines)
     state = root / budget.ACCEPTED_DIR / f"accepted-{outcome.slug}.json"
@@ -532,7 +527,7 @@ def main(argv: list[str] | None = None) -> int:
     rate = reversals(root, args.last)
     print("\n".join(filter(None, [reversal_text(rate), decision_text(root)])))
     if args.record and rate["removals"] >= MIN_SAMPLE and rate["advice"] != "inside the corridor":
-        append(root / REPORT_REL, f"\n## {utc_now()} — for the owner: the reversal rate is outside the corridor\n{reversal_text(rate)}\n")
+        append(root / REPORT_REL, f"\n## {simplify_signals.utc_now()} — for the owner: the reversal rate is outside the corridor\n{reversal_text(rate)}\n")
     return 0
 
 

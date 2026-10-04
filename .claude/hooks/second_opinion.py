@@ -45,6 +45,7 @@ from typing import Any
 
 import complexity_budget as budget
 import simplifier
+import simplify_signals
 
 JsonObj = dict[str, Any]
 KEY_VAR = "GEMINI_API_KEY_SIMPLIFIER"
@@ -289,7 +290,7 @@ def review(root: Path, findings: list[JsonObj], diff: str = "", *, timeout: floa
     out = []
     for finding in findings:
         match = simplifier.REF_RE.match(finding["target"].strip())
-        row: JsonObj = {"utc": simplifier.utc_now(), "finding": finding.get("id", ""), "target": finding["target"], "model": config["model"],
+        row: JsonObj = {"utc": simplify_signals.utc_now(), "finding": finding.get("id", ""), "target": finding["target"], "model": config["model"],
                         "tokens_in": 0, "tokens_out": 0, "cost_usd": 0.0}
         if blocked:
             opinion = no_opinion(blocked)
@@ -340,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", type=Path)
     p.add_argument("--diff", type=Path, help="the change under review (lens budget) or the prepared removal")
     p = sub.add_parser("cost")
-    p.add_argument("--month", default=simplifier.utc_now()[:7])
+    p.add_argument("--month", default=simplify_signals.utc_now()[:7])
     args = parser.parse_args(argv)
     root = budget.project_root()
     if args.command == "cost":
