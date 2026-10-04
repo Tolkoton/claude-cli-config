@@ -26,7 +26,10 @@ ref says who owns every path:
 
 The project keeps `.claude/engine-lock.json`: the ref, the commit and the git blob id of every
 engine file as installed. That is how an update tells "unchanged since install" (replace it)
-from "edited here" (report it, keep it). A project copied by hand before this installer existed
+from "edited here" (report it, keep it). One exception to "keep it": a kept `.claude/settings.json`
+gains the overseer's two handlers when it lacks them (`wire` in the report names each one) — the
+audit runs through them and through nothing else; a file that is not readable JSON is left alone
+and the report carries the text to add. A project copied by hand before this installer existed
 has no lock; then each file is compared with every version the engine ever had at that path —
 any match is an untouched engine file (replace it), no match is an edit (keep it).
 
@@ -135,6 +138,13 @@ RELEASE_TESTS = ("bash", "tests/run_all.sh")
 RELEASE_GOLDEN = "evals/run_hook_scenarios.py"
 RELEASE_BASELINES = "evals/baseline/*/results-*.json"
 RELEASE_ENVIRONMENT = "evals/environment.py"
+# The overseer's handlers (board 033). Every audit is done by the agent `overseer` and recorded by
+# this script, which works only through its handlers in the project's settings file; the Stop hook
+# has no other way to audit. A project that edited its settings keeps its file, so the handlers it
+# lacks are ADDED to it — the one thing engine.py writes into an engine file the project changed.
+SETTINGS = ".claude/settings.json"
+SETTINGS_LOCAL = ".claude/settings.local.json"
+OVERSEER_SCRIPT = "overseer_verdict.py"
 SUPERVISOR_STOP_FIRST = "unattended supervisor appears live ({why}): stop it first; the state is not moved"
 
 
@@ -563,7 +573,7 @@ def gitignore_with_block(current: str | None, patterns: list[str]) -> str:
 
 @dataclass
 class Action:
-    verb: str  # add, update, chmod, keep, remove, seed, reseed
+    verb: str  # add, update, chmod, keep, remove, seed, reseed, move, block, wire
     path: str
     detail: str = ""
     blob: str = ""
@@ -683,6 +693,8 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
             plan.actions.append(Action("keep", path, "edited in the project; the engine's version is not applied"))
             if base is not None:
                 new_files[path] = base
+            if path == SETTINGS:
+                plan_wiring(src, plan, commit)
             continue
         plan.actions.append(Action("update", path, reason, blob=entry.blob, mode=entry.mode))
         new_files[path] = entry.blob
@@ -831,12 +843,78 @@ def plan_root_file(src: EngineSource, plan: Plan, history: dict[str, set[str]], 
         )
 
 
+def overseer_groups(settings: object) -> list[tuple[str, str, JsonObj]]:
+    """(event, subcommand, hook group) for every handler in a settings object that runs the
+    verdict script. The group holds that one handler only. Raises ValueError on a shape that is
+    not Claude Code's (`hooks` an object of lists of groups)."""
+    hooks = settings.get("hooks", {}) if isinstance(settings, dict) else None
+    if not isinstance(hooks, dict):
+        raise ValueError("`hooks` is not an object")
+    found: list[tuple[str, str, JsonObj]] = []
+    for event, groups in hooks.items():
+        if not isinstance(groups, list):
+            raise ValueError(f"`hooks.{event}` is not a list")
+        for group in groups:
+            handlers = group.get("hooks") if isinstance(group, dict) else None
+            if not isinstance(handlers, list):
+                raise ValueError(f"a group of `hooks.{event}` has no list of handlers")
+            for handler in handlers:
+                command = handler.get("command") if isinstance(handler, dict) else None
+                if isinstance(command, str) and OVERSEER_SCRIPT in command:
+                    subcommand = command.split(OVERSEER_SCRIPT, 1)[1].strip(" \"'")
+                    found.append((str(event), subcommand, {**group, "hooks": [handler]}))
+    return found
+
+
+def plan_wiring(src: EngineSource, plan: Plan, commit: str) -> None:
+    """The project keeps its own settings file: add the overseer's handlers it lacks, or — when the
+    file cannot be read — report the exact text to add."""
+    try:
+        wanted = overseer_groups(json.loads(src.show(commit, SETTINGS) or b"{}"))
+    except ValueError:
+        return  # the ref's own settings are not ours to judge here
+    if not wanted:
+        return
+    try:
+        try:
+            current = json.loads((plan.project / SETTINGS).read_text(encoding="utf-8"))
+        except ValueError as exc:
+            raise ValueError(f"not valid JSON ({exc})") from None
+        if not isinstance(current, dict):
+            raise ValueError("it does not hold a JSON object")
+        have = {(event, sub) for event, sub, _ in overseer_groups(current)}
+    except (OSError, ValueError) as why:
+        to_add: dict[str, list[JsonObj]] = {}
+        for event, _, group in wanted:
+            to_add.setdefault(event, []).append(group)
+        plan.notes.append(
+            f"{SETTINGS} is edited by the project and cannot be read ({why}), so the overseer's handlers were "
+            "NOT added: until they are there no unit is audited. Fix the file and run the update again, or add "
+            f"these groups under `hooks` by hand: {json.dumps(to_add, ensure_ascii=False)}"
+        )
+        return
+    try:
+        local = json.loads((plan.project / SETTINGS_LOCAL).read_text(encoding="utf-8"))
+        have |= {(event, sub) for event, sub, _ in overseer_groups(local)}  # wired there too, it would fire twice
+    except (OSError, ValueError):
+        pass
+    missing = [(event, group) for event, sub, group in wanted if (event, sub) not in have]
+    if not missing:
+        return
+    hooks = current.setdefault("hooks", {})
+    for event, group in missing:
+        hooks.setdefault(event, []).append(group)
+    added = "; ".join(f"{event} [{group.get('matcher', '')}] {group['hooks'][0]['command']}" for event, group in missing)
+    plan.actions.append(Action("wire", SETTINGS, f"the overseer's handlers added to the project's own file: {added} — nothing else in it changed"))
+    plan.contents["wire:" + SETTINGS] = (json.dumps(current, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+
+
 def apply_plan(plan: Plan) -> None:
     apply_migration(plan.project, plan.actions)  # first: a seed or an add must never land on a moving file
     for action in plan.actions:
         target = plan.project / action.path
-        if action.verb == "block":
-            target.write_bytes(plan.contents["block:" + action.path])
+        if action.verb in ("block", "wire"):
+            target.write_bytes(plan.contents[f"{action.verb}:{action.path}"])
             continue
         if action.verb in WRITING_VERBS:
             target.parent.mkdir(parents=True, exist_ok=True)

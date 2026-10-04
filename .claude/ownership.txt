@@ -8,7 +8,8 @@
 # everything under it".
 #
 # engine   Ships into every project. `engine.py update` replaces it there only while the
-#          project has not changed it; an edited file is reported, never overwritten.
+#          project has not changed it; an edited file is reported, never overwritten. (An
+#          edited .claude/settings.json gains the overseer's two handlers when it lacks them.)
 # project  Belongs to the project; the engine never overwrites it. With `seed=`, the first
 #          install creates the file from that seed if the project lacks it — once.
 #          In THIS repository the word also covers the engine's own records, tests and
