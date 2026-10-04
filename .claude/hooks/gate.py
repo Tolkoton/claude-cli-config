@@ -405,12 +405,8 @@ def contract_grants(root: Path) -> dict[str, tuple[str, str]]:
     return grants
 
 
-def contract_allowances(root: Path) -> dict[str, str]:
-    return {what: name for what, (name, _reason) in contract_grants(root).items()}
-
-
 def guard_python(
-    rel: str, text: str, added: set[int] | None, allowed: dict[str, str], report: Report
+    rel: str, text: str, added: set[int] | None, allowed: dict[str, tuple[str, str]], report: Report
 ) -> None:
     comments = comment_map(text)
     if comments is None:
@@ -476,14 +472,14 @@ def changed_keys(old: str | None, new: str | None, keys: tuple[str, ...]) -> lis
     return [k for k in keys if before.get(k) != after.get(k)]
 
 
-def guard_scope_keys(rel: str, old: str | None, new: str | None, allowed: dict[str, str], report: Report) -> None:
+def guard_scope_keys(rel: str, old: str | None, new: str | None, allowed: dict[str, tuple[str, str]], report: Report) -> None:
     # Unset and empty mean the same to every reader of these two keys, so dropping an empty line
     # is not a change.
     before, after = parse_env_text(old or ""), parse_env_text(new or "")
     for key in (k for k in SCOPE_KEYS if before.get(k, "") != after.get(k, "")):
         if key.lower() in allowed:
             report.add(Finding(rel, None, "bypass/config", "log",
-                               f"{key} changed, allowed by the slice contract {allowed[key.lower()]}"))
+                               f"{key} changed, allowed by the slice contract {allowed[key.lower()][0]}"))
             continue
         report.add(Finding(
             rel, None, "bypass/config", "block",
@@ -496,7 +492,7 @@ def guard_scope_keys(rel: str, old: str | None, new: str | None, allowed: dict[s
 
 
 def guard_config(
-    root: Path, layer: str, rel: str, diff_ref: str | None, allowed: dict[str, str],
+    root: Path, layer: str, rel: str, diff_ref: str | None, allowed: dict[str, tuple[str, str]],
     added: set[int] | None, report: Report,
 ) -> None:
     old, new = old_text(root, layer, rel, diff_ref), new_text(root, layer, rel)
@@ -528,7 +524,7 @@ def guard_config(
 
 
 def bypass_guard(root: Path, layer: str, files: list[str], diff_ref: str | None, report: Report) -> None:
-    allowed = contract_allowances(root)
+    allowed = contract_grants(root)
     for rel in files:
         if not (rel.endswith(".py") or is_config_file(rel)):
             continue
