@@ -17,6 +17,9 @@ and then does what its script for that call says — the things tasks/README.md 
     auth            answer only that claude is logged out
     return          move the task back to todo/ and commit — neither done nor a question
     vanish          delete the task file and commit
+    tidy            commit everything that is uncommitted (what the runner asks for when a closed
+                    task left the tree dirty, board 029)
+    <step>-dirty    do <step>, then stage a file outside tasks/ and leave it uncommitted
 
 FAKE_STOP_AT=<n> makes call n ask for a soft stop while it runs — through the runner's own
 `--stop-after-task`, or (FAKE_STOP_HOW=file) by creating the flag file itself.
@@ -76,6 +79,8 @@ def git(*a):
 
 doing = sorted(Path("tasks/doing").glob("[0-9]*.md"))
 result = "worked"
+leave = step.endswith("-dirty")
+step = step.removesuffix("-dirty")
 if step in ("done", "done-nocommit") and doing:
     task = doing[0]
     target = Path("tasks/done") / task.stem
@@ -83,12 +88,12 @@ if step in ("done", "done-nocommit") and doing:
     task.rename(target / "task.md")
     (target / "report.md").write_text("# Звіт\n\n## Що змінилось для власника\n- зроблено\n")
     if step == "done":
-        git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done")
+        git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done", "--", "tasks")
 elif step == "block" and doing:
     task = doing[0]
     task.write_text(task.read_text() + "1. Застосувати?\n   Відповідь:\n")
     task.rename(Path("tasks/blocked") / task.name)
-    git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: blocked")
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: blocked", "--", "tasks")
 elif step == "work":
     Path(f"work-{n}.txt").write_text("progress\n")
     git("add", f"work-{n}.txt"); git("commit", "-q", "-m", f"work {n}")
@@ -104,6 +109,8 @@ elif step == "return" and doing:
 elif step == "vanish" and doing:
     doing[0].unlink()
     git("add", "-A", "tasks"); git("commit", "-q", "-m", "gone")
+elif step == "tidy":
+    git("add", "-A"); git("commit", "-q", "-m", "the leftovers")
 elif step == "limit":
     result = "You've hit your session limit · resets 3pm (UTC)"
 elif step == "auth":
@@ -111,6 +118,9 @@ elif step == "auth":
 elif step == "garbage":
     print("Error: something broke before a session existed")
     sys.exit(1)
+if leave:
+    Path(f"left-{n}.txt").write_text("the task's own file, never committed\n")
+    git("add", f"left-{n}.txt")
 print(json.dumps({"type": "result", "is_error": step in ("limit", "auth"), "result": result,
                   "session_id": session, "total_cost_usd": costs[session]}))
 '''
@@ -1117,6 +1127,90 @@ check("a task that vanished from the board: written into the journal, the next t
       and "— 001-gone" in journal and "задача зникла з дошки" in journal and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status()
       and sh(w.repo, "git", "status", "--porcelain").stdout == "" and w.origin_head() == w.head(), w.status() + journal + r.stderr)
 
+# --- a task closes with a clean tree only (board 029) ----------------------------------------------------------------------
+print("board 029: a closed task that left uncommitted files gets one turn to commit or remove them")
+
+
+def porcelain(w: World) -> str:
+    return sh(w.repo, "git", "status", "--porcelain").stdout
+
+
+w = World("done-dirty tidy done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-next.md")
+r = w.run()
+check("the agent is given the turn back once, and the next task follows", r.returncode == 0 and len(w.calls()) == 3
+      and w.has("tasks/done/001-first/report.md") and w.has("tasks/done/002-next/report.md"), w.status() + r.stdout + r.stderr)
+a = w.argv(1) if len(w.calls()) > 1 else ["", ""]
+check("the turn continues the task's conversation and asks one thing: commit what is the task's or remove the rest",
+      "--resume" in a and a[a.index("--resume") + 1] == "s1" and "left-0.txt" in a[1] and "001-first" in a[1]
+      and "commit" in a[1].lower() and "remove" in a[1].lower() and "commit_checkpoint.sh" in a[1], a)
+check("the tree is clean, nothing is in the journal, the cleaning is an event", porcelain(w) == "" and not w.has("tasks/ANOMALIES.md")
+      and " dirty-tree 001-first " in events(w) and " dirty-tree-cleaned 001-first" in events(w), porcelain(w) + events(w))
+check("the turn is booked on the task: two attempts, its cost", len(w.costs()["001-first"]["attempts"]) == 2
+      and w.costs()["001-first"]["cost_usd"] == 2.0 and w.costs()["001-first"]["outcome"] == "done", w.costs())
+check("the second task had a conversation of its own and was asked nothing more", "--resume" not in w.argv(2) and "tasks/doing/002-next.md" in w.argv(2)[1], w.argv(2))
+
+w = World("done-dirty idle done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-next.md")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("still dirty after the one turn: no second request, the next task is done, exit 0", r.returncode == 0 and len(w.calls()) == 3
+      and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status(), w.status() + r.stdout + r.stderr)
+check("the journal has one entry, for that task, with the list of files", journal.count("\n## ") == 1 and "— 001-first" in journal
+      and "незакомічені файли" in journal and "`left-0.txt`" in journal, journal)
+check("nothing was deleted, stashed or committed by the runner: the file is where the agent left it, still staged",
+      porcelain(w) == "A  left-0.txt\n" and sh(w.repo, "git", "rev-parse", "-q", "--verify", "refs/stash", ok=False).stdout.strip() == "", porcelain(w))
+check("the journal entry is committed and pushed", w.origin_head() == w.head()
+      and any(s.startswith("board: anomaly — 001-first:") for s in w.log()), w.log())
+check("the next task is not blamed for files that were there before it began", "— 002-next" not in journal and " dirty-tree 002-next" not in events(w), events(w))
+
+w = World("block-dirty idle")
+w.put("todo", "001-ask.md")
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("a task the agent moved to blocked/ is held to the same rule", r.returncode == 0 and len(w.calls()) == 2 and "--resume" in w.argv(1)
+      and w.has("tasks/blocked/001-ask.md") and "`left-0.txt`" in journal and "state=waiting-owner" in w.status(), w.status() + journal + r.stderr)
+
+w = World("done-dirty limit tidy")
+w.put("todo", "001-first.md")
+r = w.run()
+check("a usage-limit notice is not the one turn: it is waited out and asked again", r.returncode == 0 and len(w.calls()) == 3
+      and porcelain(w) == "" and not w.has("tasks/ANOMALIES.md"), porcelain(w) + w.status() + r.stderr)
+
+w = World("done-dirty tidy")
+w.put("todo", "001-first.md")
+r = w.run(BOARD_MAX_USD="1")
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("the task's budget is spent: no turn is bought, the journal gets the entry at once", r.returncode == 0 and len(w.calls()) == 1
+      and "`left-0.txt`" in journal and "бюджет" in journal and porcelain(w) == "A  left-0.txt\n", journal + r.stderr)
+
+w = World("done-nocommit")
+w.put("todo", "001-first.md")
+(w.repo / "stray.txt").write_text("was here before the task\n")
+r = w.run()
+check("a move left uncommitted under tasks/ is the runner's to commit, and a file that was there before the task is not the task's: no turn, no entry",
+      r.returncode == 0 and len(w.calls()) == 1 and porcelain(w) == "?? stray.txt\n" and not w.has("tasks/ANOMALIES.md"), porcelain(w) + r.stderr)
+
+w = World("dirty idle idle done")
+w.put("todo", "001-stuck.md")
+r = w.run()
+check("a task the runner parked is not asked: its work is already in the stash", r.returncode == 0 and len(w.calls()) == 3
+      and " dirty-tree " not in events(w) and porcelain(w) == "", events(w))
+
+w = World("done-dirty idle")
+w.put("todo", "001-first.md")
+for n in range(60):
+    (w.repo / f"gen-{n:02d}.txt").write_text("x\n")
+w.fake.write_text(FAKE.replace("if leave:", 'if leave:\n    [Path(f"many-{i:02d}.txt").write_text("x\\n") for i in range(60)]'))
+r = w.run()
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+ask = w.argv(1)[1] if len(w.calls()) > 1 else ""
+check("many files: the journal names every one of the task's, none of those that were there before; the request stays short",
+      r.returncode == 0 and all(f"`many-{i:02d}.txt`" in journal for i in range(60)) and "gen-" not in journal
+      and "many-00.txt" in ask and "many-59.txt" not in ask and "21 more" in ask and "gen-" not in ask, journal + ask)
+
 print("…and what does stop the whole board")
 w = World("auth done done")
 w.put("todo", "001-first.md")
@@ -1163,6 +1257,8 @@ for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
     check(f"{manual} tells the operator to stop the runner this way only, and not to kill it",
           "як зупинити виконавця" in words and "Лише так" in words and "board-runner.sh --stop-after-task" in words
           and "не вбивайте" in words and ".claude/state/board/stop-after-task" in words)
+    check(f"{manual} tells the owner that a task closes with a clean tree: one turn back, then the journal, nothing deleted",
+          "Задача закривається з чистим робочим деревом" in words and "один раз отримує хід назад" in words and "нічого не видаляє" in words)
 check("the runner's own head and the unattended README name the option",
       "--stop-after-task" in runner_text.split("set -uo pipefail")[0] and "--stop-after-task" in (ROOT / ".claude/unattended/README.md").read_text(encoding="utf-8"))
 

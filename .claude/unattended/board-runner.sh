@@ -18,7 +18,8 @@
 #                       commit of its own, then `claude -p` in a FRESH conversation
 #   while it is open    a session that ended with the task still in doing/ is continued
 #                       (--resume); a usage-limit notice waits 15 minutes and is not an attempt
-#   the task is closed  when the agent moved it to done/ or blocked/. Then: push, next task
+#   the task is closed  when the agent moved it to done/ or blocked/. Then: the working tree is
+#                       checked (see below), push, next task
 #   a task is stuck     three attempts in a row without a new commit; a task older than twelve
 #                       hours; the task's budget spent: the runner PARKS the task and takes the
 #                       next one (see below) — one task never stops the board
@@ -35,6 +36,13 @@
 # work goes on. THE WHOLE BOARD STOPS only on: a pull that conflicts (reason=pull-conflict);
 # claude logged out (reason=logged-out; the task stays in doing/ and is continued by the next
 # start); a git or board.py failure after which nothing can be committed; the soft stop.
+#
+# A TASK CLOSES WITH A CLEAN TREE (board 029). When the agent has moved its task to done/ or
+# blocked/, the runner looks at `git status`. Files that are uncommitted now and were not before
+# the task began are the task's: the agent gets the turn back ONCE, in the same conversation, with
+# one request — commit what belongs to the task, remove the rest. If the tree is still dirty after
+# that turn (or the task's budget buys no turn), the files are listed in the anomaly journal and
+# the next task is taken. The runner deletes, stashes and commits none of them.
 #
 # STOPPING IT (board 019). Never by killing the process: the agent then loses the uncommitted
 # work of its task. `--stop-after-task` puts the flag .claude/state/board/stop-after-task; the
@@ -116,6 +124,7 @@ LOCK="$STATE/lock"
 STOP_FLAG="$STATE/stop-after-task"
 GATE_PY="$HERE/../hooks/gate.py"
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
+DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
 board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
 memo() { python3 "$HERE/board_state.py" "$STATE" "$@"; }
 
@@ -429,18 +438,84 @@ park_task() {
   OUTCOME=blocked
 }
 
+# attempt <stem> <prompt of a fresh conversation> <prompt of a continued one>: one claude session
+# for the task, booked in costs.json. Sets NOTE to `limit`, `auth` or nothing (board_state.py)
+# and OUT to the file that holds the session's output.
+attempt() {
+  local stem="$1" session n before after
+  local -a flags=(--settings .claude/settings.json --permission-mode auto --output-format json)
+  [ -z "$MAX_USD" ] || flags+=(--max-budget-usd "$(memo get "$stem" left "$MAX_USD")")
+  session=$(memo get "$stem" session)
+  n=$(( $(memo get "$stem" attempts) + 1 ))
+  OUT="$STATE/logs/$stem-$n.json"
+  before=$(git rev-parse HEAD)
+  status running "$stem"
+  event "attempt $stem $n ${session:+resume=$session}"
+  if [ -z "$session" ]; then
+    "$CLAUDE_BIN" -p "$2" "${flags[@]}" < /dev/null > "$OUT" 2> "$OUT.err" &
+  else
+    "$CLAUDE_BIN" -p "$3" --resume "$session" "${flags[@]}" < /dev/null > "$OUT" 2> "$OUT.err" &
+  fi
+  CLAUDE_PID=$!
+  wait "$CLAUDE_PID"
+  CLAUDE_PID=""
+  after=$(git rev-parse HEAD)
+  NOTE=$(memo record "$stem" "$OUT" "$([ "$before" != "$after" ] && echo 1 || echo 0)")
+  event "attempt-end $stem $n cost=$(memo get "$stem" cost) commit=$([ "$before" != "$after" ] && echo yes || echo no)${NOTE:+ $NOTE}"
+  publish_gate_questions
+}
+
+# The paths `git status` shows as uncommitted, one a line, sorted.
+dirty_paths() { git -c core.quotePath=false status --porcelain --untracked-files=all | cut -c4- | LC_ALL=C sort -u; }
+# …of them, those that were not there when the task was started: the task's own.
+task_leftovers() { LC_ALL=C comm -23 <(dirty_paths) <(LC_ALL=C sort -u "$DIRTY_BEFORE" 2>/dev/null); }
+
+# close_clean <stem>: the agent closed its task; the tree must be clean now (board 029). If the
+# task left uncommitted files, the agent gets the turn back once to commit or remove them; what is
+# still there afterwards is listed in the anomaly journal. Nothing is deleted here.
+close_clean() {
+  local stem="$1" left shown count turn="агентові один раз повернуто хід із проханням закомітити те, що належить задачі, або прибрати зайве — дерево лишилося брудним"
+  left=$(task_leftovers)
+  [ -n "$left" ] || return 0
+  count=$(wc -l <<< "$left" | tr -d ' ')
+  event "dirty-tree $stem $count file(s)"
+  say "$stem: closed with $count uncommitted file(s); the agent is asked once to commit or remove them"
+  shown=$(head -n 40 <<< "$left")
+  [ "$count" -le 40 ] || shown+=$'\n'"… and $((count - 40)) more (see git status)"
+  local ask="The task $stem is closed (it is in tasks/$OUTCOME/), but it left the working tree dirty. git status still shows these uncommitted files:
+$shown
+Commit what belongs to this task (through .claude/unattended/commit_checkpoint.sh, on this branch) and remove what is not needed, so that git status is clean. Do nothing else: do not reopen the task, do not start another one, do not push. You are asked this once; whatever is still uncommitted after this turn is written into the anomaly journal as it is."
+  while :; do
+    if [ -n "$MAX_USD" ] && [ "$(memo get "$stem" left "$MAX_USD")" = "0.00" ]; then
+      turn="хід агентові не повернуто: бюджет задачі ($MAX_USD USD) вичерпано"; break
+    fi
+    attempt "$stem" "$ask" "$ask"
+    [ "$NOTE" = "limit" ] || break
+    status waiting-limit "$stem"
+    say "usage limit; waiting $LIMIT_WAIT s"
+    sleep "$LIMIT_WAIT"
+  done
+  board_commit "board: $stem → $OUTCOME (changes under tasks/ left uncommitted by the cleaning turn)" \
+    || finish error "$stem" commit "cannot commit the leftover changes under tasks/"
+  left=$(task_leftovers)
+  if [ -z "$left" ]; then event "dirty-tree-cleaned $stem"; return 0; fi
+  count=$(wc -l <<< "$left" | tr -d ' ')
+  event "dirty-tree-left $stem $count file(s)"
+  note_anomaly "$stem" "задачу закрито (\`$OUTCOME/\`), але в робочому дереві лишилися її незакомічені файли: $count" \
+    "$turn. Виконавець нічого не видаляв і не комітив і взяв наступну задачу. Файли: $(sed 's/.*/`&`/' <<< "$left" | paste -sd, - | sed 's/,/, /g')."
+}
+
 # run_task <tasks/doing/NAME.md>: attempts until the task left doing/ — moved by the agent to
 # done/ or blocked/, or parked in blocked/ by the runner. Sets OUTCOME to done, blocked or missing.
 run_task() {
-  local file="$1" stem place session before after n out note
-  local -a flags
+  local file="$1" stem place
   stem=$(basename "$file" .md)
   local first="You are working from the task board, unattended: nobody will answer a question in this conversation. Your task is the file $file. Read tasks/README.md (the section «Правила для агента») and follow it. If work on this task has already begun (see git log and the working tree), continue it instead of starting over. The task is finished only when you have moved it to tasks/done/$stem/ (task.md and report.md) or, if it cannot proceed without the owner, to tasks/blocked/ with your questions, and committed that. Do not push. If the usage limit runs out, just end the turn; you will be continued."
   local again="Continue the task $file from where you stopped. It is finished only when it is in tasks/done/$stem/ (task.md and report.md) or in tasks/blocked/ with your questions, and that is committed."
   while :; do
     place=$(board where "$stem")
     case "$place" in
-      done|blocked) OUTCOME="$place"; return 0 ;;
+      done|blocked) OUTCOME="$place"; CLOSED_BY=agent; return 0 ;;
       doing) ;;
       todo) park_task "$stem" returned ""; return 0 ;;
       *) note_anomaly "$stem" "задача зникла з дошки: її немає ні в doing/, ні в done/, ні в blocked/, ні в todo/" "виконавець узяв наступну задачу; файл задачі можна повернути з історії git"
@@ -452,37 +527,15 @@ run_task() {
     if [ "$(memo get "$stem" idle)" -ge "$STALL_ATTEMPTS" ]; then
       park_task "$stem" no-commit "$STALL_ATTEMPTS"; return 0
     fi
-    flags=(--settings .claude/settings.json --permission-mode auto --output-format json)
-    if [ -n "$MAX_USD" ]; then
-      note=$(memo get "$stem" left "$MAX_USD")
-      if [ "$note" = "0.00" ]; then
-        park_task "$stem" budget "$MAX_USD"; return 0
-      fi
-      flags+=(--max-budget-usd "$note")
+    if [ -n "$MAX_USD" ] && [ "$(memo get "$stem" left "$MAX_USD")" = "0.00" ]; then
+      park_task "$stem" budget "$MAX_USD"; return 0
     fi
-    session=$(memo get "$stem" session)
-    n=$(( $(memo get "$stem" attempts) + 1 ))
-    out="$STATE/logs/$stem-$n.json"
-    before=$(git rev-parse HEAD)
-    status running "$stem"
-    event "attempt $stem $n ${session:+resume=$session}"
-    if [ -z "$session" ]; then
-      "$CLAUDE_BIN" -p "$first" "${flags[@]}" < /dev/null > "$out" 2> "$out.err" &
-    else
-      "$CLAUDE_BIN" -p "$again" --resume "$session" "${flags[@]}" < /dev/null > "$out" 2> "$out.err" &
-    fi
-    CLAUDE_PID=$!
-    wait "$CLAUDE_PID"
-    CLAUDE_PID=""
-    after=$(git rev-parse HEAD)
-    note=$(memo record "$stem" "$out" "$([ "$before" != "$after" ] && echo 1 || echo 0)")
-    event "attempt-end $stem $n cost=$(memo get "$stem" cost) commit=$([ "$before" != "$after" ] && echo yes || echo no)${note:+ $note}"
-    publish_gate_questions
-    if [ "$note" = "auth" ] && [ "$(board where "$stem")" = "doing" ]; then
-      critical "$stem" logged-out "claude is logged out (see $out); the task stays in doing/. Log in on this machine (claude, then /login), then start the runner again" \
+    attempt "$stem" "$first" "$again"
+    if [ "$NOTE" = "auth" ] && [ "$(board where "$stem")" = "doing" ]; then
+      critical "$stem" logged-out "claude is logged out (see $OUT); the task stays in doing/. Log in on this machine (claude, then /login), then start the runner again" \
         "claude розлогінився: сесія відповіла лише проханням увійти; задача лишилась у doing/"
     fi
-    if [ "$note" = "limit" ] && [ "$(board where "$stem")" = "doing" ]; then
+    if [ "$NOTE" = "limit" ] && [ "$(board where "$stem")" = "doing" ]; then
       status waiting-limit "$stem"
       say "usage limit; waiting $LIMIT_WAIT s"
       sleep "$LIMIT_WAIT"
@@ -521,6 +574,7 @@ while :; do
     tasks/todo/*)
       TASK=$(board start "$TASK") || finish error "$TASK_NAME" start "board.py start refused"
       board_commit "board: $TASK_NAME → doing" || finish error "$TASK_NAME" commit "cannot commit the move to doing/"
+      dirty_paths > "$DIRTY_BEFORE"
       memo retry "$TASK_NAME"
       ;;
     *)
@@ -529,11 +583,13 @@ while :; do
       ;;
   esac
   RETRY=0
-  OUTCOME=""
+  OUTCOME=""; CLOSED_BY=""
   run_task "$TASK"
   # The agent moved the task but left the move uncommitted: commit tasks/, nothing else.
   board_commit "board: $TASK_NAME → $OUTCOME (the move was left uncommitted)" \
     || finish error "$TASK_NAME" commit "cannot commit the leftover changes under tasks/"
+  [ "$CLOSED_BY" != agent ] || close_clean "$TASK_NAME"
+  rm -f "$DIRTY_BEFORE"
   memo finish "$TASK_NAME" "$OUTCOME"
   event "task-$OUTCOME $TASK_NAME cost=$(memo get "$TASK_NAME" cost)"
   say "$TASK_NAME: $OUTCOME ($(memo get "$TASK_NAME" cost) USD)"

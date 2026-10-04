@@ -92,6 +92,13 @@ budget stop, with one more budget of the same size. Everything else that is odd 
 failed, a task that vanished from the board) is one more journal entry, not a stop; the review
 shows the new entries in a section of their own.
 
+A task closes with a clean tree. When the agent has moved its task to `done/` or `blocked/`, the
+runner looks at `git status`; files that are uncommitted now and were not when the task began are
+the task's. The agent gets the turn back once, in the same conversation, with one request: commit
+what belongs to the task, remove the rest. A tree still dirty after that turn is one journal entry
+with the list of files, and the next task is taken; the runner deletes, stashes and commits none
+of them.
+
 It stops — always with `.claude/state/board/summary.md` — when `todo/` is empty or everything
 left waits for the owner, or on a soft stop (exit 0); and with `state=error` (exit 1) only on what
 it cannot work past: a pull that conflicts (`reason=pull-conflict`), claude logged out
