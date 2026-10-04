@@ -105,9 +105,3 @@ For everything else — every real coding session — run at minimum the session
 - `references/memory-pollution-prevention.md` — limits, anti-patterns, when to prune
 - `references/promotion-paths.md` — memory → skill, lesson → ADR, draft → rule
 - `checklists/session-end.md` — quick checklist before `/clear` or `/bye`
-
-## Compatibility notes
-
-Designed to compose with the broader project setup:
-- the engine's hooks provide PostToolUse / Stop hooks (quality gates) — those are execution feedback, not learning artifacts; this skill is orthogonal.
-- `master-architect` and `feature-architect` own architectural artifacts and may keep their own task-scoped `reflections.md`. This orchestrator handles the *between-task* and *across-task* memory; it defers when they're active.
