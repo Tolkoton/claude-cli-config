@@ -44,7 +44,6 @@ from typing import Any
 import board
 import board_state
 
-EXIT_REFUSED = 2
 CONTEXT_BUDGET = 200
 MAX_HOPS = 4  # how deep Claude Code follows `@path` imports (tests/test_context_budget.py)
 IMPORT_RE = re.compile(r"(?:(?<=\s)|^)@([^\s`]+)", re.MULTILINE)
