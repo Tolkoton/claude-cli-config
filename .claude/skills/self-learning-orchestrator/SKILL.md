@@ -22,56 +22,6 @@ A layered memory stack with deliberately different update frequencies:
 
 Mismatching the cadence is the most common failure mode. CLAUDE.md is not a place to log every bug; MEMORY.md is not a place to record every commit. The triggers below map each moment to the correct artifact.
 
-## The trigger state machine
-
-```
-                            ┌────────────────────────────────┐
-                            │ Session start (every session)  │
-                            │   → triggers/session-start.md  │
-                            └────────────────────────────────┘
-                                          │
-                                          ▼
-                            ┌────────────────────────────────┐
-       ┌────── new task ───►│ Task start                     │
-       │                    │   → cue plan-mode skill        │
-       │                    │   → maybe create progress.md   │
-       │                    └────────────────────────────────┘
-       │                                  │
-       │                                  ▼
-       │      ┌────────────────────────────────────────────────────────┐
-       │      │ Execution loop                                          │
-       │      │                                                         │
-       │      │  edits ──► hooks (ruff, mypy, pytest)                  │
-       │      │      │                                                  │
-       │      │      ├─ substantive decision?                          │
-       │      │      │    → triggers/decision-checkpoint.md            │
-       │      │      │                                                  │
-       │      │      ├─ stuck >20 min?                                  │
-       │      │      │    → triggers/stuck-protocol.md                 │
-       │      │      │                                                  │
-       │      │      ├─ bug fix >15 min?                                │
-       │      │      │    → lesson queue (lightweight capture)        │
-       │      │      │                                                  │
-       │      │      └─ ready to commit?                                │
-       │      │           → triggers/pre-commit-checkpoint.md          │
-       │      │                                                         │
-       │      └────────────────────────────────────────────────────────┘
-       │                                  │
-       │                                  ▼
-       │                    ┌────────────────────────────────┐
-       └────── more ────────┤ Task done?                     │
-              tasks         │   no → next task               │
-                            │   yes → session-end-dreaming    │
-                            │     → triggers/session-end.md   │
-                            └────────────────────────────────┘
-
-       ────────────────── independent cadence ──────────────────
-                            ┌────────────────────────────────┐
-                            │ Periodic (weekly/monthly)      │
-                            │   → triggers/periodic.md       │
-                            └────────────────────────────────┘
-```
-
 ## How to dispatch (the only rule)
 
 When invoked, identify which moment is happening and read the matching trigger file:
