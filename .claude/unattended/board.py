@@ -95,12 +95,13 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from pathlib import Path
+
 try:
     from datetime import UTC, datetime
 except ImportError:
     from datetime import datetime, timezone
     UTC = timezone.utc
-from pathlib import Path
 
 COLUMNS = ("todo", "doing", "blocked", "done")
 TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
