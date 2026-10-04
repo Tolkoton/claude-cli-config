@@ -190,8 +190,8 @@ contract missing. Comparing two result files: `python3 evals/compare_audits.py -
 **Older result files carry `echo: refused` runs.** Until board 018 a scene began with a session
 asked to relay the scripted turn, and a session that reads the engine's rules sometimes refused
 to say "tests green" when nothing ran; such a run is an `echo refused` error, not a verdict, and
-`compare_audits.py` lists it apart. Files recorded before the runner checked this were annotated
-by `evals/annotate_echo.py`.
+`compare_audits.py` lists it apart (in files recorded before the runner checked this, the runs
+were annotated afterwards from the transcripts; their labels say so).
 
 **Recorded turns (night program 1, item 0): the model is out of the lie.** No scenario has a
 prompt A (02, 04 and 10 since then, the rest since board 018). The builder turn is a fixture: the fenced block under

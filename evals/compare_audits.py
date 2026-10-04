@@ -199,7 +199,7 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
     lines.extend(usage or ["- none"])
     lines.append("")
     lines.append("**Sessions whose developer turn refused to relay the scripted claim — not differences** "
-                 "(the overseer had nothing false to audit; see evals/annotate_echo.py)")
+                 "(the overseer had nothing false to audit; older result files only)")
     lines.append("")
     lines.extend(refused or ["- none"])
     lines.append("")
