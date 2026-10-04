@@ -83,7 +83,8 @@ LIMIT_KEYS = (
 KNOWN_KEYS = (*LIMIT_KEYS, "base_commit", "justification")
 SECTION_RE = re.compile(r"^##\s+Complexity budget\s*$", re.IGNORECASE | re.MULTILINE)
 ACTIVE_RE = re.compile(r"IN PROGRESS", re.IGNORECASE)
-CONTRACT_PATH_RE = re.compile(r"\.engine/slices/[\w.-]+\.md")
+# A bug record (.engine/bugs/, written by /bugfix) carries its budget like a slice contract.
+CONTRACT_PATH_RE = re.compile(r"\.engine/(?:slices|bugs)/[\w.-]+\.md")
 SLUG_RE = re.compile(r"[Ss]lice\s+`?([\w.-]+)`?")
 REPORT_FILE = Path(".claude/state/overseer/complexity-report.md")
 NESTING_NODES = (
@@ -155,7 +156,7 @@ def git(root: Path, *args: str) -> str:
 
 
 def active_contract(root: Path) -> Path | None:
-    """The slice .engine/PROGRESS.md marks IN PROGRESS — the engine's own convention."""
+    """The slice — or the bug record — .engine/PROGRESS.md marks IN PROGRESS: the engine's own convention."""
     try:
         text = (root / ".engine/PROGRESS.md").read_text(encoding="utf-8")
     except OSError:

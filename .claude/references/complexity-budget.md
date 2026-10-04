@@ -10,6 +10,12 @@ It is a stated expectation, not a ceiling. Going over it does not forbid the cha
 the simplifier, which either finds the excess justified (the reason is recorded) or sends the
 change back to be made smaller.
 
+A bug record (`.engine/bugs/<number-name>.md`, written by `/bugfix` from
+`.claude/templates/bug-record.md`) carries the same section, ready-made and small: no new files,
+names, abstractions or dependencies, 40 new lines. It is measured the same way while
+`.engine/PROGRESS.md` marks that record IN PROGRESS, and `complexity_budget.py check` reports it
+whatever `COMPLEXITY_GATE` says. An overrun the simplifier does not justify makes the fix a slice.
+
 ## The section to add to the slice contract
 
 ```

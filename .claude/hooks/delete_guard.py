@@ -62,7 +62,7 @@ TEST_STEM_RE = re.compile(r"^(?:test_(?P<a>.+)|(?P<b>.+)_test|(?P<c>.+)\.test|(?
 HUNK_RE = re.compile(r"^@@ -(?P<old>\d+)(?:,(?P<n_old>\d+))? \+\d+(?:,(?P<n_new>\d+))? @@")
 TARGET_RE = re.compile(r"^(?P<path>[^:]+?)(?::(?P<line>\d+)(?:-(?P<end>\d+))?)?(?:::(?P<symbol>[\w.]+))?$")
 HINT = ("three ways through: (1) a test that pins what this code does today and passes on the code before the "
-        "deletion — write it, then delete; (2) dead code needs no test: a simplifier finding with tool evidence that "
+        "deletion (`python3 .claude/hooks/bugfix.py pins` shows that) — write it, then delete; (2) dead code needs no test: a simplifier finding with tool evidence that "
         "the owner confirmed (`python3 .claude/hooks/delete_guard.py confirm`, the owner's command); (3) the sealed "
         "slice contract carries `gate-allow: delete — <reason>` or `gate-allow: <path> — <reason>`. Moving the code "
         "within the same change is not a deletion")

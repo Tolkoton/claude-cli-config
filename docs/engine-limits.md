@@ -221,6 +221,38 @@ What that does not give:
   `.claude/state/` being closed to the agent's edit tools. That a finding's tool evidence is
   true is not re-checked at confirmation: the validator checks that the signal existed.
 
+## The bug-fix proof (board 074)
+
+`bugfix.py prove` shows that a test fails on the code before a fix and passes on the code with it
+(`.claude/commands/bugfix.md`, step 6). What that does not give:
+
+- **Fails is not "fails because of this bug".** Without `--expect` any failure before the fix
+  counts — an import error that the fix happens to remove passes. With `--expect` the script
+  looks for that text in the output, and the text is chosen by the builder. Whether the test
+  describes the bug of the record is the overseer's reading, not the script's.
+- **A clean copy, not the project's environment.** Both runs happen in temporary copies: the
+  base commit from `git archive`, and the files of the working tree git tracks or would track.
+  No virtual environment, no ignored file, no `.git`. A command that needs them must create them
+  (`uv run …`); a test that cannot run there cannot be proved by this script, and the record
+  must say so rather than claim a proof.
+- **One command, chosen by the builder.** `--cmd` should run the new test alone. A command that
+  runs the whole suite fails before the fix for any old failure of the project, and the proof
+  then says nothing about the new test.
+- **Nothing forces the proof.** The command and the overseer's definition ask for it; no hook
+  refuses a bug fix without one. An overseer that does not rerun the command sees only what the
+  builder pasted.
+- **A bug record is not sealed.** It is the report as well as the contract, so it changes while
+  the work goes on; the fingerprint that protects a slice contract (`contract_fingerprint.py`)
+  does not cover it, the audit request carries no contract hash for it, and a `gate-allow` line
+  written in it grants nothing. Its budget is the exception: the limits seen first are kept in
+  machine state, as for a slice.
+- **The budget is measured only while `.engine/PROGRESS.md` marks the record IN PROGRESS**, and
+  held at turn end only when `COMPLEXITY_GATE` is `warn` or `call`. With the gate off the
+  measurement happens when the builder runs `complexity_budget.py check`, as the command says.
+- **Three attempts are counted by the builder.** The record has room for three; nothing counts them.
+- **`pins` shows a test passes, not that it looks at the code about to be deleted.** A test that
+  asserts nothing about that code pins nothing and still prints `PINNED`.
+
 ## The snapshot "as it was" (board 071)
 
 With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).

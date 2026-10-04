@@ -141,6 +141,8 @@ other than Python there are no names: the unit is the file and its removed lines
 
 1. **A test.** Write one that pins what the code does today and passes on the code before the
    deletion, then delete. It may sit in the same change, uncommitted.
+   `python3 .claude/hooks/bugfix.py pins --test <file> --cmd "<the command that runs it>"` shows
+   that it passes there: it runs the test on a clean copy of the code before the change.
 2. **Dead code needs no test, the owner's word does.** A simplifier finding about that code with
    evidence from a tool (a signal of `simplify_signals.py`), confirmed by the owner in their own
    terminal:

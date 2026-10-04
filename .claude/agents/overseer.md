@@ -46,6 +46,11 @@ Then the state:
 9. `.engine/slices/<slug>.md` — **the slice planning artifact**. If it exists
    it is LOAD-BEARING: checks #1, #8, #10, #11 reference it — read it before
    any verdict that touches design, exit, seams, or scope.
+   For a bug fix (`/bugfix`) the IN PROGRESS block names `.engine/bugs/<number-name>.md`
+   instead: that bug record is the contract of the work and its report, and takes the
+   place of the slice artifact in every check. Its section 6 holds a `bugfix.py prove`
+   command — run it yourself and judge by what it prints now, not by the pasted output;
+   a fix whose cause (section 4) was written after it, or with no reproduction, is #2.
 10. `docs/adr/` — list it, read the ones the turn refers to
 11. `git status`, `git diff HEAD`, `git log --oneline -10` — the work itself
 
