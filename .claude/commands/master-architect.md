@@ -44,6 +44,7 @@ draft = the stage proposal: the design + a Mermaid diagram + a plain-language
 round = 0; ratifications = []
 loop:
   verdict = Task(agent="master-critic", input={phase, draft, product_frame, maps})
+            # product_frame = the text of .engine/goals.md, whole
   case verdict:
     MASTER_CRITIC_WRONG_SCOPE  → this is one feature; hand to /feature-architect; stop.
     MASTER_CRITIC_POC_REQUIRED → build the PoC (smallest program exercising the property
@@ -67,7 +68,45 @@ Convergence is the critic's PASS **plus** the owner's approval — never frictio
 
 ---
 
+# Level 0 — the goals document  (above everything this command decides)
+
+`.engine/goals.md` is what the owner wants from the project — goals (G), principles (P),
+non-goals (N), hard constraints (C), done-when (D) — written with `/business-analyst`, approved
+by the owner and sealed. You read it; you never write it.
+
+- **The gate.** `python3 .claude/hooks/goals.py status`. Greenfield (no maps yet) and the answer
+  is not "the document the owner approved" → do not start: tell the owner to run
+  `/business-analyst` first, emit `OVERSEER_SLICE_AWAITING_OWNER:`, stop. A project that already
+  has maps and no document: say that decisions cannot be reconciled until there is one, and
+  work as before.
+- **«Звірка з цілями» in every decision.** Each ADR and each stage's part of the architecture
+  map (M2, M3) ends with:
+  ```markdown
+  ## Звірка з цілями
+  - служить: G1, D2
+  - вибір між варіантами розв'язав: P1   (or: принципи не розрізняють ці варіанти, вибір технічний)
+  - не-цілі й обмеження: N2, C1 — why they are not touched
+  ```
+  A decision with no such section, or with no line number in it, is **not reconciled**: nothing
+  blocks it, and the owner's review lists it. `python3 .claude/hooks/goals.py check <file>`
+  checks that the numbers exist and still stand — not that the citation is honest; that is the
+  critic's lens, which is why the critic gets the document.
+- **Ask the analyst only for one of the four reasons** (`.claude/references/business-analysis.md`
+  §6): the document is silent on a choice that matters to the user or the business; it
+  contradicts itself; the decision would touch a non-goal, a constraint or a done-when; the
+  goals are drifting. Write the request (§7), start the agent `business-analyst`, fresh, with
+  the request's path and nothing else, paste its answer into the request. A `QUOTE` answer
+  counts only when `python3 .claude/hooks/goals.py quote <request>` exits 0 — otherwise the
+  request goes to the owner. An `OWNER_DECISION` goes to the owner (in the stage review, or
+  `tasks/blocked/` unattended); meanwhile a two-way door proceeds on the advice, marked
+  `PROVISIONAL`, and a one-way door parks. A purely technical choice is yours; a technical
+  one-way door goes straight to the owner, not through the analyst.
+- **After an amendment**, reread every decision listed in `.engine/goals/to-review.md` and tick it.
+
+---
+
 # Pre-flight
+- Run the goals gate above.
 - Read the existing **domain map** and **architecture map** (`.engine/architecture/*`),
   `docs/adr/`, and both playbook files. If none of the maps exist, this is greenfield.
 - Run `python3 .claude/hooks/overseer_phase.py set plan` for the architecture work; clear it
@@ -78,8 +117,9 @@ Convergence is the critic's PASS **plus** the owner's approval — never frictio
 # Phase M1 — Domain & product frame  (HEAVILY INTERACTIVE)
 
 Establish, with the owner, one at a time:
-- **Product vision & constraints** — what the system is for; hard constraints
-  (regulatory, scale, deadline, budget). Product calls are the owner's.
+- **Product vision & constraints** — not asked here any more: they are the goals document
+  (`.engine/goals.md`). Read it as the `product_frame`; a gap in it is a request to the
+  analyst (reason 1), not a question you answer yourself.
 - **Domain model** — the **bounded contexts** (distinct parts of the domain with their
   own language and lifecycle) and the **ubiquitous language** (one term, one meaning).
   Draft → stress-test with the master-critic (`domain` phase) → refine with the owner.
@@ -213,6 +253,7 @@ Ledger each milestone:
 - **PoC the riskiest tech premise; the walking skeleton proves the architecture** (Art.
   1). Do not commit on faith, or build bulk features before the skeleton.
 - **The critic is BLIND and FRESH** (Art. 6): pass it only the draft + product frame + maps.
+- **Every decision carries «Звірка з цілями»**; you never write or seal `.engine/goals.md`.
 - **Master-architect writes no code, no feature decompositions, no slice plans.** It
   writes the maps, ADRs, and the feature DAG, and DRIVES the build via `/feature-architect`.
 - **Honor markers.** Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause (stage review,

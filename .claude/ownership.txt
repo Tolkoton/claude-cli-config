@@ -46,6 +46,7 @@ project  .engine/overseer/parked.md       seed=templates/project/.engine/oversee
 project  .engine/overseer/MEMORY.md       seed=templates/project/.engine/overseer/MEMORY.md
 project  .engine/premises/premise-log.md  seed=templates/project/.engine/premises/premise-log.md
 project  .engine/rules.md                 seed=templates/project/.engine/rules.md
+project  .engine/goals.md                 seed=templates/project/.engine/goals.md
 project  .engine/**
 
 # --- legacy paths of a project built before package 3c. Still the PROJECT'S data: never ----

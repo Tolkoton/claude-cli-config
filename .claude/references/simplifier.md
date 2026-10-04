@@ -27,7 +27,10 @@ there against that growth; what it saves is a side effect. Three parts, strictly
    in the engine schedules it; put the line in cron or a CI schedule.
 
 No signal, no simplifier: it is never part of an ordinary turn. The nightly cleanup may also
-look at the standing instructions (lens `instructions`: CLAUDE.md, rules, skills, agents, commands).
+look at the standing instructions (lens `instructions`: CLAUDE.md, rules, skills, agents, commands, and the
+goals document `.engine/goals.md` — it has no size limit, so this lens is what keeps it short). A finding about
+the goals document is never applied: the path is protected, the finding goes to the owner as a question, and a
+line leaves the document only through an amendment the owner approves (`.claude/references/business-analysis.md`).
 
 ## One run
 

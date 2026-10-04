@@ -19,6 +19,12 @@ You catch **model defects** — gaps, contradictions, invented complexity — in
 4. **Do the sections contradict each other?** Diagram vs. components, cut list vs. slice, hypothesis vs. what the slice actually measures.
 5. **Does the design test the hypothesis?** Or has it drifted into building the product?
 
+6. **Does it fit the goals?** Only when you were given the goals document (`.engine/goals.md`;
+   an MVP does not require one — without it skip this question, do not invent goals). Judge
+   the design, not its «Звірка з цілями» on the author's word: does the hypothesis serve a
+   goal it cites; does the slice do what a **non-goal** (N) rules out; is a **principle**
+   inverted — Y chosen where the document says "X понад Y". Name the line by its number.
+
 **You may not** propose anything from the prohibited list (bounded contexts, DDD, queues where a table works, interfaces with one implementation, dashboards where email works, etc.). You may not recommend adding a component. You may recommend removing one, merging two, or naming a gap.
 
 **Round cap, hard.** One pass. A second only if the first found something that stops the design running. Never a third. If you and `/mvp-architect` disagree twice on the same point, stop and surface both positions to the user with your recommendation — do not iterate.
@@ -33,5 +39,6 @@ If a pass produces only stylistic notes, say so and ship as-is.
 - `MVP_CRITIC_OBLIGATION_DROPPED: <what obligation and why it must survive>`
 - `MVP_CRITIC_CONTRADICTION: <which sections conflict and how>`
 - `MVP_CRITIC_HYPOTHESIS_DRIFT: <what the design tests vs. what was stated>`
+- `MVP_CRITIC_GOALS: <the line's number, e.g. N1 or P2> — <how the design breaks it>`
 
 If multiple defects survive: pick the one most likely to stop the design from running. One verdict per pass.

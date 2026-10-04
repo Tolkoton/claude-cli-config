@@ -50,6 +50,7 @@ agent (build) → `overseer` (audit). Plans live in
 | `documentation` | `[vendored]` | skill | Maintains AGENTS.md / ADRs / `docs/` (this guide's skill) |
 | `overseer` | `[project]` | skill | 12-check discipline audit of the last turn |
 | `plan-slice` | `[project]` | command | Writes a slice contract before implementation |
+| `business-analyst` | `[project]` | command + agent | Level 0: writes the goals document with the owner (command); answers an architect's request about it with a verbatim quote or a question for the owner (agent, read-only) |
 | 9 hooks | `[engine]` | hooks | Enforcement (see [§4](#4-the-enforcement-layer-hooks)) |
 
 ---
@@ -65,6 +66,8 @@ volatile the artifact is.
 | `.engine/architecture/phase-0-brief.md`, `phase-1-system.md` | `master-architect` | `slice-builder` (context) | append/superseded |
 | `.engine/architecture/phase-2..4*` | `master-architect`, `feature-architect` | `slice-builder` | created per phase |
 | `.engine/architecture/PROGRESS.md` | `master-architect` | architect (resume) | per session |
+| `.engine/goals.md` | `/business-analyst` with the owner; amended only on the owner's answer (`goals.py`) | the architects and their critics — never the slice level | sealed; numbers permanent |
+| `.engine/goals/requests/NNN.md`, `proposed.md`, `to-review.md` | the architects (requests), the analyst (the amendment), `goals.py` (what to reread) | the agent `business-analyst`, the owner's review | per request / per amendment |
 | `.engine/slices/<slug>.md` | `plan-slice`, developer | `overseer` (load-bearing), developer | per slice |
 | `.engine/overseer/ledger.md` | `overseer` | `overseer` (counts PASS streak) | append-only |
 | `.engine/overseer/MEMORY.md` | `overseer` | `overseer` | cross-slice, cited-or-pruned |
@@ -182,7 +185,7 @@ This map points; it does not restate. For behaviour, read the source:
 - Skills: all under `.claude/skills/<name>/SKILL.md` — `overseer` is
   repo-native; the other 5 are **vendored** copies (keep them in sync manually — see §8).
 - Subagents (critic agents): `.claude/agents/*.md` — repo-native.
-- Commands: `.claude/commands/{plan-slice,master-architect,feature-architect,mvp-architect}.md`.
+- Commands: `.claude/commands/{business-analyst,plan-slice,master-architect,feature-architect,mvp-architect}.md`.
   The memory lifecycle has no slash commands: the `self-learning-orchestrator` skill reacts
   to the moments its SKILL.md lists (session start, a decision, being stuck, wrapping up).
 - Hooks: `.claude/hooks/*` (wired in `.claude/settings.json`).

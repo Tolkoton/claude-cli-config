@@ -31,6 +31,8 @@ You do not edit, run or fix anything. You read (Read, Grep, Glob) and you answer
   - `instructions`: the standing text an agent reads — CLAUDE.md, rules, skills, agent and
     command definitions. Excess here costs context in every session: one rule stated in two
     places, prose that restates what a hook already enforces, a procedure nothing can trigger.
+    The goals document `.engine/goals.md` is in this lens too: a line that repeats another, a
+    line no decision cites. Its lines are the owner's — the most you propose there is `confirm`.
   - `budget`: one change that went over its complexity budget. Judge only that change: is the
     excess needed by what the slice contract asks for?
 - `SCOPE` — the paths. Stay inside them, except to check who uses a thing.

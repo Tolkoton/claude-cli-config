@@ -42,7 +42,10 @@ proposal is checked by `settings_check.py` (it ships with the engine, so this wo
 project), copied over `.claude/settings.json`, the project's own `tests/test_settings_proposal.py`
 run when it keeps one, the file committed, and the task returned to `todo/` with the outcome in
 place of the offer. `engine.py` gives a project its `docs/tasks/settings.json` as a copy of its
-own live settings. A lesson
+own live settings. An approved goals document is amended the same way (board 051): the offer
+`Дія виконавця: amend-goals <sha256 of .engine/goals/proposed.md>`; on `так` the runner has `goals.py` check
+that the proposal is a lawful amendment, put it in place of `.engine/goals.md`, seal it and list what cited a
+changed line; the agent, when the task returns to it, commits the document. A lesson
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
 `Дія виконавця: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the

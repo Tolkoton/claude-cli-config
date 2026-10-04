@@ -17,7 +17,7 @@ WHAT IS CHECKED
     done twice;
   - every unfilled `Відповідь:` in blocked/ is found, in each way an owner's file may write the
     line — and a filled one, and the template's hint in a comment, are not;
-  - the seven sections are there, in order, each with what the task asks of it; the anomaly
+  - the eight sections are there, in order, each with what the task asks of it; the anomaly
     journal's new entries are a section of their own (board 021);
   - origin out of reach: the last known state with a note; nothing known at all: exit 2;
   - the session command and the operator's instruction exist and name the same command.
@@ -95,7 +95,7 @@ def snapshot(root: Path, skip: tuple[str, ...] = ()) -> dict[str, str]:
     return found
 
 
-TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
+TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "Цілі та звірка з ними", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
 
 
 def section(document: str, title: str) -> str:
@@ -231,7 +231,7 @@ r = cli(clone)
 doc = r.stdout
 check("the review runs in a clone that never checked the work branch out", r.returncode == 0 and doc.startswith("# "), r.stderr)
 places = [doc.find(f"\n## {title}") for title in TITLES]
-check("the seven sections are there, in the task's order", all(p != -1 for p in places) and places == sorted(places), places)
+check("the eight sections are there, in the task's order", all(p != -1 for p in places) and places == sorted(places), places)
 check("it says which commit of origin it read", commits["second"][:7] in doc.split("\n## ")[0] and f"origin/{BRANCH}" in doc, doc[:400])
 done_part = section(doc, "Зроблено")
 check("without --since the newest version tag is the start: both finished tasks", "v0.1.0" in doc.split("\n## ")[0]

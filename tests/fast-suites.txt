@@ -36,6 +36,8 @@
 # Board 039: the supervisor is retired and four suites left with it (the continue guard, the parked
 # re-check, the self-reference guard, the session launch); test_supervisor_retired stays out (a real
 # install of v0.11.0 updated to HEAD).
+# Board 051: test_goals 5.2 s is in (the seal and the quote check stand between an agent and the owner's goals; about
+# sixty runs of goals.py on one synthetic project); test_analyst_evals 1.3 s is in (offline: the paid gate, the scoring).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py
@@ -64,3 +66,5 @@ test_simplifier.py
 test_baseline_environments.py
 test_second_opinion.py
 test_health_record.py
+test_goals.py
+test_analyst_evals.py

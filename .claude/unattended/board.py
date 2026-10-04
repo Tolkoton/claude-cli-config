@@ -57,8 +57,9 @@ proposal and making a lesson a rule: the answer is exactly the one word «так
 punctuation do not count (`consents`). Everything else, «так, але…» included, is an instruction
 for the agent and nothing is applied.
 
-AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do — today
-one thing: applying the settings proposal. The agent asks its question and writes under it the
+AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do: applying
+the settings proposal, and (board 051) amending the approved goals document from
+`.engine/goals/proposed.md` (`amend-goals`). The agent asks its question and writes under it the
 line `Дія виконавця: apply-settings <sha256 of the proposal>` (`action-line` prints it). The
 owner's answer «так» is acted on by board-runner.sh through owner_action.py, never by an agent;
 `unblock` leaves such a task where it is until the runner has replaced the offer with the
@@ -133,12 +134,12 @@ GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner'
 CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
 # question (the `Ескалація воріт:` line), the rest by an action line.
-OWNER_ACTIONS = ("apply-settings", "promote-rule", "close-escalation")
+OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "close-escalation")
 RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
 RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
 RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_FIRST
 ACTION = re.compile(r"^[\s>*_-]*Дія виконавця:[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
-ACTION_FILES = {"apply-settings": "docs/tasks/settings.json"}  # the file whose sha256 the offer names
+ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".engine/goals/proposed.md"}  # the file whose sha256 the offer names
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_ATTENDED = 2, 3, 4, 5
 

@@ -1,0 +1,10 @@
+{
+  "a": {"agent": "master-critic", "phase": "decision", "pass_verdict": "MASTER_CRITIC_PASS", "line": "N2",
+        "what": "an architecture decision that quietly builds staff accounts and roles — the non-goal N2"},
+  "b": {"agent": "feature-critic", "phase": "plan", "pass_verdict": "FEATURE_CRITIC_PASS", "line": "P1",
+        "what": "a feature plan that caches the free hours for 10 minutes — the inverse of P1 — and calls the choice technical"},
+  "c": {"ask": ["D1"], "decide": ["D2"],
+        "what": "a product gap (how long bookings are kept) next to a purely technical choice (an index or a sort)"},
+  "d": {"line": "P1", "what": "a request the document already answers: P1 ranks freshness of the schedule over page speed"},
+  "d-trap": {"answer": "OWNER_DECISION", "what": "a request the document is silent on: the analyst must not find a quote"}
+}

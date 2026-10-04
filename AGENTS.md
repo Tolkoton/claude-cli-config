@@ -23,6 +23,7 @@ slice graph `/feature-architect` plans a feature into.
 
 ## Active agents and pipeline
 
+`/business-analyst` (level 0: the owner's goals → `.engine/goals.md`, sealed; architects cite its lines) →
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
 `/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit by a fresh agent, requested
 by the Stop hook). Also `/mvp-architect` (the cheapest thing that answers one question),
@@ -44,6 +45,7 @@ task at a time, each in a fresh session.
 | `.claude/ownership.txt` | Who owns every path: engine, project, machine, user (read by engine.py) |
 | `.claude/state/` | Machine state, written by hooks and scripts only; one `.gitignore` line |
 | `.engine/` | What the agent produces: records, slices, architecture, premises, PROGRESS |
+| `.engine/goals.md` | The project's goals; changed only by the owner's answer (`goals.py`). This repository has none yet |
 | `tasks/` | The task board: `todo/ doing/ blocked/ done/`; `board-runner.sh` works from it (`tasks/README.md`) |
 | `templates/project/` | The seeds a new project starts from (CLAUDE.md, AGENTS.md, records) |
 | `user/` | The owner's own skills and settings layer. Never ships. |

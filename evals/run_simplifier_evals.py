@@ -76,7 +76,7 @@ def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) ->
     """Why paid sessions may not start, or None (tasks/README.md, «Платні прогони»)."""
     if owner_approved and not in_session:
         return None
-    doing = sorted((tasks_dir / "doing").glob("*.md")) if (tasks_dir / "doing").is_dir() else []
+    doing = sorted((tasks_dir / "doing").glob("[0-9]*.md")) if (tasks_dir / "doing").is_dir() else []
     if len(doing) == 1 and PAID_LINE_RE.search(doing[0].read_text(encoding="utf-8")):
         return None
     flag = " --owner-approved does not count inside a Claude Code session." if owner_approved else ""

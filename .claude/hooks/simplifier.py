@@ -73,7 +73,9 @@ LENSES = ("code", "requirements", "architecture", "instructions", "budget")
 PROTECTED = (".claude/constitution.md", ".claude/settings*.json", ".claude/ownership.txt",
              ".claude/hooks/block-dangerous.sh", ".claude/hooks/protect-paths.sh", ".claude/hooks/park-ask-gated.py",
              ".github/**", "**/migrations/**", "**/.env*", "secrets/**", "**/*.lock", "evals/baseline/**",
-             "tests/fixtures/**")
+             "tests/fixtures/**",
+             # the owner's goals (level 0): a finding about them is a question to the owner, never a removal
+             ".engine/goals.md")
 REPORT_REL = Path(".engine/simplifier/report.md")
 SECOND_LOG_REL = Path(".engine/simplifier/second-opinion.jsonl")
 DECISIONS_REL = Path(".engine/simplifier/decisions.jsonl")

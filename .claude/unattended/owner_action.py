@@ -4,6 +4,7 @@
     owner_action.py [--root DIR] apply-settings <sha256>
     owner_action.py [--root DIR] promote-rule <sha256>
     owner_action.py [--root DIR] reject-rule <sha256>
+    owner_action.py [--root DIR] amend-goals <sha256>
 
 `apply-settings` is the one way the shared settings change, in the engine's repository and in
 every project it is installed into (board 038): settings_check.py, which ships with the engine,
@@ -19,6 +20,12 @@ a rule question, whose offer names the sha256 of the proposal's id and the exact
 PROPOSED proposal with that sha256 is promoted into .engine/rules.md by lesson_queue.promote,
 which looks for the owner's answer itself; a proposal whose text changed since the question is
 stale. `reject-rule` is the owner's «ні»: the proposal is marked REJECTED.
+
+`amend-goals` is the one way an approved goals document changes without the owner's terminal
+(board 051): the owner answered «так» under a question that offers the sha256 of the proposed
+document `.engine/goals/proposed.md`. goals.py checks that it is a lawful amendment of the sealed
+`.engine/goals.md` (no number dropped or reused, the version raised), puts it in its place, seals
+it, and lists every decision that cited a changed line in `.engine/goals/to-review.md`.
 
 An agent may not edit .claude/settings.json (protect-paths.sh) and may not get there through
 this script either: it refuses inside a Claude Code session, as gate.py --close-escalation does.
@@ -106,7 +113,14 @@ def reject_rule(root: Path, declined: str) -> int:
     return 0 if done else EXIT_FAILED
 
 
-ACTIONS = {"apply-settings": apply_settings, "promote-rule": promote_rule, "reject-rule": reject_rule}
+def amend_goals(root: Path, approved: str) -> int:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+    import goals
+
+    return goals.amend(root, approved, in_session=False)  # main() has already refused a session
+
+
+ACTIONS = {"apply-settings": apply_settings, "promote-rule": promote_rule, "reject-rule": reject_rule, "amend-goals": amend_goals}
 
 
 def main() -> int:

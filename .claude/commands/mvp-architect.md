@@ -16,6 +16,13 @@ for it and confirm before proceeding.
 Pre-flight: if `.engine/architecture/mvp/$ARGUMENTS.md` exists, ask: (a) overwrite,
 (b) read and refine, (c) different slug.
 
+**Goals document — not required, read if there.** An MVP may be built before anyone wrote
+goals. If `python3 .claude/hooks/goals.py status` says there is a document the owner approved,
+read `.engine/goals.md`: the hypothesis must serve one of its goals, the slice must not do
+what a non-goal rules out, and the design ends with a short `## Звірка з цілями` (which G it
+serves, which N and C lie near). Pass the document to the `mvp-critic` with the design. No
+document: design as below and say nothing about it.
+
 ## Design rule
 
 Every requirement is honoured at the cheapest implementation that genuinely satisfies it.

@@ -18,6 +18,11 @@ Pre-flight:
   script is the sanctioned path). Clear it at the end with `... overseer_phase.py clear`.
 - Read the **domain map** and **architecture map** (`.engine/architecture/*`) to place
   this feature in the existing system.
+- `python3 .claude/hooks/goals.py status`. The document the owner approved → read
+  `.engine/goals.md` (level 0: goals G, principles P, non-goals N, constraints C, done-when D);
+  you never write it. No approved document → warn the owner in one line that this feature
+  cannot be reconciled with goals (`/business-analyst` writes them) and work as before; the
+  goals steps below are then skipped.
 
 ---
 
@@ -52,7 +57,9 @@ without stopping. Walk these one at a time, pushing back on vagueness.
 
 **1b — Acceptance criteria (PRODUCT — the owner ratifies).** What, observably, makes
 this feature done and acceptable? Product calls (Art. 5) — the owner sets them; you do
-not invent thresholds. **HARD GATE: do not proceed until ratified.**
+not invent thresholds. **HARD GATE: do not proceed until ratified.** Each criterion cites the
+goal or done-when it serves (G…, D…); a criterion with no line behind it is a NEW product
+decision — put it to the owner as such, never slip it in.
 
 **1c — Out of scope (explicit, non-empty).** What this feature deliberately does NOT do.
 
@@ -75,6 +82,25 @@ will run autonomously, elicit NOW everything they would otherwise have to ask:
 - **Autonomy grant**: confirm the owner authorizes the feature to plan and build all
   slices automatically after this round, interrupting only for the critical set (below).
 
+**1f — Goals check.** Write the frame's «Звірка з цілями» (the artifact template below): which
+goals and done-whens the feature serves, which principle settled a choice between options
+(or "принципи не розрізняють ці варіанти, вибір технічний"), which non-goals and constraints
+lie near and why they are not touched. Copy into the build parameters, in words, every
+principle that bears on this feature's slices: slices never read level 0 — the feature
+contract is how a ranking between two goods reaches them.
+
+**When to ask the analyst** — only for one of the four reasons of
+`.claude/references/business-analysis.md` §6: the document is silent on a choice that matters
+to the user or the business; it contradicts itself; the decision would touch a non-goal, a
+constraint or a done-when (a finding from a slice that makes a goal unreachable included); the
+goals are drifting. Write the request (§7), start the agent `business-analyst`, fresh, with the
+request's path and nothing else; paste its answer into the request. A `QUOTE` answer counts
+only when `python3 .claude/hooks/goals.py quote <request>` exits 0; anything else goes to the
+owner — in this round, or as a critical interrupt (3) later; unattended, to `tasks/blocked/`.
+Meanwhile a two-way door proceeds on the advice, marked `PROVISIONAL`; a one-way door parks. A
+purely technical choice is yours. A question from a slice comes to you first; you decide
+whether it is one of the four.
+
 **HARD GATE: do not start the autonomous run until 1b is ratified and 1e is answered.**
 After this round, the owner is not prompted again except for the critical interrupts.
 
@@ -92,6 +118,7 @@ draft = YOU (as architect) draft decompose, then contracts, then sequence
           NEVER code, NEVER a slice's internal plan (that's the slice-planner's job)
 for round in (1, 2):
   # Spawn the critic fresh; pass ONLY {phase: plan, draft, feature_frame, slug}. Stay blind.
+  # feature_frame carries the text of .engine/goals.md when there is an approved one.
   verdict = Task(agent="feature-critic", input={phase: "plan", draft, feature_frame, slug})
   case verdict:
     FEATURE_CRITIC_WRONG_SCOPE →
@@ -170,12 +197,18 @@ slice-builder), before committing the rest of the DAG.
 - Policies: [error-handling, logging, data conventions]
 - Risk tolerance: auto-spike = [yes/no]; proceed on a PASSing spike = yes
 - Autonomy: build all slices automatically; interrupt only on the critical set
+- Principles that bear on the slices: [in words, from the goals document — the slices do not read it]
 
 ## Premises verified
 [each load-bearing premise → evidence (tracer bullet / spike / docs+runtime) → date; ref premise-log]
 
 ## Out of scope (deliberately)
 - [1c]
+
+## Звірка з цілями
+- служить: [G…, D… — the lines the acceptance criteria cite]
+- вибір між варіантами розв'язав: [P… | принципи не розрізняють ці варіанти, вибір технічний]
+- не-цілі й обмеження: [N…, C… — why not touched]
 
 ## Slices (the DAG)
 - **S1 [name]** — delivers: [behavior] · contract out: [type/shape consumers get] · depends on: [—] · **TRACER BULLET (build first)**
@@ -252,7 +285,10 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
 2. Clear the phase guard: `python3 .claude/hooks/overseer_phase.py clear`.
 3. Summarize for the owner: capability delivered, slices built, how acceptance is met,
    any accepted risks / open items. *"Feature $ARGUMENTS is built and its acceptance
-   criteria are met."*
+   criteria are met."* The summary — and the task's `report.md` when the feature was a board
+   task — has a section **«Які цілі вона просуває»**: the G and D numbers of the frame, one
+   line each on how the feature moves it. A feature that advances no goal is written down as
+   exactly that.
 
 ---
 

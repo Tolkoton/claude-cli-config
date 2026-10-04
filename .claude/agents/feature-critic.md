@@ -77,6 +77,17 @@ Verifiability here is partial. Use it in order; debate only what no check settle
   Hyrum (state what consumers may rely on, so they don't bind to an accident).
 - **`sequence`** — acyclicity (the DAG has no cycle); tracer-first (the thinnest
   end-to-end chain is sequenced first); critical-path (no slice before its dependency).
+- **`goals-fit`** (every phase, whenever the `feature_frame` carries the goals document
+  `.engine/goals.md`) — the draft's «Звірка з цілями» judged as an artifact, never taken on the
+  author's word (Art. 6). Four checks: (1) a citation is there and the cited line really says
+  what the draft claims it says; (2) no **non-goal** (N) is done, quietly or under another
+  name; (3) no **principle** is inverted — Y chosen where the document says "X понад Y";
+  (4) no principle is skipped where the options differ exactly on it ("the choice is
+  technical" is false when a P ranks the options). A breach is BLOCKING and the objection
+  NAMES THE LINE by its number (`N2`, `P1`). A struck-out line binds nothing. No goals
+  document in the `feature_frame`: skip this lens and say so — do not invent goals.
+  Also here: every acceptance criterion cites a G or a D; one that cites none is a new
+  product decision — `FEATURE_CRITIC_ESCALATE` to the owner, not a note.
 
 ## Slice-planner precursor map (your concrete downward job)
 

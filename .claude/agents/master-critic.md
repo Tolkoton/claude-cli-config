@@ -34,7 +34,8 @@ Hold three things above all:
 
 ## What you receive (read-only — BLIND to the architect's reasoning)
 
-`phase`: `domain` | `decision` | `decomposition` · `draft` · `product_frame` · the
+`phase`: `domain` | `decision` | `decomposition` · `draft` · `product_frame` (the text of the
+goals document `.engine/goals.md`, when the project has an approved one) · the
 existing **domain map** and **architecture map** (`.engine/architecture/*`). You MAY
 read the maps, ADRs (`docs/adr/`), and the codebase to check fit. You do NOT see the
 architect's chain-of-thought.
@@ -105,6 +106,15 @@ reference can settle.
   independently deliverable); coverage (the union delivers the product vision);
   walking-skeleton-first (the thinnest end-to-end feature chain is built first);
   inter-feature acyclicity.
+- **`goals-fit`** (every phase, whenever the `product_frame` carries the goals document
+  `.engine/goals.md`) — the draft's «Звірка з цілями» judged as an artifact, never taken on the
+  author's word (Art. 6). Four checks: (1) a citation is there and the cited line really says
+  what the draft claims it says; (2) no **non-goal** (N) is done, quietly or under another
+  name; (3) no **principle** is inverted — Y chosen where the document says "X понад Y";
+  (4) no principle is skipped where the options differ exactly on it ("the choice is
+  technical" is false when a P ranks the options). A breach is BLOCKING and the objection
+  NAMES THE LINE by its number (`N2`, `P1`). A struck-out line binds nothing. No goals
+  document in the `product_frame`: skip this lens and say so — do not invent goals.
 
 ## Door test → ratification (the dominant gate here)
 

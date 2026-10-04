@@ -14,11 +14,13 @@ state this clone knows (its remote-tracking ref) is shown, and the document says
 The runner's own state — `.claude/state/board/` — is not in git; it is read when the review runs
 on the runner's machine and replaced by what git shows when it does not.
 
-WHAT IT SHOWS, in seven sections: the state now; what was done since `--since` (default: the
+WHAT IT SHOWS, in eight sections: the state now; what was done since `--since` (default: the
 newest version tag), each finished task with the owner's parts of its report; everything that
 waits for the owner — every unfilled `Відповідь:` in blocked/ with the text above it, the
 tasks that need the owner present (`Потрібна присутність власника: так`, board 016), the
-settings proposals, the open escalations, the parked items, the rule proposals; the new entries of the anomaly journal
+settings proposals, the open escalations, the parked items, the rule proposals; the goals document (board 051: the decisions
+that cite no line of it, the architects' requests to the analyst and which were closed by a quote, the amendments and what
+they touched, the analyst's lessons — read by .claude/hooks/goals.py, figures to read and not targets); the new entries of the anomaly journal
 tasks/ANOMALIES.md (board 021: what the runner — and since board 035 the gate, a hook or the agent — found odd and worked past); the plan; the
 candidates for new tasks; the health — the last runs of the suites and of the golden set from the machine
 records the tools leave in .claude/state/health/ (board 035), not from anybody's prose. `--since` narrows what was DONE (and the anomalies, the
@@ -36,6 +38,7 @@ import os
 import posixpath
 import re
 import subprocess
+import sys
 import textwrap
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -44,6 +47,9 @@ from typing import Any
 
 import board
 import board_state
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+import goals  # the goals document's reader lives with the hooks
 
 CONTEXT_BUDGET = 200
 MAX_HOPS = 4  # how deep Claude Code follows `@path` imports (tests/test_context_budget.py)
@@ -484,6 +490,44 @@ def waiting_section(src: Source, state: Path) -> list[str]:
             "### Пропозиції правил", "", *rule_lines(src, asked)]
 
 
+# ------------------------------------------------------------------ the goals document (board 051)
+
+REQUEST_ENDS = {"quote-valid": "закрито цитатою документа, вас не турбували", "quote-invalid": "цитата НЕ збігається з документом — запит іде до вас",
+                "owner": "потрібне ваше рішення", "unanswered": "аналітик ще не відповів"}
+
+
+def goals_section(src: Source) -> list[str]:
+    """What the owner sees of level 0: decisions that cite no line, the architects' requests to the
+    analyst and how each ended, the amendments and what they touched, the analyst's lessons."""
+    document = src.show(goals.GOALS_REL)
+    try:
+        numbered = goals.items(document)
+    except ValueError as broken:
+        return [f"- Документ цілей `{goals.GOALS_REL}` зіпсовано: {broken}."]
+    asked = goals.requests(src.show, src.files)
+    lessons = [line for line in src.show(".engine/lesson-queue.md").splitlines() if re.match(r"^- \S+ \| analyst \|", line)]
+    if not numbered:
+        lines = [f"- Документа цілей (`{goals.GOALS_REL}`) ще немає: його складає `/business-analyst` разом із вами. Доки його немає, рішення архітекторів звіряти ні з чим."]
+        if not asked and not lessons:
+            return lines
+    else:
+        standing = sum(not item.struck for item in numbered.values())
+        lines = [f"- Документ цілей: версія {goals.version(document)}, чинних рядків {standing}, закреслених {len(numbered) - standing}."]
+    loose = goals.unreconciled(src.show, src.files)
+    lines += ["", "### Не звірені рішення", "",
+              *([f"- `{path}` — {why}" for path, why in loose] or ["- Немає."])]
+    lines += ["", "### Запити до аналітика", "",
+              *([f"- `{posixpath.basename(r.path)}` (привід {r.reason}): {REQUEST_ENDS[r.outcome]}" + (f" — {r.detail}" if r.detail else "") for r in asked] or ["- Немає."])]
+    marked = goals.to_review(src.show)
+    lines += ["", "### Поправки до документа", "",
+              *([f"- {entry}" for entry in goals.changes(document)] or ["- Немає."]),
+              *([f"- Чекає перегляду архітектором після поправки: {entry}" for entry in marked])]
+    if src.show(goals.PROPOSED_REL):
+        lines.append(f"- Запропонована поправка `{goals.PROPOSED_REL}` чекає вашого «так» (питання — в `tasks/blocked/`).")
+    lines += ["", "### Уроки аналітика, що чекають розбору", "", *([f"- {line[2:]}" for line in lessons] or ["- Немає."])]
+    return lines
+
+
 # ------------------------------------------------------------------ anomalies
 
 
@@ -675,6 +719,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
     for title, body in (("Стан зараз", now_section(src, state, now)),
                         ("Зроблено", done_section(src, stems, costs)),
                         ("Чекає на власника", waiting_section(src, state)),
+                        ("Цілі та звірка з ними", goals_section(src)),
                         ("Аномалії", anomalies_section(src, period)),
                         ("План", plan_section(src)),
                         ("Кандидати в нові задачі", candidates_section(src, stems, period)),
