@@ -458,7 +458,7 @@ def question_lines(src: Source, asked: list[Asked]) -> list[str]:
 
 
 def settings_lines(src: Source, asked: list[Asked]) -> list[str]:
-    lines = [f"- `{posixpath.basename(path)}` чекає «так»: дію `apply-settings` виконає виконавець, не агент."
+    lines = [f"- `{posixpath.basename(path)}` чекає «так»: дію `{task.action}` виконає виконавець, не агент."
              for path, _, task in asked if task.action and not task.answered]
     proposal = src.show("docs/tasks/settings.json")
     if proposal and proposal != src.show(".claude/settings.json"):

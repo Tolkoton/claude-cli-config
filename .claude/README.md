@@ -185,7 +185,7 @@ This map points; it does not restate. For behaviour, read the source:
 - Skills: all under `.claude/skills/<name>/SKILL.md` — `overseer` is
   repo-native; the other 5 are **vendored** copies (keep them in sync manually — see §8).
 - Subagents (critic agents): `.claude/agents/*.md` — repo-native.
-- Commands: `.claude/commands/{business-analyst,plan-slice,master-architect,feature-architect,mvp-architect,owner-review,onboard,bugfix,hotfix}.md`.
+- Commands: `.claude/commands/{business-analyst,plan-slice,master-architect,feature-architect,mvp-architect,owner-review,onboard,bugfix,hotfix,maintain}.md`.
   The memory lifecycle has no slash commands: the `self-learning-orchestrator` skill reacts
   to the moments its SKILL.md lists (session start, a decision, being stuck, wrapping up).
 - Hooks: `.claude/hooks/*` (wired in `.claude/settings.json`).

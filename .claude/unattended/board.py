@@ -33,6 +33,9 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      «так» (a rule proposal: also «ні»): one
                                      `name<TAB>action<TAB>argument<TAB>sha256` line each
     board.py action-line <action>    the line an agent writes under its question to offer the action
+    board.py maintain-task [--today YYYY-MM-DD]
+                                     the runner's weekly call: put the maintenance task into todo/
+                                     when it is due (see THE MAINTENANCE TASK); prints its path
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
     board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--wip BRANCH [--wip-remote NAME]]
@@ -76,6 +79,17 @@ overseer's recommendation when there is one, the question «Зробити це 
 closed); either way the runner moves the task to done/ with a short report and no agent is
 started. Any other answer is an instruction for the agent.
 
+UPDATING DEPENDENCIES (board 076) is such an action too: `update-deps`, offered under the question
+that ends a `/maintain` task, with the sha256 of the list `.engine/maintain/updates.json` the owner
+saw. On «так» the runner runs owner_action.py, which updates patches and minor versions only, one
+at a time, each checked by the full gate and committed on its own or rolled back.
+
+THE MAINTENANCE TASK (board 076). Once a week the runner puts `NNN-maintain-<date>.md` into todo/
+itself (`maintain-task`): a task that says to run `/maintain`. Not when one is already in todo/,
+doing/ or blocked/; not sooner than MAINTAIN_EVERY_DAYS (`.claude/project.env`; empty — 7, `0` —
+never) after the newest one, wherever it lies; and not in a project without the command
+`.claude/commands/maintain.md`. The engine schedules nothing else.
+
 AN ATTENDED TASK (board 016) says `Потрібна присутність власника: так` under its title: work no
 agent may do alone — above all a change to its own guards, which the permission classifier
 rightly refuses without a person. `next` never offers one and `start` never moves one; the
@@ -116,7 +130,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 COLUMNS = ("todo", "doing", "blocked", "done")
@@ -134,12 +148,17 @@ GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner'
 CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
 # question (the `Ескалація воріт:` line), the rest by an action line.
-OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "close-escalation")
+OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "update-deps", "close-escalation")
 RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
 RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
 RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_FIRST
 ACTION = re.compile(r"^[\s>*_-]*Дія виконавця:[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
-ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".engine/goals/proposed.md"}  # the file whose sha256 the offer names
+DEPS_ACTION, DEPS_RESULT = "update-deps", ".engine/maintain/update-result.md"
+ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".engine/goals/proposed.md",
+                DEPS_ACTION: ".engine/maintain/updates.json"}  # the file whose sha256 the offer names
+MAINTAIN_NAME = re.compile(r"^\d{3,}-maintain-(\d{4}-\d\d-\d\d)(?:\.md)?$")
+MAINTAIN_COMMAND, MAINTAIN_DAYS = ".claude/commands/maintain.md", 7
+FIRST_RESERVED = 800  # ordinary tasks are numbered under the rule questions and the gate's
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_ATTENDED = 2, 3, 4, 5
 
@@ -594,6 +613,11 @@ ACTION_OUTCOMES = {
     "stale": STALE,
 }
 RULE_OUTCOMES = {
+    (DEPS_ACTION, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «так» оновлення пройшли по одному: що оновлено "
+                              f"(кожне окремим commit-ом), а що скасовано і з яким виводом — у `{DEPS_RESULT}`. Агентові: перенеси це у звіт і закрий задачу.",
+    (DEPS_ACTION, "failed"): "Дію не виконано ({now}, виконавець дошки): {action} — жодної залежності не оновлено: немає `DEPS_UPDATE_CMD`, робоче дерево "
+                             f"було не чисте, перевірки не зелені ще до оновлень або гілка не `unattended/*` (подробиці — `{DEPS_RESULT}` або журнал на "
+                             "сервері: .claude/state/board/logs/owner-action.log). Агентові: напиши причину у звіт; оновлювати знову — лише новим питанням.",
     (RULE_ACTION, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «так» правило додано до `.engine/rules.md`.",
     (RULE_ACTION, "failed"): "Дію не виконано ({now}, виконавець дошки): {action} — правило не додано: постійний контекст перевищив би "
                              "200 рядків (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: скороти "
@@ -627,6 +651,53 @@ def action_done(board: Board, path: Path, outcome: str) -> Path:
         "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було, лише ваша відповідь.\n",
         encoding="utf-8")
     return target
+
+
+def maintain_task(board: Board, root: Path, today: date) -> Path | None:
+    """Put the weekly maintenance task into todo/ when it is due (THE MAINTENANCE TASK); None — not now."""
+    env = {m.group(1): m.group(2) for m in re.finditer(r'^(MAINTAIN_\w+)="?([^"\n]*)"?\s*$', _text(root / ".claude/project.env"), re.MULTILINE)}
+    raw = env.get("MAINTAIN_EVERY_DAYS", "").strip()
+    every = int(raw) if raw.isdigit() else MAINTAIN_DAYS
+    if every == 0 or not (root / MAINTAIN_COMMAND).is_file():
+        return None
+    found = {c: [m.group(1) for p in (board.tasks / c).glob("*") if (m := MAINTAIN_NAME.match(p.name))] for c in COLUMNS}
+    if found["todo"] or found["doing"] or found["blocked"]:
+        return None
+    if found["done"] and (today - date.fromisoformat(max(found["done"]))).days < every:
+        return None
+    taken = {n for c in COLUMNS for p in (board.tasks / c).glob("*") if (n := number_of(p.name)) is not None}
+    number = max((n for n in taken if n < FIRST_RESERVED), default=0) + 1
+    if number >= FIRST_RESERVED:
+        number = next(n for n in range(1, FIRST_RESERVED) if n not in taken)
+    path = board.tasks / "todo" / f"{number:03d}-maintain-{today.isoformat()}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"""# {number:03d} — Регулярний догляд {today.isoformat()}
+
+Залежить від: —
+Потрібна присутність власника: ні
+Аудит потрібен: ні
+
+Цю задачу поклав виконавець дошки: догляд — раз на {every} днів, якщо попередній уже закрито.
+
+## Що зробити
+Виконай `/maintain` (`.claude/commands/maintain.md`): звіт `.engine/maintain/{today.isoformat()}.md` — залежності,
+складність проти минулого звіту, гарячі місця, знімок «як було», борги термінових виправлень,
+черга уроків, пропозиції задач. Нічого не видаляй, не впорядковуй і не оновлюй.
+
+## Готово, коли
+- Звіт догляду написано, і в `report.md` — його головне для власника.
+- Якщо є що оновити — задача в `blocked/` з питанням «Оновити ці N залежностей?» і рядком дії.
+
+## Питання до власника
+""", encoding="utf-8")
+    return path
+
+
+def _text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
 
 
 def gate_reject(path: Path, word: str = CONSENT) -> None:
@@ -832,6 +903,7 @@ def main() -> int:
     commands.add_parser("gate-reject").add_argument("name")
     commands.add_parser("owner-actions")
     commands.add_parser("action-line").add_argument("action", choices=sorted(ACTION_FILES))
+    commands.add_parser("maintain-task").add_argument("--today", default=os.environ.get("BOARD_TODAY") or None, help="YYYY-MM-DD (default: today, UTC)")
     action_done_parser = commands.add_parser("action-done")
     action_done_parser.add_argument("name")
     action_done_parser.add_argument("outcome", choices=sorted(ACTION_OUTCOMES))
@@ -903,7 +975,15 @@ def main() -> int:
             print(line)
         return 0
     if args.command == "action-line":
+        if not (root / ACTION_FILES[args.action]).is_file():
+            print(f"board: {ACTION_FILES[args.action]} is missing; there is nothing to offer", file=sys.stderr)
+            return EXIT_REFUSED
         print(action_line(root, args.action))
+        return 0
+    if args.command == "maintain-task":
+        placed = maintain_task(board, root, date.fromisoformat(args.today) if args.today else datetime.now(UTC).date())
+        if placed:
+            print(board.shown(placed))
         return 0
     if args.command in ("action-done", "action-reject"):
         path = action_task(board, args.name)

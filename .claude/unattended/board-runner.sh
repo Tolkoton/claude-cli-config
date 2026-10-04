@@ -95,7 +95,10 @@
 # and only from the short list: `apply-settings` (owner_action.py: the settings proposal is
 # copied over .claude/settings.json and its test run), `promote-rule` / `reject-rule` (board 040:
 # the owner's «так» or «ні» under a rule question — a lesson becomes a rule in .engine/rules.md,
-# or its proposal is closed) and the gate's `close-escalation` above.
+# or its proposal is closed), `update-deps` (board 076: the patches and minor versions the owner
+# approved under the question of a /maintain task — owner_action.py updates them one at a time,
+# each checked by the full gate and committed on its own or rolled back) and the gate's
+# `close-escalation` above.
 # The same rule for where the answer came from applies. The offer is then replaced by the
 # outcome and the task returns to todo/ for the agent to check and report; a rule question the
 # runner acted on goes straight to done/ with a short report, no agent is started for it.
@@ -106,6 +109,12 @@
 # but tasks/ and, after apply-settings, .claude/settings.json, after a rule action
 # .engine/rules.md and .engine/rule-proposals.md — and only on the work branch, which must
 # be an unattended/* branch: hooks do not see a commit made from a script, so the check is here.
+# (After update-deps the commits — one per update, one for the result — are owner_action.py's own.)
+#
+# THE WEEKLY MAINTENANCE TASK (board 076). Before every task the runner asks `board.py
+# maintain-task`: once a week it puts NNN-maintain-<date>.md into todo/ — a task to run /maintain —
+# unless one already waits in todo/, doing/ or blocked/. One commit. MAINTAIN_EVERY_DAYS in
+# .claude/project.env (empty: 7; 0: never); BOARD_TODAY names another day (the tests).
 #
 # Every number is an environment variable, so the tests run in seconds:
 #   BOARD_BRANCH (unattended/work)  BOARD_REMOTE (origin)  BOARD_INBOX (~/engine-ops/tasks-inbox)
@@ -466,7 +475,7 @@ sweep_closed_questions() {
 
 # New task files and the owner's answers, each in a commit of its own.
 intake() {
-  local taken answered
+  local taken answered placed
   publish_gate_questions
   taken=$(board import-inbox "$INBOX") || finish error - inbox "board.py import-inbox failed"
   if [ -n "$taken" ]; then
@@ -481,6 +490,11 @@ intake() {
   if [ -n "$answered" ]; then
     board_commit "board: answered, back to todo — $(echo "$answered" | tr '\n' ' ')" \
       || finish error - commit "cannot commit the answered tasks"
+  fi
+  placed=$(board maintain-task) || finish error - maintain "board.py maintain-task failed"
+  if [ -n "$placed" ]; then
+    event "maintain-task $placed"
+    board_commit "board: the weekly maintenance task — $placed" || finish error - commit "cannot commit the maintenance task"
   fi
 }
 

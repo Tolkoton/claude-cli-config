@@ -348,7 +348,7 @@ questions. A project installed before this command existed has no `tasks/TEMPLAT
                     feature-architect, self-learning-orchestrator, documentation,
   agents/         — critic subagents: slice-planner-critic, feature-critic,
                     master-critic, critic-core
-  commands/       — project commands: plan-slice, master-architect, feature-architect, onboard, bugfix, hotfix
+  commands/       — project commands: plan-slice, master-architect, feature-architect, onboard, bugfix, hotfix, maintain
   templates/      — slice-contract.md, the shape /plan-slice writes; bug-record.md, the shape /bugfix writes; hotfix-record.md, the card of /hotfix
   references/     — reference materials for agents (ADR format, C4, permission philosophy)
   unattended/     — the task board's runner and its helpers
@@ -370,6 +370,8 @@ questions. A project installed before this command existed has no `tasks/TEMPLAT
   onboard/        — profile.md, the project's profile written by /onboard (existing projects only)
   bugs/           — bug records written by /bugfix, and the cards of urgent fixes (/hotfix): the contract and the report of each fix
   debt.md         — what urgent fixes put off: one line each, written and closed by hotfix.py, term seven days
+  maintain/       — the reports of /maintain (<date>.md), the list the owner is asked about (updates.json),
+                    what the runner's update did (update-result.md)
   artifacts/      — spikes, notes (created on first use)
   PROGRESS.md     — slice completion history (created by slice-builder; gitignored)
 

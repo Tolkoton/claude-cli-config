@@ -253,6 +253,29 @@ What that does not give:
 - **`pins` shows a test passes, not that it looks at the code about to be deleted.** A test that
   asserts nothing about that code pins nothing and still prints `PINNED`.
 
+## Regular care (board 076)
+
+`/maintain` reports, the owner approves a list, the board runner updates (`.claude/commands/maintain.md`).
+What that does not give:
+
+- **"Read-only" is the project's word.** `DEPS_OUTDATED_CMD` and `DEPS_AUDIT_CMD` are run as written;
+  the script cannot tell a command that reads from one that installs. The command file tells the
+  agent to stop on one that plainly changes something; nothing enforces it.
+- **The class of an update is read from two version numbers.** Patch, minor, major follow semver,
+  with a `0.x` minor counted as major; a project that breaks things in a patch is not caught by
+  the class — only by its tests, after the update, which is why every update is followed by the full gate.
+- **An update is checked by what the project checks.** With thin tests a breaking update passes
+  and is committed. A project whose gate runs no tests gets no update at all.
+- **A roll-back restores the files git tracks.** The installed packages come back only through
+  the project's `DEPS_RESTORE_CMD`; with it empty the result file says the environment may be newer
+  than the files. Files the update command wrote into an ignored path are not removed.
+- **The owner approves a list, not a diff.** The sha256 ties the answer to `updates.json`; what the
+  update command then does with each name and version is the command's own.
+- **The weekly task is weekly only while the runner runs.** `board.py maintain-task` is asked before
+  every task; a runner that is not started places nothing, and the first start after a long
+  pause places one task, not one per missed week.
+- **Hot places and complexity are measured for Python only**, as the simplifier's signals are.
+
 ## The urgent fix (board 075)
 
 `/hotfix` puts off the test before the code, the record of the cause and the search for the same

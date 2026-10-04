@@ -49,7 +49,16 @@ changed line; the agent, when the task returns to it, commits the document. A le
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
 `Дія виконавця: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the
-question to `done/` with a short report — no agent is started. A task that says `Потрібна присутність
+question to `done/` with a short report — no agent is started. Dependencies are updated the
+same way and no other (board 076): the question that ends a `/maintain` task carries the offer
+`Дія виконавця: update-deps <sha256 of .engine/maintain/updates.json>`; on `так` `owner_action.py` checks
+that the list is the one the owner saw, that the tree is clean and the full gate green, then runs the
+project's `DEPS_UPDATE_CMD` — the patches as one group, every minor version alone, never a major one
+— each followed by `gate.py --layer ci` and a commit of its own, or rolled back and written with its
+output to `.engine/maintain/update-result.md`; the task then returns to the agent, which reports.
+Once a week the runner puts the maintenance task into `todo/` itself (`board.py maintain-task`:
+`NNN-maintain-<date>.md`, a task to run `/maintain`) — never while one waits in `todo/`, `doing/` or
+`blocked/`, `MAINTAIN_EVERY_DAYS` in `project.env` (empty: 7, `0`: never). A task that says `Потрібна присутність
 власника: так` it never takes (`board.py next` does not offer one; left in `doing/` it stops the runner with
 `reason=attended`): such a task is done in an interactive session with the owner (`tasks/README.md`).
 It moves the task to `doing/` in its own commit and starts
