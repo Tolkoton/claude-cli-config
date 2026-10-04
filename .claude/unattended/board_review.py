@@ -63,8 +63,6 @@ STATES = {
     "idle": "зупинився: у todo/ нічого немає",
     "waiting-owner": "зупинився: усе, що лишилося, чекає власника",
     "stopped": "зупинився після однієї задачі, як і просили",
-    "stalled": "зупинився: кілька спроб поспіль без жодного commit-а",
-    "deadline": "зупинився: задача триває довше дозволеного або вичерпала свій бюджет",
     "error": "зупинився через помилку",
 }
 # The parts of a report the review quotes, by the start of the heading (reports word them freely).
