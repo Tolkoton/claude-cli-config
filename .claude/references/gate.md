@@ -87,8 +87,7 @@ is a new exemption.
 The `GATE_MAX_BLOCKS`th block also records the escalation in `.claude/state/gate/escalations.json`:
 the files it blocked on (every file it looked at, when the failure named none). While it is open,
 `overseer_verdict.py` records a BLOCK ("gate escalation open") in place of the overseer's PASS as long as
-any of those files is in the range no accepted PASS has covered (under the former protocol, before the
-settings are applied, `overseer_stop.py` answers the session's `OVERSEER_PASS` with `OVERSEER_PASS_REFUSED`). The lock is keyed on the files, not on the
+any of those files is in the range no accepted PASS has covered. The lock is keyed on the files, not on the
 slice's name — `.engine/PROGRESS.md` is the agent's own file. Other work passes once the escalated
 changes are set aside uncommitted (`git stash push -- <files>`).
 

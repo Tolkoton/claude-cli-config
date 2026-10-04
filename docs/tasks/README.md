@@ -113,9 +113,11 @@ adds — and through nothing else:
   (schema, the tree's fingerprint, the contract's sha256, the gate's open escalation) and writes
   the ledger entry.
 
-Until this is applied the Stop hook keeps the former protocol — the session audits itself and
-its `OVERSEER_PASS` continues — so nothing is left without an audit in between;
-`python3 .claude/hooks/overseer_verdict.py status` says which protocol is in force. Once applied,
+There is no other way to audit (board 033): in a project whose settings lack the two handlers the
+Stop hook answers a completion claim with `OVERSEER NOT WIRED` and nothing is audited.
+`engine.py install` and `update` put them into every project — into a settings file the project
+edited they are added, and the report names each one (`tests/test_settings_wiring.py`);
+`python3 .claude/hooks/overseer_verdict.py status` says whether a project is wired.
 `OVERSEER_PASS` typed by the builder is refused. `tests/test_settings_proposal.py` lists the two
 handlers as the intended difference and allows no other; `tests/test_overseer_fresh.py` shows every
 protection with its negative case. Apply, from the repository root, then restart Claude Code:

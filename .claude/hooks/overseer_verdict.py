@@ -124,9 +124,9 @@ def write_json(path: Path, payload: JsonObj) -> None:
 
 
 def wired(root: Path) -> bool:
-    """Is this script wired in the project's settings? Until it is, `overseer_stop.py` keeps the
-    former protocol (the session audits itself), so an engine update never leaves a project
-    without an audit between the update and the owner applying the settings."""
+    """Is this script wired in the project's settings? `engine.py install` / `update` put its two
+    handlers there (board 033). Where they are missing nothing can record a verdict, so
+    `overseer_stop.py` makes no request and says so: there is no other way to audit."""
     for name in ("settings.json", "settings.local.json"):
         try:
             if WIRING_MARK in (root / ".claude" / name).read_text(encoding="utf-8"):
@@ -671,8 +671,8 @@ def read_envelope() -> JsonObj:
 def manual_request(root: Path, turn_file: Path, unit: str) -> int:
     if not wired(root):
         print("overseer_verdict.py is not wired in .claude/settings.json, so nothing would record the agent's verdict. "
-              "Apply the settings first (docs/tasks/settings.json), or audit by the former protocol "
-              "(.claude/skills/overseer/SKILL.md).", file=sys.stderr)
+              "Run `engine.py update <this project>` first: it adds the two handlers (guard, record). Do not "
+              "audit the turn yourself.", file=sys.stderr)
         return 3
     waiting = pending(root)
     if waiting is not None and (verdict_for(root, str(waiting["id"])) or {}).get("verdict") in (None, INVALID):
@@ -706,7 +706,7 @@ def manual_request(root: Path, turn_file: Path, unit: str) -> int:
 
 def status(root: Path) -> int:
     waiting = pending(root)
-    print(f"wired in settings: {'yes' if wired(root) else 'NO — the session audits itself (the former protocol)'}")
+    print(f"wired in settings: {'yes' if wired(root) else 'NO — nothing is audited until `engine.py update` adds the two handlers'}")
     print(f"pending request:   {waiting['id'] if waiting else 'none'}"
           + (f" (asked {waiting.get('asks')}, launched {waiting.get('launched')})" if waiting else ""))
     for row in rows(root)[-5:]:

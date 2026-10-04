@@ -149,9 +149,14 @@ check("wired: a PASS typed by the builder is refused, nothing continues", "OVERS
 check("wired: nothing was written to the ledger or the verdict file", "OVERSEER_PASS" not in p.read(".engine/overseer/ledger.md") and not p.rows())
 old = Project(wired=False)
 said = old.stop("Audit complete.\n\nOVERSEER_PASS\n")
-check("negative — not wired yet: the former protocol still continues on the marker", "OVERSEER_PASS recorded" in said, said)
-said, _ = old.claim()
-check("not wired yet: the claim gets the former self-audit request", "12-check" in said and "Launch the agent" not in said, said)
+check("not wired: a typed PASS continues nothing either — there is no second protocol", said == "", said)
+said, rid = old.claim()
+check("not wired: a claim is answered with the way out — no request, no self-audit",
+      said.startswith("OVERSEER NOT WIRED") and "engine.py update" in said and "Do NOT audit the unit yourself" in said
+      and rid == "" and "12-check" not in said and "Launch the agent" not in said, said)
+check("not wired: the same claim is answered once", old.stop(CLAIM, old.transcript()) == "")
+old.write(".claude/state/overseer/state", "plan\n")
+check("not wired, planning: nothing is said", old.stop(CLAIM + "\nagain", old.transcript()) == "")
 
 print("2. A unit-completion claim becomes a request package")
 p = Project(slice_name="ref-tax")

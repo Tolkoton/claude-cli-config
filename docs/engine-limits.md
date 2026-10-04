@@ -214,9 +214,11 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
 - **An audit asked for by hand** takes the turn from a file. A turn that existed only in the
   conversation is written out by the session that asks — a model in the middle; the recorded
   verdict says `manual`.
-- **Until the settings are applied** (the two handlers in `docs/tasks/settings.json`) the Stop
-  hook keeps the former protocol: the session audits itself and its `OVERSEER_PASS` continues.
-  `python3 .claude/hooks/overseer_verdict.py status` says which protocol is in force.
+- **A project without the two handlers is not audited.** The Stop hook has one protocol; where
+  `.claude/settings.json` lacks `overseer_verdict.py guard` and `record` it answers a claim with
+  `OVERSEER NOT WIRED` and the unit is parked. `engine.py install` / `update` add them, also to a
+  settings file the project edited; a file that is not readable JSON is left alone and the update
+  reports the text to add. `python3 .claude/hooks/overseer_verdict.py status` says which it is.
 - **Three BLOCKs park a unit by instruction.** The hook tells the builder to move the task to
   `tasks/blocked/` with a question; the move itself is the builder's.
 

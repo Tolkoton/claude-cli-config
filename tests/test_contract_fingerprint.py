@@ -57,6 +57,10 @@ def make_project(root: Path) -> Path:
     (root / ".engine/overseer").mkdir(parents=True)
     (root / ".engine/slices/tax.md").write_text(CONTRACT, encoding="utf-8")
     (root / ".engine/PROGRESS.md").write_text("# PROGRESS\n\n## Slice tax — IN PROGRESS\nPlanning artifact: `.engine/slices/tax.md`.\n", encoding="utf-8")
+    # The overseer's handlers: without them the Stop hook makes no request at all (board 033).
+    (root / ".claude").mkdir(exist_ok=True)
+    (root / ".claude/settings.json").write_text('{"hooks": {"SubagentStop": [{"matcher": "overseer", "hooks": [{"type": "command", '
+                                                '"command": "python3 .claude/hooks/overseer_verdict.py record"}]}]}}\n', encoding="utf-8")
     transcript = root / "transcript.jsonl"
     records = [
         {"type": "user", "message": {"content": "build the tax slice"}},
@@ -69,10 +73,10 @@ def make_project(root: Path) -> Path:
 
 def stop(root: Path) -> subprocess.CompletedProcess[str]:
     envelope = {"last_assistant_message": "done\n=== UNIT 1 COMPLETE ===\n", "transcript_path": str(root / "transcript.jsonl")}
-    # a fresh digest guard per call: the hook refuses to fire twice on one message
-    guard = root / ".claude/state/overseer/.last_audit_sha"
-    if guard.exists():
-        guard.unlink()
+    # a fresh digest guard per call: the hook refuses to fire twice on one message; and no request
+    # left waiting by the call before, or the hook would ask for that one's verdict instead
+    for name in (".last_audit_sha", "pending.json"):
+        (root / ".claude/state/overseer" / name).unlink(missing_ok=True)
     return run([str(HOOK)], root, json.dumps(envelope))
 
 
@@ -124,9 +128,8 @@ def main() -> int:
         t.check("a contract approved before sealing existed is audited as before", d == "block" and "OVERSEER_REQUEST" in reason, reason[:200])
 
         print("the overseer without the sentinel is untouched:")
-        guard = project / ".claude/state/overseer/.last_audit_sha"
-        if guard.exists():
-            guard.unlink()
+        for name in (".last_audit_sha", "pending.json"):
+            (project / ".claude/state/overseer" / name).unlink(missing_ok=True)
         r = run([str(HOOK)], project, json.dumps({"last_assistant_message": "ordinary turn", "transcript_path": str(project / "transcript.jsonl")}))
         t.check("no claim → no block", decision(r)[0] != "block", r.stdout)
         r = run([str(HOOK), "--dry-run"], project, "{}")

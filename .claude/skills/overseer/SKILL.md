@@ -84,25 +84,13 @@ recorded for it (the script writes a BLOCK instead). Only the owner closes the
 escalation (`gate.py --close-escalation`, refused inside a session, or the
 answer `закрити` under the gate's question in `tasks/blocked/`).
 
-## The former protocol — only until the settings are applied
+## A project whose settings lack the handlers
 
 `overseer_verdict.py` works through two hooks in `.claude/settings.json`
-(`SubagentStop` and `PreToolUse`). In a project whose settings do not carry
-them yet (an engine update the owner has not finished applying —
-`overseer_verdict.py status` says which), the Stop hook still asks the session
-to audit itself: apply the 12 checks of `.claude/agents/overseer.md` to the
-work since the last audit, without changing anything; insert this entry at the
-top of the entries in `.engine/overseer/ledger.md`
-
-```
-## <ISO timestamp UTC> — <slice slug or "unknown"> — <verdict>
-- Trigger: <which check #N, or "none">
-- Evidence: <transcript turn N / SHA abc1234 / file:line / planning-artifact-section>
-- Action: <one-line description>
-- Category: strategy | recovery | optimization | none
-```
-
-and end with exactly one marker on its own line: `OVERSEER_PASS` /
-`OVERSEER_BLOCK: #N <reason>` / `OVERSEER_ADR_REQUIRED: <ADR>` /
-`OVERSEER_ESCALATE: <JSON>`. `OVERSEER_PASS_REFUSED` from the hook means the
-gate's escalation is open: write the superseding BLOCK entry it asks for.
+(`SubagentStop` and `PreToolUse`); `engine.py install` and `update` put them
+there, also into a settings file the project edited. Without them nothing can
+record a verdict, and there is no other way to audit: the Stop hook answers a
+claim with `OVERSEER NOT WIRED`, and `overseer_verdict.py request` refuses.
+Do not audit the turn yourself — park the unit (human-only: `engine.py update`
+adds the handlers) and take the next one. `overseer_verdict.py status` says
+whether the project is wired.

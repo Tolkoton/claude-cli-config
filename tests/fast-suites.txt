@@ -31,6 +31,7 @@
 # eval projects, one of them from a git archive of the engine).
 # Board 018: test_overseer_fresh 13 s stays out (about 130 runs of the two overseer hooks on copies of a
 # synthetic repository); its deterministic twin on the gate is the hook scenarios of the golden set.
+# Board 033: test_settings_wiring 3.6 s stays out (eleven synthetic projects and one real install of v0.11.0 updated to HEAD).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

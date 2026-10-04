@@ -1,10 +1,18 @@
 {
   "hook": "overseer_stop.py",
-  "event": "Stop — the FORMER protocol (the session audits itself): every scenario pins a settings file without overseer_verdict.py, which is what a project has between an engine update and the owner applying the settings (board 018)",
+  "event": "Stop — the overseer is a separate agent (board 018), and the only protocol (board 033): every scenario wires overseer_verdict.py in .claude/settings.local.json, except the two that show a project without the handlers",
   "scenarios": [
     {
-      "id": "os-unit-complete-triggers-audit",
-      "why": "Sentinel + code edit + verification command: the audit is requested.",
+      "id": "osf-unit-complete-requests-the-agent",
+      "why": "Sentinel + code edit + verification command: the builder is told to launch the overseer agent with the request line — it does not audit itself.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        }
+      ],
       "transcript": [
         {
           "type": "user",
@@ -92,121 +100,260 @@
         "transcript_path": "{{TRANSCRIPT}}"
       },
       "expect": "block",
+      "expect_detail_contains": "Launch the agent `overseer`",
+      "detail_line": "Launch the agent"
+    },
+    {
+      "id": "osf-builder-pass-is-ignored",
+      "why": "The owner's answer 5 (board 015): OVERSEER_PASS typed by the builder no longer continues anything.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        }
-      ]
-    },
-    {
-      "id": "os-same-message-is-not-audited-twice",
-      "why": "Recursion guard: the SHA of an audited message silences the re-fire.",
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         }
       ],
       "input": {
         "hook_event_name": "Stop",
-        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "runs": 2,
-      "expect": [
-        "block",
-        "allow"
-      ],
+      "expect": "block",
+      "expect_detail_contains": "OVERSEER_PASS IGNORED"
+    },
+    {
+      "id": "osf-recorded-pass-continues",
+      "why": "The run continues only on a PASS that overseer_verdict.py recorded for the pending request.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/verdicts.jsonl",
+            "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\"}\n"
           }
         }
-      ]
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "The overseer agent answered PASS.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block",
+      "expect_detail_contains": "OVERSEER_PASS recorded"
     },
     {
-      "id": "os-sentinel-without-tool-signal",
+      "id": "osf-recorded-block-goes-back-to-the-builder",
+      "why": "A BLOCK is handed back with its check and reason: the builder fixes, another overseer judges.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/verdicts.jsonl",
+            "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "The overseer agent answered BLOCK.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block",
+      "expect_detail_contains": "BLOCK 1 of 3"
+    },
+    {
+      "id": "osf-third-block-parks-for-the-owner",
+      "why": "The owner's answer 4: three BLOCKs in a row on one unit — the task is parked with a question, no fourth attempt.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/verdicts.jsonl",
+            "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "The overseer agent answered BLOCK.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block",
+      "expect_detail_contains": "third in a row"
+    },
+    {
+      "id": "osf-no-verdict-asks-again",
+      "why": "The builder ended the turn without launching the agent (and typed its own PASS): the request is repeated, nothing continues.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 0}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "I checked it myself, all good.\n\nOVERSEER_PASS\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block",
+      "expect_detail_contains": "the agent was not launched"
+    },
+    {
+      "id": "osf-invalid-verdict-asks-again",
+      "why": "The tree changed during the audit: the verdict is INVALID, and the audit is asked for again instead of continuing.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/verdicts.jsonl",
+            "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"INVALID\", \"reason\": \"tree changed during audit: tests/test_pricing.py\"}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "The overseer agent answered.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block",
+      "expect_detail_contains": "tree changed during audit"
+    },
+    {
+      "id": "osf-unanswered-request-ends-the-turn",
+      "why": "A request repeated twice without a valid verdict is parked and the turn ends: the hook cannot make the builder launch the agent, and must not loop.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 3, \"schema_errors\": 0, \"launched\": 0}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Still here.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "osf-verdict-asked-by-hand-is-a-report",
+      "why": "An audit asked for by hand is a report to whoever asked: the Stop hook adds no 'continue' and no 'fix it'.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/pending.json",
+            "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"manual\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/overseer/verdicts.jsonl",
+            "content": "{\"utc\": \"2026-10-03T12:01:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"manual\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"verdict\": \"BLOCK\", \"check\": 4, \"reason\": \"masked test gap \\u2014 the assertion passes without rounding\"}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "The overseer blocked the turn: #4.",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "osf-halt-marker-passes-through",
+      "why": "The builder's halt markers are statements that the run cannot continue, not verdicts: they still end the turn.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "OVERSEER_SLICE_AWAITING_OWNER: smoke and G4 are owner-driven; awaiting owner walkthrough.\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "osf-sentinel-without-tool-signal",
       "why": "A claim with no edit and no check behind it does not trigger.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
+          }
+        }
+      ],
       "transcript": [
         {
           "type": "user",
@@ -233,19 +380,19 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow",
+      "expect": "allow"
+    },
+    {
+      "id": "osf-tool-signal-without-sentinel",
+      "why": "Work without a completion claim is just work.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         }
-      ]
-    },
-    {
-      "id": "os-tool-signal-without-sentinel",
-      "why": "Work without a completion claim is just work.",
+      ],
       "transcript": [
         {
           "type": "user",
@@ -332,19 +479,19 @@
         "last_assistant_message": "Added with_tax; 8 tests pass. Continuing with the next behaviour.",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow",
+      "expect": "allow"
+    },
+    {
+      "id": "osf-sentinel-inside-a-sentence",
+      "why": "The sentinel counts only alone on its line.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         }
-      ]
-    },
-    {
-      "id": "os-sentinel-inside-a-sentence",
-      "why": "The sentinel counts only alone on its line.",
+      ],
       "transcript": [
         {
           "type": "user",
@@ -431,19 +578,19 @@
         "last_assistant_message": "I will print === UNIT 3 COMPLETE === once the smoke script passes.",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow",
+      "expect": "allow"
+    },
+    {
+      "id": "osf-edit-outside-source-dirs",
+      "why": "A docs edit is not a unit of code work.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         }
-      ]
-    },
-    {
-      "id": "os-edit-outside-source-dirs",
-      "why": "A docs edit is not a unit of code work.",
+      ],
       "transcript": [
         {
           "type": "user",
@@ -530,19 +677,19 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow",
+      "expect": "allow"
+    },
+    {
+      "id": "osf-no-verification-command",
+      "why": "An edit nobody verified is not evidence.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         }
-      ]
-    },
-    {
-      "id": "os-no-verification-command",
-      "why": "An edit nobody verified is not evidence.",
+      ],
       "transcript": [
         {
           "type": "user",
@@ -629,118 +776,19 @@
         "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow",
+      "expect": "allow"
+    },
+    {
+      "id": "osf-pass-marker-inside-prose",
+      "why": "S1: a turn that only DESCRIBES the marker must not enter the continue loop.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        }
-      ]
-    },
-    {
-      "id": "os-pass-marker-continues",
-      "why": "A verdict of PASS re-injects 'continue to the next unit'.",
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         }
       ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        }
-      ]
-    },
-    {
-      "id": "os-pass-marker-inside-prose",
-      "why": "S1: a turn that only DESCRIBES the marker must not enter the continue loop.",
       "transcript": [
         {
           "type": "user",
@@ -827,123 +875,16 @@
         "last_assistant_message": "The Stop hook re-injects a continue instruction when it sees OVERSEER_PASS in the final message.",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "allow",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        }
-      ]
+      "expect": "allow"
     },
     {
-      "id": "os-halt-marker-passes-through",
-      "why": "BLOCK / ESCALATE / ADR_REQUIRED hand the turn to the owner.",
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "OVERSEER_BLOCK: #1 false-DONE — name the specific test and show its output.\n\n=== UNIT 3 COMPLETE ===\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "allow",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        }
-      ]
-    },
-    {
-      "id": "os-planning-phase-suppresses-audit",
+      "id": "osf-planning-phase-suppresses-audit",
       "why": "Phase guard: while planning there are no units to audit.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         },
         {
@@ -1042,13 +983,13 @@
       "expect": "allow"
     },
     {
-      "id": "os-unattended-with-live-work-continues",
+      "id": "osf-unattended-with-live-work-continues",
       "why": "Nobody is watching and the supervisor says work is live: ending the turn is not a legitimate stop.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         },
         {
@@ -1093,13 +1034,13 @@
       "expect": "block"
     },
     {
-      "id": "os-unattended-run-finished",
+      "id": "osf-unattended-run-finished",
       "why": "Unattended but finished: the turn may end.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         },
         {
@@ -1144,13 +1085,13 @@
       "expect": "allow"
     },
     {
-      "id": "os-spawned-session-may-end",
+      "id": "osf-spawned-session-may-end",
       "why": "A session the supervisor spawned must be able to exit so a fresh one can start.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         },
         {
@@ -1198,813 +1139,13 @@
       "expect": "allow"
     },
     {
-      "id": "os-gate-allow-listed-in-audit-request",
-      "why": "Package costs: the gate accepts a gate-allow by the shape of its reason; the overseer must see it. The audit request lists every exemption no accepted PASS has seen, with file, line and reason.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "write": {
-            "path": "src/refproj/extra.py",
-            "content": "\"\"\"A value the type checker objects to.\"\"\"\n\nVALUE: int = \"twelve\"  # type: ignore[assignment]  # gate-allow: needed to make mypy pass\n"
-          }
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "src/refproj/extra.py:3 [code: type-ignore] reason: \"needed to make mypy pass\"",
-      "detail_line": "src/refproj/extra.py"
-    },
-    {
-      "id": "os-gate-allow-committed-is-still-listed",
-      "why": "A checkpoint commit must not hide an exemption: 'new' is measured from the last accepted PASS (here: none, so from where the branch left main), not from HEAD.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "git": [
-            "switch",
-            "-q",
-            "-c",
-            "unattended/golden"
-          ]
-        },
-        {
-          "write": {
-            "path": "src/refproj/extra.py",
-            "content": "\"\"\"A value the type checker objects to.\"\"\"\n\nVALUE: int = \"twelve\"  # type: ignore[assignment]  # gate-allow: needed to make mypy pass\n"
-          }
-        },
-        {
-          "git": [
-            "add",
-            "-A"
-          ]
-        },
-        {
-          "git": [
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@t",
-            "commit",
-            "-q",
-            "-m",
-            "checkpoint"
-          ]
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "src/refproj/extra.py:3 [code: type-ignore]",
-      "detail_line": "src/refproj/extra.py"
-    },
-    {
-      "id": "os-pass-refused-while-gate-escalation-open",
-      "why": "Package costs: the Stop gate gave up after N blocks on a file and parked its question. While that file is in the range no accepted PASS has covered, the overseer hook does not accept a PASS — the hook checks, not only the skill text.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "write": {
-            "path": "src/refproj/extra.py",
-            "content": "VALUE = 1\n"
-          }
-        },
-        {
-          "write": {
-            "path": ".claude/state/gate/escalations.json",
-            "content": "{\n  \"open\": [\n    {\n      \"stamp\": \"2026-10-03T12:00:00Z\",\n      \"slice\": \"(none)\",\n      \"files\": [\n        \"src/refproj/extra.py\"\n      ],\n      \"head\": \"{{HEAD}}\",\n      \"reasons\": [\n        \"LINT FAILED (ruff check)\"\n      ]\n    }\n  ],\n  \"closed\": [],\n  \"refusals\": []\n}\n"
-          }
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "OVERSEER_PASS_REFUSED"
-    },
-    {
-      "id": "os-pass-refused-whatever-slice-is-declared",
-      "why": "The lock is keyed on the escalated files, not on the slice's name: .engine/PROGRESS.md is the agent's own file, and declaring another slice active must open nothing.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "write": {
-            "path": "src/refproj/extra.py",
-            "content": "VALUE = 1\n"
-          }
-        },
-        {
-          "write": {
-            "path": ".engine/PROGRESS.md",
-            "content": "# PROGRESS\n\n## Slice ref-inventory — IN PROGRESS\nPlanning artifact: `.engine/slices/ref-inventory.md`.\n"
-          }
-        },
-        {
-          "write": {
-            "path": ".claude/state/gate/escalations.json",
-            "content": "{\n  \"open\": [\n    {\n      \"stamp\": \"2026-10-03T12:00:00Z\",\n      \"slice\": \"ref-tax\",\n      \"files\": [\n        \"src/refproj/extra.py\"\n      ],\n      \"head\": \"{{HEAD}}\",\n      \"reasons\": [\n        \"LINT FAILED (ruff check)\"\n      ]\n    }\n  ],\n  \"closed\": [],\n  \"refusals\": []\n}\n"
-          }
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "OVERSEER_PASS_REFUSED. The Stop gate has an open escalation (raised in slice `ref-tax`, on src/refproj/extra.py"
-    },
-    {
-      "id": "os-pass-accepted-when-escalated-file-is-out-of-range",
-      "why": "No false lock: an open escalation on a file that is not part of the unjudged work (set aside, or never touched since the last accepted PASS) does not refuse a PASS for other work.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "write": {
-            "path": "src/refproj/extra.py",
-            "content": "VALUE = 1\n"
-          }
-        },
-        {
-          "write": {
-            "path": ".claude/state/gate/escalations.json",
-            "content": "{\n  \"open\": [\n    {\n      \"stamp\": \"2026-10-03T12:00:00Z\",\n      \"slice\": \"ref-tax\",\n      \"files\": [\n        \"src/refproj/inventory.py\"\n      ],\n      \"head\": \"{{HEAD}}\",\n      \"reasons\": [\n        \"LINT FAILED (ruff check)\"\n      ]\n    }\n  ],\n  \"closed\": [],\n  \"refusals\": []\n}\n"
-          }
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "OVERSEER_PASS recorded"
-    },
-    {
-      "id": "os-pass-accepted-after-the-owner-closed-it",
-      "why": "A closed escalation (gate.py --close-escalation, the owner's command) locks nothing.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "write": {
-            "path": "src/refproj/extra.py",
-            "content": "VALUE = 1\n"
-          }
-        },
-        {
-          "write": {
-            "path": ".claude/state/gate/escalations.json",
-            "content": "{\n  \"open\": [],\n  \"closed\": [\n    {\n      \"stamp\": \"2026-10-03T12:00:00Z\",\n      \"slice\": \"(none)\",\n      \"files\": [\n        \"src/refproj/extra.py\"\n      ],\n      \"head\": \"{{HEAD}}\",\n      \"reasons\": [\n        \"LINT FAILED (ruff check)\"\n      ],\n      \"closed_utc\": \"2026-10-03T13:00:00Z\"\n    }\n  ],\n  \"refusals\": []\n}\n"
-          }
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "OVERSEER_PASS recorded"
-    },
-    {
-      "id": "os-parked-entry-alone-locks-nothing",
-      "why": "The lock is machine state, not the park queue: a gate entry in parked.md with no state behind it (an older project, or an agent's edit) neither locks nor unlocks.",
-      "setup": [
-        {
-          "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
-          }
-        },
-        {
-          "write": {
-            "path": ".engine/overseer/parked.md",
-            "content": "# Parked queue\n\n## 2026-09-01T00:00:00Z — gate stop layer — PARKED\n- Blocked on: the Stop gate blocked 3 turns in a row and was not satisfied\n- Class: human-input\n"
-          }
-        }
-      ],
-      "transcript": [
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": "Add with_tax to pricing and finish unit 3."
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t0",
-                "name": "Edit",
-                "input": {
-                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
-                  "old_string": "a",
-                  "new_string": "b"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t0",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "tool_use",
-                "id": "t1",
-                "name": "Bash",
-                "input": {
-                  "command": "uv run pytest -x -q"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "user",
-          "message": {
-            "role": "user",
-            "content": [
-              {
-                "type": "tool_result",
-                "tool_use_id": "t1",
-                "content": "ok"
-              }
-            ]
-          }
-        },
-        {
-          "type": "assistant",
-          "message": {
-            "role": "assistant",
-            "content": [
-              {
-                "type": "text",
-                "text": "(final message)"
-              }
-            ]
-          }
-        }
-      ],
-      "input": {
-        "hook_event_name": "Stop",
-        "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
-        "transcript_path": "{{TRANSCRIPT}}"
-      },
-      "expect": "block",
-      "expect_detail_contains": "OVERSEER_PASS recorded"
-    },
-    {
-      "id": "os-audit-request-warns-of-open-escalation",
+      "id": "osf-audit-request-warns-of-open-escalation",
       "why": "The overseer is told before it audits that its verdict cannot be PASS.",
       "setup": [
         {
           "write": {
-            "path": ".claude/settings.json",
-            "content": "{}\n"
+            "path": ".claude/settings.local.json",
+            "content": "{\"hooks\": {\"SubagentStop\": [{\"matcher\": \"overseer\", \"hooks\": [{\"type\": \"command\", \"command\": \"python3 \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\\\" record\"}]}]}}\n"
           }
         },
         {
@@ -2111,19 +1252,114 @@
       "detail_line": "GATE ESCALATION OPEN"
     },
     {
-      "id": "os-escalation-without-files-covers-all-work",
-      "why": "An escalation that recorded no file (an older state file, a failure the gate could not place) holds for everything: when the range cannot be told, the lock holds rather than opens.",
+      "id": "osf-not-wired-claim-is-told-the-way-out",
+      "why": "Board 033: there is no second protocol. In a project whose settings lack the overseer's handlers a completion claim gets no request and no self-audit: the builder is told to park the unit, the person to run engine.py update.",
       "setup": [
         {
           "write": {
             "path": ".claude/settings.json",
             "content": "{}\n"
           }
+        }
+      ],
+      "transcript": [
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": "Add with_tax to pricing and finish unit 3."
+          }
         },
         {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t0",
+                "name": "Edit",
+                "input": {
+                  "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+                  "old_string": "a",
+                  "new_string": "b"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t0",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "t1",
+                "name": "Bash",
+                "input": {
+                  "command": "uv run pytest -x -q"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "user",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "t1",
+                "content": "ok"
+              }
+            ]
+          }
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "(final message)"
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Added with_tax.\n\ntests/test_pricing.py::test_with_tax passed (8 passed).\n\n=== UNIT 3 COMPLETE ===\n",
+        "transcript_path": "{{TRANSCRIPT}}"
+      },
+      "expect": "block",
+      "expect_detail_contains": "OVERSEER NOT WIRED",
+      "detail_line": "OVERSEER NOT WIRED"
+    },
+    {
+      "id": "osf-not-wired-typed-pass-continues-nothing",
+      "why": "Board 033: without the handlers a PASS typed by the builder continues nothing either — the former self-audit is gone.",
+      "setup": [
+        {
           "write": {
-            "path": ".claude/state/gate/escalations.json",
-            "content": "{\n  \"open\": [\n    {\n      \"stamp\": \"2026-10-03T12:00:00Z\",\n      \"slice\": \"(none)\",\n      \"files\": [],\n      \"head\": \"{{HEAD}}\",\n      \"reasons\": [\n        \"LINT FAILED (ruff check)\"\n      ]\n    }\n  ],\n  \"closed\": [],\n  \"refusals\": []\n}\n"
+            "path": ".claude/settings.json",
+            "content": "{}\n"
           }
         }
       ],
@@ -2213,8 +1449,7 @@
         "last_assistant_message": "Audit complete. Ledger entry written.\n\nOVERSEER_PASS\n",
         "transcript_path": "{{TRANSCRIPT}}"
       },
-      "expect": "block",
-      "expect_detail_contains": "OVERSEER_PASS_REFUSED"
+      "expect": "allow"
     }
   ]
 }

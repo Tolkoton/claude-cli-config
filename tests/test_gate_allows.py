@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """gate_allows.py and its two carriers: the overseer sees every new gate exemption.
 
-Package costs, item 1. Deterministic: throwaway git repositories, the real gate.py and
-overseer_stop.py, no model, no network.
+Package costs, item 1. Deterministic: throwaway git repositories, the real gate.py,
+overseer_stop.py and overseer_verdict.py (the overseer agent's answer is fed to the verdict
+script as its SubagentStop envelope), no model, no network.
 
   1. the collector lists the gate-allow markers a diff ADDS — in code comments, in config
      files, in a slice contract — and nothing that merely mentions the word;
-  2. the overseer hook puts that list into OVERSEER_REQUEST, and leaves the request
-     byte-identical when there is none;
+  2. the overseer hook puts that list into the audit request package, and nothing when there
+     is none;
   3. "new" means not yet judged: a checkpoint commit hides nothing, an accepted PASS moves the
      base, a suppression that rides on a sealed contract's grant is listed where it is used;
-  4. while the Stop gate has an open escalation for the work, the hook does not accept
-     OVERSEER_PASS — and only the owner's command, run outside a Claude Code session, closes it.
+  4. while the Stop gate has an open escalation for the work, the overseer's PASS is recorded
+     as a BLOCK — and only the owner's command, run outside a Claude Code session, closes it.
 
 Run:   python3 tests/test_gate_allows.py       Exit: 0 all green, 1 otherwise.
 """
@@ -34,6 +35,11 @@ HOOKS = ROOT / ".claude" / "hooks"
 COLLECTOR = HOOKS / "gate_allows.py"
 GATE = HOOKS / "gate.py"
 OVERSEER = HOOKS / "overseer_stop.py"
+VERDICT_SCRIPT = HOOKS / "overseer_verdict.py"
+# The overseer's two handlers: without them the Stop hook makes no request (board 033).
+WIRED = json.dumps({"hooks": {
+    "PreToolUse": [{"matcher": "Agent|Task", "hooks": [{"type": "command", "command": "python3 .claude/hooks/overseer_verdict.py guard"}]}],
+    "SubagentStop": [{"matcher": "overseer", "hooks": [{"type": "command", "command": "python3 .claude/hooks/overseer_verdict.py record"}]}]}}) + "\n"
 PASS = 0
 FAIL = 0
 
@@ -72,6 +78,8 @@ def new_repo() -> Path:
     # LINT/TYPECHECK/TEST "true": the gate runs, finds nothing, and only the bypass guard speaks.
     (root / ".claude" / "project.env").write_text(
         'CODE_EXTENSIONS="py"\nLINT_CMD="true"\nTYPECHECK_CMD="true"\nTEST_CMD="true"\n')
+    (root / ".claude" / "settings.json").write_text(WIRED)
+    (root / ".gitignore").write_text(".claude/state/\n_transcript.jsonl\n")
     (root / ".engine" / "overseer").mkdir(parents=True)
     (root / "mod.py").write_text("x = 1\ny = 2\n")
     commit(root, "init")
@@ -192,30 +200,76 @@ def transcript(root: Path, edited: str = "mod.py") -> Path:
     return path
 
 
-def overseer(root: Path, message: str) -> str:
-    proc = run(OVERSEER, root, stdin={"last_assistant_message": message, "transcript_path": str(transcript(root))})
+def overseer(root: Path, message: str, hook: Path = OVERSEER) -> str:
+    """What the Stop hook says to this message."""
+    proc = run(hook, root, stdin={"hook_event_name": "Stop", "last_assistant_message": message,
+                                  "transcript_path": str(transcript(root))})
     if not proc.stdout.strip():
         return ""
     return str(json.loads(proc.stdout).get("reason", ""))
 
 
-UNIT = "Did the work.\n\n=== UNIT 1 COMPLETE ===\n"
+CLAIMS = 0
+GOOD = {"verdict": "PASS", "check": None, "reason": "every claim has its evidence", "evidence": ["mod.py:1"], "category": "none"}
+BLOCKED = {"verdict": "BLOCK", "check": 4, "reason": "masked gap — the exemption at mod.py:1", "evidence": ["mod.py:1"], "category": "none"}
+
+
+def claim(root: Path, hook: Path = OVERSEER) -> str:
+    """A unit-completion claim. Returns what the builder is told, then what the request package
+    shows the overseer about the gate: the exemptions to judge and the open escalation."""
+    global CLAIMS
+    CLAIMS += 1
+    said = overseer(root, f"Did the work, claim {CLAIMS}.\n\n=== UNIT 1 COMPLETE ===\n", hook)
+    try:
+        rid = json.loads((root / ".claude/state/overseer/pending.json").read_text())["id"]
+        request = json.loads((root / ".claude/state/overseer/requests" / rid / "request.json").read_text())
+    except (OSError, ValueError, KeyError):
+        return said
+    return "\n\n".join(x for x in (said, str(request.get("gate_allows", "")), str(request.get("gate_escalation", ""))) if x)
+
+
+def answer(root: Path, reply: dict[str, Any] = GOOD, during: Any = None) -> str:
+    """The overseer agent is launched for the pending request and answers (`during` runs while it
+    audits); returns what the Stop hook then tells the builder."""
+    rid = json.loads((root / ".claude/state/overseer/pending.json").read_text())["id"]
+    run(VERDICT_SCRIPT, root, "guard", stdin={"hook_event_name": "PreToolUse", "tool_name": "Agent",
+                                              "tool_input": {"subagent_type": "overseer", "prompt": f"OVERSEER_REQUEST {rid}"}})
+    if during is not None:
+        during()
+    run(VERDICT_SCRIPT, root, "record", stdin={"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": "a1",
+                                               "last_assistant_message": "```json\n" + json.dumps(reply) + "\n```"})
+    return overseer(root, f"The overseer answered request {rid}.")
+
+
+def audited(root: Path) -> str:
+    """A claim the overseer answers with PASS: what the Stop hook says after the verdict."""
+    claim(root)
+    return answer(root)
+
+
+def last_verdict(root: Path) -> dict[str, Any]:
+    lines = (root / ".claude/state/overseer/verdicts.jsonl").read_text().splitlines()
+    return dict(json.loads(lines[-1]))
+
+
 VERDICT = "State files read.\n\nOVERSEER_PASS\n"
 print("overseer hook: the audit request")
 r = new_repo()
 (r / "mod.py").write_text("x = 3\n")
-plain = overseer(r, UNIT)
+plain = claim(r)
 check("no new exemption: the request is the plain OVERSEER_REQUEST",
       plain.startswith("OVERSEER_REQUEST") and "GATE-ALLOW" not in plain, plain)
+check("negative — a project without the overseer's handlers gets no request, and is told why",
+      (r / ".claude/settings.json").write_text("{}\n") is not None and (r / ".claude/state/overseer/pending.json").unlink() is None
+      and claim(r).startswith("OVERSEER NOT WIRED") and not (r / ".claude/state/overseer/pending.json").exists(), "")
 r2 = new_repo()
 (r2 / "mod.py").write_text(f"x = 3  {TI}  # {GA} needed to make mypy pass\n")
 gate_proc = run(GATE, r2, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
 check("the tracer's first half: the Stop gate ALONE lets a weak but well-formed reason through",
       gate_proc.stdout.strip() == "", gate_proc.stdout)
-asked = overseer(r2, UNIT)
+asked = claim(r2)
 check("the tracer's second half: the request shows the overseer the file, the line and the reason",
       "GATE-ALLOW REVIEW" in asked and "mod.py:1" in asked and "needed to make mypy pass" in asked, asked)
-check("the request with a list starts with the unchanged request text", asked.startswith(plain), (plain, asked))
 check("it tells the overseer what a weak reason costs", "OVERSEER_BLOCK" in asked.split("GATE-ALLOW REVIEW")[1], asked)
 
 # ---------------------------------------------------------------- 2b. a checkpoint commit hides nothing
@@ -225,10 +279,10 @@ sh(r, "git", "switch", "-q", "-c", "unattended/x")
 (r / "mod.py").write_text(f"x = 3  {TI}  # {GA} needed to make mypy pass\n")
 commit(r, "checkpoint before the claim")
 (r / "other.py").write_text(f"k = 1  {NQ}  # {GA} generated file, kept as is\n")
-asked = overseer(r, UNIT)
+asked = claim(r)
 check("an exemption COMMITTED before the unit is claimed is still shown (base is not HEAD)",
       "GATE-ALLOW REVIEW" in asked and "mod.py:1" in asked and "other.py:1" in asked, asked)
-check("PASS accepted", overseer(r, VERDICT).startswith("OVERSEER_PASS recorded"), "")
+check("PASS accepted", answer(r).startswith("OVERSEER_PASS recorded"), "")
 judged = json.loads((r / ".claude/state/overseer/gate-allows-judged.json").read_text())
 check("the accepted PASS records its commit and what it judged",
       judged["commit"] == sh(r, "git", "rev-parse", "HEAD").stdout.strip() and len(judged["judged"]) == 2, judged)
@@ -243,9 +297,10 @@ commit(r3, "checkpoint")
 refusing = r3 / ".claude/state/gate"
 refusing.mkdir(parents=True)
 (refusing / "escalations.json").write_text(json.dumps({"open": [{"stamp": "S", "slice": "(none)", "files": []}]}))
-overseer(r3, VERDICT)
+refused = audited(r3)
 check("a REFUSED pass judges nothing: the exemption stays new",
-      not (r3 / ".claude/state/overseer/gate-allows-judged.json").exists() and len(collected(r3)) == 1, collected(r3))
+      refused.startswith("OVERSEER_BLOCK") and not (r3 / ".claude/state/overseer/gate-allows-judged.json").exists()
+      and len(collected(r3)) == 1, (refused, collected(r3)))
 
 r = new_repo()
 contract_text = f"# Slice tax\n\n{GA} type-ignore — the vendored stub has no types\n"
@@ -283,30 +338,42 @@ print("judged means shown AND passed")
 WEAK = f"x = 3  {TI}  # {GA} needed to make mypy pass\n"
 r = new_repo()
 (r / "mod.py").write_text(WEAK)
-check("a bare PASS with no audit request behind it is answered, but judges nothing",
-      overseer(r, VERDICT).startswith("OVERSEER_PASS recorded") and len(collected(r)) == 1
-      and not (r / ".claude/state/overseer/gate-allows-judged.json").exists(), collected(r))
+said = overseer(r, VERDICT)
+check("a PASS typed by the builder is refused and judges nothing",
+      said.startswith("OVERSEER_PASS IGNORED") and len(collected(r)) == 1
+      and not (r / ".claude/state/overseer/gate-allows-judged.json").exists(), (said, collected(r)))
 r = new_repo()
 (r / "mod.py").write_text("x = 3\n")
-check("the request shows no exemption", "GATE-ALLOW" not in overseer(r, UNIT), "")
+check("the request shows no exemption", "GATE-ALLOW" not in claim(r), "")
 (r / "mod.py").write_text(WEAK)
-overseer(r, VERDICT)
-check("an exemption added AFTER the request is not judged by the PASS that follows", keys(collected(r)) == [("mod.py", 1, "code", "type-ignore")], collected(r))
+said = answer(r)
+check("an exemption added AFTER the request is not judged by the PASS that follows",
+      said.startswith("OVERSEER_PASS recorded") and keys(collected(r)) == [("mod.py", 1, "code", "type-ignore")], (said, collected(r)))
+r = new_repo()
+(r / "mod.py").write_text("x = 3\n")
+claim(r)
+said = answer(r, during=lambda: (r / "mod.py").write_text(WEAK))
+check("...and one added WHILE the overseer audits makes the verdict INVALID: nothing continues, nothing is judged",
+      last_verdict(r)["verdict"] == "INVALID" and "OVERSEER_PASS recorded" not in said
+      and keys(collected(r)) == [("mod.py", 1, "code", "type-ignore")], (said, collected(r)))
 r = new_repo()
 (r / "mod.py").write_text(WEAK)
-overseer(r, UNIT)
-overseer(r, VERDICT)
-check("shown and passed: judged", collected(r) == [], collected(r))
+check("shown and passed: judged", audited(r).startswith("OVERSEER_PASS recorded") and collected(r) == [], collected(r))
 (r / "mod.py").write_text(WEAK + f"y = 4  {TI}  # {GA} needed to make mypy pass\n")
 got = collected(r)
 check("a SECOND suppression reusing the accepted reason is new", [(i["line"], i["ordinal"]) for i in got] == [(2, 2)], got)
 r = new_repo()
 (r / "mod.py").write_text(WEAK)
-overseer(r, UNIT)
-overseer(r, "OVERSEER_BLOCK: #4 masked gap — gate-allow at mod.py:1\n")
-check("a BLOCK drops the pending request", not (r / ".claude/state/overseer/gate-allows-pending.json").exists(), "")
-overseer(r, VERDICT)
-check("...so a bare PASS after a BLOCK judges nothing either", len(collected(r)) == 1, collected(r))
+claim(r)
+check("the request is pending until the verdict", (r / ".claude/state/overseer/gate-allows-pending.json").exists(), "")
+said = answer(r, BLOCKED)
+check("a BLOCK drops the pending request and judges nothing",
+      said.startswith("OVERSEER_BLOCK") and not (r / ".claude/state/overseer/gate-allows-pending.json").exists()
+      and len(collected(r)) == 1, (said, collected(r)))
+claim(r)
+overseer(r, "OVERSEER_SLICE_AWAITING_OWNER: nothing can move\n")
+check("a halt marker ends the request: nothing pending, nothing judged",
+      not (r / ".claude/state/overseer/gate-allows-pending.json").exists() and len(collected(r)) == 1, collected(r))
 run(COLLECTOR, r)
 check("running the collector by hand records nothing", not (r / ".claude/state/overseer/gate-allows-pending.json").exists(), "")
 
@@ -315,20 +382,19 @@ r = new_repo()
 (r / "mod.py").write_text("x = 3\n")
 (r / ".claude/state/overseer").mkdir(parents=True)
 (r / ".claude/state/overseer/gate-allows-judged.json").write_text(json.dumps({"commit": "HEAD", "judged": 7}))
-asked = overseer(r, UNIT)
+asked = claim(r)
 check("corrupt collector state is read as no state: the plain request", asked.startswith("OVERSEER_REQUEST") and "GATE-ALLOW" not in asked, asked)
 broken = Path(tempfile.mkdtemp(prefix="gate-allows-hooks-"))
-for name in ("overseer_stop.py", "gate.py", "lesson_queue.py"):
+for name in ("overseer_stop.py", "overseer_verdict.py", "gate.py", "lesson_queue.py"):
     shutil.copy(HOOKS / name, broken / name)
 (broken / "gate_allows.py").write_text("def render(allows: object) -> str:\n    return ''\n\n\n"
     "def record_request(*a: object, **k: object) -> list[object]:\n    raise OSError('disk went away')\n")
 r = new_repo()
 (r / "mod.py").write_text("x = 3\n")
-proc = run(broken / "overseer_stop.py", r, stdin={"last_assistant_message": UNIT, "transcript_path": str(transcript(r))})
-asked = str(json.loads(proc.stdout or "{}").get("reason", ""))
+asked = claim(r, broken / "overseer_stop.py")
 check("a collector that raises: the request is still made, and says the list is missing",
       asked.startswith("OVERSEER_REQUEST") and "the collector failed" in asked and "disk went away" in asked
-      and "gate_allows.py" in asked, asked or proc.stderr)
+      and "gate_allows.py" in asked, asked)
 
 # ---------------------------------------------------------------- 3. PASS while the gate's question is open
 
@@ -361,47 +427,50 @@ def close(root: Path, stamp: str, inside_claude: bool) -> subprocess.CompletedPr
                           capture_output=True, text=True, env=env, check=False)
 
 
-print("overseer hook: PASS and the gate's open escalation")
+def locked(said: str, root: Path) -> bool:
+    """The overseer's PASS was recorded as a BLOCK because the gate's escalation is open (the third
+    such BLOCK in a row also parks the unit, which locks no less)."""
+    blocks = [json.loads(line) for line in (root / ".claude/state/overseer/verdicts.jsonl").read_text().splitlines()]
+    blocks = [row for row in blocks if row["verdict"] == "BLOCK"]
+    return said.startswith("OVERSEER_BLOCK") and "gate escalation" in said and "gate escalation" in str(blocks[-1]["reason"])
+
+
+print("the overseer's PASS and the gate's open escalation")
 r = new_repo()
-check("no escalation: PASS continues to the next unit", overseer(r, VERDICT).startswith("OVERSEER_PASS recorded"), "")
+(r / "mod.py").write_text("x = 3\n")
+check("no escalation: PASS continues to the next unit", audited(r).startswith("OVERSEER_PASS recorded"), "")
 r = new_repo()
 in_slice(r, "tax")
+commit(r, "the slice is declared")
 stamp = escalate(r)
 parked = (r / ".engine/overseer/parked.md").read_text()
 check("the gate's PARKED entry names the slice and the owner's command",
       f"## {stamp} — gate stop layer — PARKED" in parked and "- Slice: tax\n" in parked
       and f"--close-escalation {stamp}" in parked, parked)
-refused = overseer(r, VERDICT)
-check("an open escalation for the active slice: PASS is REFUSED",
-      refused.startswith("OVERSEER_PASS_REFUSED") and "`tax`" in refused and stamp in refused, refused)
+warned = claim(r)
+check("the audit request says in advance that PASS will not be accepted",
+      warned.startswith("OVERSEER_REQUEST") and "OVERSEER_PASS will not be accepted" in warned and stamp in warned, warned)
+refused = answer(r)
+check("an open escalation for the active slice: the PASS is recorded as BLOCK, naming the escalation",
+      locked(refused, r) and stamp in refused and stamp in str(last_verdict(r)["reason"]), (refused, last_verdict(r)))
 check("...and nothing tells the session to proceed with the next unit", "OVERSEER_PASS recorded" not in refused, refused)
-check("the refusal is recorded beside the escalation",
-      len(json.loads((r / ".claude/state/gate/escalations.json").read_text())["refusals"]) == 1, "")
-check("the same message again is silent (no loop)", overseer(r, VERDICT) == "", "")
-check("a reworded PASS is refused again", overseer(r, VERDICT + "\nreally.\n").startswith("OVERSEER_PASS_REFUSED"), "")
 (r / ".engine/overseer/parked.md").write_text(parked.replace("— PARKED", "— RESUMED"))
-check("the AGENT marking the parked entry RESUMED opens nothing",
-      overseer(r, VERDICT + "\nresumed.\n").startswith("OVERSEER_PASS_REFUSED"), "")
+check("the AGENT marking the parked entry RESUMED opens nothing", locked(audited(r), r), last_verdict(r))
 (r / ".engine/overseer/parked.md").write_text(parked)
 denied = close(r, stamp, inside_claude=True)
+said = audited(r)
 check("the close command is refused inside a Claude Code session",
-      denied.returncode == 2 and "CLAUDECODE" in denied.stderr
-      and overseer(r, VERDICT + "\nclosed?\n").startswith("OVERSEER_PASS_REFUSED"), (denied.returncode, denied.stderr))
-check("a halt marker still passes through silently", overseer(r, "OVERSEER_BLOCK: #4 weak gate-allow\n") == "", "")
-warned = overseer(r, UNIT)
-check("the audit request says in advance that PASS will not be accepted",
-      warned.startswith("OVERSEER_REQUEST") and "OVERSEER_PASS will not be accepted" in warned, warned)
+      denied.returncode == 2 and "CLAUDECODE" in denied.stderr and locked(said, r), (denied.returncode, denied.stderr, said, last_verdict(r)))
 in_slice(r, "other")
-check("declaring ANOTHER slice active in PROGRESS.md (the agent's own file) opens nothing",
-      overseer(r, VERDICT + "\nother.\n").startswith("OVERSEER_PASS_REFUSED"), "")
+check("declaring ANOTHER slice active in PROGRESS.md (the agent's own file) opens nothing", locked(audited(r), r), last_verdict(r))
 in_slice(r, None)
-check("...nor does dropping the slice", overseer(r, VERDICT + "\nnone.\n").startswith("OVERSEER_PASS_REFUSED"), "")
+check("...nor does dropping the slice", locked(audited(r), r), last_verdict(r))
 in_slice(r, "tax")
 sh(r, "git", "stash", "push", "-q", "--", "mod.py")
 (r / "other.py").write_text("k = 1\n")
-check("the escalated file set aside (stash): other work passes", overseer(r, VERDICT + "\naside.\n").startswith("OVERSEER_PASS recorded"), "")
+check("the escalated file set aside (stash): other work passes", audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 sh(r, "git", "stash", "pop", "-q")
-check("...and back in the tree it is locked again", overseer(r, VERDICT + "\nback.\n").startswith("OVERSEER_PASS_REFUSED"), "")
+check("...and back in the tree it is locked again", locked(audited(r), r), last_verdict(r))
 wrong = close(r, "2020-01-01T00:00:00Z", inside_claude=False)
 check("closing an unknown stamp closes nothing and says which are open", wrong.returncode == 1 and stamp in wrong.stderr, wrong.stderr)
 done = close(r, stamp, inside_claude=False)
@@ -409,9 +478,9 @@ state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("the owner's command closes it: state, and the parked entry reads RESUMED",
       done.returncode == 0 and state["open"] == [] and state["closed"][0]["stamp"] == stamp
       and f"## {stamp} — gate stop layer — RESUMED" in (r / ".engine/overseer/parked.md").read_text(), (done.stderr, state))
-check("...and PASS is accepted again", overseer(r, VERDICT + "\nafter close.\n").startswith("OVERSEER_PASS recorded"), "")
+check("...and PASS is accepted again", audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 
-print("overseer hook: an escalation outside any slice covers its files")
+print("an escalation outside any slice covers its files")
 r = new_repo()
 (r / ".claude" / "project.env").write_text(
     'CODE_EXTENSIONS="py"\nLINT_CMD="echo mod.py:1:1: E999 broken; false"\nGATE_MAX_BLOCKS="1"\n')
@@ -421,28 +490,27 @@ stamp = escalate(r)
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("no slice: the escalation records (none) and the file the gate blocked on",
       state["open"][0]["slice"] == "(none)" and state["open"][0]["files"] == ["mod.py"], state)
-check("a PASS over a range that holds that file is refused, and names it",
-      "mod.py" in overseer(r, VERDICT) and overseer(r, VERDICT + "\nx\n").startswith("OVERSEER_PASS_REFUSED"), "")
+said = audited(r)
+check("a PASS over a range that holds that file is refused, and names it", locked(said, r) and "mod.py" in said, said)
 commit(r, "checkpoint: the diff against HEAD is empty now")
-check("...also after a checkpoint commit", overseer(r, VERDICT + "\ny\n").startswith("OVERSEER_PASS_REFUSED"), "")
+check("...also after a checkpoint commit", locked(audited(r), r), last_verdict(r))
 in_slice(r, "tax")
-check("a slice declared meanwhile does not unlock the escalated file",
-      overseer(r, VERDICT + "\nz\n").startswith("OVERSEER_PASS_REFUSED"), "")
+check("a slice declared meanwhile does not unlock the escalated file", locked(audited(r), r), last_verdict(r))
 r = new_repo()
 (r / ".claude/state/gate").mkdir(parents=True)
 (r / ".claude/state/gate/escalations.json").write_text(json.dumps({"open": [{"stamp": "S1", "slice": "tax", "files": ["gone.py"]}]}))
 (r / "mod.py").write_text("x = 4\n")
 check("an escalation whose files are not in the unjudged range locks nothing (no false lock)",
-      overseer(r, VERDICT).startswith("OVERSEER_PASS recorded"), "")
+      audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 r = new_repo()
 (r / ".claude/state/gate").mkdir(parents=True)
 (r / ".claude/state/gate/escalations.json").write_text("{not json")
 check("unreadable escalation state locks nothing and breaks nothing",
-      overseer(r, VERDICT).startswith("OVERSEER_PASS recorded"), "")
+      audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 r = new_repo()
 (r / ".engine/overseer/parked.md").write_text("# Parked\n\n## 2026-09-01T00:00:00Z — gate stop layer — PARKED\n- Class: human-input\n")
 check("a parked gate entry from before this package (no state) locks nothing",
-      overseer(r, VERDICT).startswith("OVERSEER_PASS recorded"), "")
+      audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 
 
 print("the gate's escalation on the task board (board 005)")

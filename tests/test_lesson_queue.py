@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LQ = ROOT / ".claude/hooks/lesson_queue.py"
 GATE = ROOT / ".claude/hooks/gate.py"
 OVERSEER = ROOT / ".claude/hooks/overseer_stop.py"
+VERDICT = ROOT / ".claude/hooks/overseer_verdict.py"
 ENVCHECK = ROOT / ".claude/hooks/env-check.sh"
 PASS = FAIL = 0
 
@@ -56,6 +57,40 @@ def run(root: Path, script: Path, *args: str, stdin: Any = None, session: bool =
         env["CLAUDECODE"] = "1"
     return subprocess.run([sys.executable, str(script), *args], cwd=root, capture_output=True, text=True, env=env,
                           input=json.dumps(stdin) if stdin is not None else "", check=False)
+
+
+WIRED = json.dumps({"hooks": {
+    "PreToolUse": [{"matcher": "Agent|Task", "hooks": [{"type": "command", "command": "python3 .claude/hooks/overseer_verdict.py guard"}]}],
+    "SubagentStop": [{"matcher": "overseer", "hooks": [{"type": "command", "command": "python3 .claude/hooks/overseer_verdict.py record"}]}]}})
+GOOD = {"verdict": "PASS", "check": None, "reason": "every claim has its evidence", "evidence": ["CLAUDE.md:1"], "category": "none",
+        # demanded after three PASS verdicts in a row (check #12); harmless before
+        "devils_advocate": "the strongest case against this PASS: the claim could hold without the test, but the RED was shown"}
+
+
+def audit(root: Path, n: int, reply: dict[str, Any] | None = None) -> str:
+    """One audited unit, as the hooks see it: the claim reaches the Stop hook, the overseer agent is
+    launched and answers (PASS unless `reply` says otherwise), the builder's turn ends. Returns what
+    the Stop hook tells the builder after the verdict."""
+    (root / ".claude").mkdir(exist_ok=True)
+    (root / ".claude/settings.json").write_text(WIRED)
+    (root / ".gitignore").write_text(".claude/state/\n")
+    records = [{"type": "user", "message": {"role": "user", "content": "do the unit"}},
+               {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t0", "name": "Edit", "input": {"file_path": str(root / "src/a.py")}}]}},
+               {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "pytest -q"}}]}}]
+    transcript = root / ".claude/state/transcript.jsonl"
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+    transcript.write_text("".join(json.dumps(x) + "\n" for x in records))
+    asked = run(root, OVERSEER, stdin={"hook_event_name": "Stop", "last_assistant_message": f"turn {n}\n=== UNIT 1 COMPLETE ===\n",
+                                       "transcript_path": str(transcript)})
+    rid = json.loads((root / ".claude/state/overseer/pending.json").read_text())["id"]
+    assert f"OVERSEER_REQUEST {rid}" in asked.stdout, asked.stdout + asked.stderr
+    run(root, VERDICT, "guard", stdin={"hook_event_name": "PreToolUse", "tool_name": "Agent",
+                                       "tool_input": {"subagent_type": "overseer", "prompt": f"OVERSEER_REQUEST {rid}"}})
+    run(root, VERDICT, "record", stdin={"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": "a1",
+                                        "last_assistant_message": "```json\n" + json.dumps(reply or GOOD) + "\n```"})
+    out = run(root, OVERSEER, stdin={"hook_event_name": "Stop", "last_assistant_message": f"the overseer answered turn {n}"})
+    assert out.returncode == 0, out.stderr
+    return str(json.loads(out.stdout)["reason"]) if out.stdout.strip() else ""
 
 
 def lq(root: Path, *args: str, stdin: Any = None, session: bool = False) -> subprocess.CompletedProcess[str]:
@@ -275,13 +310,8 @@ check("the owner's own terminal: --owner-approved promotes", lq(r, "promote", lo
 print("review: proposals, repetition, quoting, corrupt state, @path")
 r = project()
 lq(r, "add", "--source", "agent", "--slice", "s", "lesson one")
-overseer_env = {"last_assistant_message": "x\nOVERSEER_PASS\n"}
 def pass_reason(n: int) -> str:
-    sha = r / ".claude/state/overseer/.last_continue_sha"
-    if sha.exists():
-        sha.unlink()
-    out = run(r, OVERSEER, stdin={"last_assistant_message": f"turn {n}\nOVERSEER_PASS\n"})
-    return str(json.loads(out.stdout)["reason"])
+    return audit(r, n)
 first_r, second_r, third_r, fourth_r = (pass_reason(i) for i in range(4))
 check("the review request is made once for an unchanged queue, then reminded only every third PASS",
       "LESSON_REVIEW" in first_r and "LESSON_REVIEW" not in second_r and "LESSON_REVIEW" not in third_r and "LESSON_REVIEW" in fourth_r,
@@ -311,7 +341,7 @@ check("corrupt state files do not break the hooks",
       lq(r, "stuck", stdin={"hook_event_name": "PostToolUseFailure", "tool_name": "Bash", "error": "boom"}).returncode == 0
       and lq(r, "collect").returncode == 0 and lq(r, "session-start").returncode == 0)
 (state / "review.json").write_text("garbage")
-check("...nor does a corrupt review marker break the overseer hook", run(r, OVERSEER, stdin={"last_assistant_message": "q\nOVERSEER_PASS\n"}).returncode == 0)
+check("...nor does a corrupt review marker break the overseer hook", audit(r, 12).startswith("OVERSEER_PASS recorded."))
 check("an empty failure text is never counted", lesson_queue.note_failure(r, "   ") == "")
 
 # ---------------------------------------------------------------- session start
@@ -418,20 +448,18 @@ check("the gate hands the stuck protocol over on the third identical block (in t
 r = project()
 (r / ".engine/overseer").mkdir(parents=True)
 (r / ".claude").mkdir(exist_ok=True)
-plain = run(r, OVERSEER, stdin={"last_assistant_message": "work done\nOVERSEER_PASS\n"})
-reason_plain = json.loads(plain.stdout)["reason"]
+typed = run(r, OVERSEER, stdin={"last_assistant_message": "work done\nOVERSEER_PASS\n"}).stdout
+check("negative — a PASS typed by the builder closes no unit: no continue, no review request",
+      "OVERSEER_PASS recorded" not in typed and "LESSON_REVIEW" not in typed, typed[:200])
+reason_plain = audit(r, 1)
 check("PASS with an empty queue: the continue text is exactly what it always was", "LESSON_REVIEW" not in reason_plain and reason_plain.startswith("OVERSEER_PASS recorded."), reason_plain[:120])
 lq(r, "add", "--source", "agent", "--slice", "s", "something non-obvious")
-(r / ".claude/state/overseer").mkdir(parents=True, exist_ok=True)
-for f in (r / ".claude/state/overseer").glob(".last_continue_sha"):
-    f.unlink()
-withq = run(r, OVERSEER, stdin={"last_assistant_message": "work done again\nOVERSEER_PASS\n"})
-reason = json.loads(withq.stdout)["reason"]
+reason = audit(r, 2)
 check("PASS with a non-empty queue appends the triage request to the continue text",
       reason.startswith("OVERSEER_PASS recorded.") and "LESSON_REVIEW_REQUESTED" in reason and ids(r)[0] in reason, reason[-300:])
-run(r, OVERSEER, stdin={"last_assistant_message": "audit\nOVERSEER_BLOCK: #5 scope drifted from the contract\n"})
-check("an OVERSEER_BLOCK verdict is queued by the overseer hook", any("| overseer |" in ln and "scope drifted" in ln for ln in queue(r)), queue(r))
-check("a verdict turn that is not a PASS gets no review request", "LESSON_REVIEW" not in (run(r, OVERSEER, stdin={"last_assistant_message": "OVERSEER_BLOCK: #6 another\n"}).stdout))
+blocked = audit(r, 3, {"verdict": "BLOCK", "check": 5, "reason": "scope drifted from the contract", "evidence": ["CLAUDE.md:1"], "category": "none"})
+check("an OVERSEER_BLOCK verdict is queued when it is recorded", any("| overseer |" in ln and "scope drifted" in ln for ln in queue(r)), queue(r))
+check("a verdict that is not a PASS gets no review request", blocked.startswith("OVERSEER_BLOCK") and "LESSON_REVIEW" not in blocked, blocked[:200])
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)

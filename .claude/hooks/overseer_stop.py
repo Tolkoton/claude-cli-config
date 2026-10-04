@@ -25,34 +25,27 @@ TRIGGER — both signals required:
                     (configured via CHECK_CMDS, or built-in broad default).
 
 RECURSION GUARDS — per-branch, by design:
-  - Audit-request branch    — `.claude/state/overseer/.last_audit_sha` SHA of last message
-                              that requested an audit; same-message re-fire
-                              is silent.
-  - PASS / CONTINUE branch  — `.claude/state/overseer/.last_continue_sha` SHA of last
-                              OVERSEER_PASS message that produced a CONTINUE
-                              injection; same-message re-fire is silent.
+  - Audit request    — `.claude/state/overseer/.last_audit_sha`, the SHA of the last message whose
+                       claim was answered; the same message does not claim twice.
+  - Typed markers    — `.claude/state/overseer/.last_continue_sha`, the SHA of the last message
+                       that was told its typed `OVERSEER_PASS` / `OVERSEER_REQUEST` means nothing.
   - Halt markers (BLOCK / ESCALATE / ADR_REQUIRED / SLICE_AWAITING_OWNER /
     SLICE_COMPLETE) silent-pass — owner takes over.
 
-  An earlier `stop_hook_active`-based "Guard 1" was removed because it
-  short-circuited BEFORE the per-branch SHA guards on hook-initiated turns
-  (audit-PASS turns and CONTINUE-driven UNIT turns both arrive with
-  `stop_hook_active=true`), making both injection branches unreachable in
-  the autonomous loop. The per-branch SHAs handle recursion safety for the
-  branches they cover.
+  `stop_hook_active` is deliberately not a guard: every hook-initiated turn arrives with it set,
+  so it would make the request and the "continue" unreachable in the autonomous loop.
 
 PHASE GUARD: `.claude/state/overseer/state` containing `plan` suppresses the audit — the
 developer is designing, not completing units of work.
 
-WHO AUDITS (board 015 / 018). Once `overseer_verdict.py` is wired in the project's settings, the
-audit is never the builder's: on the trigger above this hook writes a request package and tells
-the builder to launch the agent `overseer` (fresh context, no editing tool) with the prompt
-`OVERSEER_REQUEST <id>`. The verdict is recorded by `overseer_verdict.py record` from the agent's
-own answer; this hook continues, hands back a BLOCK or routes an ADR / escalation only on that
-record (`_main_fresh`). `OVERSEER_PASS` typed by the builder is refused. Everything said above
-about the PASS marker and the "Audit-request branch" describes the FORMER protocol — the session
-audits itself — which stays in force only until the settings are applied, so an engine update
-never leaves a project without an audit.
+WHO AUDITS (board 015 / 018 / 033). Never the builder: on the trigger above this hook writes a
+request package and tells the builder to launch the agent `overseer` (fresh context, no editing
+tool) with the prompt `OVERSEER_REQUEST <id>`. The verdict is recorded by `overseer_verdict.py
+record` from the agent's own answer; this hook continues, hands back a BLOCK or routes an ADR /
+escalation only on that record. `OVERSEER_PASS` typed by the builder is refused. That script works
+through two handlers in the project's settings, which `engine.py install` / `update` put there.
+A project whose settings lack them cannot be audited at all — there is no second protocol — so a
+claim there is answered with NOT_WIRED_REASON: say so, park the unit, never audit yourself.
 
 Output: `{"decision":"block","reason":...}` on stdout (exit 0) injects the audit
 request and continues the turn; empty stdout (exit 0) passes the turn through.
@@ -75,10 +68,10 @@ from typing import NoReturn
 
 # `=== UNIT 7 COMPLETE ===` on its own line; surrounding horizontal space is
 # tolerated so the sentinel survives minor formatting.
-UNIT_DONE_RE = re.compile(r"^[ \t]*=== UNIT \d+ COMPLETE ===[ \t]*$", re.MULTILINE)
-# An overseer verdict already emitted this turn — recursion guard 3.
+UNIT_NUMBER_RE = re.compile(r"^[ \t]*=== UNIT (\d+) COMPLETE ===[ \t]*$", re.MULTILINE)
+# A marker typed by the builder.
 #
-# ANCHORED TO LINE START, deliberately, exactly as UNIT_DONE_RE above is.
+# ANCHORED TO LINE START, deliberately, exactly as UNIT_NUMBER_RE above is.
 # Before this, `re.compile(r"OVERSEER_PASS\b")` matched the token ANYWHERE in
 # the message, including inside prose and code spans. Any turn that documented,
 # reviewed, or taught the protocol therefore entered the autonomous continue
@@ -89,7 +82,7 @@ UNIT_DONE_RE = re.compile(r"^[ \t]*=== UNIT \d+ COMPLETE ===[ \t]*$", re.MULTILI
 #
 # SKILL.md's "Verdict format" section already requires a marker to be "on its
 # own line", so this makes the hook enforce what the contract always stated.
-# Leading horizontal space is tolerated, matching UNIT_DONE_RE.
+# Leading horizontal space is tolerated, matching UNIT_NUMBER_RE.
 _MARKER_PREFIX = r"^[ \t]*OVERSEER_"
 
 # Halt markers — owner takes over, hook silent-passes
@@ -97,7 +90,7 @@ HALT_MARKER_RE = re.compile(
     _MARKER_PREFIX + r"(?:BLOCK|ESCALATE|ADR_REQUIRED|SLICE_AWAITING_OWNER|SLICE_COMPLETE)\b",
     re.MULTILINE,
 )
-# Pass marker — hook re-injects "continue to next unit" (taskmaster pattern)
+# Pass marker — typed by the builder it is refused: only a recorded verdict continues the run
 PASS_MARKER_RE = re.compile(_MARKER_PREFIX + r"PASS\b", re.MULTILINE)
 # File-mutating tools — the other half of the tool signal.
 EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit"})
@@ -241,19 +234,7 @@ CONTINUE_REASON = (
     "If the slice's last code unit is complete and smoke / G4 are next, emit `OVERSEER_SLICE_AWAITING_OWNER: smoke and G4 are owner-driven; awaiting owner walkthrough.`"
 )
 
-AUDIT_REASON = (
-    "OVERSEER_REQUEST (auto-triggered by the Stop hook on a unit-completion "
-    "claim). Before yielding control to the owner:\n"
-    "1. Read .claude/skills/overseer/SKILL.md (§ The former protocol) and apply the full 12-check "
-    "checklist of .claude/agents/overseer.md to the work since your last audit.\n"
-    "2. Append the prescribed entry to .engine/overseer/ledger.md before replying.\n"
-    "3. Output a verdict on its own line, exactly one of: OVERSEER_PASS | "
-    "OVERSEER_BLOCK: #N <reason> | OVERSEER_ESCALATE: <JSON> | "
-    "OVERSEER_ADR_REQUIRED: <ADR>. Emitting any OVERSEER_ verdict marker is "
-    "what stops this hook re-firing on the next turn."
-)
-# --- the fresh-context protocol (board 018): the texts the builder gets -----------------------
-UNIT_NUMBER_RE = re.compile(r"^[ \t]*=== UNIT (\d+) COMPLETE ===[ \t]*$", re.MULTILINE)
+# --- the texts the builder gets ---------------------------------------------------------------
 FRESH_REQUEST_REASON = (
     "OVERSEER_REQUEST {id} (auto-triggered by the Stop hook on a unit-completion claim). The audit is "
     "not yours to do: a separate agent in a fresh context does it.\n"
@@ -326,6 +307,25 @@ FRESH_REQUEST_TYPED_REASON = (
     "the line that command prints; (4) report the agent's verdict as it gave it. Do not audit the turn "
     "yourself."
 )
+NOT_WIRED_REASON = (
+    "OVERSEER NOT WIRED — this unit cannot be audited. Every audit is done by the agent `overseer` and "
+    "recorded by .claude/hooks/overseer_verdict.py, which works only through two handlers in "
+    ".claude/settings.json; this project's settings do not carry them, so no request was made.\n"
+    "Do NOT audit the unit yourself and do NOT type a verdict: neither counts. You cannot fix this "
+    "either — the settings file is the owner's. Park the unit in .engine/overseer/parked.md (Class: "
+    "human-only; Unblocks when: `python3 <engine>/engine.py update <this project>` has been run — it adds "
+    "the two handlers — or they are added by hand: PreToolUse, matcher "
+    "`Agent|Task|Edit|Write|MultiEdit|NotebookEdit`, command `python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/"
+    "overseer_verdict.py\" guard`; SubagentStop, matcher `overseer`, the same command with `record`). Then "
+    "take the next unblocked item, or end the turn with `OVERSEER_SLICE_AWAITING_OWNER: the overseer is "
+    "not wired in the settings` on its own line."
+)
+# To the person at the terminal, in the owner's language like everything the board says to the owner.
+NOT_WIRED_HUMAN = (
+    "Наглядач не підключений у .claude/settings.json цього проєкту, тому юніт ніхто не перевірив. "
+    "Запустіть `engine.py update <проєкт>` — він додасть два обробники overseer_verdict.py (guard і record) — "
+    "і перезапустіть Claude Code."
+)
 REQUEST_TYPED_RE = re.compile(r"^[ \t>*`]*OVERSEER_REQUEST\b", re.MULTILINE)
 MAX_UNATTENDED_CONTINUES = 25
 
@@ -344,39 +344,6 @@ UNATTENDED_CONTINUE_REASON = (
     "reasons applies."
 )
 
-def _lesson_review(project_dir: Path, message: str) -> str:
-    """Package B: after a verdict, feed the lesson queue and (on a PASS) ask for the review.
-
-    An OVERSEER_BLOCK verdict becomes a queue candidate; when the queue is not empty a PASS adds
-    the triage request to the "continue" text. Best effort — a problem here never changes the
-    verdict handling."""
-    try:
-        import lesson_queue
-
-        lesson_queue.add_from_verdict(project_dir, message)
-        if PASS_MARKER_RE.search(message):
-            lesson_queue.collect(project_dir)
-            request = lesson_queue.review_request(project_dir, track=True)
-            return f"\n\n{request}" if request else ""
-    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
-        pass
-    return ""
-
-
-PASS_REFUSED_REASON = (
-    "OVERSEER_PASS_REFUSED. The Stop gate has an open escalation ({scope}; parked {stamp} in "
-    ".engine/overseer/parked.md): it blocked several turns in a row, was not satisfied, and handed "
-    "the question to a human. Until the owner closes it (`python3 .claude/hooks/gate.py "
-    "--close-escalation {stamp}`, refused inside a Claude Code session), a PASS is not accepted for "
-    "any work that still holds the escalated files — the gate's finding is unanswered, whatever "
-    "the audit found.\n"
-    "Do NOT proceed to the next unit of this work, do NOT run that command and do NOT mark the "
-    "parked entry yourself. Append a superseding ledger entry for this unit (`— OVERSEER_BLOCK`, "
-    "Trigger: gate escalation {stamp} open). Other work can pass only once the escalated files "
-    "are out of the unjudged range: set those changes aside uncommitted (`git stash push -- "
-    "<files>`) and take the next unblocked item; or — if nothing else can move — end the turn with "
-    "`OVERSEER_SLICE_AWAITING_OWNER: gate escalation {stamp} open` on its own line."
-)
 GATE_OPEN_NOTICE = (
     "\n\nGATE ESCALATION OPEN ({scope}; parked {stamp} in .engine/overseer/parked.md). "
     "OVERSEER_PASS will not be accepted for this work until the owner closes it: audit as usual, "
@@ -433,19 +400,6 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
     return None
 
 
-def _note_refusal(project_dir: Path, stamp: str, message: str) -> None:
-    """Keep the refusal where the next reader looks: beside the escalation. Best effort."""
-    try:
-        import gate
-
-        data = gate.read_escalations(project_dir)
-        data["refusals"].append({"stamp": stamp, "utc": gate.utc_now(), "message_sha": _message_digest(message)[:16]})
-        data["refusals"] = data["refusals"][-200:]
-        gate.write_json(project_dir / gate.ESCALATIONS_REL, data)
-    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
-        pass
-
-
 def _gate_allow_review(project_dir: Path) -> str:
     """Package costs: the gate exemptions no accepted PASS has seen yet, for the overseer to judge.
 
@@ -460,16 +414,13 @@ def _gate_allow_review(project_dir: Path) -> str:
     return f"\n\n{listing}" if listing else ""
 
 
-def _settle_request(project_dir: Path, accepted: bool) -> None:
-    """What the last audit request showed becomes "judged" only through an accepted PASS; any
-    other verdict — a halt marker, a refused PASS — judged nothing and drops the request."""
+def _drop_request(project_dir: Path) -> None:
+    """What the last audit request showed becomes "judged" only through a recorded PASS (the
+    verdict script promotes it); a request that ends any other way judged nothing. Best effort."""
     try:
         import gate_allows
 
-        if accepted:
-            gate_allows.record_pass(project_dir)
-        else:
-            gate_allows.drop_request(project_dir)
+        gate_allows.drop_request(project_dir)
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
         pass
 
@@ -601,86 +552,6 @@ def _str_field(envelope: dict[str, object], key: str) -> str:
     """Read a string field from the envelope, or `""` if absent / wrong type."""
     value = envelope.get(key)
     return value if isinstance(value, str) else ""
-
-
-def _is_turn_boundary(record: dict[str, object]) -> bool:
-    """True if `record` is a genuine user message — `message.content` is a bare
-    string. Tool-result records are `type:user` too but carry a list body, so
-    they return False and the reverse scan treats them as transparent."""
-    message = record.get("message")
-    if not isinstance(message, dict):
-        return False
-    return isinstance(message.get("content"), str)
-
-
-def _has_tool_signal(
-    transcript_path: str,
-    source_dirs: list[str],
-    code_extensions: frozenset[str],
-    check_cmd_re: re.Pattern[str],
-) -> bool:
-    """True if the current turn contains BOTH a code-file Edit/Write/MultiEdit
-    AND a Bash verification command, as configured in .claude/project.env.
-
-    The transcript is walked in reverse; the current turn is the run of records
-    after the most recent genuine user message. Claude Code writes one content
-    block per JSONL record, so a turn spans several assistant records.
-    """
-    if not transcript_path:
-        return False
-    path = Path(transcript_path)
-    if not path.is_file():
-        return False
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return False
-
-    saw_code_edit = False
-    saw_check_cmd = False
-    for raw_line in reversed(lines):
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if not isinstance(record, dict):
-            continue
-        record_type = record.get("type")
-        if record_type == "user":
-            if _is_turn_boundary(record):
-                break  # start of the current turn — stop scanning.
-            continue  # tool-result record — transparent.
-        if record_type != "assistant":
-            continue
-        message = record.get("message")
-        if not isinstance(message, dict):
-            continue
-        content = message.get("content")
-        if not isinstance(content, list):
-            continue
-        for block in content:
-            if not isinstance(block, dict) or block.get("type") != "tool_use":
-                continue
-            name = block.get("name")
-            tool_input = block.get("input")
-            if not isinstance(tool_input, dict):
-                continue
-            if name in EDIT_TOOLS:
-                file_path = tool_input.get("file_path")
-                if isinstance(file_path, str) and _is_code_path(
-                    file_path, source_dirs, code_extensions
-                ):
-                    saw_code_edit = True
-            elif name == "Bash":
-                command = tool_input.get("command")
-                if isinstance(command, str) and check_cmd_re.search(command):
-                    saw_check_cmd = True
-        if saw_code_edit and saw_check_cmd:
-            return True
-    return saw_code_edit and saw_check_cmd
 
 
 def _phase_is_plan(project_dir: Path) -> bool:
@@ -833,7 +704,7 @@ def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str
     if row is None or row.get("verdict") == ov.INVALID:
         if HALT_MARKER_RE.search(message):   # the builder stops for real: the request dies with the turn
             ov.drop_pending(project_dir)
-            _settle_request(project_dir, accepted=False)
+            _drop_request(project_dir)
             _passthrough()
         if row is None and waiting.get("launched") and envelope.get("background_tasks"):
             _passthrough()   # the agent runs in the background; its end re-invokes the session
@@ -844,7 +715,7 @@ def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str
                     f"audit request {request_id} got no valid verdict in {asks} requests: {why}",
                     (ov.REQUESTS_REL / request_id).as_posix())
             ov.drop_pending(project_dir)
-            _settle_request(project_dir, accepted=False)
+            _drop_request(project_dir)
             _passthrough()
         ov.write_json(project_dir / ov.PENDING_REL, dict(waiting) | {"asks": asks + 1, "schema_errors": 0})
         _emit_block(FRESH_REQUEST_AGAIN_REASON.format(id=request_id, why=why[:300], asks=asks + 1, limit=ov.MAX_ASKS))
@@ -870,7 +741,7 @@ def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str
 
 
 def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
-    """The protocol with the overseer as a separate agent (see the module docstring, WHO AUDITS)."""
+    """The overseer is a separate agent (see the module docstring, WHO AUDITS)."""
     import overseer_verdict as ov
 
     message = _str_field(envelope, "last_assistant_message")
@@ -903,7 +774,7 @@ def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
         _emit_block(answer)
 
     if HALT_MARKER_RE.search(message):
-        _settle_request(project_dir, accepted=False)
+        _drop_request(project_dir)
         _passthrough()
     if PASS_MARKER_RE.search(message) and not _same_continue_message(project_dir, message):
         _emit_block(FRESH_PASS_IGNORED_REASON)
@@ -914,111 +785,29 @@ def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
     _stop_or_continue(project_dir)
 
 
-def main() -> NoReturn:
-    # NOTE — `stop_hook_active`-based Guard 1 was removed (see module
-    # docstring "RECURSION GUARDS"). It preempted the per-branch SHA
-    # idempotency on every hook-initiated turn — making both injection
-    # branches (audit-request, PASS→CONTINUE) unreachable in the
-    # autonomous loop. Per-branch SHAs at `.claude/state/overseer/.last_audit_sha`
-    # and `.claude/state/overseer/.last_continue_sha` are the design's intended
-    # recursion guards and are sufficient.
-    dry_run = "--dry-run" in sys.argv[1:]
-    envelope = _read_envelope()
+def _main_unwired(envelope: dict[str, object], project_dir: Path) -> NoReturn:
+    """The project's settings lack the overseer's handlers: nothing could record a verdict, so no
+    request is made. A claim is answered once with the way out; everything else is as usual."""
+    message = _str_field(envelope, "last_assistant_message")
+    if not _phase_is_plan(project_dir) and _claimed_unit(project_dir, envelope, message) is not None:
+        _record_audit(project_dir, message)
+        _emit_block(NOT_WIRED_REASON, NOT_WIRED_HUMAN)
+    if HALT_MARKER_RE.search(message) or _phase_is_plan(project_dir):
+        _passthrough()
+    _stop_or_continue(project_dir)
 
-    if dry_run:
+
+def main() -> NoReturn:
+    envelope = _read_envelope()
+    if "--dry-run" in sys.argv[1:]:
         _emit_block(DRY_RUN_REASON)
 
-    try:
-        import overseer_verdict
-
-        fresh = overseer_verdict.wired(_get_project_dir())
-    except ImportError:
-        fresh = False
-    if fresh:
-        _main_fresh(envelope, _get_project_dir())
-
-    # --- the former protocol: the session audits itself (until the settings are applied) ---
-    message = _str_field(envelope, "last_assistant_message")
-
-    # Package costs: a PASS is not accepted while the Stop gate's escalation for this slice is
-    # open. Decided BEFORE the lesson review — a refused PASS closes no unit, so it triggers no
-    # triage. Enforced here, not only asked for in the skill text: the verdict is a model's.
-    if PASS_MARKER_RE.search(message) and not HALT_MARKER_RE.search(message):
-        escalation = _open_gate_escalation(_get_project_dir())
-        if escalation is not None:
-            if _same_continue_message(_get_project_dir(), message):
-                _passthrough()
-            _note_refusal(_get_project_dir(), escalation[0], message)
-            _settle_request(_get_project_dir(), accepted=False)
-            _emit_block(PASS_REFUSED_REASON.format(stamp=escalation[0], scope=escalation[1]))
-
-    lesson_text = _lesson_review(_get_project_dir(), message)
-
-    # Halt markers — owner takes over, hook silent-passes.
-    if HALT_MARKER_RE.search(message):
-        _settle_request(_get_project_dir(), accepted=False)
-        _passthrough()
-
-    # PASS marker — re-inject "continue to next unit" (taskmaster pattern: keep blocking until slice done)
-    if PASS_MARKER_RE.search(message):
-        if _same_continue_message(_get_project_dir(), message):
-            _passthrough()
-        _settle_request(_get_project_dir(), accepted=True)
-        print(json.dumps({"decision": "block", "reason": CONTINUE_REASON + lesson_text}))
-        sys.exit(0)
+    import overseer_verdict
 
     project_dir = _get_project_dir()
-
-    # Phase guard: the developer is planning, not completing units of work.
-    if _phase_is_plan(project_dir):
-        _passthrough()
-
-    # Guard 2: this exact message already requested an audit.
-    if _already_audited(project_dir, message):
-        _stop_or_continue(project_dir)
-
-    # Sentinel pre-check — short-circuit before loading config (avoids noisy
-    # project.env warning on every turn that has no unit-completion claim).
-    if not UNIT_DONE_RE.search(message):
-        _stop_or_continue(project_dir)
-
-    # Load project config — only reached when the sentinel is present.
-    # Prints a stderr warning if project.env is absent.
-    cfg = _load_project_env(project_dir)
-    source_dirs = _build_source_dirs(cfg)
-    code_extensions = _build_code_extensions(cfg)
-    check_cmd_re = _build_check_cmd_re(cfg)
-
-    # Two-signal trigger — sentinel already confirmed above; check tool signal.
-    tool_signal = _has_tool_signal(
-        _str_field(envelope, "transcript_path"),
-        source_dirs,
-        code_extensions,
-        check_cmd_re,
-    )
-    if not tool_signal:
-        _stop_or_continue(project_dir)
-
-    # Package 3c: the contract the audit would judge against must be the one that was
-    # approved. Changed since sealing → escalate, never audit (recorded like an audit so the
-    # same message does not fire twice).
-    changed = _contract_changed(project_dir)
-    if changed is not None:
-        contract, fingerprint = changed
-        _record_audit(project_dir, message)
-        _emit_block(
-            CONTRACT_CHANGED_REASON.format(
-                contract=contract.relative_to(project_dir).as_posix(),
-                fingerprint=fingerprint.relative_to(project_dir).as_posix(),
-            )
-        )
-
-    _record_audit(project_dir, message)
-    request = AUDIT_REASON + _gate_allow_review(project_dir)
-    escalation = _open_gate_escalation(project_dir)
-    if escalation is not None:
-        request += GATE_OPEN_NOTICE.format(stamp=escalation[0], scope=escalation[1])
-    _emit_block(request)
+    if not overseer_verdict.wired(project_dir):
+        _main_unwired(envelope, project_dir)
+    _main_fresh(envelope, project_dir)
 
 
 if __name__ == "__main__":
