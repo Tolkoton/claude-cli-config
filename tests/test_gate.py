@@ -411,6 +411,68 @@ check("an UNSEALED contract grants nothing", blocked(r, "bypass/type-ignore"), r
 r, pl = with_contract("stale")
 check("a contract edited after its seal grants nothing, not even for its old lines", blocked(r, "bypass/type-ignore") and blocked(r, "bypass/noqa"), rules(r))
 
+print("bypass guard: PROJECT_MARKER and CODE_EXTENSIONS pass on the sealed contract only (board 025)")
+ENV_BASE = 'CODE_EXTENSIONS="py"\nPROJECT_MARKER=""\nLINT_CMD="false"\n'
+SCOPE_CHANGES = {"PROJECT_MARKER": ENV_BASE.replace('PROJECT_MARKER=""', 'PROJECT_MARKER="absent.toml"'),
+                 "CODE_EXTENSIONS": ENV_BASE.replace('CODE_EXTENSIONS="py"', 'CODE_EXTENSIONS="ts"')}
+
+
+def scope_change(env_after: str, contract: str | None = None, seal: bool = True, layer: str = "stop") -> tuple[Path, dict[str, object]]:
+    """A turn that edits mod.py and rewrites project.env; `contract` is committed before the turn."""
+    r = new_repo(env_lines=ENV_BASE)
+    if contract is not None:
+        (r / ".engine/slices").mkdir(parents=True)
+        (r / ".engine/slices/scope.md").write_text(contract)
+        if seal:
+            (r / ".claude/state/contracts").mkdir(parents=True)
+            digest = hashlib.sha256(contract.encode()).hexdigest()
+            (r / ".claude/state/contracts/scope.sha256").write_text(f"{digest}  .engine/slices/scope.md\n")
+        sh(r, "git", "add", "-A")
+        sh(r, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "contract")
+    (r / "mod.py").write_text("x = 2\n")
+    (r / ".claude/project.env").write_text(env_after)
+    if layer == "stop":
+        _, payload = hook_stop(r)
+        return r, payload
+    sh(r, "git", "add", "-A")
+    p = gate(r, "--layer", layer)
+    return r, {"rc": p.returncode, "stderr": p.stderr}
+
+
+for key, after in SCOPE_CHANGES.items():
+    r, pl = scope_change(after)
+    check(f"a changed {key} blocks the Stop gate", pl.get("decision") == "block" and blocked(r, "bypass/config"), pl)
+    check(f"...the reason names {key} and the contract line that would allow it",
+          f"gate-allow: {key} —" in str(pl.get("reason")), pl)
+    r, pl = scope_change(after, layer="pre_commit")
+    check(f"pre_commit: a staged change of {key} blocks (exit 2)", pl["rc"] == 2 and blocked(r, "bypass/config"), pl)
+    r, pl = scope_change(after + "# gate-allow: the project moved to another language\n")
+    check(f"{key}: a gate-allow line in project.env itself does NOT pass", blocked(r, "bypass/config"), pl)
+    r, pl = scope_change(after, contract="# Slice\n\ngate-allow: .claude/project.env — the settings are re-tuned here\n")
+    check(f"{key}: a contract grant of the whole file does NOT pass — the key must be named", blocked(r, "bypass/config"), pl)
+    granted = f"# Slice\n\ngate-allow: {key} — the project moves to another layout\n"
+    r, pl = scope_change(after, contract=granted)
+    check(f"{key}: the sealed contract naming the key lets the guard pass", severities(r, "bypass/config") == ["log"], rules(r))
+    r, pl = scope_change(after, contract=granted, seal=False)
+    check(f"{key}: an unsealed contract grants nothing", blocked(r, "bypass/config"), pl)
+    other = next(k for k in SCOPE_CHANGES if k != key)
+    r, pl = scope_change(after, contract=f"# Slice\n\ngate-allow: {other} — the project moves to another layout\n")
+    check(f"{key}: a grant of {other} does not cover it", blocked(r, "bypass/config"), pl)
+r, pl = scope_change(SCOPE_CHANGES["CODE_EXTENSIONS"], contract="# Slice\n\ngate-allow: CODE_EXTENSIONS — the project moves to TypeScript\n")
+check("CODE_EXTENSIONS allowed by the contract: the turn ends (mod.py is no longer code)", pl.get("decision") is None, pl)
+r, pl = scope_change(SCOPE_CHANGES["PROJECT_MARKER"], contract="# Slice\n\ngate-allow: PROJECT_MARKER — tooling arrives in the next slice\n")
+check("PROJECT_MARKER allowed by the contract: the turn ends (checks wait for the marker)", pl.get("decision") is None and "marker" in rules(r), pl)
+both = ENV_BASE.replace('PROJECT_MARKER=""', 'PROJECT_MARKER="absent.toml"').replace('LINT_CMD="false"', 'LINT_CMD="true"')
+r, pl = scope_change(both, contract="# Slice\n\ngate-allow: PROJECT_MARKER — tooling arrives in the next slice\n")
+check("a granted key does not carry an ungranted change of another gate key with it",
+      blocked(r, "bypass/config") and "LINT_CMD" in str(pl.get("reason")) and "PROJECT_MARKER" not in str(pl.get("reason")).split("BYPASS GUARD", 1)[1].split(" — ", 1)[0], pl)
+r, pl = scope_change(both + "# gate-allow: the lint command moved to the CI job\n", contract="# Slice\n\ngate-allow: PROJECT_MARKER — tooling arrives in the next slice\n")
+check("...the other key still passes its own way (a reason among the added lines)", pl.get("decision") is None and severities(r, "bypass/config") == ["log", "log"], pl)
+r, pl = scope_change('# moved\nPROJECT_MARKER=\'\'\nCODE_EXTENSIONS="py"  \nLINT_CMD="false"\n')
+check("compared by parsed value: reordering and requoting the two keys is not a change", not any(x == "bypass/config" for x in rules(r)), rules(r))
+r, pl = scope_change('CODE_EXTENSIONS="py"\nLINT_CMD="false"\n')
+check("an empty key dropped from the file is not a change (unset and empty read the same)", not any(x == "bypass/config" for x in rules(r)), rules(r))
+
 # ---------------------------------------------------------------- the separate gates share the format
 print("contract_fingerprint and complexity_budget report in the same schema")
 FP = ROOT / ".claude/hooks/contract_fingerprint.py"

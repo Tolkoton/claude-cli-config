@@ -262,6 +262,23 @@ check("a suppression that passes on a SEALED contract's grant is listed where it
       and got[0]["what"].startswith("type-ignore") and "tax.md" in got[0]["what"]
       and got[0]["reason"] == "the vendored stub has no types", (gate_proc.stdout, got))
 
+r = new_repo()
+contract_text = f"# Slice layout\n\n{GA} PROJECT_MARKER — tooling arrives in the next slice\n"
+(r / ".engine" / "slices").mkdir(parents=True)
+(r / ".engine" / "slices" / "layout.md").write_text(contract_text)
+(r / ".claude/state/contracts").mkdir(parents=True)
+(r / ".claude/state/contracts/layout.sha256").write_text(hashlib.sha256(contract_text.encode()).hexdigest() + "  layout.md\n")
+commit(r, "the sealed contract is history")
+check("no change of the key: the contract's grant alone is not an exemption in use", collected(r) == [], collected(r))
+env_file = r / ".claude" / "project.env"
+env_file.write_text(env_file.read_text() + 'PROJECT_MARKER="absent.toml"\n')
+gate_proc = run(GATE, r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
+got = collected(r)
+check("board 025: a PROJECT_MARKER change that passes on the contract's grant is shown to the overseer",
+      gate_proc.stdout.strip() == "" and len(got) == 1 and got[0]["source"] == "contract"
+      and got[0]["file"] == ".claude/project.env" and got[0]["what"].startswith("PROJECT_MARKER change")
+      and "layout.md" in got[0]["what"] and got[0]["reason"] == "tooling arrives in the next slice", (gate_proc.stdout, got))
+
 print("judged means shown AND passed")
 WEAK = f"x = 3  {TI}  # {GA} needed to make mypy pass\n"
 r = new_repo()

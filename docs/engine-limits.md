@@ -181,6 +181,10 @@ such exemption before the overseer, who judges it (check #4). What that rests on
 - **The collector sees what the guard sees.** `.sh`, `.pyi`, `setup.cfg`, a `conftest.py`
   `collect_ignore`: the bypass guard does not watch them, so no gate-allow can exist there to
   hide. That is a limit of the gate (package 7), unchanged here.
+- **`PROJECT_MARKER` and `CODE_EXTENSIONS` are guarded by value, against the turn's base.** A
+  change of either blocks unless the sealed contract names the key (board 025). The guard compares
+  with HEAD at `stop` and with the index at `pre_commit`: a change committed outside the gate — a
+  commit made by a script, with no git pre-commit hook wired — is in HEAD and no longer a diff.
 - **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
   model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.
 

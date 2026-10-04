@@ -58,6 +58,11 @@ Allowed when the justification stands next to it:
   only while the contract is **sealed and unchanged** (`.claude/state/contracts/<slug>.sha256`
   matches), so the work being judged cannot grant itself the exemption by editing a slice file.
 
+`PROJECT_MARKER` and `CODE_EXTENSIONS` are guarded more strictly: they decide whether lint, types
+and tests run at all. A change of either value blocks, and passes one way only — the sealed
+contract names the key: `gate-allow: PROJECT_MARKER — <reason>` (or `CODE_EXTENSIONS`). A reason in
+`project.env` itself or a grant of the whole file does not pass. Unset and empty are the same value.
+
 ## Who reads the reason (package costs)
 
 The gate checks a reason's shape; the overseer judges whether it is true.

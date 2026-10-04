@@ -20,7 +20,8 @@ WHAT COUNTS. Lines the diff ADDS (working tree + index + untracked files against
   contract  an added suppression (or a changed config file) that carries no marker of its own
             and passes the gate because a SEALED slice contract grants its kind: listed at the
             line that uses the grant, with the contract's reason. Also any marker line a
-            contract gains in the diff.
+            contract gains in the diff, and a changed PROJECT_MARKER / CODE_EXTENSIONS, which
+            passes on the contract's grant of that key alone.
 A marker with no reason at all is listed too (`reason` empty); `reason_ok` says whether gate.py
 would accept the reason's shape.
 
@@ -252,6 +253,13 @@ def collect(root: Path, base: str | None = None, include_judged: bool = False) -
             grant = grants.get(rel.lower()) or grants.get(Path(rel).name.lower())
             if grant:
                 found = [Allow(rel, 1, "contract", f"config change (granted by {grant[0]})", grant[1], True)]
+        if rel == ".claude/project.env":
+            # PROJECT_MARKER / CODE_EXTENSIONS pass on the contract's grant alone: show it where it is used.
+            before, after = gate.parse_env_text(gate.git(root, "show", f"{ref}:{rel}").stdout), gate.parse_env_text(text)
+            for name in gate.SCOPE_KEYS:
+                grant = grants.get(name.lower())
+                if grant and before.get(name, "") != after.get(name, ""):
+                    found.append(Allow(rel, 1, "contract", f"{name} change (granted by {grant[0]})", grant[1], True))
         allows.extend(found)
     seen: dict[tuple[str, str, str, str], int] = {}
     for allow in allows:

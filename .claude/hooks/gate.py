@@ -40,6 +40,9 @@ keys in project.env) — unless the justification stands next to it:
     # gate-allow: <reason>           same line, or the comment-only line directly above
 (any added line of a config file) or the slice contract (.engine/slices/*.md) says
     gate-allow: <type-ignore|noqa|skip|xfail|config path> — <reason>
+A change of PROJECT_MARKER or CODE_EXTENSIONS in project.env passes one way only: the sealed slice
+contract names the key (`gate-allow: PROJECT_MARKER — <reason>`); a reason in project.env itself or
+a grant of the whole file is not enough.
 A reason is at least 12 characters and two words. Syntax only: comments come from the tokenizer,
 marks from the AST, configuration from the parsed tables — a string that merely mentions them
 is not a finding. The guard calls no tool, so it runs whether or not PROJECT_MARKER exists; a
@@ -84,6 +87,9 @@ TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 40}
 HEADINGS = {"lint": "LINT FAILED", "typecheck": "TYPECHECK FAILED", "tests": "TESTS FAILED"}
 GATE_KEYS = ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD", "TEST_CMD_FULL", "FORMAT_CMD", "GATE_MAX_BLOCKS",
              "COMPLEXITY_MAX_CYCLOMATIC", "COMPLEXITY_MAX_NESTING")
+# These two decide WHETHER lint, types and tests run at all, so a reason written by the work being
+# judged is not enough: only a sealed slice contract that names the key lets the change through.
+SCOPE_KEYS = ("PROJECT_MARKER", "CODE_EXTENSIONS")
 CONFIG_BASENAMES = ("ruff.toml", ".ruff.toml", "mypy.ini", ".mypy.ini")
 SKIP_NAMES = {
     "pytest.mark.skip": "skip",
@@ -465,6 +471,30 @@ def config_justified(text: str | None, added: set[int] | None) -> bool:
     return False
 
 
+def changed_keys(old: str | None, new: str | None, keys: tuple[str, ...]) -> list[str]:
+    before, after = parse_env_text(old or ""), parse_env_text(new or "")
+    return [k for k in keys if before.get(k) != after.get(k)]
+
+
+def guard_scope_keys(rel: str, old: str | None, new: str | None, allowed: dict[str, str], report: Report) -> None:
+    # Unset and empty mean the same to every reader of these two keys, so dropping an empty line
+    # is not a change.
+    before, after = parse_env_text(old or ""), parse_env_text(new or "")
+    for key in (k for k in SCOPE_KEYS if before.get(k, "") != after.get(k, "")):
+        if key.lower() in allowed:
+            report.add(Finding(rel, None, "bypass/config", "log",
+                               f"{key} changed, allowed by the slice contract {allowed[key.lower()]}"))
+            continue
+        report.add(Finding(
+            rel, None, "bypass/config", "block",
+            f"the diff changes {key} — it decides whether lint, types and tests run at all, and the "
+            "work being judged may not decide that",
+            f"restore {key}; the change passes only when the sealed slice contract carries "
+            f"`gate-allow: {key} — <reason>` (a reason in {rel} itself, or a grant of the whole file, "
+            "is not enough)",
+        ))
+
+
 def guard_config(
     root: Path, layer: str, rel: str, diff_ref: str | None, allowed: dict[str, str],
     added: set[int] | None, report: Report,
@@ -480,9 +510,8 @@ def guard_config(
         if old != new:
             changed = "the linter / type-checker configuration"
     elif rel == ".claude/project.env":
-        before_env = parse_env_text(old or "")
-        after_env = parse_env_text(new or "")
-        keys = [k for k in GATE_KEYS if before_env.get(k) != after_env.get(k)]
+        guard_scope_keys(rel, old, new, allowed, report)
+        keys = changed_keys(old, new, GATE_KEYS)
         if keys:
             changed = f"the gate's own settings ({', '.join(keys)})"
     if changed is None:
