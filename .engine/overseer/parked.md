@@ -179,3 +179,9 @@ Move an entry to `RESUMED` in place when it unblocks; keep the history.
 - Unblocks when: the owner logs in (`claude auth login`, or sets the usual API key in the environment), then on branch unattended/2026-10-02-package-2b runs `python3 evals/run_audit_scenarios.py --engine-ref HEAD --runs 3 --out evals/baseline/macos-14/audit-v0.12.0-candidate.json --label "night 1 item 0.3: final state of engine 2b"` (add `--resume` to continue after an interrupted run; budget $35, about $20 expected), then `python3 evals/compare_audits.py --before evals/baseline/macos-14/audit-v0.11.0.json --after evals/baseline/macos-14/audit-v0.12.0-candidate.json --must-fix 01,08`
 - Continued with: packages A and B, done before this item as the program's order puts item 0.3 last
 - Closed: 2026-10-03 (board task 004; was PARKED) — closed by the release audit of the costs package: commit 5a3538c `release audit (C7): audit-v0.12.0.json on 39e7325 — 30/33 matched, 19.67 USD of 35; comparison with v0.11.0`. The full audit ran on a logged-in machine (the server) against the later engine state 39e7325, which contains everything of 2b; result in `evals/baseline/linux-ubuntu-22.04/audit-v0.12.0.json`, comparison in `.engine/overseer/audit-costs-compare.md`. The `audit-v0.12.0-candidate.json` file named above was never produced and is no longer needed.
+
+## 2026-10-04T23:22:59Z — -|076-maintain-build|unit 1 — PARKED
+- Blocked on: audit request 20261004T224257Z-02b9cc got no valid verdict in 3 requests: the agent left no verdict
+- Class: human-input
+- Evidence: .claude/state/overseer/requests/20261004T224257Z-02b9cc
+- Unblocks when: the owner answers, or the audit is repeated and passes

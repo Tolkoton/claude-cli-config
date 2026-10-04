@@ -16,6 +16,10 @@ SCENES
   - the class of an update is computed from the two versions; a major (and a 0.x minor, and a
     version that is not numbers) never enters updates.json, and becomes a task proposal;
   - with no DEPS_OUTDATED_CMD the step is not there: no list, no question;
+  - the report's other parts by their VALUES, not their headings: the hot file is the one that
+    both changes often and is complex (not the busy simple one, not the quiet complex one); the
+    snapshot's counts and what went since the previous report; the open and the overdue debt;
+    the lesson queue and the waiting rule proposal; a task proposal for each;
   - an answer that is not «так» — the command is not called; inside a session — refused;
   - the list changed after the question — not called;
   - «так» — the command is called with exactly the list the owner saw: the patches as one group,
@@ -47,6 +51,7 @@ MAINTAIN = HOOKS / "maintain.py"
 BOARD = ROOT / ".claude/unattended/board.py"
 ACTION = ROOT / ".claude/unattended/owner_action.py"
 RUNNER = ROOT / ".claude/unattended/board-runner.sh"
+RUNNER_LIMIT_S = 120
 PASS = FAIL = 0
 # The simplifier's outside tools (vulture, pylint through uvx) are not what is tested here.
 PATH = os.pathsep.join(d for d in os.environ.get("PATH", "").split(os.pathsep) if d and not any((Path(d) / t).exists() for t in ("uvx", "vulture", "pylint")))
@@ -160,7 +165,12 @@ class World:
         return self.py(ACTION, "--root", str(self.repo), "update-deps", sha, **more)
 
     def runner(self, *args: str, **more: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(["bash", str(RUNNER), *args], cwd=self.dir, capture_output=True, text=True, check=False, env=self.env(**more))
+        # The limit turns a runner that never stops (a broken weekly guard places a task on every pass) into a red check.
+        try:
+            return subprocess.run(["bash", str(RUNNER), *args], cwd=self.dir, capture_output=True, text=True, check=False, env=self.env(**more), timeout=RUNNER_LIMIT_S)
+        except subprocess.TimeoutExpired:
+            (self.repo / ".claude/state/board/stop-after-task").touch()   # whatever is left of it stops at its next pass
+            return subprocess.CompletedProcess(["board-runner"], 124, "", f"the runner did not stop in {RUNNER_LIMIT_S} s")
 
     def commit(self, message: str) -> None:
         sh(self.repo, "git", "add", "-A")
@@ -256,6 +266,60 @@ try:
           "Кроку немає" in bare.text(".engine/maintain/2026-10-04.md") and not (bare.repo / maintain.UPDATES_REL).exists()
           and none.returncode == 3 and not none.stdout.strip(), out(none))
     check("…and the board offers no action without the list", bare.board("action-line", "update-deps").returncode == 2)
+
+    # --- the report's other parts, by value -----------------------------------------------------------
+    print("the report's other parts: values, not headings")
+    branchy = "def tangled(a):\n    n = 0\n" + "".join(f"    if a == {i}:\n        n += {i}\n" for i in range(12)) + "    return n\n"
+    w = World()
+    for rel, body in (("app/hot.py", branchy), ("app/quiet.py", branchy.replace("tangled", "knotted")), ("app/busy.py", "def one():\n    return 1\n"),
+                      (".engine/baseline.json", json.dumps({"schema": 1, "tests": ["tests/t.py::a", "tests/t.py::b"], "lint": {"app/hot.py": {"E501": 3}}, "types": {"app/hot.py": {"arg-type": 1}}})),
+                      (".engine/debt.md", "# Debts of urgent fixes\n\n"
+                       "- 001-login | open | recorded 2026-09-24 | due 2026-10-01 | commit abc1234 | deferred: the test | follow-up: tasks/todo/011-followup.md\n"
+                       "- 002-cart | open | recorded 2026-10-02 | due 2026-10-09 | commit def5678 | deferred: the test | follow-up: tasks/todo/012-followup.md\n"
+                       "- 003-old | closed 2026-09-20 by 004 | recorded 2026-09-10 | due 2026-09-17 | commit 0a0a0a0 | deferred: the test | follow-up: tasks/done/009\n"),
+                      (".engine/lesson-queue.md", "# queue\n- 2026-09-28 | gate | s1 | the first lesson #0000aaaa\n- 2026-10-01 | agent | s1 | the second lesson #0000bbbb\n"),
+                      (".engine/rule-proposals.md", "")):
+        (w.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (w.repo / rel).write_text(body, encoding="utf-8")
+    w.commit("the project has a history")
+    for i in range(3):   # two files change often; only one of them is complex
+        for rel in ("app/hot.py", "app/busy.py"):
+            (w.repo / rel).write_text((w.repo / rel).read_text() + f"# change {i}\n")
+        w.commit(f"change {i}")
+    rich = w.reported().text(".engine/maintain/2026-10-04.md")
+
+    def part(doc: str, heading: str) -> str:
+        return doc.split(f"## {heading}\n", 1)[1].split("\n## ", 1)[0]
+
+    hot, tasks_part = part(rich, "Гарячі місця"), part(rich, "Пропозиції задач")
+    check("hot places: the file that changes often AND holds a function over the limit, with both numbers",
+          "- `app/hot.py`: змін 4, найскладніша функція 13" in hot, hot)
+    check("NEGATIVE: the busy simple file and the quiet complex file are not hot", "busy.py" not in hot and "quiet.py" not in hot and "- немає" not in hot, hot)
+    check("…and it is a task proposal", "Спростити `app/hot.py`: змінювався 4 разів за 90 днів, найскладніша функція — 13." in tasks_part, tasks_part)
+    snap = part(rich, "Знімок «як було»")
+    check("the snapshot: what is left, by kind", all(line in snap for line in ("- старих падінь тестів: 2", "- зауважень лінтера: 3", "- зауважень типів: 1"))
+          and "прибрано" not in snap, snap)
+    check("…and the old failures are a task proposal", "Полагодити старі падіння тестів зі знімка «як було» (2)" in tasks_part, tasks_part)
+    debt = part(rich, "Борги термінових виправлень")
+    check("the debts: two open of three, one overdue and marked, the closed one not shown",
+          "Відкрито: 2 з 3; прострочено: 1." in debt and "- ПРОСТРОЧЕНО — `001-login`: строк 2026-10-01, commit abc1234" in debt
+          and "- `002-cart`: строк 2026-10-09" in debt and "003-old" not in debt, debt)
+    check("…the overdue one is a task proposal, the one in time is not",
+          "Закрити прострочений борг термінового виправлення `001-login` (строк 2026-10-01): tasks/todo/011-followup.md." in tasks_part and "002-cart" not in tasks_part, tasks_part)
+    queue = part(rich, "Черга уроків")
+    check("the lesson queue: how many and since when", "- кандидатів у черзі: 2, найстаріший від 2026-09-28" in queue, queue)
+    (w.repo / ".engine/baseline.json").write_text(json.dumps({"schema": 1, "tests": ["tests/t.py::a"], "lint": {"app/hot.py": {"E501": 1}}, "types": {}}))
+    (w.repo / ".engine/debt.md").write_text(w.text(".engine/debt.md").replace("- 001-login | open |", "- 001-login | closed 2026-10-08 by 013 |"))
+    w.commit("a week of repairs")
+    later = w.reported("2026-10-11")
+    snap, debt, tasks_part = (part(later.text(".engine/maintain/2026-10-11.md"), h) for h in ("Знімок «як було»", "Борги термінових виправлень", "Пропозиції задач"))
+    check("a week later the snapshot says what went: each count against the previous report, and the sum removed",
+          all(line in snap for line in ("- старих падінь тестів: 1 (було 2, -1)", "- зауважень лінтера: 1 (було 3, -2)", "- зауважень типів: 0 (було 1, -1)",
+                                        "- прибрано з минулого звіту: 4")), snap)
+    check("…and the debt that was closed is gone while the other, now past its term, is overdue",
+          "Відкрито: 1 з 3; прострочено: 1." in debt and "001-login" not in debt + tasks_part and "ПРОСТРОЧЕНО — `002-cart`" in debt and "`002-cart`" in tasks_part, debt + tasks_part)
+    empty = part(World().reported().text(".engine/maintain/2026-10-04.md"), "Гарячі місця")
+    check("a project with none of this says so instead of inventing it", "- немає" in empty, empty)
 
     # --- the refusals, before the action is shown to run --------------------------------------------
     print("not «так»: the command is not called")
