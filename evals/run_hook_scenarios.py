@@ -295,9 +295,6 @@ def main() -> int:
     parser.add_argument("--record-only", action="store_true",
                         help="record outcomes, do not fail on expectation mismatches")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
-    parser.add_argument("--reset-only", action="store_true",
-                        help="return the sandbox to its initial commit and exit "
-                             "(use between manual audit runs)")
     args = parser.parse_args()
     if bool(args.sandbox) == bool(args.engine_ref):
         parser.error("give exactly one of --sandbox and --engine-ref")
@@ -327,14 +324,6 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
               "Build one with evals/make_sandbox.sh — never point this at a real project.",
               file=sys.stderr)
         return 2
-    if args.reset_only:
-        try:
-            reset_sandbox(sandbox)
-        except SandboxError as exc:
-            print(f"sandbox error: {exc}", file=sys.stderr)
-            return 2
-        print(f"sandbox reset to its initial commit: {sandbox}")
-        return 0
     hooks_dir = (args.hooks_dir or sandbox / ".claude" / "hooks").expanduser().resolve()
     scenario_files = sorted(args.scenarios.glob("*.json"))
     if not scenario_files:
