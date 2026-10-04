@@ -32,13 +32,15 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
 
 1. **Стан зараз** — what the runner is on, for how long, what it has cost, whether it stopped and why.
    The attempt in hand has no cost in the state files until it ends; say so, do not estimate it.
+   The line about the debts of urgent fixes (`/hotfix`): how many are open and until when; at three, the next urgent fix starts with a question.
 2. **Зроблено** — per finished task: what changed for the owner, then the decisions the agent
    took alone. Ask whether any of those decisions should be reversed — a reversal is a new task.
 3. **Чекає на власника** — every open question, one at a time, with its context and options. The
    owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
    never takes them; they are done in an interactive session, not in this one), the settings proposals, the open escalations,
    the parked items and the rule proposals (each names its question in `blocked/`): each either gets an answer, becomes a new task, or waits.
-4. **Аномалії** — what the runner, the gate, a hook or the agent found odd, wrote into
+4. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
+   whether the follow-up task should move up the queue); then what the runner, the gate, a hook or the agent found odd, wrote into
    `tasks/ANOMALIES.md` and worked past (each entry says who wrote it): a task the runner parked in
    `blocked/` itself (its question is in the section above; its uncommitted work is on the `wip/…`
    branch the entry names), a failed push, a gate escalation, a stop of the whole board. Say each in a sentence; one that needs a fix is a new task.

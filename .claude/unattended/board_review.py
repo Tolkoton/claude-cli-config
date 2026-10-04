@@ -21,7 +21,7 @@ tasks that need the owner present (`Потрібна присутність вл
 settings proposals, the open escalations, the parked items, the rule proposals; the goals document (board 051: the decisions
 that cite no line of it, the architects' requests to the analyst and which were closed by a quote, the amendments and what
 they touched, the analyst's lessons — read by .claude/hooks/goals.py, figures to read and not targets); the new entries of the anomaly journal
-tasks/ANOMALIES.md (board 021: what the runner — and since board 035 the gate, a hook or the agent — found odd and worked past); the plan; the
+tasks/ANOMALIES.md, after the overdue debts of urgent fixes (board 075; the open ones stand on a line of the state now) (board 021: what the runner — and since board 035 the gate, a hook or the agent — found odd and worked past); the plan; the
 candidates for new tasks; the health — the last runs of the suites and of the golden set from the machine
 records the tools leave in .claude/state/health/ (board 035), not from anybody's prose. `--since` narrows what was DONE (and the anomalies, the
 candidates and the costs that come from it); what waits and what is planned is always shown whole. The last line is
@@ -50,6 +50,7 @@ import board_state
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 import goals  # the goals document's reader lives with the hooks
+import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
 
 CONTEXT_BUDGET = 200
 MAX_HOPS = 4  # how deep Claude Code follows `@path` imports (tests/test_context_budget.py)
@@ -328,7 +329,31 @@ def now_section(src: Source, state: Path, now: datetime) -> list[str]:
         lines.append("- У гілці в `doing/` зараз порожньо" + (" (commit, яким задачу взято в роботу, ще не надіслано)." if unpushed else "."))
     counts = "   ".join(f"{c}: {len(src.done() if c == 'done' else src.column(c))}" for c in board.COLUMNS)
     lines.append(f"- Дошка: {counts}")
-    return lines
+    return lines + debt_line(src, now)
+
+
+def debt_line(src: Source, now: datetime) -> list[str]:
+    """The open debts of urgent fixes (/hotfix, board 075), on a line of their own; nothing in a
+    project that never had one. The overdue ones are shown again among the anomalies."""
+    if hotfix.DEBT_REL not in src.files:
+        return []
+    owed = [d for d in hotfix.debts(src.show(hotfix.DEBT_REL)) if d.open]
+    if not owed:
+        return [f"- Борги термінових виправлень (`{hotfix.DEBT_REL}`): відкритих немає."]
+    late = sum(d.overdue(now.date()) for d in owed)
+    return [f"- Борги термінових виправлень (`{hotfix.DEBT_REL}`): відкритих {len(owed)} із межі {hotfix.MAX_OPEN} — "
+            + ", ".join(f"`{d.name}` (строк до {d.due})" for d in owed) + f"; прострочених: {late}."
+            + (" Наступне термінове виправлення почнеться з питання до вас." if len(owed) >= hotfix.MAX_OPEN else "")]
+
+
+def overdue_lines(src: Source, now: datetime) -> list[str]:
+    late = [d for d in hotfix.debts(src.show(hotfix.DEBT_REL)) if d.overdue(now.date())]
+    if not late:
+        return []
+    head = (f"Прострочені борги термінових виправлень: {len(late)}. Термінове виправлення відклало тест, запис причини й пошук таких самих "
+            "місць на сім днів; повного виправлення (`/bugfix`) досі немає.")
+    return [head, "", *(f"- **`{d.name}`** — строк минув {d.due} ({d.days_late(now.date())} дн тому), commit `{d.commit}`; "
+                        f"продовження: `{d.followup}`" for d in late), ""]
 
 
 # ------------------------------------------------------------------ done
@@ -531,7 +556,12 @@ def goals_section(src: Source) -> list[str]:
 # ------------------------------------------------------------------ anomalies
 
 
-def anomalies_section(src: Source, period: Since) -> list[str]:
+def anomalies_section(src: Source, period: Since, now: datetime) -> list[str]:
+    """The overdue debts of urgent fixes, whatever the period (board 075); then the entries of the journal."""
+    return [*overdue_lines(src, now), *journal_lines(src, period)]
+
+
+def journal_lines(src: Source, period: Since) -> list[str]:
     """The entries of tasks/ANOMALIES.md written in the period, oldest first. The journal only
     grows at its end, so after a commit the new entries are those past the ones it already had;
     after a date they are told by their own time."""
@@ -739,7 +769,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
                         ("Зроблено", done_section(src, stems, costs)),
                         ("Чекає на власника", waiting_section(src, state)),
                         ("Цілі та звірка з ними", goals_section(src)),
-                        ("Аномалії", anomalies_section(src, period)),
+                        ("Аномалії", anomalies_section(src, period, now)),
                         ("План", plan_section(src)),
                         ("Кандидати в нові задачі", candidates_section(src, stems, period)),
                         ("Здоров'я", health_section(src, state, costs, period))):

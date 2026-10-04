@@ -50,6 +50,14 @@ RAISING THE BUDGET is the owner's call. The limits seen FIRST for a slice are re
 (.claude/state/overseer/.budget-<slug>.json); if the contract later shows higher numbers, the
 original ones stay in force and the report says so. The owner re-baselines by deleting
 that file — a visible act, not a quiet edit.
+
+THE HARD MODE (board 075). A card of an urgent fix (`type: hotfix`, written by `hotfix.py start`
+from .claude/templates/hotfix-record.md; `mode: hard` in its budget section) is the one budget
+that IS a ceiling. Its limits cannot be set above HARD_LIMITS; it is measured whole — every
+changed file but the tests and the engine's own records, added lines and not net ones — and code
+may not be deleted outside the functions being fixed. Over it the turn is blocked whatever
+COMPLEXITY_GATE says and on every stop, the simplifier is not called and its acceptance lifts
+nothing. A card seen hard stays hard, whatever it is edited to say.
 """
 
 from __future__ import annotations
@@ -73,6 +81,8 @@ CALIBRATION_FLOOR = {"max_cyclomatic_per_function": 5, "max_nesting_depth": 2}
 ACCEPTED_DIR = Path(".claude/state/simplifier")
 LIMIT_KEYS = (
     "max_new_files",
+    "max_changed_files",
+    "max_added_lines",
     "max_net_new_lines",
     "max_new_public_symbols",
     "max_new_abstractions",
@@ -80,7 +90,16 @@ LIMIT_KEYS = (
     "max_cyclomatic_per_function",
     "max_nesting_depth",
 )
-KNOWN_KEYS = (*LIMIT_KEYS, "base_commit", "justification")
+KNOWN_KEYS = (*LIMIT_KEYS, "base_commit", "justification", "mode")
+# An urgent fix (the approved design of board 070, section 4): the card may not set these higher.
+HARD_LIMITS = {"max_new_files": 0, "max_changed_files": 2, "max_added_lines": 30,
+               "max_new_public_symbols": 0, "max_new_dependencies": 0}
+HARD_TYPE_RE = re.compile(r"^type:[ \t]*hotfix[ \t]*$", re.MULTILINE)
+DELETED_OUTSIDE = "deleted_outside_fixed_functions"
+# Not the fix: the engine's own records (the card, the debt, the board) and the machine state
+# the hooks write — which a project need not have in its .gitignore.
+RECORD_DIRS = (".engine/", "tasks/", ".claude/state/")
+HUNK_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,(\d+))? @@", re.MULTILINE)
 SECTION_RE = re.compile(r"^##\s+Complexity budget\s*$", re.IGNORECASE | re.MULTILINE)
 ACTIVE_RE = re.compile(r"IN PROGRESS", re.IGNORECASE)
 # A bug record (.engine/bugs/, written by /bugfix) carries its budget like a slice contract.
@@ -110,11 +129,14 @@ class Budget:
     base_commit: str
     limits: dict[str, int]
     justification: str = "none"
+    hard: bool = False
 
 
 @dataclass
 class Usage:
     new_files: list[str] = field(default_factory=list)
+    changed_files: list[str] = field(default_factory=list)
+    added_lines: int = 0
     net_new_lines: int = 0
     test_lines: int = 0
     new_public_symbols: list[str] = field(default_factory=list)
@@ -136,6 +158,8 @@ class Outcome:
     base_commit: str = ""
     over: dict[str, int] = field(default_factory=dict)
     lines: list[str] = field(default_factory=list)
+    hard: bool = False
+    changed_files: list[str] = field(default_factory=list)
 
 
 # ------------------------------------------------------------------ configuration
@@ -186,7 +210,7 @@ def parse_budget(contract: Path) -> Budget | None:
     rest = text[start.end() :]
     end = re.search(r"(?m)^## ", rest)
     limits: dict[str, int] = {}
-    meta = {"base_commit": "", "justification": "none"}
+    meta = {"base_commit": "", "justification": "none", "mode": "signal"}
     for raw in (rest[: end.start()] if end else rest).splitlines():
         line = raw.split("#", 1)[0].strip().lstrip("-* ").strip("`")
         if not line or ":" not in line or line.startswith("```"):
@@ -203,7 +227,10 @@ def parse_budget(contract: Path) -> Budget | None:
             meta[key] = value
     if not meta["base_commit"]:
         raise BudgetError("base_commit is missing: the budget is measured from that commit")
-    return Budget(contract.stem, meta["base_commit"], limits, meta["justification"] or "none")
+    if meta["mode"] not in ("signal", "hard"):
+        raise BudgetError(f"mode must be 'hard' or 'signal', got '{meta['mode']}'")
+    hard = meta["mode"] == "hard" or bool(HARD_TYPE_RE.search(text))
+    return Budget(contract.stem, meta["base_commit"], limits, meta["justification"] or "none", hard)
 
 
 # ------------------------------------------------------------------ measurement
@@ -338,7 +365,9 @@ def parse_py(source: str) -> ast.Module | None:
         return None
 
 
-def measure(root: Path, base: str, source_dirs: list[str]) -> Usage:
+def measure(root: Path, base: str, source_dirs: list[str], whole: bool = False) -> Usage:
+    """`whole` (the hard mode): every changed file counts, not only those under SOURCE_DIRS —
+    all but the tests and the engine's own records."""
     usage = Usage()
     status: dict[str, str] = {}
     for line in git(root, "diff", "--name-status", "--no-renames", base).splitlines():
@@ -348,17 +377,23 @@ def measure(root: Path, base: str, source_dirs: list[str]) -> Usage:
     for path in git(root, "ls-files", "--others", "--exclude-standard").splitlines():
         status.setdefault(path, "A")
 
-    counted = {}
+    counted, plus = {}, {}
     for line in git(root, "diff", "--numstat", "--no-renames", base).splitlines():
         added, deleted, path = (line.split("\t") + ["", ""])[:3]
         if added.isdigit() and deleted.isdigit():
             counted[path] = int(added) - int(deleted)
+            plus[path] = int(added)
 
     for path, state in sorted(status.items()):
-        if not (in_source(path, source_dirs) or is_test(path)):
+        if whole and not is_test(path):
+            if path.startswith(RECORD_DIRS):
+                continue
+        elif not (in_source(path, source_dirs) or is_test(path)):
             continue
         file = root / path
         net = counted.get(path)
+        if not is_test(path):
+            usage.changed_files.append(path)
         if state == "D":  # a deletion pays lines back
             if is_test(path):
                 usage.test_lines += net or 0
@@ -374,6 +409,7 @@ def measure(root: Path, base: str, source_dirs: list[str]) -> Usage:
             usage.test_lines += net
             continue
         usage.net_new_lines += net
+        usage.added_lines += plus.get(path, net)
         if state == "A":
             usage.new_files.append(path)
         if not path.endswith(".py"):
@@ -410,6 +446,56 @@ def measure(root: Path, base: str, source_dirs: list[str]) -> Usage:
     return usage
 
 
+def function_spans(tree: ast.AST) -> dict[str, tuple[int, int]]:
+    """qualified name -> (first line, last line) of every function, decorators included."""
+    found: dict[str, tuple[int, int]] = {}
+
+    def visit(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                name = f"{prefix}{child.name}"
+                if not isinstance(child, ast.ClassDef):
+                    first = min([child.lineno, *(d.lineno for d in child.decorator_list)])
+                    found[name] = (first, child.end_lineno or child.lineno)
+                visit(child, name + ".")
+            else:
+                visit(child, prefix)
+
+    visit(tree, "")
+    return found
+
+
+def deleted_outside(root: Path, base: str, paths: list[str]) -> list[str]:
+    """Code an urgent fix deleted outside the functions it fixes: a deleted file, a function that
+    is gone, and any place outside a surviving function where more lines went than came. A line
+    replaced by another is an edit, not a deletion. Without a parse (another language) every
+    place is "outside": there, a change may not remove more than it adds."""
+    found = []
+    for path in paths:
+        if not (root / path).is_file():
+            found.append(f"{path} (the file)")
+            continue
+        old_text = git(root, "show", f"{base}:{path}")
+        if not old_text:
+            continue  # a new file: max_new_files answers for it
+        old = parse_py(old_text) if path.endswith(".py") else None
+        now = parse_py((root / path).read_text(encoding="utf-8", errors="replace")) if old else None
+        spans = function_spans(old) if old and now else {}
+        kept = [span for name, span in spans.items() if name in function_spans(now)] if now else []
+        for name, (first, last) in spans.items():
+            if not any(a <= first and last <= b for a, b in kept):
+                found.append(f"{path}:{first} (the function {name})")
+        old_lines = old_text.splitlines()
+        for hunk in HUNK_RE.finditer(git(root, "diff", "-U0", "--no-renames", base, "--", path)):
+            start, gone, came = int(hunk.group(1)), int(hunk.group(2) or 1), int(hunk.group(3) or 1)
+            outside = [n for n in range(start, start + gone)
+                       if old_lines[n - 1 : n] and old_lines[n - 1].strip()
+                       and not any(a <= n <= b for a, b in spans.values())]
+            if len(outside) > came:
+                found.append(f"{path}:{outside[0]}")
+    return found
+
+
 # ------------------------------------------------------------------ verdict
 
 
@@ -424,7 +510,8 @@ def first_seen_limits(root: Path, budget: Budget) -> tuple[dict[str, int], list[
         try:
             memo.parent.mkdir(parents=True, exist_ok=True)
             memo.write_text(
-                json.dumps({"base_commit": budget.base_commit, "limits": budget.limits}, indent=2)
+                json.dumps({"base_commit": budget.base_commit, "limits": budget.limits,
+                            "hard": budget.hard}, indent=2)
                 + "\n",
                 encoding="utf-8",
             )
@@ -433,6 +520,9 @@ def first_seen_limits(root: Path, budget: Budget) -> tuple[dict[str, int], list[
         return dict(budget.limits), []
     original = {k: int(v) for k, v in remembered.get("limits", {}).items() if k in LIMIT_KEYS}
     in_force, raised = dict(budget.limits), []
+    if remembered.get("hard") and not budget.hard:
+        budget.hard = True
+        raised.append("the card began as an urgent fix (hard mode) and no longer says so — the hard limit stays in force")
     for key, first in original.items():
         if budget.limits.get(key, first) > first:
             in_force[key] = first
@@ -472,6 +562,8 @@ def verdict(usage: Usage, limits: dict[str, int]) -> list[tuple[str, int, str]]:
 
     used: dict[str, tuple[int, str]] = {
         "max_new_files": (len(usage.new_files), names(usage.new_files)),
+        "max_changed_files": (len(usage.changed_files), names(usage.changed_files)),
+        "max_added_lines": (usage.added_lines, "lines added, tests not counted"),
         "max_net_new_lines": (usage.net_new_lines, "production code, net of deletions"),
         "max_new_public_symbols": (len(usage.new_public_symbols), names(usage.new_public_symbols)),
         "max_new_abstractions": (len(usage.new_abstractions), names(usage.new_abstractions)),
@@ -504,10 +596,14 @@ def report(
     fields = ", ".join(line.split(":", 1)[0] for line in over)
     head = "Complexity budget: exceeded, accepted by the simplifier" if accepted else "Complexity budget: within budget"
     lines = [f"COMPLEXITY BUDGET EXCEEDED: {fields}" if over else head]
+    if budget.hard:
+        lines = [f"HOTFIX LIMIT EXCEEDED: {fields}" if over else "Hotfix limit: within the limit"]
     lines += [
-        f"slice {budget.slug}, measured from {budget.base_commit[:10]} to the working tree",
+        f"{'hotfix' if budget.hard else 'slice'} {budget.slug}, measured from {budget.base_commit[:10]} to the working tree",
         (
-            f"  production: {len(usage.new_files)} new files, {usage.net_new_lines:+d} lines, "
+            f"  production: {len(usage.new_files)} new files, "
+            + (f"{len(usage.changed_files)} changed files, +{usage.added_lines} added lines, " if budget.hard else "")
+            + f"{usage.net_new_lines:+d} lines, "
             f"{len(usage.new_public_symbols)} new public symbols, "
             f"{len(usage.new_abstractions)} new abstractions, "
             f"{len(usage.new_dependencies)} new dependencies"
@@ -535,9 +631,18 @@ CALL_ADVICE = (
 )
 
 
-def evaluate(root: Path) -> Outcome | None:
-    """The verdict for the active slice; None when there is nothing to enforce."""
-    contract = active_contract(root)
+HARD_ADVICE = (
+    "\n\nЦе не термінове виправлення — або зменш, або `/bugfix`.\n"
+    "The limit of an urgent fix is hard: the simplifier is not called and no verdict lifts it. "
+    "Make the fix smaller, or do the work as a full `/bugfix` (its own record; mark this card's "
+    "block in .engine/PROGRESS.md as `became a bugfix`). Do not edit the card's numbers or its type: "
+    "the limits it began with stay in force."
+)
+
+
+def evaluate(root: Path, contract: Path | None = None) -> Outcome | None:
+    """The verdict for the active slice — or for the contract named; None when there is nothing to enforce."""
+    contract = contract or active_contract(root)
     if contract is None:
         return None
     try:
@@ -553,10 +658,16 @@ def evaluate(root: Path) -> Outcome | None:
             True,
         )
     env = project_env(root)
-    usage = measure(root, budget.base_commit, source_dirs_of(env))
     limits, raised = first_seen_limits(root, budget)
+    usage = measure(root, budget.base_commit, source_dirs_of(env), whole=budget.hard)
+    if budget.hard:
+        limits |= {key: min(limits.get(key, top), top) for key, top in HARD_LIMITS.items()}
     over = verdict(usage, default_limits(env) | limits)
-    entries = accepted_overruns(root, budget.slug, budget.base_commit)
+    gone = deleted_outside(root, budget.base_commit, usage.changed_files) if budget.hard else []
+    if gone:
+        shown = ", ".join(gone[:6]) + (f" and {len(gone) - 6} more" if len(gone) > 6 else "")
+        over.append((DELETED_OUTSIDE, len(gone), f"{DELETED_OUTSIDE}: code deleted outside the functions being fixed — {shown}"))
+    entries = [] if budget.hard else accepted_overruns(root, budget.slug, budget.base_commit)
     open_lines, accepted = [], []
     for key, used, line in over:
         reasons = [reason for values, reason in entries if values.get(key, -1) >= used]
@@ -565,8 +676,31 @@ def evaluate(root: Path) -> Outcome | None:
         else:
             open_lines.append(line)
     text = report(budget, usage, open_lines, raised, tuple(accepted))
+    if budget.hard and open_lines:
+        text += HARD_ADVICE
     return Outcome(text, bool(open_lines), budget.slug, budget.base_commit,
-                   {key: used for key, used, _ in over}, [line for _, _, line in over])
+                   {key: used for key, used, _ in over}, [line for _, _, line in over],
+                   budget.hard, usage.changed_files)
+
+
+def hard_card(root: Path) -> bool:
+    """Whether the active contract is an urgent fix's card — as it reads now, or as it was first seen."""
+    contract = active_contract(root)
+    if contract is None:
+        return False
+    try:
+        if HARD_TYPE_RE.search(contract.read_text(encoding="utf-8")):
+            return True
+        budget = parse_budget(contract)
+    except (OSError, BudgetError):
+        return False
+    if budget is None or budget.hard:
+        return budget is not None
+    memo = root / ".claude" / "state" / "overseer" / f".budget-{budget.slug}.json"
+    try:
+        return bool(json.loads(memo.read_text(encoding="utf-8")).get("hard"))
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return False
 
 
 def source_dirs_of(env: dict[str, str]) -> list[str]:
@@ -605,12 +739,13 @@ def record_in_gate_format(root: Path, mode: str, text: str, exceeded: bool) -> N
 
 def run_hook() -> int:
     raw = sys.stdin.read()
-    # Same loop guard as verify-on-stop.sh: a turn the hook itself started is not re-judged.
-    if re.search(r'"stop_hook_active"\s*:\s*true', raw):
-        return 0
     root = project_root()
+    hard = hard_card(root)  # an urgent fix: no switch turns its limit off, and no re-entry
+    # Same loop guard as verify-on-stop.sh: a turn the hook itself started is not re-judged.
+    if re.search(r'"stop_hook_active"\s*:\s*true', raw) and not hard:
+        return 0
     gate = project_env(root).get("COMPLEXITY_GATE", "off").lower()
-    if gate not in ("warn", "call", "block"):
+    if gate not in ("warn", "call", "block") and not hard:
         return 0
     outcome = evaluate(root)
     if outcome is None:
@@ -621,10 +756,12 @@ def run_hook() -> int:
         (root / REPORT_FILE).write_text(text + "\n", encoding="utf-8")
     except OSError:
         pass
-    record_in_gate_format(root, gate, text, exceeded)
+    record_in_gate_format(root, "call" if outcome.hard else gate, text, exceeded)
     if not exceeded:
         return 0
-    if gate != "warn":
+    if outcome.hard:
+        print(json.dumps({"decision": "block", "reason": text}, ensure_ascii=False))
+    elif gate != "warn":
         print(json.dumps({"decision": "block", "reason": text + CALL_ADVICE}))
     else:
         print(

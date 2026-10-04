@@ -27,7 +27,7 @@ slice graph `/feature-architect` plans a feature into.
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
 `/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit by a fresh agent, requested
 by the Stop hook). Also `/mvp-architect` (the cheapest thing that answers one question),
-`/onboard` (first meeting with an existing project, with its owner → `.engine/onboard/profile.md`), `/bugfix` (one bug in full → `.engine/bugs/`, proved by `bugfix.py prove`),
+`/onboard` (first meeting with an existing project, with its owner → `.engine/onboard/profile.md`), `/bugfix` (one bug in full → `.engine/bugs/`, proved by `bugfix.py prove`), `/hotfix` (the owner's urgent fix: a hard limit, a debt in `.engine/debt.md`),
 `self-learning-orchestrator` (memory), `documentation` (docs), `simplifier` (what can go; on a signal only). Critics in
 `.claude/agents/` (`master-`, `feature-`, `slice-planner-`, `mvp-critic`, all inheriting
 `critic-core`) are fresh-context and blind. Agents communicate through files, never chat.

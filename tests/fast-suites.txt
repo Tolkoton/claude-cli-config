@@ -44,6 +44,7 @@
 # Board 072: test_delete_guard 9 s stays out (about ninety runs of gate.py on synthetic projects).
 # Board 073: test_onboard 0.5 s is in (the structure of the /onboard command and its templates; four runs of board.py).
 # Board 074: test_bugfix 5 s stays out (about thirty runs of bugfix.py on synthetic projects, each with two throwaway copies).
+# Board 075: test_hotfix 7 s stays out (about seventy runs of hotfix.py and complexity_budget.py on synthetic projects).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

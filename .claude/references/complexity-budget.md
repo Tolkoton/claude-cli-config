@@ -16,6 +16,17 @@ names, abstractions or dependencies, 40 new lines. It is measured the same way w
 `.engine/PROGRESS.md` marks that record IN PROGRESS, and `complexity_budget.py check` reports it
 whatever `COMPLEXITY_GATE` says. An overrun the simplifier does not justify makes the fix a slice.
 
+The card of an urgent fix (`/hotfix`, written by `hotfix.py start` from
+`.claude/templates/hotfix-record.md`) is the one budget that IS a ceiling. Its section says
+`mode: hard`, and the card says `type: hotfix`; either makes it hard, and a card seen hard stays
+hard whatever it is edited to say. The limits cannot be set above these: `max_new_files: 0`,
+`max_changed_files: 2`, `max_added_lines: 30`, `max_new_public_symbols: 0`,
+`max_new_dependencies: 0`. It is measured whole — every changed file except the tests and the
+engine's own records (`.engine/`, `tasks/`, `.claude/state/`), not only `SOURCE_DIRS`; added lines, not net ones —
+and code may not be deleted outside the functions being fixed. Over it the turn is blocked at
+every stop, whatever `COMPLEXITY_GATE` says; the simplifier is not called and
+`simplifier.py accept` refuses. The two ways on are a smaller fix or `/bugfix`.
+
 ## The section to add to the slice contract
 
 ```

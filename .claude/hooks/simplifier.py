@@ -365,6 +365,8 @@ def accept(root: Path, reason: str, verdict: Path) -> tuple[int, str]:
     outcome = budget.evaluate(root)
     if outcome is None or not outcome.exceeded or not outcome.slug:
         return 1, "nothing to accept: no overrun of the active slice's budget is waiting for a verdict"
+    if outcome.hard:
+        return 1, "the limit of an urgent fix is hard: no verdict lifts it — make the fix smaller or do it as /bugfix"
     try:
         result = validated_file(root, verdict)
     except (OSError, ValueError) as exc:

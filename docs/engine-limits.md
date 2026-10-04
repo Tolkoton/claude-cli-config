@@ -253,6 +253,43 @@ What that does not give:
 - **`pins` shows a test passes, not that it looks at the code about to be deleted.** A test that
   asserts nothing about that code pins nothing and still prints `PINNED`.
 
+## The urgent fix (board 075)
+
+`/hotfix` puts off the test before the code, the record of the cause and the search for the same
+places, keeps the gate and the overseer, and holds the fix to a hard limit
+(`.claude/commands/hotfix.md`). What that does not give:
+
+- **"Only the owner declares" is a text check.** `hotfix.py start --task` looks for `/hotfix`,
+  «термінове» or "urgent" in the task file; `--declared` records words the agent says the owner
+  said, and is refused only in an unattended session. Who wrote the line in the task, and whether
+  the quoted words were said, is the overseer's reading and the owner's, not the script's.
+- **The three-debts answer is matched, not judged.** With `--task` the answer must stand on a
+  «Відповідь:» line of the task; the script does not read whether it says "go on" or "close a
+  debt first". An agent that runs `start` on a refusal is caught by the overseer, not by the script.
+- **Nothing forces `/hotfix` to be used.** An agent that fixes urgently without the command
+  leaves no card, so no hard limit and no debt; what it meets is the ordinary gate and the
+  overseer, as any unit does.
+- **The hard limit is held only while `.engine/PROGRESS.md` marks the card IN PROGRESS** and is
+  the first such block; `hotfix.py debt` measures the card again whatever PROGRESS says. A card
+  closed in PROGRESS before the turn ends is no longer measured at the stop.
+- **A hard block has no escalation.** The budget hook blocks at every stop while the fix is over
+  the limit; it does not count attempts and does not give up. The ways out are in the block's
+  text: a smaller fix, or `/bugfix`.
+- **"Deleted outside the functions being fixed" is exact only for Python.** There a deleted
+  function, class method or file, and a module-level line removed and not replaced, are found by
+  parsing. In another language the rule is coarser: no place of the change may remove more lines
+  than it adds — which also refuses an honest shortening inside a function.
+- **Lines are counted, not judged.** Thirty added lines in two files can still be the wrong fix;
+  a long line is one line. A test is never counted, and no test is required.
+- **The debt has a term, not a force.** After seven days the review shows the debt among the
+  anomalies; nothing stops other work. The follow-up task is numbered after every ordinary task
+  on the board, so it waits its turn unless the owner moves it.
+- **`close` checks a record, not the work.** A bug record with `type: bugfix` and
+  `status: fixed` closes the debt; that the record's proof is real is the overseer's audit of
+  that `/bugfix`.
+- **The way back is checked for presence only.** `debt` refuses a card whose `- Roll back:` line
+  is empty; it does not try the command.
+
 ## The snapshot "as it was" (board 071)
 
 With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).

@@ -51,6 +51,9 @@ Then the state:
    place of the slice artifact in every check. Its section 6 holds a `bugfix.py prove`
    command — run it yourself and judge by what it prints now, not by the pasted output;
    a fix whose cause (section 4) was written after it, or with no reproduction, is #2.
+   A card with `type: hotfix` (`/hotfix`) is audited like any unit — urgency lifts no check.
+   Its deferred test and cause are a debt, not a finding, only when `.engine/debt.md` has
+   the card's line; an urgency the owner did not declare, or no way back in the card, is #1.
 10. `docs/adr/` — list it, read the ones the turn refers to
 11. `git status`, `git diff HEAD`, `git log --oneline -10` — the work itself
 

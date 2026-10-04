@@ -392,6 +392,11 @@ write(work, "tasks/done/003-third/task.md", task("003 — Третя"))
 write(work, "tasks/done/003-third/report.md", report("003-third"))
 write(work, ".engine/baseline.json", json.dumps({"schema": 1, "tests": ["tests/test_old.py::test_СТАРЕ_ПАДІННЯ_1", "tests/test_old.py::test_СТАРЕ_ПАДІННЯ_2"],
                                                  "lint": {"a.py": {"F401": 2, "E501": 1}}, "types": {"a.py": {"arg-type": 4}}}))
+DEBT = ("- {name} | {status} | recorded 2026-01-01 | due {due} | commit abc1234 | deferred: the test before the code; the record of the cause; "
+        "the search for the same places | follow-up: tasks/todo/0{n}-hotfix-followup-{name}.md\n")
+write(work, ".engine/debt.md", "# Debts of urgent fixes\n\n" + DEBT.format(name="001-БОРГ-ПРОСТРОЧЕНИЙ", status="open", due="2026-01-08", n=21)
+      + DEBT.format(name="002-БОРГ-У-СТРОК", status="open", due="2999-01-01", n=22)
+      + DEBT.format(name="003-БОРГ-ЗАКРИТИЙ", status="closed 2026-01-05 by .engine/bugs/004-x.md", due="2026-01-08", n=23))
 git(work, "add", "-A")
 git(work, "commit", "-q", "-m", "board: 003-third → done", date="2026-03-01T00:00:00Z")
 commits["third"] = git(work, "rev-parse", "HEAD")
@@ -405,6 +410,15 @@ check("candidates (board 071): every old test failure of the snapshot by name, a
       "`tests/test_old.py::test_СТАРЕ_ПАДІННЯ_1`" in candidates and "`tests/test_old.py::test_СТАРЕ_ПАДІННЯ_2`" in candidates
       and "лінтера у знімку: 3" in candidates and "типів: 4" in candidates, candidates)
 check("…and a project without a snapshot has no such part", "baseline.json" not in section(doc, "Кандидати в нові задачі"))
+state_now, odd = section(r.stdout, "Стан зараз"), section(r.stdout, "Аномалії")
+check("the debts of urgent fixes (board 075): the open ones on a line of their own, with their terms and the limit of three",
+      "Борги термінових виправлень" in state_now and "відкритих 2 із межі 3" in state_now and "001-БОРГ-ПРОСТРОЧЕНИЙ" in state_now
+      and "002-БОРГ-У-СТРОК" in state_now and "2999-01-01" in state_now and "003-БОРГ-ЗАКРИТИЙ" not in state_now and "прострочених: 1" in state_now, state_now)
+check("…the overdue one is among the anomalies, with its term and its follow-up — the one in time and the closed one are not",
+      "001-БОРГ-ПРОСТРОЧЕНИЙ" in odd and "2026-01-08" in odd and "tasks/todo/021-hotfix-followup-001-БОРГ-ПРОСТРОЧЕНИЙ.md" in odd
+      and "002-БОРГ-У-СТРОК" not in odd and "003-БОРГ-ЗАКРИТИЙ" not in odd and "АНОМАЛІЯ-НОВА" in odd, odd)
+check("…whatever the period: an overdue debt is a standing anomaly", "001-БОРГ-ПРОСТРОЧЕНИЙ" in section(cli(clone, "--since", "2026-03-15").stdout, "Аномалії"))
+check("…and a project without a debt file has neither line", "Борги термінових" not in doc and "строчен" not in section(doc, "Аномалії"))
 late = section(cli(clone, "--since", "2026-03-15").stdout, "Кандидати в нові задачі")
 check("…the old failures are a standing debt: shown whatever the period", "СТАРЕ_ПАДІННЯ_1" in late and "кандидатів немає" not in late, late)
 check("…and only objects were added: no ref, no index, no HEAD, no FETCH_HEAD, no file of the tree",
