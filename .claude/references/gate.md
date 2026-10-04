@@ -93,7 +93,7 @@ changes are set aside uncommitted (`git stash push -- <files>`).
 
 In a project with a task board (`tasks/`) the escalation is also written as a task,
 `tasks/blocked/9NN-gate-escalation-<stamp>.md`, with what the gate blocked on and one question.
-The owner answers `закрити` in that file — in the branch or through the inbox — and
+The owner answers `так` (exactly that one word) in that file — in the branch or through the inbox — and
 `board-runner.sh` runs the command below and moves the task to `done/`; any other answer is an
 instruction and sends the task to an agent with the escalation still open. The runner takes an
 answer only when it arrived by its pull or from the inbox: one already in the checkout was

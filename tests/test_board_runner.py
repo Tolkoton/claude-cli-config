@@ -630,7 +630,7 @@ def write_answer(path: Path, text: str) -> None:
     path.write_text(f"{head}Відповідь: {text}{rest}", encoding="utf-8")
 
 
-def owner_answers(w: World, name: str, text: str = "закрити") -> None:
+def owner_answers(w: World, name: str, text: str = "так") -> None:
     """The owner answers where they work: in the branch, from another checkout, and pushes."""
     clone = Path(tempfile.mkdtemp(prefix="owner-", dir=w.dir))
     sh(w.dir, "git", "clone", "-q", "-b", "unattended/work", str(w.origin), str(clone))
@@ -660,11 +660,11 @@ check("the summary shows the question to the owner", name in (w.state / "summary
 owner_answers(w, name)
 r = w.run()
 state = escalations(w)
-check("the owner answered «закрити» in the branch: the escalation is closed", state["open"] == []
+check("the owner answered «так» in the branch: the escalation is closed", state["open"] == []
       and [e["stamp"] for e in state["closed"]] == [stamp], state)
 check("…the parked entry is RESUMED", f"## {stamp} — gate stop layer — RESUMED" in (w.repo / ".engine/overseer/parked.md").read_text())
 check("…the task is in done/ with the answer and a report", not w.has(f"tasks/blocked/{name}")
-      and "Відповідь: закрити" in (w.repo / f"tasks/done/{stem}/task.md").read_text()
+      and "Відповідь: так" in (w.repo / f"tasks/done/{stem}/task.md").read_text()
       and stamp in (w.repo / f"tasks/done/{stem}/report.md").read_text())
 check("…in a commit of its own, pushed", w.log("-1") == [f"board: {stem} → done — gate escalation {stamp} closed on the owner's answer"]
       and w.origin_head() == w.head(), w.log("-2"))
@@ -678,7 +678,7 @@ stamp, name = escalate(w)
 w.run()
 copy = w.inbox / name
 copy.write_text((w.repo / "tasks/blocked" / name).read_text(encoding="utf-8"), encoding="utf-8")
-write_answer(copy, "Закрити.")
+write_answer(copy, "Так.")
 r = w.run()
 check("an answered copy in the inbox closes the escalation", escalations(w)["open"] == [] and w.has(f"tasks/done/{name.removesuffix('.md')}/report.md")
       and not copy.exists() and w.calls() == [], events(w))
@@ -688,15 +688,15 @@ for how in ("uncommitted", "committed"):
     w = World("")
     stamp, name = escalate(w)
     w.run()
-    write_answer(w.repo / "tasks/blocked" / name, "закрити")
+    write_answer(w.repo / "tasks/blocked" / name, "так")
     if how == "committed":
         sh(w.repo, "git", "commit", "-q", "-am", "agent: answers for the owner")
     r = w.run()
     text = (w.repo / "tasks/blocked" / name).read_text(encoding="utf-8") if w.has(f"tasks/blocked/{name}") else ""
-    check(f"«закрити» written in the checkout ({how}): the escalation stays open", len(escalations(w)["open"]) == 1
+    check(f"«так» written in the checkout ({how}): the escalation stays open", len(escalations(w)["open"]) == 1
           and not w.has(f"tasks/done/{name.removesuffix('.md')}"), events(w))
     check("…the answer is wiped, the reason written under the question, and that is pushed",
-          "Відповідь: закрити" not in text and "Примітка виконавця" in text and w.origin_head() == w.head()
+          "Відповідь: так" not in text and "Примітка виконавця" in text and w.origin_head() == w.head()
           and "escalation-answer-rejected" in events(w) and "state=waiting-owner" in w.status(), text)
 owner_answers(w, name)
 w.run()
@@ -722,6 +722,16 @@ owner_answers(w, name, "виправ lint у mod.py")
 r = w.run()
 check("the task goes back to todo/ and an agent takes it; the escalation stays open", len(w.calls()) == 1
       and f"tasks/doing/{name}" in w.argv(0)[1] and len(escalations(w)["open"]) == 1 and "escalation-closed" not in events(w), events(w))
+
+print("board 036: one form of consent — anything but the one word «так» applies nothing")
+for said in ("так, але спершу виправ lint", "закрити"):
+    w = World("done")
+    stamp, name = escalate(w)
+    w.run()
+    owner_answers(w, name, said)
+    w.run()
+    check(f"a gate question answered «{said}»: the escalation stays open and an agent gets the words", len(escalations(w)["open"]) == 1
+          and "escalation-closed" not in events(w) and len(w.calls()) == 1 and f"tasks/doing/{name}" in w.argv(0)[1], events(w))
 
 print("board 005: an escalation that is no longer open")
 w = World("")
@@ -837,6 +847,19 @@ check("owner_action.py refuses; the question stays in blocked/ with its offer, n
       and "action-refused apply-settings 008-wiring.md rc=2" in events(w) and w.calls() == [], events(w))
 w.run()
 check("the owner's runner then applies it", live_settings(w) == NEW_SETTINGS, events(w))
+
+print("board 036: one form of consent for an offered action too")
+w, offer = proposal_world()
+w.run()
+owner_answers(w, "008-wiring.md", "так, застосуй")
+w.run()
+check("a settings offer answered «так, застосуй»: the live file is untouched, the task goes to an agent as an instruction",
+      live_settings(w) == OLD_SETTINGS and "action-applied" not in events(w) and len(w.calls()) == 1, events(w))
+w, offer = proposal_world()
+w.run()
+owner_answers(w, "008-wiring.md", "ТАК!")
+w.run()
+check("…and «ТАК!» is consent — case and punctuation do not count: applied", live_settings(w) == NEW_SETTINGS and "action-applied apply-settings" in events(w), events(w))
 
 print("board 008: the proposal changed after the question — the owner approved another file")
 w, offer = proposal_world()

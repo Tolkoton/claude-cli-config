@@ -351,7 +351,7 @@ UNATTENDED_CONTINUE_REASON = (
 GATE_OPEN_NOTICE = (
     "\n\nGATE ESCALATION OPEN ({scope}; parked {stamp} in .engine/overseer/parked.md). "
     "OVERSEER_PASS will not be accepted for this work until the owner closes it — by answering "
-    "«закрити» under the gate's question in tasks/blocked/ (the board runner then closes it), or with "
+    "«так» under the gate's question in tasks/blocked/ (the board runner then closes it), or with "
     "`gate.py --close-escalation` in their own terminal. Neither is yours to do: audit as usual, "
     "but the verdict cannot be PASS."
 )
@@ -372,7 +372,7 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
     state, not the park queue: the queue is the agent's own file, and its template tells the agent
     to mark entries RESUMED. Only `gate.py --close-escalation`, which refuses inside a Claude Code
     session, takes an escalation out of `open`: the owner runs it in their own terminal, or the
-    board runner does on the owner's answer «закрити» under the gate's question in tasks/blocked/.
+    board runner does on the owner's answer «так» under the gate's question in tasks/blocked/.
 
     Covers — by FILES, never by the slice's name: the active slice is whatever .engine/PROGRESS.md
     says, and the agent writes that file. An escalation holds while any file the gate blocked on

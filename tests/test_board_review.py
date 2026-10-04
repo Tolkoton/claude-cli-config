@@ -136,7 +136,9 @@ QUESTIONS = f"""<!-- Приклад:
    Відповідь:
 """
 GATE = ("# 900 — Ворота зупинили роботу\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація воріт: 20260101T000000Z\n\n"
-        "## Питання до власника\n1. ПИТАННЯ-ВОРІТ — закрити чи виправляти?\n   Відповідь:\n")
+        "## Питання до власника\n1. ПИТАННЯ-ВОРІТ — закрити ескалацію?\n   Відповідь:\n")
+RULE_QUESTION = ("# 800 — Зробити урок правилом? Пропозиція RP-ab12\n\nЗалежить від: —\nАудит потрібен: ні\nПропозиція правила: RP-ab12\n\n"
+                 f"## Питання до власника\n1. Зробити це правилом?\n   Дія виконавця: promote-rule {SHA}\n   Відповідь:\n")
 
 
 def build() -> tuple[Path, Path, Path, dict[str, str]]:
@@ -166,6 +168,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "tasks/blocked/008-asks.md", task("008 — Питає", questions=QUESTIONS))
     write(work, "tasks/blocked/report-008-asks.md", "# чернетка звіту\n")
     write(work, "tasks/blocked/900-gate-escalation-20260101T000000Z.md", GATE)
+    write(work, "tasks/blocked/800-rule-proposal-ab12.md", RULE_QUESTION)
     write(work, "tasks/doing/009-in-work.md", task("009 — У роботі"))
     write(work, "tasks/todo/020-free.md", task("020 — Вільна", deps="001"))
     write(work, "tasks/todo/030-stands.md", task("030 — Стоїть", deps="008, 020"))
@@ -173,6 +176,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "docs/tasks/settings.json", '{"proposal": true}\n')
     write(work, ".claude/settings.json", '{"proposal": false}\n')
     write(work, ".engine/rule-proposals.md", "# Rule proposals\n\n## RP-ab12 — 2026-01-02 — PROPOSED\n- Rule: ПРАВИЛО-ПРОПОЗИЦІЯ\n- Why: бо\n\n"
+                                             "## RP-ef56 — 2026-01-03 — PROPOSED\n- Rule: ПРАВИЛО-БЕЗ-ПИТАННЯ\n\n"
                                              "## RP-cd34 — 2026-01-02 — PROMOTED\n- Rule: ПРАВИЛО-ВЖЕ-ПРИЙНЯТЕ\n")
     write(work, ".engine/overseer/escalations.md", "# log\n\n## 2026-01-02T00:00:00Z — DESIGN_FORK — ЕСКАЛАЦІЯ-ВІДКРИТА\n- Question: що обрати?\n- Human chose:\n\n"
                                                    "## 2026-01-02T01:00:00Z — AUTONOMOUS — ЕСКАЛАЦІЯ-ЗАКРИТА\n- Decision: так\n- Status: CLOSED\n\n"
@@ -282,16 +286,23 @@ check("the context above the first question comes with it", "ВАРІАНТ-А �
 waiting = section(doc, "Чекає на власника")
 check("the document has every unfilled one, and the gate's", all(f"ПИТАННЯ-{n}" in waiting for n in ("ОДИН", "ТРИ", "ЧОТИРИ", "П'ЯТЬ", "ВОРІТ")), waiting)
 check("a filled answer and the template's hint are not asked again", "ПИТАННЯ-ДВА" not in waiting and "Питання-з-коментаря" not in waiting, waiting)
-check("the count is said: five unfilled answers in two tasks", any("5" in line for line in waiting.splitlines()[:4]) and "008-asks.md" in waiting and "900-gate-escalation" in waiting, waiting.splitlines()[:4])
+check("the count is said: six unfilled answers in three tasks", any("відповідей: 6, у задачах: 3" in line for line in waiting.splitlines()[:4]) and "008-asks.md" in waiting and "900-gate-escalation" in waiting, waiting.splitlines()[:4])
 check("the draft report of a blocked task is pointed at", "tasks/blocked/report-008-asks.md" in waiting, waiting)
 check("a settings proposal that waits for «так» is named as one, and that it differs from the live file", "apply-settings" in waiting
       and "docs/tasks/settings.json" in waiting and "відрізняється" in waiting, waiting)
-check("the gate's question is named as one", "20260101T000000Z" in waiting and "закрити" in waiting, waiting)
+check("the gate's question is named as one", "20260101T000000Z" in waiting and "відповідь `так` (рівно це слово) закриє її" in waiting and "закрити`" not in waiting, waiting)
 check("open escalations: the one without a decision — not the closed, not the answered", "ЕСКАЛАЦІЯ-ВІДКРИТА" in waiting
       and "ЕСКАЛАЦІЯ-ЗАКРИТА" not in waiting and "ЕСКАЛАЦІЯ-ВИРІШЕНА" not in waiting, waiting)
 check("parked: the item whose latest entry is PARKED — not the resumed one", "ВІДКЛАДЕНЕ-ЧЕКАЄ" in waiting and "ключ від сервісу" in waiting
       and "ВІДКЛАДЕНЕ-ПОВЕРНУТЕ" not in waiting, waiting)
 check("rule proposals: the PROPOSED one only", "ПРАВИЛО-ПРОПОЗИЦІЯ" in waiting and "ПРАВИЛО-ВЖЕ-ПРИЙНЯТЕ" not in waiting, waiting)
+rules = {line.split("`")[1]: line for line in waiting[waiting.index("### Пропозиції правил"):].splitlines() if line.startswith("- `RP-")}
+check("board 036: a rule proposal links to its question in blocked/ and says what consent is",
+      "[`tasks/blocked/800-rule-proposal-ab12.md`](tasks/blocked/800-rule-proposal-ab12.md)" in rules.get("RP-ab12", "")
+      and "`так` (рівно це слово)" in rules.get("RP-ab12", ""), rules)
+check("…a proposal nobody asked the owner about says so, and borrows no other question's link",
+      "ПРАВИЛО-БЕЗ-ПИТАННЯ" in rules.get("RP-ef56", "") and "питання про неї в `tasks/blocked/` немає" in rules.get("RP-ef56", "")
+      and "800-rule-proposal" not in rules.get("RP-ef56", ""), rules)
 with_state = cli(clone, state=state).stdout
 check("with the state files: the gate's open escalation of this machine", "ШТАМП-ВОРІТ" in section(with_state, "Чекає на власника"))
 check("--since does not hide what waits", waits == waiting, waits)
@@ -357,6 +368,19 @@ for status, said in (("state=waiting-limit task=009-in-work since=2026-02-01T00:
                      ("state=waiting-owner task=- since=2026-02-01T00:00:00Z", "чекає власника")):
     now = section(cli(clone, state=state_files(top, status)).stdout, "Стан зараз")
     check(f"…{status.split()[0]} is said in words, with its reason", said in now, now)
+# Board 036: the attempt in hand, as far as the state files show it.
+check("no attempt in events.log: nothing is said about one", "Спроба, що триває" not in section(with_state, "Стан зараз"))
+running = state_files(top, "state=running task=009-in-work since=2026-02-02T01:00:00Z")
+write(running, "board/events.log", "2026-02-02T00:00:00Z attempt 009-in-work 1 \n2026-02-02T00:30:00Z attempt-end 009-in-work 1 cost=0.5 commit=yes\n"
+                                   "2026-02-02T01:00:00Z attempt 009-in-work-other 7 \n2026-02-02T01:00:05Z attempt 009-in-work 2 resume=c\n")
+now = section(cli(clone, state=running).stdout, "Стан зараз")
+check("an attempt begun and not ended: its number, since when, and that its cost is in no state file until it ends",
+      "Спроба, що триває: №2, від 2026-02-02 01:00 UTC" in now and "вартості у файлах стану ще немає" in now and "записано $0.50" in now, now)
+write(running, "board/events.log", (running / "board/events.log").read_text(encoding="utf-8") + "2026-02-02T02:00:00Z attempt-end 009-in-work 2 cost=0.9 commit=no\n")
+check("the attempt ended: no attempt is in hand", "Спроба, що триває" not in section(cli(clone, state=running).stdout, "Стан зараз"))
+write(running, "board/events.log", "2026-02-02T01:00:05Z attempt 009-in-work 2 resume=c\n")
+check("a runner that is not working has no attempt in hand, whatever the log's last line",
+      "Спроба, що триває" not in section(cli(clone, state=state_files(top, "state=stalled task=009-in-work since=2026-02-01T00:00:00Z reason=no-commit")).stdout, "Стан зараз"))
 now = section(doc, "Стан зараз")
 check("without the state files: from git — the task in doing/ and since when", "009-in-work.md" in now and "2026-02-01" in now and "git" in now, now)
 elapsed = review.elapsed(datetime(2026, 2, 1, tzinfo=UTC), datetime(2026, 2, 2, 3, 4, tzinfo=UTC))
@@ -417,10 +441,10 @@ check("a branch origin does not have: exit 2", r.returncode == 2 and "unattended
 
 # --- the session command and the operator's instruction ---------------------------------------
 print("the command and the manual")
-command = (ROOT / ".claude/commands/review.md").read_text(encoding="utf-8")
-check("/review exists and runs the review", "board.py review" in command and command.startswith("---\ndescription:"), command[:200])
-check("/review writes into the inbox: BOARD_INBOX, by default ~/engine-ops/tasks-inbox", "BOARD_INBOX" in command and "~/engine-ops/tasks-inbox" in command)
-check("/review says it changes nothing else", "tasks/TEMPLATE.md" in command and "git show" in command)
+command = (ROOT / ".claude/commands/owner-review.md").read_text(encoding="utf-8")
+check("/owner-review exists and runs the review", "board.py review" in command and command.startswith("---\ndescription:"), command[:200])
+check("/owner-review writes into the inbox: BOARD_INBOX, by default ~/engine-ops/tasks-inbox", "BOARD_INBOX" in command and "~/engine-ops/tasks-inbox" in command)
+check("/owner-review says it changes nothing else", "tasks/TEMPLATE.md" in command and "git show" in command)
 for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
     check(f"{manual} tells the operator how to run the review and send it", "board.py review" in (ROOT / manual).read_text(encoding="utf-8"))
 check("board.py lists the command", "board.py review" in (board.__doc__ or ""))

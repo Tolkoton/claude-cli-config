@@ -31,12 +31,13 @@ Give each section in a few sentences of your own, then the details the owner ask
 for the owner before moving on (`AskUserQuestion` is right here). Do not paste the whole document.
 
 1. **Стан зараз** — what the runner is on, for how long, what it has cost, whether it stopped and why.
+   The attempt in hand has no cost in the state files until it ends; say so, do not estimate it.
 2. **Зроблено** — per finished task: what changed for the owner, then the decisions the agent
    took alone. Ask whether any of those decisions should be reversed — a reversal is a new task.
 3. **Чекає на власника** — every open question, one at a time, with its context and options. The
    owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
    never takes them; they are done in an interactive session, not in this one), the settings proposals, the open escalations,
-   the parked items and the rule proposals: each either gets an answer, becomes a new task, or waits.
+   the parked items and the rule proposals (each names its question in `blocked/`): each either gets an answer, becomes a new task, or waits.
 4. **Аномалії** — what the runner, the gate, a hook or the agent found odd, wrote into
    `tasks/ANOMALIES.md` and worked past (each entry says who wrote it): a task the runner parked in
    `blocked/` itself (its question is in the section above; its uncommitted work is on the `wip/…`
@@ -48,10 +49,13 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    lines come from the machine records of the runs themselves (time, commit, green of all); where
    the document says there is no record, say that, do not fill it in from memory.
 
-Never answer for the owner and never guess an answer from an earlier remark. Two answers act by
-themselves, so read them back and get an explicit yes before writing them: `так` under a question
-with the line «Дія виконавця: …» (the runner applies the settings proposal), and `закрити` on a
-question of the gate (the runner closes the escalation).
+Never answer for the owner and never guess an answer from an earlier remark. Consent has one
+form: the answer that is exactly the one word `так` (case and punctuation do not count). It acts
+by itself — under a question with the line «Дія виконавця: …» the runner applies the settings
+proposal or makes the lesson a rule, on a question of the gate («Закрити ескалацію?») it closes
+the escalation — so read it back and get an explicit yes before writing it. Anything else,
+«так, але…» included, is an instruction for the agent and applies nothing: write `так` alone
+only when the owner means plain consent, and their words verbatim otherwise.
 
 ## 3. Write the answers and the new tasks into the inbox
 

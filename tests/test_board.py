@@ -496,7 +496,10 @@ MANUAL = {
         "9NN-gate-escalation", "не заповнюй", "закриття ескалації не запускай", "Номери від 900"),
     "an action the owner approves is the runner's to take, from a short list (board 008)": (
         "action-line apply-settings", "Відповідь «так» виконує виконавець", "Сам команду не запускай",
-        "застосувати пропозицію налаштувань, закрити ескалацію воріт"),
+        "застосувати пропозицію налаштувань, зробити урок правилом, закрити ескалацію воріт"),
+    "consent has one form: exactly the one word «так»; anything else is an instruction (board 036)": (
+        "## Одна форма згоди", "рівно одне слово `так`", "регістр і розділові знаки не важать", "«так, але…»",
+        "застосовується, задача йде агентові", "«Закрити ескалацію?»", "рівно одне слово «так»; будь-яка інша відповідь", "`/owner-review`"),
     "a lesson becomes a rule only on the owner's answer (board 040)": (
         "Урок робить правилом лише власник", "`lesson_queue.py promote` не запускай", "8NN-rule-proposal", "Номери від 800",
         "зробити урок правилом"),
@@ -552,9 +555,9 @@ check("it is written to blocked/, numbered from 900, named after the stamp",
 check("it parses as a gate question with one empty answer", parsed.gate == STAMP and parsed.answers == ("",)
       and not parsed.answered and not parsed.closes and not parsed.depends and not parsed.audit, parsed)
 check("it tells the owner what happened and what the answers are", all(ph in text for ph in
-      ("src/a.py", "LINT FAILED (ruff check):", "Зріз: tax", "`закрити`", "last-report.json", "3 раз")), text)
+      ("src/a.py", "LINT FAILED (ruff check):", "Зріз: tax", "`так` — рівно це одне слово", "1. Закрити ескалацію?", "last-report.json", "3 раз")), text)
 check("a reason cannot open a comment or plant an answer", "<!--" not in text and "<! --" in text)
-check("the summary shows it waiting for the owner", any("900-gate-escalation" in line and "Що робити з цією зупинкою воріт — закрити чи виправляти" in line
+check("the summary shows it waiting for the owner", any("900-gate-escalation" in line and "1. Закрити ескалацію?" in line
       for line in board.summary(b)), board.summary(b))
 check("the same escalation asked twice is one task", ask(b) == q and len(b.files("blocked")) == 1)
 check("the next escalation takes the next number", ask(b, "2026-10-03T11:00:00Z").name == "901-gate-escalation-20261003T110000Z.md")
@@ -582,42 +585,46 @@ bare = Path(tempfile.mkdtemp(prefix="board-none-"))
 check("a project without a board gets no task and no tasks/ directory",
       board.gate_question(board.Board(bare / "tasks"), STAMP, 3, "(none)", [], [], "r") is None and not (bare / "tasks").exists())
 
-for given, closes in (("закрити", True), ("Закрити.", True), ("«закрити»", True), ("`закрити` — виправлено", True),
-                      ("не закривати", False), ("виправити тест і закрити", False), ("", False)):
+# Board 036: one form of consent — exactly the one word «так», whatever its case and punctuation.
+for given, closes in (("так", True), ("Так.", True), ("«ТАК»!", True), ("`так`", True), ("  **так**  ", True),
+                      ("так, але спершу виправ", False), ("так — виправлено", False), ("так так", False), ("закрити", False),
+                      ("Закрити.", False), ("не закривати", False), ("такий", False), ("yes", False), ("", False)):
     root = new_board()
     b = board.Board(root / "tasks")
     q = ask(b)
     answer(q, given)
     check(f"answer «{given}»: closes={closes}", board.read(q).closes is closes, board.read(q))
-plain = put(root, "blocked", "005-plain.md", task(questions="1. Так?\n   Відповідь: закрити\n"))
-check("«закрити» under an ordinary task closes nothing", not board.read(plain).closes)
+plain = put(root, "blocked", "005-plain.md", task(questions="1. Так?\n   Відповідь: так\n"))
+check("«так» under an ordinary task closes nothing and approves nothing: it is an answer like any other", not board.read(plain).approves and not board.read(plain).decided
+      and board.read(plain).answered)
+check("«так» under an ordinary task closes nothing", not board.read(plain).closes)
 
 root = new_board()
 b = board.Board(root / "tasks")
 q, other = ask(b), ask(b, "2026-10-03T11:00:00Z")
-answer(q, "закрити")
+answer(q, "так")
 answer(other, "виправ тест test_a і спитай ще раз")
 out = cli(root, "gate-answers").stdout.splitlines()
-check("gate-answers lists the «закрити» one: name, stamp, sha256",
+check("gate-answers lists the «так» one: name, stamp, sha256",
       len(out) == 1 and out[0].split("\t")[:2] == [q.name, STAMP] and len(out[0].split("\t")[2]) == 64, out)
 moved = board.unblock(b)
-check("unblock leaves «закрити» to the runner and sends an instruction back to todo/",
+check("unblock leaves «так» to the runner and sends an instruction back to todo/",
       moved == [other.name] and q.is_file() and (root / "tasks/todo" / other.name).is_file(), moved)
 again = root / "tasks/blocked" / other.name
 (root / "tasks/todo" / other.name).rename(again)
-again.write_text(again.read_text(encoding="utf-8") + "Тепер закрити ескалацію?\nВідповідь: закрити\n", encoding="utf-8")
-check("an instruction first, «закрити» to the second question: it closes", board.read(again).closes, board.read(again))
+again.write_text(again.read_text(encoding="utf-8") + "Тепер закрити ескалацію?\nВідповідь: Так.\n", encoding="utf-8")
+check("an instruction first, «так» to the second question: it closes", board.read(again).closes, board.read(again))
 
 r = cli(root, "gate-reject", q.name)
 rejected = board.read(q)
 check("gate-reject wipes the answer and says why under the question", r.returncode == 0 and rejected.answers == ("",)
       and not rejected.closes and "Примітка виконавця" in q.read_text(encoding="utf-8"), q.read_text(encoding="utf-8"))
 check("...and the question is open again in the summary", any(q.name in line and "чекає відповіді" in line for line in board.summary(b)))
-answer(q, "закрити")
+answer(q, "так")
 r = cli(root, "gate-done", q.name, "closed")
 target = root / "tasks/done" / q.stem
 check("gate-done: done/NNN-name/ with task.md (the answer in it) and report.md", r.returncode == 0 and not q.exists()
-      and "Відповідь: закрити" in (target / "task.md").read_text(encoding="utf-8")
+      and "Відповідь: так" in (target / "task.md").read_text(encoding="utf-8")
       and STAMP in (target / "report.md").read_text(encoding="utf-8")
       and "Що змінилось для власника" in (target / "report.md").read_text(encoding="utf-8"), r.stdout + r.stderr)
 r = cli(root, "gate-done", again.name, "absent")
@@ -647,7 +654,8 @@ check("the offer is parsed: the action and its sha256; unanswered, it approves n
       t.action == "apply-settings" and t.action_arg == offer.split()[-1] and not t.approves and not t.answered, t)
 check("the summary shows the question, not the offer line", any("008-wiring.md — 1. Застосувати пропозицію налаштувань?" in line for line in board.summary(b)), board.summary(b))
 check("unanswered: owner-actions lists nothing", cli(root, "owner-actions").stdout == "")
-for reply, yes in (("так", True), ("Так.", True), ("«так»", True), ("так, застосуй", True), ("ні", False), ("закрити", False), ("такий варіант не годиться", False)):
+for reply, yes in (("так", True), ("Так.", True), ("«так»", True), ("ТАК!", True), ("так, застосуй", False), ("так, але не все", False), ("ні", False), ("закрити", False),
+                   ("такий варіант не годиться", False)):
     check(f"the answer {reply!r} {'approves' if yes else 'does not approve'}", board.read(offered("008-wiring.md", offer, reply)).approves is yes)
 for line, why in ((f"Дія виконавця: run-script {SHA}", "an action that is not on the list"), ("Дія виконавця: close-escalation", "the gate's action offered by hand"),
                   ("Дія: apply-settings", "another wording")):

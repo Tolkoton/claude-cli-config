@@ -14,7 +14,7 @@ Layers
                 to them. Reads `stop_hook_active` first. Counts consecutive blocks; on the Nth it
                 lets the turn end and parks the item for a human (GATE_MAX_BLOCKS, default 3);
                 in a project with a task board the question also becomes a task in
-                tasks/blocked/, and the owner's answer «закрити» there closes it.
+                tasks/blocked/, and the owner's answer «так» there closes it.
                 Also refuses to be passed by silencing: see "bypass guard".
     pre_commit  the full set on the staged change (what a git pre-commit hook runs).
     ci          the full set (what a pipeline runs). No workflow file ships; see
@@ -717,7 +717,7 @@ def open_escalation(root: Path, stamp: str, report: Report, task: str | None = N
 
 def close_escalation(root: Path, which: str) -> int:
     """`gate.py --close-escalation <stamp|all>` — a HUMAN's answer to a parked gate question:
-    typed by the owner, or run by board-runner.sh on the owner's «закрити» under the question
+    typed by the owner, or run by board-runner.sh on the owner's «так» under the question
     in tasks/blocked/ (board 005).
 
     Refuses inside a Claude Code session (CLAUDECODE is set in every shell the agent's tools
@@ -779,7 +779,7 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
     task = board_question(root, stamp, report, evidence, blocks)
     open_escalation(root, stamp, report, task)
     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
-    on_board = (f"the owner answers «закрити» in {task} (board-runner.sh then closes the escalation; "
+    on_board = (f"the owner answers «так» in {task} (board-runner.sh then closes the escalation; "
                 "the agent does not answer it), or " if task else "")
     entry = (
         f"\n## {stamp} — gate stop layer — PARKED\n"

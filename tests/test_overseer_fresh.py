@@ -250,7 +250,7 @@ p.write(".claude/state/gate/escalations.json", json.dumps({"open": [{"stamp": "2
 said, rid = p.claim()
 check("the request warns that the verdict cannot be PASS", "GATE ESCALATION OPEN" in said, said)
 check("…and names both ways the owner closes it: the board's question and the owner's terminal",
-      "tasks/blocked/" in said and "закрити" in said and "--close-escalation" in said, said)
+      "tasks/blocked/" in said and "«так»" in said and "--close-escalation" in said, said)
 p.launch(f"OVERSEER_REQUEST {rid}")
 p.answer(GOOD)
 check("a PASS while the gate's escalation is open is recorded as BLOCK", p.rows()[-1]["verdict"] == "BLOCK" and "gate escalation 2026-10-03T12:00:00Z open" in p.first_entry()

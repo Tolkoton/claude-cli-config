@@ -13,7 +13,7 @@
 # WHAT IT DOES, in the order it does it (tasks/README.md is the board's manual):
 #   before every task   fetch and `pull --rebase` the work branch — new tasks and the owner's
 #                       answers arrive this way; take new files from the inbox into tasks/todo/
-#                       (one commit); close the gate escalations the owner answered «закрити»
+#                       (one commit); close the gate escalations the owner answered «так»
 #                       and take the actions the owner answered «так» (see below); move answered tasks from tasks/blocked/ back to todo/ (one commit)
 #   the task            the first in todo/ whose dependencies are in done/ goes to doing/ in a
 #                       commit of its own, then `claude -p` in a FRESH conversation
@@ -83,7 +83,7 @@
 #
 # A GATE QUESTION (tasks/blocked/9NN-gate-escalation-*.md, written by gate.py when the Stop gate
 # gives up) is the one task the runner finishes itself. It commits and pushes the question as
-# soon as it appears; when the owner's answer «закрити» ARRIVES — by the pull or through the
+# soon as it appears; when the owner's answer «так» ARRIVES — by the pull or through the
 # inbox — it runs `gate.py --close-escalation <stamp>` and moves the task to done/ with a
 # two-line report. An answer that was already in the checkout before the pull was written on
 # this machine, where the writer is the agent the gate judged: it is wiped and asked again.
@@ -356,7 +356,7 @@ publish_gate_questions() {
   push_branch
 }
 
-# The «закрити» answers that are in the checkout NOW and did not arrive from the owner earlier.
+# The «так» answers that are in the checkout NOW and did not arrive from the owner earlier.
 # Called before the pull: whatever it lists was written here, not by the owner.
 local_gate_answers() {
   local line
@@ -365,7 +365,7 @@ local_gate_answers() {
   done
 }
 
-# Act on the owner's «так» under an offered action. Run here, by the runner — never by an agent;
+# Act on the owner's «так» (exactly that one word, board 036) under an offered action. Run here, by the runner — never by an agent;
 # owner_action.py holds the list of what may be run and refuses inside a Claude Code session.
 owner_actions() {
   local name action arg sum line rc outcome path
@@ -417,7 +417,7 @@ owner_actions() {
   done <<< "$(board owner-actions)"
 }
 
-# Act on the owner's «закрити». The command is run here, by the runner — never by an agent.
+# Act on the owner's «так». The command is run here, by the runner — never by an agent.
 close_escalations() {
   local name stamp sum line rc
   while IFS=$'\t' read -r name stamp sum; do

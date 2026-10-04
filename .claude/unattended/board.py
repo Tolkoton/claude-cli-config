@@ -24,7 +24,7 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
     board.py audit-allowed           exit 0 only when the one task in doing/ asks for the audit
     board.py gate-answers            the gate's questions in blocked/ that the owner answered
-                                     «закрити»: one `name<TAB>stamp<TAB>sha256` line each
+                                     «так»: one `name<TAB>stamp<TAB>sha256` line each
     board.py gate-done <name> <closed|absent|elsewhere>   such a task goes to done/ with its report
     board.py gate-closed             the gate's questions in blocked/ that nobody answered and whose
                                      escalation is closed already: one `name<TAB>stamp` line each
@@ -47,10 +47,15 @@ exception reads only: `review` takes the board from the work branch in origin (b
 
 A GATE QUESTION (board 005) is a task the Stop gate writes itself when it gives up after N
 blocks in a row (`gate_question`, called by .claude/hooks/gate.py): tasks/blocked/9NN-gate-
-escalation-<stamp>.md, with the line `Ескалація воріт: <stamp>` under its title. The owner's
-answer «закрити» is acted on by board-runner.sh, which runs `gate.py --close-escalation` — never
-by an agent, so `unblock` leaves such a task where it is. Any other answer is an instruction:
-the task goes back to todo/ like every answered task.
+escalation-<stamp>.md, with the line `Ескалація воріт: <stamp>` under its title and the question
+«Закрити ескалацію?». The owner's answer «так» is acted on by board-runner.sh, which runs
+`gate.py --close-escalation` — never by an agent, so `unblock` leaves such a task where it is.
+Any other answer is an instruction: the task goes back to todo/ like every answered task.
+
+CONSENT HAS ONE FORM (board 036), the same for closing an escalation, applying the settings
+proposal and making a lesson a rule: the answer is exactly the one word «так» — case and
+punctuation do not count (`consents`). Everything else, «так, але…» included, is an instruction
+for the agent and nothing is applied.
 
 AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do — today
 one thing: applying the settings proposal. The agent asks its question and writes under it the
@@ -125,10 +130,10 @@ ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILI
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 GATE = re.compile(r"^Ескалація воріт:\s*(\S+)", re.MULTILINE)
 GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
-GATE_CLOSE = "закрити"
-# What the runner may do on the owner's word, and the answer that asks for it. `close-escalation`
-# is offered by the gate's own question (the `Ескалація воріт:` line), the rest by an action line.
-OWNER_ACTIONS = {"apply-settings": "так", "promote-rule": "так", "close-escalation": GATE_CLOSE}
+CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
+# What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
+# question (the `Ескалація воріт:` line), the rest by an action line.
+OWNER_ACTIONS = ("apply-settings", "promote-rule", "close-escalation")
 RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
 RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
 RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_FIRST
@@ -158,31 +163,38 @@ class Task:
 
     @property
     def closes(self) -> bool:
-        """A gate question whose last answer is the one word «закрити»: the runner's to act on."""
-        return bool(self.gate) and self.says(GATE_CLOSE)
+        """A gate question whose last answer is the one word «так»: the runner's to act on."""
+        return bool(self.gate) and self.says(CONSENT)
 
     @property
     def approves(self) -> bool:
         """An offered action whose last answer is the one word «так»: the runner's to act on."""
-        return bool(self.action) and not self.gate and self.says(OWNER_ACTIONS[self.action], alone=self.action == RULE_ACTION)
+        return bool(self.action) and not self.gate and self.says(CONSENT)
 
     @property
     def declines(self) -> bool:
         """A rule question whose last answer is the one word «ні»: the runner closes the proposal."""
-        return self.action == RULE_ACTION and not self.gate and self.says(RULE_NO, alone=True)
+        return self.action == RULE_ACTION and not self.gate and self.says(RULE_NO)
 
     @property
     def decided(self) -> str:
         """The action the runner is to take on the owner's answer, or ""."""
         return self.action if self.approves else RULE_DECLINE if self.declines else ""
 
-    def says(self, word: str, alone: bool = False) -> bool:
-        """The last answer begins with `word`; alone=True (a rule question): it is nothing but that
-        word — «так, але інакше» is an instruction, not consent to this text."""
-        if not self.answered:
-            return False
-        words = self.answers[-1].lower().split()
-        return bool(words) and words[0].strip("«»\"'`*_.,;:!") == word and (not alone or len(words) == 1)
+    def says(self, word: str) -> bool:
+        """Every question is answered and the last answer is nothing but `word`."""
+        return self.answered and is_word(self.answers[-1], word)
+
+
+def is_word(answer: str, word: str) -> bool:
+    """`answer` is exactly the one word `word`: case and punctuation do not count, any other
+    word does — «так, але інакше» is an instruction, not consent."""
+    return re.sub(r"[\W_]+", " ", answer.lower()).split() == [word]
+
+
+def consents(answer: str) -> bool:
+    """The owner's consent, in its one form: exactly the word «так»."""
+    return is_word(answer, CONSENT)
 
 
 def parse(text: str) -> Task:
@@ -373,7 +385,7 @@ def unblock(board: Board) -> list[str]:
     moved: list[str] = []
     for path in board.files("blocked"):
         task = read(path)
-        # A gate question answered «закрити» is closed by the runner, not handed to an agent;
+        # A gate question answered «так» is closed by the runner, not handed to an agent;
         # an offered action answered «так» waits for the runner to act on it first.
         if task.answered and not task.closes and not task.decided:
             target = board.tasks / "todo" / path.name
@@ -418,19 +430,21 @@ def gate_question(board: Board, stamp: str, blocks: int, slice_name: str, files:
 
 ## Що зробити
 Це питання поставили ворота, а не агент. Агент на нього не відповідає і сам ескалацію не
-закриває: відповідь «закрити» виконує виконавець дошки. Якщо власник відповів інакше — це
+закриває: відповідь «так» виконує виконавець дошки. Якщо власник відповів інакше — це
 вказівка агентові: виконай її, допиши внизу нове питання «Тепер закрити ескалацію?» з порожнім
 рядком відповіді й поверни задачу в `tasks/blocked/`.
 
 ## Готово, коли
-Власник відповів «закрити», і виконавець закрив ескалацію.
+Власник відповів «так», і виконавець закрив ескалацію.
 
 ## Питання до власника
 Варіанти відповіді:
-- `закрити` — зауваження воріт прийнято або вже виправлено; роботу з цими файлами можна приймати далі.
-- будь-який інший текст — вказівка агентові, що саме виправити; ескалація лишається відкритою.
+- `так` — рівно це одне слово: зауваження воріт прийнято або вже виправлено; ескалацію буде закрито,
+  роботу з цими файлами можна приймати далі.
+- будь-який інший текст (і «так, але…» теж) — вказівка агентові, що саме виправити; ескалація
+  лишається відкритою.
 
-1. Що робити з цією зупинкою воріт — закрити чи виправляти (тоді напишіть, що саме)?
+1. Закрити ескалацію?
    Відповідь:
 """
     target = board.tasks / "blocked" / f"{number}-gate-escalation-{re.sub(r'[^0-9A-Za-z]', '', stamp)}.md"
@@ -482,9 +496,9 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
 
 ## Питання до власника
 Варіанти відповіді:
-- `так` — урок стає правилом: рядок вище буде додано до `.engine/rules.md`.
+- `так` — рівно це одне слово: урок стає правилом, рядок вище буде додано до `.engine/rules.md`.
 - `ні` — правилом не стає; пропозицію закрито.
-- будь-який інший текст — вказівка агентові (наприклад, як переписати правило).
+- будь-який інший текст (і «так, але…» теж) — вказівка агентові (наприклад, як переписати правило).
 
 1. Зробити це правилом?
    Дія виконавця: {RULE_ACTION} {sha}
@@ -532,7 +546,7 @@ def gate_done(board: Board, path: Path, outcome: str) -> Path:
     stamp = read(path).gate
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     if outcome == "closed":
-        changed = (f"Ескалацію воріт {stamp} закрито за вашою відповіддю «закрити» ({now}, виконавець дошки). "
+        changed = (f"Ескалацію воріт {stamp} закрито за вашою відповіддю «так» ({now}, виконавець дошки). "
                    "Наглядач знову приймає роботу з цими файлами.")
     elif outcome == "elsewhere":
         changed = (f"Ескалацію воріт {stamp} закрито іншим шляхом — командою `gate.py --close-escalation` у терміналі, "
@@ -614,7 +628,7 @@ def action_done(board: Board, path: Path, outcome: str) -> Path:
     return target
 
 
-def gate_reject(path: Path, word: str = GATE_CLOSE) -> None:
+def gate_reject(path: Path, word: str = CONSENT) -> None:
     """Wipe an answer that did not come from the owner and say so under the question."""
     lines = path.read_text(encoding="utf-8").splitlines()
     last = max(i for i, line in enumerate(lines) if ANSWER.match(line))
@@ -898,7 +912,7 @@ def main() -> int:
         if args.command == "action-done":
             print(board.shown(action_done(board, path, args.outcome)))
         else:
-            gate_reject(path, RULE_NO if read(path).declines else OWNER_ACTIONS[read(path).action])
+            gate_reject(path, RULE_NO if read(path).declines else CONSENT)
         return 0
     if args.command == "park":
         parked = park(board, args.name, args.reason, args.detail, args.stash, args.verdicts, args.wip, args.wip_remote)

@@ -82,7 +82,7 @@ so when the door is ambiguous, treat it as one-way and park.
 While the Stop gate has an open escalation on files of this work, no PASS is
 recorded for it (the script writes a BLOCK instead). Only the owner closes the
 escalation (`gate.py --close-escalation`, refused inside a session, or the
-answer `закрити` under the gate's question in `tasks/blocked/`).
+answer `так` under the gate's question in `tasks/blocked/`).
 
 ## A project whose settings lack the handlers
 

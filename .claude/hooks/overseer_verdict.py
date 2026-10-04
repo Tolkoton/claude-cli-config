@@ -621,7 +621,7 @@ def record(root: Path, envelope: JsonObj) -> JsonObj | None:
     escalation = open_gate_escalation(root) if verdict == "PASS" else None
     if escalation is not None:
         finish("BLOCK", f"gate escalation {escalation[0]} open ({escalation[1]}): the audit found no failing check, "
-               "but a PASS is not accepted until the owner closes it (the answer «закрити» in tasks/blocked/, or their own terminal)", obj, gate_escalation=escalation[0])
+               "but a PASS is not accepted until the owner closes it (the answer «так» in tasks/blocked/, or their own terminal)", obj, gate_escalation=escalation[0])
         return None
     finish(verdict, str(obj["reason"]), obj, check)
     return None

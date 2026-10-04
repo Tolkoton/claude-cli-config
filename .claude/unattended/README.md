@@ -67,7 +67,7 @@ and says so; a flag left by a runner that died is removed when the next one star
 Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
 from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, and returns
 answered tasks from `tasks/blocked/`. A question the Stop gate put there after giving up
-(`9NN-gate-escalation-*.md`) it commits and pushes at once; when the owner's answer `закрити`
+(`9NN-gate-escalation-*.md`) it commits and pushes at once; when the owner's answer `так`
 arrives by the pull or the inbox, the runner itself runs `gate.py --close-escalation` and moves
 that task to `done/` — no agent is started for it (`.claude/references/gate.md`). An action the
 owner approved with `так` under a question that offers it (`Дія виконавця: apply-settings <sha256>`)
@@ -126,7 +126,7 @@ environment variables listed at the head of the script. `board.py` is the board'
 The owner's review — `python3 .claude/unattended/board.py review [--since <commit|date>]` — is
 one markdown document about the work branch as origin has it (`board_review.py`). It writes
 nothing, so it may run next to a runner in the middle of a task and from any clone; the
-runner's state files are read when they are there. `/review` walks it with the owner.
+runner's state files are read when they are there. `/owner-review` walks it with the owner.
 
 ## The decision the supervisor makes
 

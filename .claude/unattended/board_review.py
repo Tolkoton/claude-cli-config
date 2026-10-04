@@ -56,6 +56,7 @@ PARKED = re.compile(r"^## (\S+) — (.+) — (PARKED|RESUMED|SURFACED)[ \t]*$", 
 PROPOSAL = re.compile(r"^## (RP-\w+) — \S+ — PROPOSED[ \t]*$", re.MULTILINE)
 GOLDEN = re.compile(r"^evals/baseline/[^/]+/results-[^/]+\.json$")
 FINDING_MAX = 260
+ATTEMPT = re.compile(r"^(\S+) attempt(-end)? (\S+) (\d+)(?: |$)")  # events.log: `<UTC> attempt <task> <n> …`, `… attempt-end <task> <n> …`
 ANOMALY = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) — (.+)$")
 # The runner's states (board-runner.sh), as the owner reads them.
 STATES = {
@@ -265,6 +266,23 @@ def task_line(name: str, entry: dict[str, Any] | None, now: datetime) -> str:
     return line + "."
 
 
+def attempt_line(state: Path, name: str, entry: dict[str, Any] | None, now: datetime) -> str | None:
+    """The attempt in hand, as far as the state files show it: events.log has its start and no end
+    yet. Its cost is in no file until it ends — the session reports one figure, at its end."""
+    try:
+        events = (state / "board/events.log").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    marks = [m for m in map(ATTEMPT.match, events) if m and m.group(3) == name]
+    if not marks or marks[-1].group(2):
+        return None
+    begun = as_utc(marks[-1].group(1))
+    spent = float((entry or {}).get("cost_usd", 0.0))
+    return (f"- Спроба, що триває: №{marks[-1].group(4)}, від {stamp(begun)}" + (f" — {elapsed(begun, now)}" if begun else "")
+            + ". Її вартості у файлах стану ще немає: сесія агента повідомляє суму один раз, наприкінці спроби; "
+            + f"до цієї спроби на задачу записано ${spent:.2f}.")
+
+
 def runner_lines(src: Source, state: Path, status: re.Match[str], now: datetime) -> list[str]:
     word, name, started, reason = status.group(1), status.group(2), as_utc(status.group(3)), status.group(4)
     working = word in ("running", "waiting-limit")
@@ -274,7 +292,10 @@ def runner_lines(src: Source, state: Path, status: re.Match[str], now: datetime)
     if working and runner_alive(state) is False:
         lines.append("- Увага: процесу виконавця з файла `lock` на цій машині немає — запис стану міг застаріти.")
     if name != "-":
-        lines.append(task_line(name, task_costs(state).get(name), now))
+        entry = task_costs(state).get(name)
+        lines.append(task_line(name, entry, now))
+        running = attempt_line(state, name, entry, now) if working else None
+        lines += [running] if running else []
     summary = state / "board/summary.md"
     if not working and summary.is_file():
         lines += [f"- Підсумок останнього запуску: {said[2:]}" for said in summary.read_text(encoding="utf-8").splitlines() if said.startswith("- Стан:")]
@@ -396,9 +417,9 @@ def question_lines(src: Source, asked: list[Asked]) -> list[str]:
         if draft in src.files:
             lines.append(f"Що зроблено і чому питання — у чернетці звіту `{draft}`.")
         if task.gate:
-            lines.append(f"Це питання поставили ворота (ескалація `{task.gate}`): відповідь `закрити` закриє її, інший текст — вказівка агентові.")
+            lines.append(f"Це питання поставили ворота (ескалація `{task.gate}`): відповідь `так` (рівно це слово) закриє її, інший текст — вказівка агентові.")
         if task.action:
-            lines.append(f"Тут є дія виконавця `{task.action}`: відповідь `так` під тим питанням виконає її; інший текст — вказівка агентові.")
+            lines.append(f"Тут є дія виконавця `{task.action}`: відповідь `так` (рівно це слово) під тим питанням виконає її; інший текст — вказівка агентові.")
         for block in blocks:
             lines += ["", *(f"> {line}".rstrip() for line in block.splitlines()), "> **Відповідь:** _порожньо_"]
         lines.append("")
@@ -423,12 +444,16 @@ def escalation_lines(src: Source, state: Path, asked: list[Asked]) -> list[str]:
     return lines or ["- Немає."]
 
 
-def rule_lines(src: Source) -> list[str]:
+def rule_lines(src: Source, asked: list[Asked]) -> list[str]:
     proposals = src.show(".engine/rule-proposals.md")
+    questions = {task.rule: path for path, _, task in asked if task.rule}
     lines = []
     for match in PROPOSAL.finditer(proposals):
         rule = re.search(r"^- Rule:[ \t]*(.*)$", proposals[match.end():].split("\n## ", 1)[0], re.MULTILINE)
-        lines.append(f"- `{match.group(1)}`: {rule.group(1).strip() if rule else '(тексту правила немає)'}")
+        question = questions.get(match.group(1).removeprefix("RP-"))
+        lines.append(f"- `{match.group(1)}`: {rule.group(1).strip() if rule else '(тексту правила немає)'} — "
+                     + (f"питання: [`{question}`]({question}); відповідь `так` (рівно це слово) зробить урок правилом."
+                        if question else "питання про неї в `tasks/blocked/` немає."))
     return lines or ["- Немає (`.engine/rule-proposals.md`)."]
 
 
@@ -456,7 +481,7 @@ def waiting_section(src: Source, state: Path) -> list[str]:
             "### Задачі, що потребують вашої присутності", "", *attended_lines(src), "",
             "### Пропозиції налаштувань", "", *settings_lines(src, asked), "",
             "### Відкриті ескалації", "", *escalation_lines(src, state, asked), "",
-            "### Пропозиції правил", "", *rule_lines(src)]
+            "### Пропозиції правил", "", *rule_lines(src, asked)]
 
 
 # ------------------------------------------------------------------ anomalies

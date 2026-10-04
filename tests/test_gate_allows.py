@@ -518,7 +518,7 @@ r = new_repo()
 stamp = escalate(r)
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("no tasks/ in the project: no task, no tasks/ directory, the escalation as before",
-      not (r / "tasks").exists() and "task" not in state["open"][-1] and "закрити" not in (r / ".engine/overseer/parked.md").read_text(), state)
+      not (r / "tasks").exists() and "task" not in state["open"][-1] and "«так»" not in (r / ".engine/overseer/parked.md").read_text(), state)
 r = new_repo()
 (r / "tasks" / "blocked").mkdir(parents=True)
 (r / "mod.py").write_text("x = 1\ny = 2\nq = 9\n")
@@ -532,12 +532,12 @@ asked = sorted((r / "tasks/blocked").glob("*.md"))
 question = asked[0].read_text(encoding="utf-8") if asked else ""
 check("a board in the project: the escalation is a task in tasks/blocked/",
       len(asked) == 1 and asked[0].name.startswith("900-gate-escalation-") and f"Ескалація воріт: {stamp}" in question, asked)
-check("...it names the file the gate blocked on and offers «закрити» with an empty answer line",
-      "mod.py" in question and "`закрити`" in question and question.rstrip().endswith("Відповідь:"), question)
+check("...it names the file the gate blocked on and asks «Закрити ескалацію?» and offers «так» with an empty answer line",
+      "mod.py" in question and "`так`" in question and "1. Закрити ескалацію?" in question and question.rstrip().endswith("Відповідь:"), question)
 check("...the escalation state names the task", state["open"][-1].get("task") == f"tasks/blocked/{asked[0].name}" if asked else False, state)
 parked = (r / ".engine/overseer/parked.md").read_text()
 check("...the parked entry names both ways to close: the board answer and the owner's command",
-      f"tasks/blocked/{asked[0].name}" in parked and "«закрити»" in parked and f"--close-escalation {stamp}" in parked if asked else False, parked)
+      f"tasks/blocked/{asked[0].name}" in parked and "«так»" in parked and f"--close-escalation {stamp}" in parked if asked else False, parked)
 message = str(json.loads(proc.stdout or "{}").get("systemMessage", ""))
 check("...the session is told where the owner is asked, and not to answer it itself",
       message.startswith("GATE ESCALATION") and "tasks/blocked/900-gate-escalation-" in message and "leave its answer line empty" in message, message)
