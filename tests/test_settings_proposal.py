@@ -62,8 +62,8 @@ INTENDED: dict[str, str] = {
     ),
     "permissions.defaultMode": (
         "F4 (owner): the personal layer says `auto`, not `acceptEdits`; `auto` is legal at the user level only, "
-        "which is where the layer lives. Unattended sessions do not depend on it: session-claude.sh passes "
-        "--permission-mode acceptEdits itself"
+        "which is where the layer lives. Unattended sessions do not depend on it: board-runner.sh passes "
+        "--permission-mode auto itself"
     ),
     "env.ANTHROPIC_DEFAULT_SONNET_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",
     "env.ANTHROPIC_DEFAULT_OPUS_MODEL": "F4 (owner): removed, not moved — pinning a model id freezes an old model",

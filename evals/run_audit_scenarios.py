@@ -63,7 +63,7 @@ settings — not the engine's allow list, not its hooks — whatever --setting-s
 Measured on 2026-10-02 (package 2b): without the flag `uv run pytest` "requires approval"
 and the ledger Edit is refused, so every v0.11.0 audit session blocked for want of evidence
 it was not allowed to gather and wrote no ledger entry; with the flag both succeed. The
-same fix session-claude.sh received in package 3c.
+board runner starts its sessions with the same flag.
 
 PRE-FLIGHT. Before the first paid session the runner checks every scenario file exists and
 builds ONE throwaway sandbox to check that every path PROGRESS.fixture.md names exists in

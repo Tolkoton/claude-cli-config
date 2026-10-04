@@ -165,7 +165,7 @@ done
 #   ------------------------------------+------------------------------+------------------------
 #   attended, the owner's machine       | refused: the commit is the   | permissions.ask prompts
 #                                       | owner's review checkpoint    | force push: denied
-#   unattended (supervisor run)         | allowed on unattended/* only | ask → parked by
+#   unattended (the board runner)       | allowed on unattended/* only | ask → parked by
 #                                       |                              | park-ask-gated.py
 #   cloud session (CLAUDE_CODE_REMOTE)  | allowed on the session's own | permissions.ask
 #                                       | non-protected branch, ONLY   | force push: denied

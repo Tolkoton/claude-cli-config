@@ -77,8 +77,8 @@ closes this at the source rather than at run time:
   blanket `WebFetch`/`WebSearch` allow without any project noticing a change:
   `evals/settings_parity.py` shows the effective settings identical before and after the
   split. (`defaultMode: auto` is legal at the user level only — the layer IS user level.
-  Unattended sessions do not depend on it: `session-claude.sh` passes
-  `--permission-mode acceptEdits` itself.)
+  Unattended sessions do not depend on it: `board-runner.sh` passes
+  `--permission-mode auto` itself.)
 - A **cloud session** reads the shared `.claude/settings.json` (it is in the clone) and does
   **not** read `~/.claude/settings.json` or `.claude/settings.local.json`. The engine's
   hooks run there; the personal layer does not apply there. `CLAUDE_CODE_REMOTE` is
@@ -121,7 +121,7 @@ shows the two instruments together.
 | environment | commit | push |
 |---|---|---|
 | attended, the owner's machine | refused — the commit is the owner's review checkpoint | `permissions.ask` prompts; force push denied |
-| unattended (supervisor run) | allowed on `unattended/*` only | ask → parked by `park-ask-gated.py` |
+| unattended (the board runner) | allowed on `unattended/*` only | ask → parked by `park-ask-gated.py` |
 | cloud session (`CLAUDE_CODE_REMOTE=true`) | allowed on the session's own non-protected branch **only** when `CLOUD_COMMIT_POLICY="session-branch"` in `.claude/project.env`; ships `off` | `permissions.ask`; force push denied |
 
 The cloud rule is a switch and not a default because the shape of a cloud session has not

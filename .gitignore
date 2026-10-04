@@ -11,11 +11,11 @@ venv/
 .claude/settings.local.json
 
 # Machine state — every file one machine and one run write for the gates: the overseer's
-# recursion guards, the continue counter, the supervision mode, the complexity budgets,
-# the unattended supervisor's state, cost, heartbeat, logs and archive. Written by hooks and
-# scripts, never by agent tools. One directory, so one line (package 3c).
+# recursion guards, the supervision mode, the complexity budgets, the board runner's status,
+# costs and logs. Written by hooks and scripts, never by agent tools. One directory, so one line (package 3c).
 .claude/state/
-# The pre-3c state paths, for the transition: a checkout that still has them must not commit them.
+# The pre-3c state paths, for the transition: a checkout that still has them must not commit them
+# (the .claude/unattended/ ones belonged to the DAG harness retired by board 039).
 .claude/overseer/mode
 .claude/overseer/state
 .claude/overseer/.last_audit_sha

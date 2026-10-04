@@ -7,8 +7,8 @@
 ## Project in one sentence
 
 A Claude Code configuration template: a constitution-governed agentic build system — four
-descending design levels, five blind critics, enforcement hooks, and a supervisor that runs the
-whole thing unattended — meant to be installed into a real project by `engine.py`.
+descending design levels, five blind critics, enforcement hooks, and a task board whose runner works
+through it unattended — meant to be installed into a real project by `engine.py`.
 
 ## What is unusual about this repo
 
@@ -18,7 +18,8 @@ and `tests/`. Consequences: `.claude/project.env` here describes the engine itse
 (`SOURCE_DIRS` names the hook, harness, evals and test directories, `CODE_EXTENSIONS="py sh"`,
 `TEST_CMD` runs the suites), so the Stop gate verifies the engine's own code; the seed a target
 project receives (`templates/project/`) still says `src` and `py`. The backlog is
-`.engine/architecture/feature-dag.json`, not an issue tracker.
+the task board (`tasks/`), not an issue tracker; `.engine/architecture/feature-dag.json` is the
+slice graph `/feature-architect` plans a feature into.
 
 ## Active agents and pipeline
 
@@ -28,8 +29,8 @@ by the Stop hook). Also `/mvp-architect` (the cheapest thing that answers one qu
 `self-learning-orchestrator` (memory), `documentation` (docs), `simplifier` (what can go; on a signal only). Critics in
 `.claude/agents/` (`master-`, `feature-`, `slice-planner-`, `mvp-critic`, all inheriting
 `critic-core`) are fresh-context and blind. Agents communicate through files, never chat.
-Unattended, `.claude/unattended/supervisor.sh` spawns a session per DAG node and restarts one
-that dies.
+Unattended work goes through the task board only: `.claude/unattended/board-runner.sh` takes one
+task at a time, each in a fresh session.
 
 ## Key paths
 
@@ -65,9 +66,9 @@ shows the hook issuing the right command.
 ```bash
 bash tests/run_all.sh                 # every suite, one line each (the pre-tag check)
 bash tests/run_all.sh --fast          # the Stop-gate subset
-python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-22.04/results-task-033.json
+python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-22.04/results-task-039.json
 python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
-bash .claude/unattended/supervisor.sh --status
+bash .claude/unattended/board-runner.sh --status
 ```
 
 `tests/` holds every check of this repository; the Stop gate runs `TEST_CMD` from

@@ -3,8 +3,7 @@
 # (`bash tests/run_all.sh`, about 135 s) is the check before a tag.
 #
 # In: every suite under about 2 s plus the two hook negative-case suites. Out, with their
-# measured times (2026-10-02, sequential, idle machine): test_session_launch 30.2 s (real
-# headless sessions), test_complexity_budget 11.0, test_engine_install 10.1,
+# measured times (2026-10-02, sequential, idle machine): test_complexity_budget 11.0, test_engine_install 10.1,
 # test_gate 10.2, test_state_migration 9.3, test_deny_hooks 7.7, test_migration 7.2,
 # test_audit_runner_resume 7.1 (real sandboxes; 29 s on the night of 2026-10-02 with 05 in its set),
 # test_audit_turn_fixture 11.2 (night 1: real sandboxes, the claude shim), test_commit_policy 5.6,
@@ -34,13 +33,15 @@
 # Board 033: test_settings_wiring 3.6 s stays out (eleven synthetic projects and one real install of v0.11.0 updated to HEAD).
 # Board 035: test_health_record 1.3 s is in (the real run_all.sh on a synthetic repository with two suites).
 # Board 038: test_settings_proposal_install stays out (nine synthetic projects, each an engine.py install or update).
+# Board 039: the supervisor is retired and four suites left with it (the continue guard, the parked
+# re-check, the self-reference guard, the session launch); test_supervisor_retired stays out (a real
+# install of v0.11.0 updated to HEAD).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py
 test_engine_lint.py
 test_contract_fingerprint.py
 test_guardrail_paths.py
-test_overseer_continue.py
 test_ownership.py
 test_verify_on_stop.py
 test_legacy_records_survive.py
@@ -48,10 +49,8 @@ test_install_collision.py
 test_no_home_hook_copies.py
 test_settings_proposal.py
 test_env_check.py
-test_recheck_parked.py
 test_no_machine_paths.py
 test_source_dirs.py
-test_selfref.py
 test_decision_logged.py
 test_context_budget.py
 test_text_hygiene.py

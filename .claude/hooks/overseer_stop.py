@@ -331,22 +331,6 @@ NOT_WIRED_HUMAN = (
     "і перезапустіть Claude Code."
 )
 REQUEST_TYPED_RE = re.compile(r"^[ \t>*`]*OVERSEER_REQUEST\b", re.MULTILINE)
-MAX_UNATTENDED_CONTINUES = 25
-
-UNATTENDED_CONTINUE_REASON = (
-    "UNATTENDED_CONTINUE. The run is still live ({detail}), so ending the turn "
-    "is not one of the three legitimate stops (human-only input; falsified "
-    "premise; empty unblocked queue).\n"
-    "Do NOT stop to wait for a background task, to report progress, or to let "
-    "the owner redirect — unattended, a checkpoint redirects nobody and costs "
-    "the whole run.\n"
-    "Continue now: take the next unblocked item. If the only thing in flight is "
-    "a supervisor session editing the repo, do work that does not race it — "
-    "verify a hook's negative case, extend tests/, re-check "
-    ".engine/overseer/parked.md, or update .engine/PROGRESS.md.\n"
-    "To stop for real, emit an OVERSEER_ halt marker naming which of the three "
-    "reasons applies."
-)
 
 GATE_OPEN_NOTICE = (
     "\n\nGATE ESCALATION OPEN ({scope}; parked {stamp} in .engine/overseer/parked.md). "
@@ -436,90 +420,6 @@ DRY_RUN_REASON = (
     "DRY-RUN: would have blocked — the overseer Stop hook is wired and live. "
     "No real unit-completion was evaluated; this is a smoke-test injection."
 )
-
-
-def _run_has_work(project_dir: Path) -> str | None:
-    """Describe live unattended work, or None if there is none.
-
-    Returns None for a session SPAWNED BY the supervisor. Those must be allowed
-    to end: a session that finishes a node writes 'unit-done' and exits so the
-    supervisor can spawn a fresh one, and a session that dies must leave
-    'working' behind so the supervisor detects the death and restarts it.
-    Blocking their Stop would break both mechanisms. This branch exists for the
-    ORCHESTRATING session only.
-    """
-    if os.environ.get("CLAUDE_UNATTENDED_SESSION"):
-        return None
-    try:
-        mode = (project_dir / ".claude" / "state" / "overseer" / "mode").read_text(
-            encoding="utf-8"
-        )
-    except OSError:
-        return None
-    if "unattended" not in mode.lower():
-        return None
-
-    state_path = project_dir / ".claude" / "state" / "unattended" / "state.json"
-    try:
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-        status = str(state.get("status", ""))
-        if status in ("working", "unit-done"):
-            node = state.get("node") or "?"
-            return f"supervisor state is {status!r} on node {node}"
-    except (OSError, json.JSONDecodeError, ValueError, AttributeError):
-        pass
-
-    dag_path = project_dir / ".engine" / "architecture" / "feature-dag.json"
-    try:
-        nodes = json.loads(dag_path.read_text(encoding="utf-8")).get("nodes", [])
-        done = {n["id"] for n in nodes if n.get("status") == "done"}
-        for node in nodes:
-            if node.get("status") in ("done", "parked"):
-                continue
-            if all(dep in done for dep in node.get("deps", [])):
-                return f"DAG node {node.get('id')!r} is ready and unblocked"
-    except (OSError, json.JSONDecodeError, ValueError, KeyError, TypeError):
-        pass
-    return None
-
-
-def _continue_count_file(project_dir: Path) -> Path:
-    return project_dir / ".claude" / "state" / "overseer" / ".continue_count"
-
-
-def _read_continue_count(project_dir: Path) -> int:
-    try:
-        return int(_continue_count_file(project_dir).read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
-        return 0
-
-
-def _write_continue_count(project_dir: Path, value: int) -> None:
-    path = _continue_count_file(project_dir)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"{value}\n", encoding="utf-8")
-    except OSError:
-        pass
-
-
-def _stop_or_continue(project_dir: Path) -> NoReturn:
-    """The former plain `_passthrough()` for turns with nothing to audit.
-
-    Unattended with work still live, ending the turn is not a legitimate stop,
-    so block and re-inject. Bounded by MAX_UNATTENDED_CONTINUES so a genuinely
-    wedged loop cannot spin forever.
-    """
-    detail = _run_has_work(project_dir)
-    if detail is None:
-        _write_continue_count(project_dir, 0)
-        _passthrough()
-    count = _read_continue_count(project_dir)
-    if count >= MAX_UNATTENDED_CONTINUES:
-        _write_continue_count(project_dir, 0)
-        _passthrough()
-    _write_continue_count(project_dir, count + 1)
-    _emit_block(UNATTENDED_CONTINUE_REASON.format(detail=detail))
 
 
 def _emit_block(reason: str, system_message: str = "") -> NoReturn:
@@ -791,7 +691,7 @@ def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
         _emit_block(FRESH_REQUEST_TYPED_REASON)
     if _phase_is_plan(project_dir):
         _passthrough()
-    _stop_or_continue(project_dir)
+    _passthrough()
 
 
 def _main_unwired(envelope: dict[str, object], project_dir: Path) -> NoReturn:
@@ -803,7 +703,7 @@ def _main_unwired(envelope: dict[str, object], project_dir: Path) -> NoReturn:
         _emit_block(NOT_WIRED_REASON, NOT_WIRED_HUMAN)
     if HALT_MARKER_RE.search(message) or _phase_is_plan(project_dir):
         _passthrough()
-    _stop_or_continue(project_dir)
+    _passthrough()
 
 
 def main() -> NoReturn:

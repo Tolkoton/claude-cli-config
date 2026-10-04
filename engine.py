@@ -112,7 +112,8 @@ MIGRATIONS: tuple[tuple[str, str], ...] = (
 )
 # Machine state moved the same way (package 3c put it under .claude/state/). A pattern entry
 # (`*` in the old path) moves every match into the new directory under its own name. State is
-# NOT moved while the unattended supervisor appears to be running — see supervisor_live().
+# NOT moved while the DAG supervisor of an older engine (retired by board 039) appears to be
+# running in the project — see supervisor_live().
 STATE_MIGRATIONS: tuple[tuple[str, str], ...] = (
     (".claude/overseer/mode", ".claude/state/overseer/mode"),
     (".claude/overseer/state", ".claude/state/overseer/state"),
@@ -130,8 +131,8 @@ STATE_MIGRATIONS: tuple[tuple[str, str], ...] = (
     (".claude/unattended/logs/", ".claude/state/unattended/logs/"),
     (".claude/unattended/archive/", ".claude/state/unattended/archive/"),
 )
-# The harness's stall timeout (config.sh STALL_TIMEOUT_SEC default): a heartbeat younger than
-# this means a session may be writing state right now.
+# The retired supervisor's stall timeout: a heartbeat younger than this means one of its
+# sessions may be writing state right now.
 STALL_TIMEOUT_S = 900
 # A release (docs/release.md). The branches that follow every release, the two checks it runs in
 # the repository being released, and where the golden set's baselines live.
@@ -169,7 +170,9 @@ def legacy_path_of(path: str) -> str | None:
 
 
 def supervisor_live(project: Path) -> str | None:
-    """Why the unattended supervisor seems to be running — a lock, or a fresh heartbeat — else None."""
+    """Why the supervisor of an older engine seems to be running in the project — a lock, or a fresh
+    heartbeat — else None. This engine ships no supervisor; a project updated from one that did may
+    still have it running."""
     for lock in (project / ".claude/unattended/supervisor.lock", project / ".claude/state/unattended/supervisor.lock"):
         if lock.exists():
             return f"{lock.relative_to(project).as_posix()} exists"

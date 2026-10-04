@@ -1,9 +1,9 @@
 # Unattended work — the detail behind the rules
 
-Read this when `.claude/state/overseer/mode` says `unattended`, when a supervisor is driving
+Read this when `.claude/state/overseer/mode` says `unattended`, when the board runner started
 the session, or when you must park an item. The rules themselves are in
-`.claude/engine-rules.md`; the supervisor's own documentation is
-`.claude/unattended/README.md` and its design decisions `unattended-decisions.md`.
+`.claude/engine-rules.md`; the runner's own documentation is `.claude/unattended/README.md`,
+the board's manual `tasks/README.md`.
 
 ## The mode file
 
@@ -37,40 +37,21 @@ Append to `.engine/overseer/parked.md`:
 For an ask-gated command: `Class: ask-gated`, the exact command under `Blocked on`,
 `Unblocks when: a human runs it or the session becomes attended`. `park-ask-gated.py` denies
 such a command unattended and hands you this instruction if you forget. Move an entry to
-`RESUMED` in place when it unblocks; keep the history. `recheck_parked.py` re-opens an item
-automatically when its `Unblocks when:` line carries a machine-checkable token (`env:VAR`,
-`file:PATH`, `node:ID`, `mode:attended`, `premise:ID`).
+`RESUMED` in place when it unblocks; keep the history.
 
 Surface the parked queue to the human when, and only when: nothing in the unblocked queue
 can move; a single item is parked on a one-way door; three or more items are parked awaiting
 ratification (the contract is systematically under-specified); or a premise in
 `.engine/premises/premise-log.md` flips to `falsified` and committed work depends on it.
 
-## The session contract (a supervisor is driving)
+## Unattended work is the task board
 
-When `.claude/unattended/supervisor.sh` spawned this session, four obligations hold:
-
-1. **Tick the heartbeat** while working: `python3 .claude/unattended/runstate.py heartbeat`.
-   Together with the `.engine/PROGRESS.md` mtime this is the liveness signal; a session that
-   updates neither for `STALL_TIMEOUT_SEC` is killed as wedged.
-2. **Write a terminal status before you exit**:
-   `runstate.py set finished|parked|halted "<reason>" "<what would unblock it>"`, or
-   `set unit-done` when a unit is complete and work remains.
-3. **Record cost**: `runstate.py add-cost <usd>`.
-4. **Never invent `finished`.** If you stop without writing a status, leave it at `working`:
-   the supervisor reads that as a death and retries, which is recoverable. A false `finished`
-   is a silent overnight halt, which is not. Bias every ambiguous case toward the recoverable
-   error.
-
-Mapping to the three legitimate stops: `parked` = something only a human can supply, or a
-falsified premise; `finished` = nothing left in the queue; `halted` = a cap fired and a human
-must look.
-
-## The continue guard
-
-While an unattended run is live (mode file says `unattended`, the run state is `working`),
-`overseer_stop.py` blocks the orchestrating session from ending its turn for any reason that
-is not one of the three legitimate stops (`UNATTENDED_CONTINUE`, capped at 25 re-injections).
-A session spawned by the supervisor is exempt: it must be able to exit with `unit-done`, and
-a dying one must leave `working` behind. To stop for real, emit an `OVERSEER_` halt marker
-naming the reason.
+There is one way to work with nobody watching: the task board. `.claude/unattended/board-runner.sh`
+takes the tasks in `tasks/todo/` one at a time and starts a fresh session for each, with the mode
+file saying `unattended` and `CLAUDE_UNATTENDED_SESSION=1` in the environment. Such a session
+follows the «Правила для агента» of `tasks/README.md`: it ends with its task in `tasks/done/`
+(with `report.md`) or in `tasks/blocked/` (with questions for the owner), committed through
+`.claude/unattended/commit_checkpoint.sh`. A session that ends with the task still in
+`tasks/doing/` is continued by the runner; one that cannot move is parked by the runner, never
+by waiting. The feature DAG (`.engine/architecture/feature-dag.json`) is a plan `/feature-architect`
+writes and follows inside a task — nothing executes it by itself.

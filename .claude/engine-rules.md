@@ -3,7 +3,7 @@
 Installed and updated by `engine.py`; edits belong in the engine repository, not here. Rarely
 needed detail lives in `.claude/references/` and is read on demand: `hooks.md` (what each hook
 does, how to inspect or disable one, the recursion guards) and `unattended.md` (the
-supervisor's session contract, the park queue in full).
+mode file, the park queue in full).
 
 ## Commits are a human checkpoint
 - Never run `git commit` except on the run's own `unattended/<date>` branch, through
@@ -85,9 +85,8 @@ behind committed work. To stop for real, emit an `OVERSEER_` halt marker naming 
 `.claude/state/overseer/mode` containing `unattended` means nobody is watching; absent or
 anything else is attended, the default. The mode changes one thing only: an interactive hard
 gate in `/plan-slice` or `/feature-architect` becomes a park. Everything above holds in both
-modes, Article 5 included — unattended never means "decide it anyway". A session driven by
-the supervisor has four obligations (heartbeat, terminal status, cost, never invent
-`finished`): `.claude/references/unattended.md`.
+modes, Article 5 included — unattended never means "decide it anyway". Unattended
+work runs through the task board only (below); detail: `.claude/references/unattended.md`.
 
 ## The task board and paid runs
 Work arrives as files in `tasks/` (`tasks/README.md`): take the first `todo/` task with its

@@ -318,9 +318,9 @@ This forces the agent to load the policy and map before doing anything else.
   commands/       — project commands: plan-slice, master-architect, feature-architect
   templates/      — slice-contract.md, the shape /plan-slice writes
   references/     — reference materials for agents (ADR format, C4, permission philosophy)
-  unattended/     — the supervisor and its harness
+  unattended/     — the task board's runner and its helpers
   state/          — MACHINE STATE, written by hooks and scripts only; gitignored as one line
-                    (overseer/ guards, mode and budgets; unattended/ state, cost, logs;
+                    (overseer/ guards, mode and budgets; board/ status, costs, logs;
                     contracts/ the sealed fingerprints of approved slice contracts)
   README.md       — agentic system map (read this before adding a new agent)
   settings.json   — hook wiring and permissions
