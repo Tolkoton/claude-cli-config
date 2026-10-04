@@ -323,7 +323,7 @@ def cost_text(root: Path, month: str) -> str:
         return f"no second opinion has been asked for yet ({simplifier.SECOND_LOG_REL} is empty)"
     asked = [r for r in rows if r.get("tokens_in")]
     monthly = [r for r in asked if str(r.get("utc", "")).startswith(month)]
-    last_day = [r for r in asked if asked and str(r.get("utc", ""))[:13] == str(asked[-1].get("utc", ""))[:13]]
+    last_day = [r for r in asked if str(r.get("utc", ""))[:13] == str(asked[-1].get("utc", ""))[:13]]
 
     def total(part: list[JsonObj]) -> str:
         return f"${sum(float(r.get('cost_usd') or 0) for r in part):.2f} for {len(part)} finding(s)"
