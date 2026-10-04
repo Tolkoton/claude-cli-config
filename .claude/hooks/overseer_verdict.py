@@ -9,7 +9,7 @@ verdict: a line `OVERSEER_PASS` in the builder's message means nothing.
     python3 .claude/hooks/overseer_verdict.py guard     # hook, PreToolUse on Agent and the edit tools
     python3 .claude/hooks/overseer_verdict.py record    # hook, SubagentStop of the agent `overseer`
     python3 .claude/hooks/overseer_verdict.py request --turn-file FILE [--unit N]   # an audit by hand
-    python3 .claude/hooks/overseer_verdict.py status    # the pending request and the last verdicts
+    python3 .claude/hooks/overseer_verdict.py status    # the pending (or just answered) request and the last verdicts
 
 THE REQUEST. `overseer_stop.py` (or `request`, by hand) writes a package the agent reads instead of
 the builder's conversation, under .claude/state/overseer/requests/<id>/:
@@ -621,7 +621,7 @@ def record(root: Path, envelope: JsonObj) -> JsonObj | None:
     escalation = open_gate_escalation(root) if verdict == "PASS" else None
     if escalation is not None:
         finish("BLOCK", f"gate escalation {escalation[0]} open ({escalation[1]}): the audit found no failing check, "
-               "but a PASS is not accepted until the owner closes it", obj, gate_escalation=escalation[0])
+               "but a PASS is not accepted until the owner closes it (the answer «закрити» in tasks/blocked/, or their own terminal)", obj, gate_escalation=escalation[0])
         return None
     finish(verdict, str(obj["reason"]), obj, check)
     return None
@@ -707,8 +707,16 @@ def manual_request(root: Path, turn_file: Path, unit: str) -> int:
 def status(root: Path) -> int:
     waiting = pending(root)
     print(f"wired in settings: {'yes' if wired(root) else 'NO — nothing is audited until `engine.py update` adds the two handlers'}")
-    print(f"pending request:   {waiting['id'] if waiting else 'none'}"
-          + (f" (asked {waiting.get('asks')}, launched {waiting.get('launched')})" if waiting else ""))
+    # A request stays in pending.json until the Stop hook has handed its verdict over, so "pending"
+    # alone would call an answered request unanswered (seen live: a PASS reported as still pending).
+    answered = verdict_for(root, str(waiting["id"])) if waiting else None
+    if waiting and answered is not None and answered.get("verdict") != INVALID:
+        print("pending request:   none")
+        print(f"answered request:  {waiting['id']} — {answered.get('verdict')} recorded; "
+              "the Stop hook hands it over when the turn ends")
+    else:
+        print(f"pending request:   {waiting['id'] if waiting else 'none'}"
+              + (f" (asked {waiting.get('asks')}, launched {waiting.get('launched')})" if waiting else ""))
     for row in rows(root)[-5:]:
         print(f"  {row.get('utc')}  {row.get('verdict'):12} {row.get('request')}  {one_line(row.get('reason', ''), 90)}")
     return 0

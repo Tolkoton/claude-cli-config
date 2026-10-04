@@ -1,11 +1,17 @@
-# Overseer self-improvement audit log
+# Self-improvement audit log
 
-Proposals from the overseer for changes to its own SKILL.md. The overseer
-NEVER modifies SKILL.md directly — proposals here await human ratification
-(propose → gate → ratify → replay).
+Proposals to change what no agent may edit itself (constitution, Article 7): an
+agent's or a skill's definition, the constitution, the hooks' rules. The agent
+that sees the need appends a proposal here; only a human ratifies it and makes
+the edit (propose → human-ratify → replay). Append-only.
 
-This file is the V2 path. In V1, the overseer just appends proposals; the
-human reads them and edits SKILL.md manually when ratified.
+The overseer does not write here. It is a separate agent without an editing
+tool; its verdicts are recorded by `.claude/hooks/overseer_verdict.py`, and what
+its BLOCKs teach goes to the lesson queue (`.claude/hooks/lesson_queue.py`). A
+lesson that should become a standing rule is asked of the owner as a board task
+(`tasks/blocked/8NN-rule-proposal-…`) and reaches `.engine/rules.md` only on the
+answer «так». A settings change is proposed in `docs/tasks/` and applied by the
+owner.
 
 ## Proposal format
 

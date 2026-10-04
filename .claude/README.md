@@ -68,7 +68,7 @@ volatile the artifact is.
 | `.engine/slices/<slug>.md` | `plan-slice`, developer | `overseer` (load-bearing), developer | per slice |
 | `.engine/overseer/ledger.md` | `overseer` | `overseer` (counts PASS streak) | append-only |
 | `.engine/overseer/MEMORY.md` | `overseer` | `overseer` | cross-slice, cited-or-pruned |
-| `.engine/overseer/audit.md` | `overseer` | humans (ratify V2 checks) | append-only |
+| `.engine/overseer/audit.md` | any agent (a proposal) | humans (ratify, Article 7) | append-only |
 | `.engine/overseer/escalations.md` | humans | `overseer` | append-only |
 | `.claude/state/overseer/state` | (manual / planning) | `overseer_stop.py` (phase guard) | ephemeral |
 | `.claude/state/overseer/.last_audit_sha`, `.last_continue_sha` | `overseer_stop.py` | `overseer_stop.py` (recursion guard) | ephemeral |

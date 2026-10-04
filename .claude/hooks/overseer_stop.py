@@ -271,7 +271,8 @@ FRESH_THREE_BLOCKS_REASON = (
     "unblocked item, or end the turn with `OVERSEER_SLICE_AWAITING_OWNER: three BLOCKs on {unit}` on "
     "its own line.\n{reasons}"
 )
-# To the person at the terminal, in the owner's language like everything the board says to the owner.
+# To the person at the terminal (attended; under the board runner the owner reads tasks/blocked/
+# instead), in the owner's language like everything the board says to the owner.
 THREE_BLOCKS_HUMAN = (
     "Наглядач тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
     "відкладено до вашого рішення (запис у .engine/overseer/parked.md, вердикти — у "
@@ -316,11 +317,14 @@ NOT_WIRED_REASON = (
     "human-only; Unblocks when: `python3 <engine>/engine.py update <this project>` has been run — it adds "
     "the two handlers — or they are added by hand: PreToolUse, matcher "
     "`Agent|Task|Edit|Write|MultiEdit|NotebookEdit`, command `python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/"
-    "overseer_verdict.py\" guard`; SubagentStop, matcher `overseer`, the same command with `record`). Then "
+    "overseer_verdict.py\" guard`; SubagentStop, matcher `overseer`, the same command with `record`). If a "
+    "board task is in tasks/doing/: write that as a question under «Питання до власника» in the task, "
+    "leave `Відповідь:` empty and move the task to tasks/blocked/. Then "
     "take the next unblocked item, or end the turn with `OVERSEER_SLICE_AWAITING_OWNER: the overseer is "
     "not wired in the settings` on its own line."
 )
-# To the person at the terminal, in the owner's language like everything the board says to the owner.
+# To the person at the terminal (attended; unattended the builder asks on the board, as the reason
+# above says), in the owner's language like everything the board says to the owner.
 NOT_WIRED_HUMAN = (
     "Наглядач не підключений у .claude/settings.json цього проєкту, тому юніт ніхто не перевірив. "
     "Запустіть `engine.py update <проєкт>` — він додасть два обробники overseer_verdict.py (guard і record) — "
@@ -346,7 +350,9 @@ UNATTENDED_CONTINUE_REASON = (
 
 GATE_OPEN_NOTICE = (
     "\n\nGATE ESCALATION OPEN ({scope}; parked {stamp} in .engine/overseer/parked.md). "
-    "OVERSEER_PASS will not be accepted for this work until the owner closes it: audit as usual, "
+    "OVERSEER_PASS will not be accepted for this work until the owner closes it — by answering "
+    "«закрити» under the gate's question in tasks/blocked/ (the board runner then closes it), or with "
+    "`gate.py --close-escalation` in their own terminal. Neither is yours to do: audit as usual, "
     "but the verdict cannot be PASS."
 )
 COLLECTOR_FAILED_NOTICE = (
@@ -365,7 +371,8 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
     escalation in .claude/state/gate/escalations.json (and parks an entry for the human). Machine
     state, not the park queue: the queue is the agent's own file, and its template tells the agent
     to mark entries RESUMED. Only `gate.py --close-escalation`, which refuses inside a Claude Code
-    session, takes an escalation out of `open`.
+    session, takes an escalation out of `open`: the owner runs it in their own terminal, or the
+    board runner does on the owner's answer «закрити» under the gate's question in tasks/blocked/.
 
     Covers — by FILES, never by the slice's name: the active slice is whatever .engine/PROGRESS.md
     says, and the agent writes that file. An escalation holds while any file the gate blocked on
@@ -614,7 +621,9 @@ CONTRACT_CHANGED_REASON = (
     "ESCALATED instead: append an entry to .engine/overseer/escalations.md naming the "
     "contract, what changed (git diff it), and who changed it; then either restore the "
     "approved contract, or have the OWNER delete the fingerprint and re-plan the slice with "
-    "/plan-slice. Do not delete the fingerprint yourself. End the turn with OVERSEER_ESCALATE: "
+    "/plan-slice. Do not delete the fingerprint yourself. The owner may not be at the terminal: if a "
+    "board task is in tasks/doing/, write that as a question under «Питання до власника» in the task, "
+    "leave `Відповідь:` empty and move the task to tasks/blocked/. End the turn with OVERSEER_ESCALATE: "
     '{{"reason": "contract changed after approval", "contract": "{contract}"}}.'
 )
 

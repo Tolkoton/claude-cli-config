@@ -118,6 +118,7 @@ def main() -> int:
         d, reason = decision(stop(project))
         t.check("no audit request", "OVERSEER_REQUEST" not in reason)
         t.check("the turn is blocked with the escalation instruction", d == "block" and "CONTRACT CHANGED AFTER APPROVAL" in reason and "OVERSEER_ESCALATE" in reason, reason[:300])
+        t.check("the reason says how the owner is asked on the board", "tasks/blocked/" in reason and "Питання до власника" in reason, reason)
         t.check("the reason names the contract and the fingerprint", ".engine/slices/tax.md" in reason and ".claude/state/contracts/tax.sha256" in reason)
         d2, _ = decision(run([str(HOOK)], project, json.dumps({"last_assistant_message": "done\n=== UNIT 1 COMPLETE ===\n", "transcript_path": str(project / "transcript.jsonl")})))
         t.check("the same message does not fire twice (idempotency guard shared with the audit)", d2 != "block", d2)

@@ -153,6 +153,7 @@ check("not wired: a typed PASS continues nothing either — there is no second p
 said, rid = old.claim()
 check("not wired: a claim is answered with the way out — no request, no self-audit",
       said.startswith("OVERSEER NOT WIRED") and "engine.py update" in said and "Do NOT audit the unit yourself" in said
+      and "tasks/blocked/" in said
       and rid == "" and "12-check" not in said and "Launch the agent" not in said, said)
 check("not wired: the same claim is answered once", old.stop(CLAIM, old.transcript()) == "")
 old.write(".claude/state/overseer/state", "plan\n")
@@ -248,6 +249,8 @@ p = Project()
 p.write(".claude/state/gate/escalations.json", json.dumps({"open": [{"stamp": "2026-10-03T12:00:00Z", "slice": "(none)", "files": []}], "closed": [], "refusals": []}))
 said, rid = p.claim()
 check("the request warns that the verdict cannot be PASS", "GATE ESCALATION OPEN" in said, said)
+check("…and names both ways the owner closes it: the board's question and the owner's terminal",
+      "tasks/blocked/" in said and "закрити" in said and "--close-escalation" in said, said)
 p.launch(f"OVERSEER_REQUEST {rid}")
 p.answer(GOOD)
 check("a PASS while the gate's escalation is open is recorded as BLOCK", p.rows()[-1]["verdict"] == "BLOCK" and "gate escalation 2026-10-03T12:00:00Z open" in p.first_entry()
@@ -377,8 +380,13 @@ rid = json.loads(p.read(".claude/state/overseer/pending.json") or "{}").get("id"
 check("`request` writes the package and prints the launch line", asked.returncode == 0 and f"OVERSEER_REQUEST {rid}" in asked.stdout and rid != "", asked.stdout + asked.stderr)
 check("its evidence says that nothing was observed to run", "No transcript was available" in p.read(f".claude/state/overseer/requests/{rid}/evidence.md"))
 check("a second request while one waits is refused", p.run(VERDICT, ["request", "--turn-file", "turn.md"]).returncode == 1)
+said = p.run(VERDICT, ["status"]).stdout
+check("`status` before the answer: the request is pending", f"pending request:   {rid}" in said, said)
 p.launch(f"OVERSEER_REQUEST {rid}")
 p.answer(BLOCK)
+said = p.run(VERDICT, ["status"]).stdout
+check("`status` after the answer: the request is answered, not pending (seen live: a session reported a recorded PASS as pending)",
+      f"answered request:  {rid}" in said and "BLOCK recorded" in said and "pending request:   none" in said, said)
 check("the verdict is in the ledger; the Stop hook adds nothing (the report is the human's)", "OVERSEER_BLOCK" in p.first_entry() and p.stop("The overseer blocked: #4.") == "")
 old = Project(wired=False)
 old.write("turn.md", CLAIM)
