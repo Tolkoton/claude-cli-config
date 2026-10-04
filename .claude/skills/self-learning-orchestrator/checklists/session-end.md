@@ -4,7 +4,6 @@ Run before `/clear`, `/bye`, or closing the session. Should take 1–3 minutes i
 
 ## The checklist
 
-- [ ] **Quality gates green**: `uv run ruff check .` and `uv run mypy src` and `uv run pytest -q` all pass (or known-failing tests are tagged).
 - [ ] **All commits made**: `git status` is clean OR uncommitted state is intentional and documented.
 - [ ] **`.engine/lesson-queue.md` is processed**: run `triggers/session-end-dreaming.md` if the queue has any entries.
 - [ ] **`claude-progress.md` is up to date**: "Last working state" reflects the actual current state. "Next session: pick up here" tells future-you exactly which file and which function to start with.

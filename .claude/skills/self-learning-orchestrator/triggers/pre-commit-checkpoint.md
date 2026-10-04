@@ -12,21 +12,11 @@ Any of:
 
 ## Procedure
 
-This trigger orchestrates *three* concerns in the right order: review, memory updates, then commit.
+This trigger orchestrates two concerns in the right order: memory updates, then commit. Lint, types and tests are the Stop gate's job (the project's own commands from `.claude/project.env`).
 
-### Step 1 — Self-review
+### Step 1 — Memory checks
 
-The minimum:
-
-```bash
-uv run ruff format . && uv run ruff check . && uv run mypy src && uv run pytest -q
-```
-
-Fix any issues. Do not proceed to Step 2 with red gates.
-
-### Step 2 — Memory checks (the part this trigger adds)
-
-After the diff is clean, ask three quick questions:
+Ask three quick questions:
 
 **Q1: Did this change establish a new convention?**
 
@@ -55,7 +45,7 @@ python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what 
 
 Defer the full lesson processing to session-end-dreaming. Do not stop now to write a full MEMORY.md entry — the lesson queue exists exactly to avoid this interruption.
 
-### Step 3 — Update progress file
+### Step 2 — Update progress file
 
 If a `claude-progress.md` exists for this task:
 
@@ -66,7 +56,7 @@ If a `claude-progress.md` exists for this task:
 
 The progress file should always reflect the *current* state after this commit. If you skip this step, the next session start will use stale information.
 
-### Step 4 — Commit
+### Step 3 — Commit
 
 Propose the commit message in conventional-commits format:
 
@@ -86,21 +76,20 @@ If a lesson was queued (Q3), the queue file itself is gitignored — don't commi
 
 ## Sequencing rules
 
-- Self-review BEFORE memory checks: don't propose ADRs for code that doesn't pass quality gates.
 - Memory checks BEFORE commit: ADRs and convention lines must be in the same commit as the code.
 - Progress file update BEFORE commit message: the file's state should match what's about to be committed.
 - Commit AFTER user confirmation. Never auto-commit.
 
 ## Skip conditions
 
-If ALL of the following are true, skip everything except the self-review and commit message:
+If ALL of the following are true, skip everything except the commit message:
 - Diff < 30 LOC.
 - Single file changed.
 - No new public API.
 - No new dependency.
 - Obviously a typo / minor fix / version bump.
 
-In that case: just `ruff format` + `pytest -q` + commit. The full checklist is overhead for trivial changes.
+In that case: just commit. The full checklist is overhead for trivial changes.
 
 ## Failure modes
 
