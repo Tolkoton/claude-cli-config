@@ -121,25 +121,6 @@ it is rare.
    `markdownlint` if the repo has them configured. Report their output verbatim
    rather than summarizing it away.
 
-## Anti-patterns — refuse or push back
-
-If the user asks for one of these, explain the cost and offer the correct
-alternative instead of complying silently.
-
-- Auto-generating AGENTS.md / CLAUDE.md and committing it unpruned.
-- Pasting every possible command into the entry file "to be safe."
-- Maintaining separate, overlapping agent docs and human docs that restate each
-  other — they will diverge within weeks.
-- Marking many rules `IMPORTANT` / `MUST` / all-caps. Emphasis on everything is
-  emphasis on nothing.
-- `@`-importing whole large files into CLAUDE.md (it all loads at launch).
-  Reference the specific section instead.
-- Editing an already-accepted ADR in place.
-- Hand-writing API reference that could be generated from docstrings or an
-  OpenAPI spec — generated reference cannot lie about signatures.
-- One README that is description + tutorial + reference + decisions. Split it.
-- Treating "we'll document it later" as a plan. Later does not arrive.
-
 ## Reference files
 
 Read these on demand; do not load them all up front.
