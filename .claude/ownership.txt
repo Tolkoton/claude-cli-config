@@ -81,6 +81,12 @@ machine  .claude/unattended/logs/
 machine  .claude/unattended/archive/
 
 # --- everything else under .claude/ is the engine ------------------------------------------
+# A file the engine once shipped and no longer does is RETIRED by this same rule: it is still
+# engine-owned, so `engine.py update` removes it from a project that left it unchanged and keeps
+# (and reports) one the project edited. Retired so far under .claude/unattended/ (board 039, the
+# DAG supervisor — unattended work goes through the task board only): the supervisor loop, its
+# run-state and session scripts, config.sh, watch.sh, rotate.sh, the parked re-check and the
+# systemd unit. Their machine state stays the project's machine state (the rules above).
 engine   .claude/**
 
 # --- root files a project starts from: short clean seeds, not this repository's own files. ---
