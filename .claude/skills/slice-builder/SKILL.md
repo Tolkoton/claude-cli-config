@@ -223,17 +223,6 @@ In both cases, do NOT continue **this slice** — the trigger is real and the le
 4. Move to the next unblocked item.
 5. Surface only per the thresholds in `parked.md`: nothing else can move, a single one-way door, or three parked ratification items.
 
-## What you DO NOT do
-
-- Write to `.engine/architecture/` (that's `master-architect` / `feature-architect` territory)
-- Run mutmut, cosmic-ray, code-reviewer subagent, security-auditor
-- Generate ADRs
-- Decompose into sub-tasks (that's `feature-architect`)
-- Commit on the user's behalf
-- Suggest folder restructures
-- Write tests for OTHER slices "while we're here"
-- Add logging / observability / metrics — defer to a dedicated slice
-
 ## Notes on test scope
 
 **Default: integration tests against real external system** (test/sandbox endpoint).
