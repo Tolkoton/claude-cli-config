@@ -16,6 +16,9 @@ WHAT COUNTS as text the model reads — the owner's list (package costs, item 2)
     rules       .claude/engine-rules.md, .claude/constitution.md, .claude/references/,
                 .engine/rules.md
     CLAUDE.md, AGENTS.md  (and the seeds a project receives: templates/project/...)
+    scenes      evals/scenarios/audit/ — the audit's own scenes (board 034): the recorded turn, the
+                working tree, the contract and the ledger the overseer reads in the sandbox. A
+                changed scene is a changed question, so the recorded verdicts no longer answer it.
 A second class is reported apart, as MAYBE: hook files that put strings of their own in front of
 the model (the audit request, the continue text, the gate's block reason). Most edits there
 change logic, not words — look at the diff and decide.
@@ -37,7 +40,7 @@ from pathlib import Path
 from typing import TypedDict
 
 ROOT = Path(__file__).resolve().parent.parent
-TEXT_DIRS = (".claude/skills/", ".claude/agents/", ".claude/commands/", ".claude/references/")
+TEXT_DIRS = (".claude/skills/", ".claude/agents/", ".claude/commands/", ".claude/references/", "evals/scenarios/audit/")
 TEXT_FILES = frozenset({
     ".claude/engine-rules.md", ".claude/constitution.md", ".engine/rules.md", "CLAUDE.md", "AGENTS.md",
     "templates/project/CLAUDE.md", "templates/project/AGENTS.md", "templates/project/.engine/rules.md",

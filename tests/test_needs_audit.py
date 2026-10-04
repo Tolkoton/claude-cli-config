@@ -50,7 +50,9 @@ FILES = {
     ".claude/settings.json": "{}\n", "CLAUDE.md": "@AGENTS.md\n", "AGENTS.md": "guide\n",
     "templates/project/CLAUDE.md": "seed\n", "evals/run_audit_scenarios.py": "y = 1\n",
     "tests/test_x.py": "z = 1\n", "docs/plan/p.md": "plan\n", "README.md": "readme\n",
-    "evals/scenarios/audit/01.md": "scene\n",
+    "evals/scenarios/audit/01.md": "scene\n", "evals/scenarios/audit/expected.json": "{}\n",
+    "evals/scenarios/audit/work/common/tests/test_pricing.py": "t = 1\n",
+    "evals/scenarios/hooks/01.json": "{}\n",
 }
 root = Path(tempfile.mkdtemp(prefix="needs-audit-"))
 sh(root, "git", "init", "-q", "-b", "main")
@@ -63,17 +65,20 @@ print("nothing the model reads")
 r = ask(root, base)
 check("an unchanged tree: no audit, exit 0", r.returncode == 0 and "NO AUDIT NEEDED" in r.stdout, r.stdout)
 for rel in ("evals/run_audit_scenarios.py", "tests/test_x.py", "docs/plan/p.md", "README.md",
-            ".claude/hooks/block-dangerous.sh", ".claude/settings.json", "evals/scenarios/audit/01.md"):
+            ".claude/hooks/block-dangerous.sh", ".claude/settings.json", "evals/scenarios/hooks/01.json"):
     (root / rel).write_text("changed\n")
 (root / "tests/test_new.py").write_text("new = 1\n")
 r = ask(root, base)
-check("tests, instruments, records, a deny hook, settings, a scene: still no audit",
+check("tests, instruments, records, a deny hook, settings, a hook scenario: still no audit",
       r.returncode == 0 and "NO AUDIT NEEDED" in r.stdout and "8 file(s)" in r.stdout, r.stdout)
 
 print("each class of text the model reads, one at a time")
 for rel in (".claude/skills/overseer/SKILL.md", ".claude/agents/feature-critic.md", ".claude/commands/plan-slice.md",
             ".claude/engine-rules.md", ".claude/constitution.md", ".claude/references/gate.md", "CLAUDE.md",
-            "AGENTS.md", "templates/project/CLAUDE.md"):
+            "AGENTS.md", "templates/project/CLAUDE.md",
+            # the audit's own scenes: the overseer reads the recorded turn, the tree and the ledger they lay down
+            "evals/scenarios/audit/01.md", "evals/scenarios/audit/expected.json",
+            "evals/scenarios/audit/work/common/tests/test_pricing.py"):
     original = (root / rel).read_text()
     (root / rel).write_text(original + "one more line\n")
     r = ask(root, base)

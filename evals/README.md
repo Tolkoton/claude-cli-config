@@ -107,7 +107,9 @@ python3 evals/run_audit_scenarios.py --runs 1 --only 02          # a targeted re
    <ref>` answers the question from the diff between `<ref>` and the working tree (committed,
    staged, unstaged, untracked, deleted): skills, agents, commands, the rules
    (`.claude/engine-rules.md`, the constitution, `.claude/references/`, `.engine/rules.md`),
-   `CLAUDE.md`, `AGENTS.md` and their seeds. Exit 0 and `NO AUDIT NEEDED` means exactly that.
+   `CLAUDE.md`, `AGENTS.md` and their seeds — and the audit's own scenes (`scenarios/audit/`:
+   the recorded turn, the tree, the contract and the ledger are what the overseer reads in the
+   sandbox). Exit 0 and `NO AUDIT NEEDED` means exactly that.
    It names a second class apart, `MAYBE`: hook files that put their own strings in front of the
    model (`overseer_stop.py`, `gate_allows.py`, `lesson_queue.py`, `gate.py`, `env-check.sh`) —
    read the diff and decide whether words or only logic changed.
