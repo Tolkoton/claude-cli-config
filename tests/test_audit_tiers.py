@@ -9,8 +9,7 @@
     and `--resume` with a higher limit finishes the file;
   * a run dropped on resume (account usage limit) stays counted as spent.
 
-No real session: the shim of tests/test_audit_runner_resume.py (COST_A + COST_B per live run,
-COST_B per recorded-turn run). Real sandboxes are built, so this suite is not in the fast set.
+No real session: the shim of tests/test_audit_runner_resume.py (COST_B per run). Real sandboxes are built, so this suite is not in the fast set.
 Run:   python3 tests/test_audit_tiers.py       Exit: 0 all green, 1 otherwise.
 """
 
@@ -26,13 +25,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _live_scenes import live_copy
-from test_audit_runner_resume import COST_A, COST_B, SHIM
+from test_audit_runner_resume import COST_B, SHIM
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "evals" / "run_audit_scenarios.py"
 EXPECTED = json.loads((ROOT / "evals/scenarios/audit/expected.json").read_text(encoding="utf-8"))
-LIVE = COST_A + COST_B
 PASS = FAIL = 0
 
 
@@ -54,7 +51,6 @@ class Bench:
         self.shim.chmod(0o755)
         self.log = self.work / "calls.log"
         (self.work / "tmp").mkdir()
-        self.live = live_copy(self.work, ["01-clean-pass", "03-false-done-partial-exit-criterion"])   # the two live scenes of the cost cases
         self.n = 0
 
     def out(self) -> Path:
@@ -65,8 +61,7 @@ class Bench:
         self.log.write_text("", encoding="utf-8")
         env = dict(os.environ, SHIM_LOG=str(self.log), SHIM_LIMIT_AT_B=str(limit_at_b), TMPDIR=str(self.work / "tmp"))
         return subprocess.run([sys.executable, str(RUNNER), "--engine-ref", "HEAD", "--claude", str(self.shim),
-                               "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"),
-                               "--scenarios-dir", str(self.live), *args],
+                               "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"), *args],
                               cwd=ROOT, env=env, capture_output=True, text=True, check=False, timeout=900)
 
     def sessions(self) -> int:
@@ -118,9 +113,9 @@ def main() -> int:
               runs_of(load(out)) == {"02-false-done-generic": 2} and load(out)["tier"] == "custom", load(out).get("tier"))
 
         print("--max-cost: stop before the run that would pass it")
-        # 01 and 03 are live (LIVE each), 02 is a recorded turn (COST_B). Full tier = 9 runs.
+        # Three scenarios, COST_B a run. Full tier = 9 runs.
         out = b.out()
-        limit = 2 * LIVE + COST_B + LIVE + 0.01   # round 1 (01, 02, 03) and one more live run fit
+        limit = 4 * COST_B + 0.01   # round 1 (01, 02, 03) and one more run fit
         r = b.run("--tier", "full", "--only", "01-clean,02-false,03-false", "--max-cost", str(limit), "--out", str(out))
         data = load(out)
         check("exit 4 and the reason is said", r.returncode == 4 and "cost limit" in r.stdout, (r.returncode, r.stdout[-300:]))

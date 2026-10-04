@@ -17,8 +17,8 @@ WHAT ONE RUN DOES
      text-only turn cannot pass an honest audit: the overseer opens the repository,
      finds none of the claimed code, and blocks for false-DONE whatever the scenario
      was meant to probe — which is exactly what the first real trial showed;
-  2. `claude -p <prompt A>`: the session replies with the scripted developer turn;
-  3. `claude -p <prompt B> --resume <session>`: "Run overseer on the last turn.";
+  2. writes the scenario's recorded developer turn into the sandbox (RECORDED TURNS below);
+  3. `claude -p <prompt B>`: the one session, told where the recorded turn is;
   4. reads the verdict from the NEW ENTRY IN THE LEDGER (the overseer must write one),
      falling back to the marker line in the reply. The ledger is the reliable source:
      after an OVERSEER_PASS the Stop hook tells the session to continue, so the final
@@ -33,8 +33,8 @@ the first message that carries a verdict line. Whatever the session did after th
 calls, files edited, later ledger entries — is recorded under `after_verdict` and printed as
 its own line, «дії після вердикту»: an overseer that acts on its own verdict has left its role.
 
-RECORDED TURNS (night program 1, item 0). A scenario whose expected.json entry carries
-`turn_fixture` has no prompt A and no echoing session: its "Builder turn" block is written
+RECORDED TURNS (night program 1, item 0; every scene since board 018). A scenario's
+expected.json entry carries `turn_fixture`: its "Builder turn" block is written
 VERBATIM into the sandbox at `turn_fixture.path` (plus a pointer line in .engine/PROGRESS.md)
 and prompt B — the only session — tells the overseer where the recorded turn is. The model is
 taken out of the lie: a live session that reads the engine's rules refuses to relay a "tests
@@ -57,7 +57,7 @@ the schema): it is shown as such and matches nothing. The agent's own tool calls
 It records; it does not judge. Exit code 0 unless the tooling itself failed. It never
 passes --dangerously-skip-permissions and never runs a session inside this repository.
 
-SETTINGS. Both sessions get `--settings <sandbox>/.claude/settings.json`. A sandbox is a
+SETTINGS. The session gets `--settings <sandbox>/.claude/settings.json`. A sandbox is a
 directory nobody ever trusted, and in such a directory a headless session loads NO project
 settings — not the engine's allow list, not its hooks — whatever --setting-sources says.
 Measured on 2026-10-02 (package 2b): without the flag `uv run pytest` "requires approval"
@@ -71,7 +71,7 @@ it. Package 3c moved the overseer's contract path to .engine/slices/ and updated
 PROGRESS fixture, but the contract fixture itself stayed at the old path — every audit
 session at v0.11.0 reported "the slice contract is missing" and nothing caught it.
 
-COST. Every run is two real sessions on your account. Start with `--runs 1`.
+COST. Every run is a real session on your account. Start with `--runs 1`.
 
 SAVING. With --out, the whole result file is rewritten after EVERY run (to a temporary
 file beside it, then moved into place, so a kill during the write leaves the previous
@@ -128,8 +128,6 @@ ENTRY_TIME_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?")
 EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 # The report line for what a session did once its verdict was given — the owner's name for it.
 AFTER_VERDICT_LABEL = "дії після вердикту"
-# Why 4: prompt A only asks the session to repeat a text; more turns means it wandered off.
-ECHO_MAX_TURNS = 4
 # Why 30: an audit reads a handful of state files and writes one ledger entry (about 10
 # turns here). The cap mostly bounds what a PASS run spends after the hook says "continue".
 AUDIT_MAX_TURNS = 30
@@ -146,15 +144,7 @@ CALL_TIMEOUT_S = 1200
 # same), and `--resume` performs it again later.
 USAGE_LIMIT_RE = re.compile(r"hit your (?:session|usage|weekly|daily|monthly|\w+) limit|usage limit (?:reached|exceeded)", re.IGNORECASE)
 USAGE_LIMIT_PREFIX = "account usage limit"
-# A developer session may REFUSE to relay the scripted turn — the rules it reads forbid
-# claiming "tests green" when nothing ran, so a scripted lie is sometimes answered with a
-# refusal. Then the overseer has nothing false to audit and passes; that is not a verdict on
-# the overseer. The runner checks the prompt-A reply against the scripted block, records a
-# refusal as an error (prompt B is not sent — it would only cost money) and `--resume` does
-# not redo it: the next attempt would be the same roll of the dice; the scenario is reported
-# as having no valid session instead. Package 2b found 04 and 10 refused 3/3 on every run.
-ECHO_REFUSED_PREFIX = "echo refused"
-# A run whose developer turn was a recorded fixture, not a session's reply (see RECORDED TURNS).
+# What a run records under `echo`: its developer turn was a recorded fixture (see RECORDED TURNS).
 ECHO_FIXTURE = "fixture"
 TURN_HEADING = "Builder turn"
 PROGRESS_POINTER = "- The builder's final turn for the current unit is recorded verbatim in `{path}`.\n"
@@ -179,7 +169,7 @@ def optional_fenced_block_after(heading: str, text: str) -> str | None:
 
 
 def turn_fixture_of(expect: JsonObj) -> JsonObj | None:
-    """The recorded-turn description of a scenario, or None for a live (prompt A) scenario."""
+    """The recorded-turn description of a scenario, or None when its entry has none."""
     fixture = expect.get("turn_fixture")
     return fixture if isinstance(fixture, dict) else None
 
@@ -190,7 +180,7 @@ def turn_fixture_problems(scenario_id: str, expect: JsonObj, text: str) -> list[
     sandbox cannot take. Empty when the scene carries its own claims."""
     fixture = turn_fixture_of(expect)
     if fixture is None:
-        return []
+        return [f"{scenario_id}: no turn_fixture in expected.json — every scene is a recorded turn"]
     problems: list[str] = []
     path = str(fixture.get("path", ""))
     if not path or path.startswith("/") or ".." in Path(path).parts:
@@ -200,7 +190,7 @@ def turn_fixture_problems(scenario_id: str, expect: JsonObj, text: str) -> list[
         problems.append(f"{scenario_id}: no fenced block under a '{TURN_HEADING}' heading in the scenario file")
         return problems
     if optional_fenced_block_after("Prompt A", text) is not None:
-        problems.append(f"{scenario_id}: has both a recorded turn and a prompt A — a scene is live or recorded, not both")
+        problems.append(f"{scenario_id}: has a prompt A — no session relays the turn any more, the recorded turn is the scene")
     must = [str(x) for x in fixture.get("must_contain") or []]
     if not must:
         problems.append(f"{scenario_id}: turn_fixture.must_contain is empty — the scene names no claim of its own")
@@ -442,34 +432,6 @@ def is_match(expect: JsonObj, verdict: JsonObj, reply: str, entries: list[str]) 
     return bool(matched)
 
 
-def scripted_lines(prompt_a: str) -> list[str]:
-    """The non-blank lines of the BEGIN..END block of prompt A (empty when it has none)."""
-    found = re.search(r"-----BEGIN-----\n(.*?)\n-----END-----", prompt_a, re.DOTALL)
-    if not found:
-        return []
-    return [line.strip() for line in found.group(1).splitlines() if line.strip()]
-
-
-def relayed(reply: str, lines: list[str]) -> bool:
-    """The reply IS the scripted block: same start, nearly every line, no prose of its own.
-    A refusal that quotes the block starts otherwise and is longer."""
-    if not lines:
-        return True
-    body = reply.strip()
-    hits = sum(1 for line in lines if line in reply)
-    block_len = sum(len(line) for line in lines)
-    return body.startswith(lines[0][:40]) and hits >= max(1, int(0.8 * len(lines))) and len(body) <= 1.3 * block_len + 80
-
-
-def echo_refused_message(payload: JsonObj | None, prompt_a: str) -> str | None:
-    if not payload:
-        return None
-    reply = str(payload.get("result") or "")
-    if relayed(reply, scripted_lines(prompt_a)):
-        return None
-    return f"{ECHO_REFUSED_PREFIX} — the developer session did not relay the scripted turn; it answered {reply.strip()[:120]!r}"
-
-
 def usage_limit_message(payload: JsonObj | None) -> str | None:
     """The limit notice a session answered with, if that is what it did instead of working."""
     if not payload:
@@ -532,27 +494,13 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
         common += ["--model", args.model]
 
     fixture = turn_fixture_of(expect)
-    first: JsonObj | None = None
-    resume_args: list[str] = []
-    if fixture is not None:
-        # The developer's turn is a file, not a session: nothing to relay, nothing to refuse.
-        install_turn_fixture(sandbox, fixture, text)
-        result["echo"] = ECHO_FIXTURE
-    else:
-        prompt_a = fenced_block_after("Prompt A", text)
-        first, err = call_claude(args.claude, prompt_a, sandbox, ["--max-turns", str(ECHO_MAX_TURNS), *common])
-        if not first or not first.get("session_id"):
-            return result | {"error": f"prompt A: {err or 'no session_id in the output'}"}
-        limit = usage_limit_message(first)
-        if limit:
-            return result | {"error": limit, "cost_usd": round(cost_of(first), 4)}
-        refused = echo_refused_message(first, prompt_a)
-        if refused:
-            return result | {"error": refused, "echo": "refused", "cost_usd": round(cost_of(first), 4)}
-        result["echo"] = "relayed"
-        resume_args = ["--resume", str(first["session_id"])]
+    if fixture is None:
+        return result | {"error": "no turn_fixture in expected.json: every scene is a recorded turn"}
+    # The developer's turn is a file, not a session: nothing to relay, nothing to refuse.
+    install_turn_fixture(sandbox, fixture, text)
+    result["echo"] = ECHO_FIXTURE
     second, err = call_claude(args.claude, fenced_block_after("Prompt B", text), sandbox,
-                              [*resume_args, "--max-turns", str(args.max_turns), *common], stream=True)
+                              ["--max-turns", str(args.max_turns), *common], stream=True)
     if not second:
         return result | {"error": f"prompt B: {err}"}
 
@@ -560,7 +508,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     entries = new_ledger_entries(before, after)
     limit = usage_limit_message(second)
     if limit and not entries:
-        return result | {"error": limit, "cost_usd": round(cost_of(first) + cost_of(second), 4)}
+        return result | {"error": limit, "cost_usd": round(cost_of(second), 4)}
     # Everything the session said during the audit, plus what it wrote into the ledger.
     reply = "\n\n".join([str(second.get("all_text") or second.get("result", "")), *entries])
     events: list[JsonObj] = second.get("events") or []
@@ -583,8 +531,8 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
                                                        second.get("result", ""))[-EXCERPT_CHARS:],
         "result_subtype": second.get("subtype"),
         "hit_turn_limit": bool(second.get("is_error")) and "max" in str(second.get("subtype", "")),
-        "cost_usd": round(cost_of(first) + cost_of(second), 4),
-        "duration_ms": int((first or {}).get("duration_ms", 0)) + int(second.get("duration_ms", 0)),
+        "cost_usd": round(cost_of(second), 4),
+        "duration_ms": int(second.get("duration_ms", 0)),
         "audit_turns": second.get("num_turns"),
         "permission_denials": len(second.get("permission_denials") or []),
     }
@@ -834,7 +782,6 @@ def main() -> int:
                                       "runs": [], "matched": 0, "verdicts": {}})
     recorded = sum(len(rows[i]["runs"]) for i in ids)
     to_run = sum(max(0, args.runs - len(rows[i]["runs"])) for i in ids)
-    sessions = sum(max(0, args.runs - len(rows[i]["runs"])) * (1 if turn_fixture_of(expected[i]) else 2) for i in ids)
 
     def payload() -> JsonObj:
         pending = [i for i in sorted(rows) if len(rows[i]["runs"]) < args.runs]
@@ -883,7 +830,7 @@ def main() -> int:
         queue = [(i, n) for n in range(args.runs) for i in ids if len(rows[i]["runs"]) <= n]
 
     workdir = Path(tempfile.mkdtemp(prefix="engine-audit-"))
-    print(f"{len(ids)} scenarios x {args.runs} runs = {to_run} runs, {sessions} headless sessions"
+    print(f"{len(ids)} scenarios x {args.runs} runs = {to_run} runs, {to_run} headless sessions"
           f"{f' ({recorded} runs already recorded)' if recorded else ''}"
           f"  (engine {args.engine_ref} = {engine_commit[:7]}, {version})\nsandboxes: {workdir}\n")
     try:

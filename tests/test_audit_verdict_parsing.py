@@ -79,7 +79,7 @@ ok("the usage limit, not only the session limit", runner.usage_limit_message({"r
 ok("an ordinary audit is not a limit", runner.usage_limit_message({"all_text": "The limit of 3 retries holds.\nOVERSEER_PASS"}) is None)
 ok("no payload, no limit", runner.usage_limit_message(None) is None)
 ok("is_usage_limit_run keys on the prefix",
-   runner.is_usage_limit_run({"error": runner.USAGE_LIMIT_PREFIX + " — x"}) and not runner.is_usage_limit_run({"error": "prompt A: timed out"}))
+   runner.is_usage_limit_run({"error": runner.USAGE_LIMIT_PREFIX + " — x"}) and not runner.is_usage_limit_run({"error": "prompt B: timed out"}))
 
 # --- the pre-flight: every path the PROGRESS fixture names must exist in a built sandbox ------
 import argparse

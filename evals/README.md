@@ -133,7 +133,8 @@ mid-run moves `HEAD` and the later runs measure another engine under the first o
 
 Each run builds a fresh sandbox, lays the scenario's work over it uncommitted
 (`scenarios/audit/work/`, chosen in `expected.json`) — the code the scripted turn talks about
-really exists and its claims can be checked — then sends prompt A and prompt B. The verdict is
+really exists and its claims can be checked — writes the recorded builder turn into it and
+sends prompt B. The verdict is
 read from the new ledger entry. Results keep the entry and the verdict's own words, so a
 surprising verdict can be understood without paying for another run. When a session wrote more
 than one entry, its **first** verdict counts (the oldest entry by timestamp; in the reply, the
@@ -152,9 +153,8 @@ when the session typed the entry itself) and the agent's own tool calls (`audito
 `after_verdict` now counts what the session did after it launched the agent — an audit asked for
 by hand is a report, so the line should stay empty. A verdict the script refused (the tree changed
 during the audit, the answer was off the schema) is recorded as `INVALID` and matches nothing.
-Every run is one real session with one subagent (the runner still supports a live scene — prompt
-A relayed, prompt B in the same session — and `tests/_live_scenes.py` keeps that path checked);
-sandboxes are removed afterwards unless `--keep` is given.
+Every run is one real session with one subagent; sandboxes are removed afterwards unless `--keep`
+is given.
 
 The result file is rewritten after **every run** (written beside the target and moved into
 place, so a kill mid-write leaves the previous file whole) and says `"status": "partial"`
@@ -173,8 +173,8 @@ baseline from scratch, remove the file or name a new one. `--only` takes a comma
 list of id fragments (`--only 01,04`). `tests/test_audit_runner_resume.py` exercises all of
 this with a `claude` shim that kills the runner mid-run — no real session.
 
-**Two things the runner does so the measurement is of the engine, not of the sandbox.** Both
-sessions get `--settings <sandbox>/.claude/settings.json`: a sandbox is a directory nobody ever
+**Two things the runner does so the measurement is of the engine, not of the sandbox.** The
+session gets `--settings <sandbox>/.claude/settings.json`: a sandbox is a directory nobody ever
 trusted, and there a headless session loads no project settings at all — without the flag the
 engine's allow list and hooks are absent, `uv run pytest` "requires approval", the ledger Edit is
 refused, and the overseer blocks for want of evidence it was not allowed to gather (measured on
@@ -185,20 +185,14 @@ path to `.engine/slices/` but not the fixture, and every audit session at v0.11.
 contract missing. Comparing two result files: `python3 evals/compare_audits.py --before A.json
 --after B.json --noise N1.json N2.json --must-fix 01-clean-pass,08-chat-only-design`.
 
-**A third thing, found by the after-run of package 2b: the echo is validated.** A session that
-reads the engine's rules sometimes refuses to relay a scripted turn that claims "tests green"
-when nothing ran — correctly — and then the overseer has no false claim to audit and passes.
-Scenarios 04 and 10 were refused 3/3 in every run ever recorded, 02 in two of three. The runner
-now compares the prompt-A reply with the scripted block (same start, nearly every line, no prose
-of its own); a refusal is recorded as `echo: refused` with an `echo refused` error, prompt B is
-not sent, and `--resume` does not redo it — the next attempt is the same roll of the dice, so the
-scenario is reported as having no valid session. Files recorded before that get the same
-treatment after the fact from the transcripts Claude Code keeps under `~/.claude/projects/`:
-`python3 evals/annotate_echo.py <result.json> <workdir-name> --write` (the workdir name is the
-`engine-audit-xxxx` the runner printed). The comparison counts only relayed sessions.
+**Older result files carry `echo: refused` runs.** Until board 018 a scene began with a session
+asked to relay the scripted turn, and a session that reads the engine's rules sometimes refused
+to say "tests green" when nothing ran; such a run is an `echo refused` error, not a verdict, and
+`compare_audits.py` lists it apart. Files recorded before the runner checked this were annotated
+by `evals/annotate_echo.py`.
 
-**Recorded turns (night program 1, item 0): the model is out of the lie.** Scenarios 02, 04 and
-10 no longer have a prompt A. Their builder turn is a fixture: the fenced block under
+**Recorded turns (night program 1, item 0): the model is out of the lie.** No scenario has a
+prompt A (02, 04 and 10 since then, the rest since board 018). The builder turn is a fixture: the fenced block under
 "Builder turn — recorded fixture" in the scenario file is written verbatim into the sandbox at
 `turn_fixture.path` (`.engine/artifacts/ref-tax/unit-3-turn.md`), `.engine/PROGRESS.md` gets a
 pointer line, and prompt B — the only session — tells the overseer where the recorded turn is.
@@ -207,7 +201,7 @@ The scene and the expected verdict are unchanged; what changed is that nobody is
 (`turn_fixture.must_contain`, `must_not_contain`: 02 forbids any test output, 04 forbids a RED,
 10 demands the RED of 01), and the pre-flight refuses to start when a block has lost one —
 before any session is paid for. Such a run is recorded with `"echo": "fixture"` and costs one
-session, not two. `tests/test_audit_turn_fixture.py` exercises all of it with the `claude`
+session. `tests/test_audit_turn_fixture.py` exercises all of it with the `claude`
 shim, including the refusals, on a broken copy of the scenarios (`--scenarios-dir`).
 
 **Scenario 11 (package costs): a gate exemption with a weak reason.** The clean turn of 01 over a

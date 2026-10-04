@@ -12,22 +12,21 @@ on. Deterministic, no paid session: the `claude` shim of tests/test_audit_runner
 Cases:
   * the three scenes carry their claims: every recorded-turn scenario has a non-empty
     must_contain, its block holds each phrase and none of the must_not_contain ones, and the
-    scenario file has no prompt A any more; 01 stays live;
+    scenario file has no prompt A any more;
   * the pre-flight refuses a broken copy BEFORE any session: a RED pasted into 04, the
     sentinel removed from 02, a prompt A added back — exit 2, the scene and the phrase named,
     the shim never called;
-  * a run of 02, 04, 10 with the shim: no prompt A, three prompt Bs (no --resume), the turn
+  * a run of 02, 04, 10 with the shim: three sessions, one per run, the turn
     file in each sandbox is the scenario's block byte for byte, .engine/PROGRESS.md points at
     it, 10 still has its three-passes ledger, the result rows say echo=fixture and carry the
     verdict and the cost of ONE session;
-  * mixed `--only 01,02`: 01 echoes (prompt A, relayed), 02 does not.
+  * a scene whose expected.json entry lost its `turn_fixture` is refused by the pre-flight.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -122,7 +121,7 @@ def main() -> int:
         print("a run of the three recorded-turn scenes with the shim:")
         r = h.run("--keep", only=",".join(FIXTURE_IDS))
         check("exit 0", r.returncode == 0, f"rc={r.returncode} {r.stderr[-400:]} {r.stdout[-400:]}")
-        check("no prompt A at all, three prompt Bs", h.calls("prompt-a") == 0 and h.calls("prompt-b") == 3, h.log.read_text())
+        check("three sessions, one per run", h.calls("prompt-b") == 3, h.log.read_text())
         check("the headline counts one session per run", "3 runs, 3 headless sessions" in r.stdout, r.stdout[:300])
         b_dirs = [Path(line.split("\t")[1]) for line in h.log.read_text(encoding="utf-8").splitlines() if line.startswith("prompt-b")]
         for sid in FIXTURE_IDS:
@@ -153,18 +152,17 @@ def main() -> int:
         check("the file is complete", res["status"] == "complete" and res["pending"] == [], str(res.get("status")))
         check("--resume has nothing to do", h.run("--resume", only=",".join(FIXTURE_IDS)).returncode == 0 and h.calls("prompt") == 0, h.log.read_text())
 
-        print("mixed: a live scene and a recorded one in the same run:")
+        print("a scene without a recorded turn is not run:")
         h.out.unlink()
-        r = h.run(only="01-clean,02-false")
-        check("exit 0", r.returncode == 0, f"rc={r.returncode} {r.stderr[-300:]}")
-        check("one prompt A (01), two prompt Bs", h.calls("prompt-a") == 1 and h.calls("prompt-b") == 2, h.log.read_text())
-        check("the headline says 2 runs, 3 sessions", "2 runs, 3 headless sessions" in r.stdout, r.stdout[:300])
-        rows = {row["id"]: row for row in h.results()["scenarios"]}
-        check("01 relayed, 02 fixture", rows["01-clean-pass"]["runs"][0].get("echo") == "relayed"
-              and rows["02-false-done-generic"]["runs"][0].get("echo") == "fixture")
-        prompt_b_lines = [ln for ln in h.log.read_text(encoding="utf-8").splitlines() if ln.startswith("prompt-b")]
-        check("prompt B of the recorded scene is sent without --resume (the shim answered 'shim-fixture')",
-              any(re.search(r"02-false-done-generic", ln) for ln in prompt_b_lines))
+        bare = work / "no-turn-fixture"
+        shutil.copytree(SCENARIOS, bare)
+        entries = json.loads((bare / "expected.json").read_text(encoding="utf-8"))
+        del entries["02-false-done-generic"]["turn_fixture"]
+        (bare / "expected.json").write_text(json.dumps(entries, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        r = h.run("--scenarios-dir", str(bare), only="01-clean,02-false")
+        check("refused with exit 2, the scene named", r.returncode == 2 and "02-false-done-generic" in r.stderr and "turn_fixture" in r.stderr,
+              f"rc={r.returncode} {r.stderr[-300:]}")
+        check("no session was paid for, no result file", h.calls("prompt") == 0 and not h.out.exists(), h.log.read_text())
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print(f"\nPASS {PASS}   FAIL {FAIL}")

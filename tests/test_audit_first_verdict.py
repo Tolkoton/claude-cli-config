@@ -59,16 +59,10 @@ PASSED = ("## 2026-10-03T12:45:00Z — ref-tax — OVERSEER_PASS (block #4 of 12
 SHIM = r'''#!/usr/bin/env python3
 """A stand-in for `claude` on scene 05. The first audit session blocks, then repairs the test
 itself and records a PASS above its block; the second one blocks and stops."""
-import json, os, re, sys
+import json, os, sys
 argv = sys.argv[1:]
 if argv == ["--version"]:
     print("claude-shim 0.0.1"); sys.exit(0)
-prompt = argv[argv.index("-p") + 1]
-if "stream-json" not in argv:  # prompt A: relay the scripted turn
-    block = re.search(r"-----BEGIN-----\n(.*?)\n-----END-----", prompt, re.S)
-    print(json.dumps({"type": "result", "subtype": "success", "session_id": "shim",
-                      "result": block.group(1) if block else "echoed", "total_cost_usd": 0.1}))
-    sys.exit(0)
 counter = os.environ["SHIM_COUNT"]
 with open(counter, "a", encoding="utf-8") as fh:
     fh.write("b\n")
