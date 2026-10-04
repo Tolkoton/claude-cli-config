@@ -543,7 +543,7 @@ def digest(root: Path) -> str:
     lines: list[str] = []
     queue = entries(root)
     memory = [ln[3:].strip() for ln in read(root / MEMORY_REL).splitlines() if re.match(r"^## \d{4}-\d{2}-\d{2}", ln)]
-    proposals = len(re.findall(r"^## RP-\w+ — \S+ — PROPOSED", read(root / PROPOSALS_REL), re.MULTILINE))
+    proposals = len(pending_proposals(root))
     if memory:
         lines.append("Project memory (.engine/overseer/MEMORY.md), latest: " + " · ".join(m[:70] for m in memory[-4:]))
     if queue:
