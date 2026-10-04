@@ -57,7 +57,6 @@ def _write_json(path: Path, obj: Any) -> None:
     """Atomic: write a temp file in the same dir, then rename. A supervisor
     reading state while a session writes it must never see half a file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, path)
@@ -241,7 +240,6 @@ def main(argv: list[str]) -> int:
         set_state(*(argv[2:6] + [""] * (4 - len(argv[2:6]))))
         print(get_state().get("status"))
     elif cmd == "heartbeat":
-        HEARTBEAT.parent.mkdir(parents=True, exist_ok=True)
         HEARTBEAT.parent.mkdir(parents=True, exist_ok=True)
         HEARTBEAT.write_text(str(_now()), encoding="utf-8")
     elif cmd == "get-cost":
