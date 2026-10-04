@@ -42,6 +42,7 @@
 # Board 071: test_baseline 8 s stays out (about seventy runs of gate.py and baseline.py on synthetic legacy projects);
 # test_board_review, out already, carries the review's part.
 # Board 072: test_delete_guard 9 s stays out (about ninety runs of gate.py on synthetic projects).
+# Board 073: test_onboard 0.5 s is in (the structure of the /onboard command and its templates; four runs of board.py).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py
@@ -72,3 +73,4 @@ test_second_opinion.py
 test_health_record.py
 test_goals.py
 test_analyst_evals.py
+test_onboard.py

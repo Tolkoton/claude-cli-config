@@ -292,6 +292,39 @@ This forces the agent to load the policy and map before doing anything else.
 
 ---
 
+## Step 8 — An existing project: `/onboard`
+
+Skip this for a project the engine builds from nothing. For a project that already has code,
+steps 2 and 5 are not filled in by hand: the command `/onboard` does it with the owner, in an
+interactive session, once.
+
+```bash
+cp tasks/TEMPLATE-onboard.md tasks/todo/NNN-onboard.md        # a task that needs the owner present
+python3 .claude/unattended/board.py start --attended tasks/todo/NNN-onboard.md
+# then, in Claude Code:  /onboard
+```
+
+What it does, in order: surveys the project read-only; **runs** every check command it found (a
+command that was not run never reaches `project.env`); offers the project's rules as candidates,
+each with its source — written, seen in the code, seen in the history; takes the owner's «yes»,
+«no» or corrected text on each, and the do-not-touch zones; has a fresh reader check every
+reference; then writes the files below. The owner takes the snapshot "as it was" in their own
+terminal (`python3 .claude/hooks/baseline.py record`), so the gate asks "no worse than it was".
+
+| File | What it holds |
+|---|---|
+| `.engine/onboard/profile.md` | the map, the commands with the evidence of their run, every rule with the owner's verdict and source, the risk zones, what was not read. Read on demand (template: `.claude/references/onboard-profile.md`) |
+| `AGENTS.md` | only the rules without which any conversation would go wrong; the 200-line limit of the persistent context is the only limit |
+| `.claude/project.env` | source dirs, extensions, the verified commands, `SIMPLIFIER_PROTECTED` |
+| `.engine/premises/premise-log.md` | what could not be verified |
+
+`/onboard` fixes nothing, installs nothing, reads no secrets and writes no decisions in hindsight.
+Without the owner it does the survey, the command check and the candidates, and stops with
+questions. A project installed before this command existed has no `tasks/TEMPLATE-onboard.md`
+(seeds are copied once): take it from `templates/project/tasks/` of the engine.
+
+---
+
 ## What happens if you skip a step?
 
 | Skipped step | Consequence |
@@ -315,7 +348,7 @@ This forces the agent to load the policy and map before doing anything else.
                     feature-architect, self-learning-orchestrator, documentation,
   agents/         — critic subagents: slice-planner-critic, feature-critic,
                     master-critic, critic-core
-  commands/       — project commands: plan-slice, master-architect, feature-architect
+  commands/       — project commands: plan-slice, master-architect, feature-architect, onboard
   templates/      — slice-contract.md, the shape /plan-slice writes
   references/     — reference materials for agents (ADR format, C4, permission philosophy)
   unattended/     — the task board's runner and its helpers
@@ -334,6 +367,7 @@ This forces the agent to load the policy and map before doing anything else.
   slices/         — slice contracts written by /plan-slice
   architecture/   — design artifacts and the feature DAG (created on first use)
   premises/       — premise log (seeded once)
+  onboard/        — profile.md, the project's profile written by /onboard (existing projects only)
   artifacts/      — spikes, notes (created on first use)
   PROGRESS.md     — slice completion history (created by slice-builder; gitignored)
 

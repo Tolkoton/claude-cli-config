@@ -104,6 +104,7 @@ project  AGENTS.md  seed=templates/project/AGENTS.md
 # --- the four columns are seeded once; no update ever overwrites or re-creates one of them. ---
 project  tasks/README.md         seed=templates/project/tasks/README.md
 project  tasks/TEMPLATE.md       seed=templates/project/tasks/TEMPLATE.md
+project  tasks/TEMPLATE-onboard.md  seed=templates/project/tasks/TEMPLATE-onboard.md
 project  tasks/todo/.gitkeep     seed=templates/project/tasks/todo/.gitkeep
 project  tasks/doing/.gitkeep    seed=templates/project/tasks/doing/.gitkeep
 project  tasks/blocked/.gitkeep  seed=templates/project/tasks/blocked/.gitkeep
