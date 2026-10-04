@@ -1,0 +1,149 @@
+{
+  "findings": [
+    {
+      "target": "evals/annotate_echo.py",
+      "category": "dead_code",
+      "claim": "The one-time script that back-filled `echo` annotations into result files recorded before the runner checked the echo itself has done its job and nothing invokes it; the runner records the echo at run time and every baseline already carries the field, so the file and its private copies of scripted_lines/relayed/USAGE_LIMIT_RE can go while every current workflow stays the same (two prose mentions need a one-line edit).",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-4f59e197",
+          "detail": "pylint: 17 similar lines, evals/annotate_echo.py:51-68 and evals/run_audit_scenarios.py:447-464 (scripted_lines + relayed duplicated)"
+        },
+        {
+          "source": "read",
+          "ref": "evals/annotate_echo.py:23-24",
+          "detail": "its own docstring: 'The runner (run_audit_scenarios.py) performs the same check at run time since package 2b, so only files recorded before that need this.'"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_audit_scenarios.py:445-470",
+          "detail": "the runner's scripted_lines/relayed/echo_refused_message do the same check for every new run; recorded-turn runs get `echo: fixture` (run_audit_scenarios.py:540)"
+        },
+        {
+          "source": "grep",
+          "ref": "evals/README.md:197",
+          "detail": "the only references outside the file are prose: evals/README.md:197 and the report-line text in evals/compare_audits.py:202; grep over tests/ for 'annotate_echo' returns nothing — no test, hook, script or suite invokes it"
+        },
+        {
+          "source": "read",
+          "ref": "tasks/CANDIDATES.md:95",
+          "detail": "already on the owner's candidates list (F-0e61f4ce, B8) awaiting a decision; still on disk unchanged"
+        },
+        {
+          "source": "judgement",
+          "ref": "",
+          "detail": "the reason it was written — annotate files recorded before package 2b — is fulfilled and cannot recur: any file the current runner writes is annotated as it is recorded"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "none",
+      "proposed_action": "flag_only",
+      "traceability": ".engine/architecture/archive/engine-package-2b.json:94 ('annotate_echo.py for earlier files') — a one-time migration task, now done",
+      "reversal_risk": "low",
+      "id": "F-ffae4a64",
+      "validator": [
+        "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+      ]
+    },
+    {
+      "target": "evals/run_audit_scenarios.py:541-553",
+      "category": "dead_code",
+      "claim": "The live-scene branch of run_once (prompt A relayed by a session, the echo check, the refusal error) and its helpers — ECHO_MAX_TURNS (line 132), ECHO_REFUSED_PREFIX (156), scripted_lines/relayed/echo_refused_message (445-470), the two-sessions-per-run count (837) — serve no scene: every one of the 12 scenarios is a recorded turn, so the recorded-turn path alone measures the overseer; what keeps the branch alive is tests/_live_scenes.py and the live cases in four suites, which would go with it (and evals/README.md:155-156, 188-198 would need trimming). compare_audits.py's 'echo refused' bucket (192-193) stays: recorded baselines still carry those errors.",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-ce9ae588",
+          "detail": "run_once: complexity 35, the limit is 13 — the prompt-A branch is one of its two arms"
+        },
+        {
+          "source": "read",
+          "ref": "evals/scenarios/audit/expected.json:7-267",
+          "detail": "all 12 scenarios carry `turn_fixture`; none has a prompt A"
+        },
+        {
+          "source": "read",
+          "ref": "evals/README.md:19",
+          "detail": "'Since board 018 every one is a recorded turn … the audit is done by the agent overseer in a fresh context, so a live relay of the turn adds nothing'"
+        },
+        {
+          "source": "read",
+          "ref": "tests/test_audit_turn_fixture.py:93-94",
+          "detail": "a test pins it: 'board 018: every scene is a recorded turn now, 01 included — no prompt A in any scenario file'"
+        },
+        {
+          "source": "read",
+          "ref": "tests/_live_scenes.py:5-7",
+          "detail": "'Since board 018 every real scene is a recorded turn … but the runner still supports live scenes and these suites keep that path checked' — the only reason given to keep it is that tests test it"
+        },
+        {
+          "source": "grep",
+          "ref": "tests/test_audit_runner_resume.py:40",
+          "detail": "live_copy is imported by test_audit_runner_resume.py and test_audit_tiers.py; the claude shims in test_audit_first_verdict.py:67 and test_audit_turn_fixture.py:160 also answer a prompt A — four suites would need their live cases removed"
+        },
+        {
+          "source": "read",
+          "ref": "tasks/CANDIDATES.md:48",
+          "detail": "the owner's candidates table lists this path (B8, «шлях живої сцени») as removable because all scenes are recorded"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "confirm",
+      "traceability": "tasks/CANDIDATES.md:48 (B8) — board 018 made every scene a recorded turn; no goal asks for a live relay",
+      "reversal_risk": "low",
+      "id": "F-10ac19c7",
+      "validator": []
+    },
+    {
+      "target": "evals/run_hook_scenarios.py:298-300",
+      "category": "dead_code",
+      "claim": "The --reset-only option (parser lines 298-300, handler lines 330-337) exists 'between manual audit runs'; audit runs are performed by run_audit_scenarios.py, which builds a fresh sandbox per run, and nothing in the repository invokes or documents the flag, so it can go while every documented invocation of the hook runner keeps working (reset_sandbox itself stays: run_scenario, run_all and run_gate_evals.py use it).",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-bd8fb9a9",
+          "detail": "run_all: complexity 26, the limit is 13 — the reset-only early exit is one of its branches"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_hook_scenarios.py:298-300",
+          "detail": "help text: 'return the sandbox to its initial commit and exit (use between manual audit runs)'"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_audit_scenarios.py:509-511",
+          "detail": "run_once calls make_sandbox.sh for every run — no sandbox is reused between audit runs"
+        },
+        {
+          "source": "grep",
+          "ref": "evals/run_hook_scenarios.py:330",
+          "detail": "'reset-only'/'reset_only' occur only inside run_hook_scenarios.py; zero hits in tests/, evals/README.md, make_sandbox.sh or any script"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_gate_evals.py:41",
+          "detail": "reset_sandbox is imported there, so the function is live; only the CLI flag has no caller"
+        },
+        {
+          "source": "read",
+          "ref": "tasks/CANDIDATES.md:96",
+          "detail": "already on the owner's candidates list (F-bc000a33, B8) awaiting a decision; still on disk unchanged"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "none",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-8787b78e",
+      "validator": [
+        "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+      ]
+    }
+  ],
+  "rejected": []
+}

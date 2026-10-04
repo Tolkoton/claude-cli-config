@@ -1,0 +1,395 @@
+[
+  {
+    "target": ".claude/skills/overseer/SKILL.md:24-65",
+    "category": "duplication",
+    "claim": "The section 'Claiming a unit complete (the Stop-hook trigger)' restates, almost sentence for sentence, .claude/engine-rules.md § 'Overseer protocol' (the sentinel, the structural-evidence rule, N from the contract else 1, never on WIP/RED/question turns, launch the agent with exactly that line, change nothing, end the turn, BLOCK → fix and claim again, three BLOCKs park, the plan phase guard), which is in every session's context; the skill can keep only what engine-rules does not say — the Agent-tool parameters in step 1 and the 'no valid verdict → repeated twice, then parked' bullet — together with the by-hand audit, the halt markers and the former protocol.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/overseer/SKILL.md:24-43",
+        "detail": "sentinel alone on its own line, N from .engine/slices/<slug>.md or 1, only for a genuine unit, structural evidence (edit on a code path per project.env + verification command), phase guard on `plan`"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/overseer/SKILL.md:45-65",
+        "detail": "launch the agent with the prompt and nothing else, change nothing until it answers, end the turn; PASS/BLOCK (fix, claim again, another overseer, three in a row park)/ADR/ESCALATE routing pointer"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:41-50",
+        "detail": "the same sentinel conditions, the same 'N from .engine/slices/<slug>.md, else 1 — never on a work-in-progress, RED-only or question-answering turn', the same launch/change-nothing/end-turn steps, 'After a BLOCK you fix and claim again — another overseer judges it; three BLOCKs on one unit park the task'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:51-53",
+        "detail": "the plan phase guard that SKILL.md:42-43 repeats"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/overseer_stop.py:257",
+        "detail": "the hook points at '§ The former protocol' of the SKILL, not at this section; tests/test_overseer_fresh.py:152-154 assert the hook's own text ('12-check', 'Launch the agent'), not the skill's"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the first pass removed the SKILL's copy of 'Verdict routing' on the same ground (report.md F-f42f1239); this is the remaining copy of the neighbouring engine-rules section"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md:41-53",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/agents/overseer.md:19-26",
+    "category": "duplication",
+    "claim": "The two mandate paragraphs 'You are NOT a cheerleader …' and 'The builder's claims default to suspect … Demand specific evidence … Surface at least one alternative … Reasoned pushback is the expected output' say exactly what the file's own 'Operating principles' section says forty lines later (principles 1-4) and what Constitution Article 2 already imposes on every agent; the paragraphs can go and the agent's rules are unchanged.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/agents/overseer.md:23-26",
+        "detail": "'The builder's claims default to suspect, not trusted. Demand specific evidence for every DONE claim. Surface at least one alternative when a single approach is proposed. Reasoned pushback is the expected output, not the exception.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/overseer.md:65-75",
+        "detail": "principle 1 'Verify before agreeing … before accepting any done/verified/tested claim', principle 2 'Technical correctness over social comfort', principle 3 'Surface at least one alternative when only one approach is proposed', principle 4 anti-Goodhart"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/constitution.md:27-30",
+        "detail": "Article 2: 'Any done / verified / works / tested / safe claim defaults to suspect. Reasoned pushback is the expected output of a critic, not the exception. Being agreeable is not the job; being correct is.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:98-100",
+        "detail": "every agent reads and obeys the constitution"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/constitution.md Article 2; .claude/agents/overseer.md:65-85",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/agents/slice-planner-critic.md:309-316",
+    "category": "duplication",
+    "claim": "The closing 'What you do NOT do' list of the slice critic restates lines earlier in the same file (write nothing: 40-41; blind to the planner's reasoning: 38; escalate product decisions: 260-291; tool or back-edge for external claims: 61-74; one BLOCKING objection: 295-297) and critic-core §1 (never chain blocks, never manufacture objections); the same pattern closes feature-critic.md:113-120 (each line = its lines 27-34, 93-97, 59, 101-105 or critic-core) and master-critic.md:142-150 (= its lines 35-40, 109-115, 84-89, 65, 49-52 or critic-core), so all three lists can go with every rule still stated once.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/agents/slice-planner-critic.md:309-316",
+        "detail": "do NOT write or edit any file / reveal or invent the planner's reasoning / make product-design decisions / adjudicate an external-system claim yourself / chain multiple BLOCKING objections / manufacture objections"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/slice-planner-critic.md:38-41",
+        "detail": "'You do NOT see the planner's chain-of-thought … You write NOTHING except your critique output. You never edit the artifact or any code.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/critic-core.md:43-54",
+        "detail": "'Never manufacture objections to look thorough; never pass to be agreeable' and 'One verdict per run … Never chain blocks' — inherited by all three critics (feature-critic.md:16-19, master-critic.md:18-23, slice-planner-critic.md:43-48)"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/feature-critic.md:113-120",
+        "detail": "'You do NOT accept an integration claim on narrative — tracer bullet or back-edge' repeats lines 52-54 and 93-94; 'You do NOT debate what the playbook or a contract check already settles' repeats line 59; 'do NOT chain BLOCKs … or manufacture objections (Art. 3)' is critic-core"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/agents/master-critic.md:142-150",
+        "detail": "'do NOT bless a one-way door autonomously' repeats 109-115; 'do NOT accept a tech-stack premise on reputation — PoC' repeats 84-89; 'do NOT debate what the playbook already settles' repeats 65; 'do NOT run the full lens list mechanically — Self-Discover' repeats 49-52"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the first pass removed the slice critic's duplicate VoI gate on the ground that it 'adds only the slice-level algorithm mix and the per-phase lenses' (F-a463a292); these lists are the same kind of residue"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/agents/critic-core.md:13-16 (each level critic states only what is specific to it)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/slice-builder/SKILL.md:256-267",
+    "category": "duplication",
+    "claim": "The 'Cadence discipline' section is a change note addressed to someone who knew the previous version ('What the old per-cycle STOPs were protecting…', 'This is the part of the old rule that was load-bearing, and it is unchanged') and its four points restate rules 1, 3, 6 and 7 and Step 4 of the same file, while its last paragraph restates engine-rules § 'The three reasons to stop'; it can go together with the two other change-note sentences at lines 186 ('that block stays exactly as it is') and 226 ('These triggers stay exactly as written … What changes is that they park'), and the builder's rules are unchanged.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:256-267",
+        "detail": "'one gate … one park class'; 'What the old per-cycle STOPs were protecting was drift'; 1 write before you build (= rule 1 and rule 6, line 12 and 47), 2 record every transition (= rule 3, line 16 and Step 4 line 153), 3 do not chain past a bad state (= line 153), 4 park don't stop (= lines 56, 111, 168); 'The run stops for exactly three reasons … Nothing else.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:74-82",
+        "detail": "'The three reasons to stop, and there are no others' — the same three reasons and the same 'not reasons'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:186",
+        "detail": "'Do NOT commit on the user's behalf — that block stays exactly as it is, and it is a review checkpoint, not a stopping condition'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:226",
+        "detail": "'These triggers stay exactly as written. They are genuine … conditions — reason 1. What changes is that they park the item instead of stopping the world.'"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "'old', 'stays exactly as it is', 'what changes' describe a diff against an earlier skill, not a rule for the agent reading it now; a fresh agent has no earlier version to compare"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md:74-82",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/slice-builder/SKILL.md:228-237",
+    "category": "duplication",
+    "claim": "The 'What you DO NOT do' list is the third statement of prohibitions already in the same file: mutation testing and wide-lens tests (rule 6 line 54, anti-patterns 193-194), ADRs (197), commit on the user's behalf (186), logging/observability (196, 216), implementing the next slice / other slices' tests (199), decomposition and architecture files (207-215, 230 = the master-architect/feature-architect routing); it can go and every prohibition stays stated.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:228-237",
+        "detail": "no .engine/architecture/ writes, no mutmut/cosmic-ray/code-reviewer/security-auditor, no ADRs, no decomposition, no commit, no folder restructures, no tests for OTHER slices, no logging/observability/metrics"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:188-199",
+        "detail": "anti-patterns: mutation testing (mutmut, cosmic-ray), wide test design, new abstractions, retry/circuit breaker/structured logging, ADRs or architecture files, refactor of existing modules, implementing the NEXT slice"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:54",
+        "detail": "'What is NEVER added at slice level: mutmut / cosmic-ray mutation testing, exhaustive hypothesis property tests, wide-lens enumeration'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/slice-builder/SKILL.md:186",
+        "detail": "'Do NOT commit on the user's behalf'"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/SKILL.md:25-73",
+    "category": "duplication",
+    "claim": "The ASCII 'trigger state machine' routes the same moments to the same trigger files as the dispatch table that follows it (lines 79-87), but with two paths that do not exist (triggers/session-end.md, triggers/periodic.md — the files are session-end-dreaming.md and periodic-maintenance.md) and a step ('cue plan-mode skill') that belongs to the delegation map removed in the first pass; the diagram can go and the table, which is correct, remains the only routing.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:65",
+        "detail": "'→ triggers/session-end.md' and line 71 '→ triggers/periodic.md'; line 36 '→ cue plan-mode skill'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:65",
+        "detail": "'session-end.md' and 'periodic.md' as trigger paths occur only in this diagram; the files under triggers/ are decision-checkpoint, periodic-maintenance, pre-commit-checkpoint, session-end-dreaming, session-start, stuck-protocol"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:75-89",
+        "detail": "'How to dispatch (the only rule)': the table maps the same seven moments to the real trigger files and says 'Read only the trigger file that applies'"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "first-pass finding F-b90eb594 (applied) removed the cue-phrase delegation the diagram's 'Task start' box still points to"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/skills/self-learning-orchestrator/SKILL.md:75-89",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/triggers/decision-checkpoint.md:29-37",
+    "category": "dead_code",
+    "claim": "The 'Speak the cue phrase … This triggers decisions-log-adr-lite … If that skill is not installed, use the inline fallback' prelude names a delegate skill that exists nowhere in this repository, so the fallback is the only path; the same residue of the removed delegation map sits in pre-commit-checkpoint.md:19-23 and :54 (pre-commit-self-review-checklist, decisions-log-adr-lite), stuck-protocol.md:40-42 and :46-48 (a conversation_search tool nothing provides), :60-64 (execution-feedback-debugging), :75-79 and :89 (plan-mode / feature-architect cue phrases), session-start.md:82 (claude-code-project-scaffolding), periodic-maintenance.md:85 (progress-file-for-long-tasks) and promotion-paths.md:88 (skill-creator); dropping the cue-phrase sentences leaves each trigger's inline procedure, which is what runs today.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/decision-checkpoint.md:29-37",
+        "detail": "'Speak the cue phrase aloud so the per-skill activates … This triggers decisions-log-adr-lite … If decisions-log-adr-lite is not available, append this directly to decisions.md'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md:23",
+        "detail": "the names pre-commit-self-review-checklist, execution-feedback-debugging, decisions-log-adr-lite, progress-file-for-long-tasks, claude-code-project-scaffolding, skill-creator appear only inside this skill's own trigger/reference files, .claude/README.md's diagram label and the first-pass records; no .claude/skills/<name>, user/skills/<name> or templates entry exists"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/stuck-protocol.md:47",
+        "detail": "'conversation_search' occurs nowhere else in the repository; the next step (line 53) is the grep that actually runs"
+      },
+      {
+        "source": "read",
+        "ref": ".engine/simplifier/report.md:66-67",
+        "detail": "F-b90eb594 (applied): the delegation map was removed 'leaving the triggers' inline fallbacks as the only path, which is the path taken today'"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".engine/simplifier/report.md:66 (F-b90eb594)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md:17-29",
+    "category": "duplication",
+    "claim": "Step 1 'Self-review' tells the session to run a hard-coded `uv run ruff format . && uv run ruff check . && uv run mypy src && uv run pytest -q` and not to proceed on red, which is what the Stop gate already does with the project's own commands from .claude/project.env (and blocks the turn on failure); the step and the same hard-coded line in checklists/session-end.md:7 can go, and the gate's verification is unchanged.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md:25-29",
+        "detail": "'uv run ruff format . && uv run ruff check . && uv run mypy src && uv run pytest -q' — 'Fix any issues. Do not proceed to Step 2 with red gates.'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/engine-rules.md:33-38",
+        "detail": "'verify-on-stop.sh runs the project's lint, type-check and tests when code changed, and blocks the turn on a failure'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/verify-on-stop.sh:2-5",
+        "detail": "'find the changed files, read .claude/project.env, run lint, types and tests, block with the real error — lives in gate.py now'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/project.env:82",
+        "detail": "TEST_CMD=\"bash tests/run_all.sh --fast\" — this repository has no uv, ruff, mypy or src/, so the hard-coded line is wrong here and ignores the configured commands in any project"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/checklists/session-end.md:7",
+        "detail": "the same toolchain line as a checklist item"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md:33-38",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/documentation/SKILL.md:124-141",
+    "category": "duplication",
+    "claim": "The 'Anti-patterns' list is the third statement of rules the same file already gives twice — as core principles (34-57) and as hard rules (98-122): unpruned generated entry files (= 54-55), every command pasted in (= 45-48, 103), overlapping agent/human docs (= 38-40, 106-107), emphasis everywhere (= 100-101), large `@`-imports (= 45-48), editing an accepted ADR (= 51-53, 116-118); the list can go and every rule stays stated, with the 200-line cap also enforced by scripts/doc_audit.py.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/documentation/SKILL.md:124-141",
+        "detail": "nine anti-patterns: auto-generating unpruned, pasting every command, overlapping docs, many IMPORTANT/MUST, @-importing large files, editing an accepted ADR, hand-written API reference, one README doing four jobs, 'later'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/documentation/SKILL.md:34-57",
+        "detail": "core principles: single source of truth ('never restates'), progressive disclosure ('a 400-line AGENTS.md'), append-only decisions, 'Generated output is a draft … Always prune'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/documentation/SKILL.md:98-122",
+        "detail": "hard rules: ≤200 lines, never duplicate AGENTS.md and docs/, ADRs append-only, 'They are short on purpose — emphasis only works when it is rare'"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/documentation/scripts/doc_audit.py:76-104",
+        "detail": "check_entry_files enforces the 200-line cap and the @AGENTS.md import mechanically"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/documentation/references/diataxis.md:68-69",
+        "detail": "'Generate it from docstrings or an OpenAPI spec wherever possible' and line 95 'One giant README doing all four jobs' — the two remaining anti-patterns already live in the reference the skill points to"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/skills/documentation/SKILL.md:98-101 ('short on purpose — emphasis only works when it is rare')",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/SKILL.md:159-164",
+    "category": "dead_code",
+    "claim": "The remaining 'Compatibility notes' state that master-architect and feature-architect 'may keep their own task-scoped reflections.md' — neither command mentions reflections.md — and that the hooks are 'orthogonal', which changes nothing an agent does; both bullets can go.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:159-164",
+        "detail": "'the engine's hooks provide PostToolUse / Stop hooks … this skill is orthogonal' and 'master-architect and feature-architect own architectural artifacts and may keep their own task-scoped reflections.md'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:163",
+        "detail": "'reflections.md' occurs only inside this skill's own files, .claude/README.md and the simplifier records; .claude/commands/master-architect.md and feature-architect.md do not name it"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/commands/master-architect.md:182-191",
+        "detail": "the artifacts master-architect owns: domain-map, architecture-map, INDEX, ADRs, premise nodes — no reflections file"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the first pass removed the third bullet of this section (the '12 research-backed skills'); the two left describe no procedure and one is false"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/self-learning-orchestrator/references/promotion-paths.md:152-165",
+    "category": "dead_code",
+    "claim": "'How to detect a promotion candidate' instructs appending hits to `.claude/promotion-candidates.md` and scanning it at periodic maintenance, but periodic-maintenance.md's pass 5 never reads that file and nothing else in the repository names it; the paragraph describes a ledger nothing consumes.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/references/promotion-paths.md:160-165",
+        "detail": "'Lightweight tracking: append to .claude/promotion-candidates.md … At periodic-maintenance, scan this file for entries with ≥ 3 matching hits'"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/skills/self-learning-orchestrator/references/promotion-paths.md:160",
+        "detail": "'promotion-candidates' appears only on this line in the whole repository"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/skills/self-learning-orchestrator/triggers/periodic-maintenance.md:77-88",
+        "detail": "pass 5 looks 'across all memory layers' with four criteria; no step opens a candidates file"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  }
+]

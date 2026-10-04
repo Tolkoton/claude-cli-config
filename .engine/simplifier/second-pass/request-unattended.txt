@@ -1,0 +1,120 @@
+LENS: code
+SCOPE: .claude/unattended
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-f96469b1",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 178,
+  "message": "parse: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-b29ef804",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 720,
+  "message": "main: complexity 30, the limit is 13"
+ },
+ {
+  "id": "S-1694c8fb",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 467,
+  "message": "anomalies_section: complexity 14, the limit is 13"
+ },
+ {
+  "id": "S-66373e24",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 491,
+  "message": "plan_section: complexity 18, the limit is 13"
+ },
+ {
+  "id": "S-079ba702",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 518,
+  "message": "candidates_section: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-53fd2298",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 578,
+  "message": "golden_line: complexity 15, the limit is 13"
+ },
+ {
+  "id": "S-36f718d9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_state.py",
+  "line": 166,
+  "message": "main: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-aaa434ad",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/unattended/board_state.py",
+  "line": 166,
+  "message": "main: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-dfd1462e",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/unattended/recheck_parked.py",
+  "line": 43,
+  "message": "dag_path: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-41a48df6",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/runstate.py",
+  "line": 227,
+  "message": "main: complexity 17, the limit is 13"
+ },
+ {
+  "id": "S-f1244afc",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/unattended/runstate.py",
+  "line": 227,
+  "message": "main: nesting 11, the limit is 3"
+ },
+ {
+  "id": "S-f8ab9896",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": ".claude/unattended/board.py",
+  "line": 376,
+  "message": "unused function 'gate_question' (60% confidence)"
+ },
+ {
+  "id": "S-3083e933",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": ".claude/unattended/board.py",
+  "line": 432,
+  "message": "unused function 'rule_question' (60% confidence)"
+ },
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

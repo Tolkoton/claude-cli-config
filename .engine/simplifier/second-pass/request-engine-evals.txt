@@ -1,0 +1,352 @@
+LENS: code
+SCOPE: engine.py evals
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-d4e51778",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 168,
+  "message": "migration_pairs: complexity 15, the limit is 13"
+ },
+ {
+  "id": "S-6eb4157f",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 302,
+  "message": "compile_pattern: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-e80a30c4",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 467,
+  "message": "EngineSource.history: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-e8fee754",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 601,
+  "message": "plan_sync: complexity 80, the limit is 13"
+ },
+ {
+  "id": "S-4d761f8e",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 601,
+  "message": "plan_sync: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-2f7516e2",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 793,
+  "message": "plan_root_file: complexity 19, the limit is 13"
+ },
+ {
+  "id": "S-ce3e0096",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "engine.py",
+  "line": 940,
+  "message": "merge_into: complexity 14, the limit is 13"
+ },
+ {
+  "id": "S-43a82598",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "engine.py",
+  "line": 940,
+  "message": "merge_into: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-4aa517c4",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/annotate_echo.py",
+  "line": 67,
+  "message": "first_echo_reply: complexity 20, the limit is 13"
+ },
+ {
+  "id": "S-46a3bb55",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/annotate_echo.py",
+  "line": 67,
+  "message": "first_echo_reply: nesting 6, the limit is 3"
+ },
+ {
+  "id": "S-6c1e6a21",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/annotate_echo.py",
+  "line": 122,
+  "message": "main: complexity 17, the limit is 13"
+ },
+ {
+  "id": "S-6f85bf4b",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/compare.py",
+  "line": 64,
+  "message": "main: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-a54fe9ec",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/compare_audits.py",
+  "line": 123,
+  "message": "compare: complexity 56, the limit is 13"
+ },
+ {
+  "id": "S-c8887517",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/compare_audits.py",
+  "line": 123,
+  "message": "compare: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-3a9c4388",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/needs_audit.py",
+  "line": 95,
+  "message": "main: complexity 14, the limit is 13"
+ },
+ {
+  "id": "S-dfdb4403",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 187,
+  "message": "turn_fixture_problems: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-47d0e49a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 240,
+  "message": "parse_stream: complexity 22, the limit is 13"
+ },
+ {
+  "id": "S-26e5418f",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 240,
+  "message": "parse_stream: nesting 6, the limit is 3"
+ },
+ {
+  "id": "S-7fba830a",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 335,
+  "message": "read_verdict: complexity 14, the limit is 13"
+ },
+ {
+  "id": "S-41c7bc9e",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 388,
+  "message": "actions_after_verdict: complexity 15, the limit is 13"
+ },
+ {
+  "id": "S-ce9ae588",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 506,
+  "message": "run_once: complexity 35, the limit is 13"
+ },
+ {
+  "id": "S-48ff5361",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 711,
+  "message": "main: complexity 88, the limit is 13"
+ },
+ {
+  "id": "S-d8431178",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 711,
+  "message": "main: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-fc4a8ae7",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_audit_scenarios.py",
+  "line": 859,
+  "message": "main.report_row: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-d0e4ae51",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_gate_evals.py",
+  "line": 114,
+  "message": "run_all: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-f8924f85",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_gate_evals.py",
+  "line": 145,
+  "message": "main: complexity 20, the limit is 13"
+ },
+ {
+  "id": "S-31c8b300",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 103,
+  "message": "apply_setup: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-66a8fb52",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 169,
+  "message": "run_scenario: complexity 22, the limit is 13"
+ },
+ {
+  "id": "S-bd8fb9a9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 322,
+  "message": "run_all: complexity 26, the limit is 13"
+ },
+ {
+  "id": "S-77f45ffc",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_hook_scenarios.py",
+  "line": 322,
+  "message": "run_all: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-01b718d7",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_second_opinion_evals.py",
+  "line": 139,
+  "message": "summary: complexity 23, the limit is 13"
+ },
+ {
+  "id": "S-c943560d",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_second_opinion_evals.py",
+  "line": 163,
+  "message": "main: complexity 26, the limit is 13"
+ },
+ {
+  "id": "S-50445705",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_second_opinion_evals.py",
+  "line": 163,
+  "message": "main: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-09358b64",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 120,
+  "message": "score: complexity 14, the limit is 13"
+ },
+ {
+  "id": "S-c7e01d59",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 120,
+  "message": "score: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-aab72714",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": "evals/run_simplifier_evals.py",
+  "line": 193,
+  "message": "main: complexity 14, the limit is 13"
+ },
+ {
+  "id": "S-b28bacf1",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/settings_parity.py",
+  "line": 85,
+  "message": "merge_levels: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-bb278a70",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": "evals/settings_parity.py",
+  "line": 100,
+  "message": "hook_handlers: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-db1f8263",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": "evals/environment.py",
+  "line": 38,
+  "message": "unused variable 'NAME_SHAPE' (60% confidence)"
+ },
+ {
+  "id": "S-317b0a84",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": "evals/needs_audit.py",
+  "line": 80,
+  "message": "unused variable 'audit_needed' (60% confidence)"
+ },
+ {
+  "id": "S-d323c240",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": "evals/needs_audit.py",
+  "line": 84,
+  "message": "unused variable 'changed_files' (60% confidence)"
+ },
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ },
+ {
+  "id": "S-4f59e197",
+  "tool": "pylint",
+  "kind": "duplication",
+  "file": "evals/annotate_echo.py",
+  "line": 51,
+  "message": "17 similar lines: evals/annotate_echo.py:51-68 and evals/run_audit_scenarios.py:447-464"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

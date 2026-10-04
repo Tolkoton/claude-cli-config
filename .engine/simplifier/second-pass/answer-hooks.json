@@ -1,0 +1,258 @@
+[
+  {
+    "target": ".claude/hooks/complexity_budget.py:143-154",
+    "category": "duplication",
+    "claim": "Three hooks each parse .claude/project.env with their own reader (gate.parse_env_text, complexity_budget.project_env, overseer_stop._load_project_env) and they disagree on a trailing `# comment` and on key names with digits; two of the three can go once the hooks that already import gate (overseer_stop, complexity_budget via record_in_gate_format) read the file through gate.parse_env_text.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate.py:182",
+        "detail": "parse_env_text: key `[A-Z_][A-Z0-9_]*`, matched quotes stripped, otherwise the value is cut at ` #` (line 192)"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/complexity_budget.py:151",
+        "detail": "project_env: key `[A-Z_]+` (no digits), `.strip(\"\\\"'\")` only — `KEY=value # note` keeps the note in the value"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:150",
+        "detail": "_load_project_env: partition on `=`, quotes stripped, no comment handling — the third reading of the same file"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:742",
+        "detail": "overseer_stop already imports gate (`import gate` in _active_contract and _note_refusal), so the dependency exists"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/complexity_budget.py:598",
+        "detail": "complexity_budget already imports gate lazily in record_in_gate_format"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_gate.py:54",
+        "detail": "project.env values are written and read end to end through gate.py; tests/test_complexity_budget.py:81 and tests/test_source_dirs.py:14 do the same for the other two readers"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the 'standard library only' note in each docstring is about third-party packages, not about importing a sibling hook; gate_allows.py already takes the git and reason helpers from gate for exactly the 'never disagree' reason"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": ".claude/hooks/gate_allows.py:39 ('imports gate.py so the two can never disagree')",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/overseer_stop.py:604-671",
+    "category": "duplication",
+    "claim": "_has_tool_signal (with its own _is_turn_boundary at 594-601) is a second reverse-scan parser of the transcript that the fresh protocol already has as overseer_verdict.turn_events plus the two `any(...)` lines of _claimed_unit; the former protocol keeps its behaviour if its one caller uses those instead, and the 68-line parser goes.",
+    "evidence": [
+      {
+        "source": "signal",
+        "ref": "S-d8399e91",
+        "detail": "_has_tool_signal: complexity 26, the limit is 13"
+      },
+      {
+        "source": "signal",
+        "ref": "S-203be875",
+        "detail": "_has_tool_signal: nesting 5, the limit is 3"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_verdict.py:193",
+        "detail": "turn_events: same turn boundary (_is_turn_boundary at 180-182, identical to overseer_stop.py:594-601), same tool_use blocks, same input dicts"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:778",
+        "detail": "_claimed_unit computes the same edit+check signal from turn_events in two lines (790-792)"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/overseer_stop.py:963",
+        "detail": "_has_tool_signal has one caller, the former-protocol branch of main; no test names it"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_overseer_fresh.py:150",
+        "detail": "the former protocol itself is kept on purpose and tested ('not wired yet: the claim gets the former self-audit request') — the fence holds for the branch, not for a second parser"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/overseer_stop.py:901",
+        "detail": "main only falls back to the former protocol on ImportError of overseer_verdict; both files ship in the same directory, so the only reachable fallback case already has overseer_verdict importable"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "flag_only",
+    "traceability": ".claude/hooks/overseer_stop.py:47-55 (WHO AUDITS: the former protocol stays until the settings are applied)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/gate.py:402-403",
+    "category": "shallow_module",
+    "claim": "contract_allowances only re-keys contract_grants into a dict whose values nobody reads (guard_python and guard_config test membership only), so bypass_guard can pass contract_grants(root) straight through and the wrapper goes.",
+    "evidence": [
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/gate.py:502",
+        "detail": "the single caller: `allowed = contract_allowances(root)` in bypass_guard"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate.py:433",
+        "detail": "guard_python: `kind in allowed` — membership on the keys"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate.py:490",
+        "detail": "guard_config: `rel.lower() in allowed or base.lower() in allowed` — membership on the keys"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate_allows.py:236",
+        "detail": "gate_allows uses contract_grants(root) directly and reads the (name, reason) values it needs"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_gate.py:395",
+        "detail": "the sealed-contract grant path is exercised (the test seals a contract by its sha256)"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/lesson_queue.py:546",
+    "category": "duplication",
+    "claim": "digest counts pending proposals with a regex that is pending_proposals() minus the capture group; `len(pending_proposals(root))` gives the same number and the second copy of the pattern goes.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/lesson_queue.py:290",
+        "detail": "pending_proposals: re.findall(r\"^## RP-(\\w+) — \\S+ — PROPOSED\", ..., re.MULTILINE)"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/lesson_queue.py:546",
+        "detail": "digest: len(re.findall(r\"^## RP-\\w+ — \\S+ — PROPOSED\", ..., re.MULTILINE)) on the same file"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_lesson_queue.py:324",
+        "detail": "session-start (digest) is run and its text asserted; it stays green with the count taken from pending_proposals"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/second_opinion.py:326",
+    "category": "defensive_for_impossible",
+    "claim": "In `[r for r in asked if asked and ...]` the `asked and` test runs only while iterating `asked`, where it is always true; dropping it changes nothing.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/second_opinion.py:326",
+        "detail": "last_day = [r for r in asked if asked and str(r.get(\"utc\", \"\"))[:13] == str(asked[-1].get(\"utc\", \"\"))[:13]]"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/second_opinion.py:322",
+        "detail": "the empty record returns early at 322-323 anyway; an empty `asked` iterates zero times"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_second_opinion.py:326",
+        "detail": "`cost` is run on a filled and on an empty record"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/simplifier.py:92-93",
+    "category": "duplication",
+    "claim": "simplifier.utc_now is byte-for-byte simplify_signals.utc_now, which simplifier already imports; the local copy (and second_opinion's use of it) can point at the one in simplify_signals.",
+    "evidence": [
+      {
+        "source": "read",
+        "ref": ".claude/hooks/simplify_signals.py:250",
+        "detail": "def utc_now() -> str: return datetime.now(UTC).strftime(\"%Y-%m-%dT%H:%M:%SZ\")"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/simplifier.py:59",
+        "detail": "import simplify_signals"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/second_opinion.py:292",
+        "detail": "second_opinion calls simplifier.utc_now (also at 343); gate.py:165 and overseer_verdict.py:93 hold two more identical copies"
+      },
+      {
+        "source": "read",
+        "ref": "tests/test_second_opinion.py:326",
+        "detail": "the stamp's format is exercised through the record and the `cost --month` default"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/lesson_queue.py:633-650",
+    "category": "duplication",
+    "claim": "project_root is defined seven times across the hooks (and read_envelope four times) with the same CLAUDE_PROJECT_DIR → git → cwd logic; the modules that already import a sibling (lesson_queue is imported by gate, simplifier and overseer_stop; gate_allows already uses gate.project_root) could keep one copy.",
+    "evidence": [
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/gate.py:172",
+        "detail": "project_root also at complexity_budget.py:583, lesson_queue.py:633, overseer_verdict.py:97, overseer_stop.py:109 (_get_project_dir), overseer_phase.py:31, contract_fingerprint.py:34"
+      },
+      {
+        "source": "grep",
+        "ref": ".claude/hooks/gate.py:984",
+        "detail": "read_envelope also at lesson_queue.py:643, overseer_verdict.py:643, overseer_stop.py:575 (_read_envelope) — same isatty/json/dict check"
+      },
+      {
+        "source": "read",
+        "ref": ".claude/hooks/gate_allows.py:327",
+        "detail": "gate_allows calls gate.project_root() instead of carrying its own — the pattern already exists in the directory"
+      },
+      {
+        "source": "judgement",
+        "ref": "",
+        "detail": "the copies differ only in whether they .resolve() and in a 5 s timeout; a consolidation is a two-way door, but the choice of which variant wins is the owner's"
+      }
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "flag_only",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  }
+]

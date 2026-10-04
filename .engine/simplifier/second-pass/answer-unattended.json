@@ -1,0 +1,88 @@
+[
+  {
+    "target": ".claude/unattended/runstate.py:59-60",
+    "category": "duplication",
+    "claim": "The second of two identical consecutive `path.parent.mkdir(parents=True, exist_ok=True)` lines in `_write_json` (and the same doubled `HEARTBEAT.parent.mkdir(...)` at lines 244-245 of `main`) can go; one call already creates the directory and nothing changes without the repeat.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/unattended/runstate.py:59-60", "detail": "two byte-identical `path.parent.mkdir(parents=True, exist_ok=True)` statements in a row"},
+      {"source": "read", "ref": ".claude/unattended/runstate.py:244-245", "detail": "two byte-identical `HEARTBEAT.parent.mkdir(parents=True, exist_ok=True)` statements in a row inside the `heartbeat` branch"},
+      {"source": "signal", "ref": "S-f1244afc", "detail": "main: nesting 11 — the lead that pointed at the CLI dispatch where the second pair sits"},
+      {"source": "grep", "ref": "tests/test_session_launch.py:89", "detail": "the test reads `.claude/state/unattended/state.json` written through `_write_json`; session-claude.sh:34 ticks `runstate.py heartbeat` in the same run"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/unattended/board_review.py:47",
+    "category": "dead_code",
+    "claim": "The module constant `EXIT_REFUSED = 2` in board_review.py has no reader; the refusal exit is returned by `board.cmd_review` from board.py's own `EXIT_REFUSED`, so the documented exit code stays 2 without it.",
+    "evidence": [
+      {"source": "grep", "ref": ".claude/unattended/board_review.py:47", "detail": "'EXIT_REFUSED' appears in board_review.py only at its definition"},
+      {"source": "grep", "ref": ".claude/unattended/board.py:713-715", "detail": "`cmd_review` catches `board_review.ReviewError` and returns board.py's `EXIT_REFUSED`; no `board_review.EXIT_REFUSED` reference exists anywhere in the repository"},
+      {"source": "read", "ref": "tests/test_board_review.py:325-345", "detail": "the review suite drives `board.py review` through its CLI, so the exit code path is exercised without this constant"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/unattended/board_review.py:67-68",
+    "category": "dead_code",
+    "claim": "The `STATES` entries `stalled` and `deadline` translate runner states that board-runner.sh no longer writes (since board 021 it parks the task instead); `STATES.get(word, word)` keeps the review working for any status word, so the review's output for every live state is unchanged without them.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/unattended/board_review.py:61-70", "detail": "STATES maps eight words; `runner_lines` (line 274) reads it with `STATES.get(word, word)`"},
+      {"source": "grep", "ref": ".claude/unattended/board-runner.sh:46", "detail": "the runner's own contract lists `state=<running|waiting-limit|idle|waiting-owner|stopped|error>`; every `status`/`finish` call in the script (lines 230, 467, 486, 508, 510, 515, 543, 546) uses one of those six, `deadline` at line 450 is a `park_task` reason, not a state, and `stalled` does not occur in the script"},
+      {"source": "grep", "ref": "tests/test_board_runner.py:1156-1157", "detail": "a test asserts the runner's head no longer lists stalled or deadline among its states"},
+      {"source": "read", "ref": "tests/test_board_review.py:339-343", "detail": "the review test feeds `state=stalled … reason=no-commit` and checks only that `no-commit` (the reason) is printed, which the fallback still does"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found (board 021 report: the runner parks instead of stopping with these states)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/unattended/board.py:100-104",
+    "category": "defensive_for_impossible",
+    "claim": "The `try: from datetime import UTC … except ImportError` fallback for Python < 3.11 guards an interpreter the rest of the engine rules out: the two callers of board.py (gate.py, lesson_queue.py) and its two companions on the same runner (board_review.py, board_state.py) import `UTC` unconditionally, so `from datetime import UTC, datetime` alone keeps behaviour identical.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/unattended/board.py:100-104", "detail": "try/except ImportError around `from datetime import UTC, datetime` with a `timezone.utc` fallback"},
+      {"source": "grep", "ref": ".claude/hooks/gate.py:67", "detail": "`from datetime import UTC, datetime` unconditional; gate.py:48 says 'Python 3.11+'; gate.py:737 is the caller of `board.gate_question`"},
+      {"source": "grep", "ref": ".claude/hooks/lesson_queue.py:61", "detail": "`from datetime import UTC, datetime` unconditional; lesson_queue.py:50 says 'Python 3.11+'; lesson_queue.py:383 is the caller of `board.rule_question`"},
+      {"source": "read", "ref": ".claude/unattended/board_state.py:36", "detail": "`from datetime import UTC, datetime` unconditional in the module board-runner.sh invokes on every attempt (board-runner.sh:120); board_review.py:40 likewise, imported by board.py's own `review` command"},
+      {"source": "grep", "ref": ".claude/hooks/overseer_stop.py:3", "detail": "`requires-python = \">=3.12\"` on another hook of the same installed set"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/unattended/watch.sh",
+    "category": "dead_code",
+    "claim": "watch.sh has no caller in any script, test, command or README table, and its default log path `.claude/unattended/logs/supervisor.log` no longer exists since package 3c moved the supervisor's logs to `.claude/state/unattended/logs/`; removing it changes nothing the supervisor, the runner or the tests do, and the lesson it embodies (D-18) stays recorded in unattended-decisions.md.",
+    "evidence": [
+      {"source": "grep", "ref": ".claude/unattended/unattended-decisions.md:176", "detail": "the only mention outside the file itself: D-18 names it as the fix for an ask-prompting inline watcher; no script, test, settings or README row invokes it"},
+      {"source": "read", "ref": ".claude/unattended/watch.sh:43-55", "detail": "defaults to `$HERE/logs/supervisor.log` and writes `.watch-run`/`.watch-seen` under `$HERE/logs/`, i.e. inside the tracked `.claude/unattended/` directory"},
+      {"source": "read", "ref": ".claude/unattended/supervisor.sh:40-42", "detail": "`STATE_DIR=.claude/state/unattended`, `SUP_LOG=$STATE_DIR/logs/supervisor.log` — the log watch.sh polls by default is not where the supervisor writes"},
+      {"source": "read", "ref": ".claude/unattended/README.md:147-159", "detail": "the Files table lists supervisor.sh, runstate.py, session-claude.sh, session-sim.sh, recheck_parked.py, rotate.sh, config.sh — not watch.sh"},
+      {"source": "grep", "ref": "engine.py:124", "detail": "the installer's migration list moves `.claude/unattended/logs/` to `.claude/state/unattended/logs/`, so a fresh install has no directory for watch.sh's default"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found (D-18 records the lesson; no goal or contract asks for the watcher itself)",
+    "reversal_risk": "medium"
+  }
+]
