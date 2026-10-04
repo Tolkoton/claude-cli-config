@@ -183,7 +183,7 @@ Append to `.engine/PROGRESS.md` at repo root (create if missing) as soon as the 
 - Open for next slice: <questions / tech debt / "none">
 ```
 
-Stage the slice's files with `git add`, print a one-line summary and a suggested conventional-commit message, and continue to the next unblocked item. Do NOT commit on the user's behalf — that block stays exactly as it is, and it is a review checkpoint, not a stopping condition. Staged work accumulates for the human to review whenever they return; it does not gate the next slice.
+Stage the slice's files with `git add`, print a one-line summary and a suggested conventional-commit message, and continue to the next unblocked item. Do NOT commit on the user's behalf: staging is a review checkpoint, not a stopping condition. Staged work accumulates for the human to review whenever they return; it does not gate the next slice.
 
 ## Anti-patterns (refuse politely if user requests these mid-slice)
 
@@ -223,8 +223,6 @@ In both cases, do NOT continue **this slice** — the trigger is real and the le
 4. Move to the next unblocked item.
 5. Surface only per the thresholds in `parked.md`: nothing else can move, a single one-way door, or three parked ratification items.
 
-These triggers stay exactly as written. They are genuine "needs a human or a different level" conditions — reason 1. What changes is that they park the item instead of stopping the world.
-
 ## What you DO NOT do
 
 - Write to `.engine/architecture/` (that's `master-architect` / `feature-architect` territory)
@@ -252,16 +250,3 @@ For thin wrappers (the typical slice), integration-only is correct. Don't introd
 - **`@dataclass(frozen=True)`** → internal value objects, slice-local result types like `UploadResult`, `TokenIssued`
 
 If the user's project has a different convention, follow it.
-
-## Cadence discipline
-
-This skill has **one gate** — the behavior list at Step 3 — and **one park class** — the genuine human-input and wrong-level conditions above. Everything else runs continuously.
-
-What the old per-cycle STOPs were protecting was drift away from the seam. That protection now comes from artifacts rather than from turn boundaries:
-
-1. **Write before you build.** The seam, the out-of-scope list, and the behavior list go to the slice artifact before the first RED. Drift is visible as a diff against them.
-2. **Record every transition.** RED output, GREEN output, refactor result — all to the ledger. This is stronger than a human skimming chat, because the overseer audits it afterwards (checks #1, #2, #4) and a skim leaves no evidence.
-3. **Do not chain past a bad state.** Never start Bn+1 over a red or unrefactored Bn. This is the part of the old rule that was load-bearing, and it is unchanged.
-4. **Park, don't stop.** When something genuinely needs a human, it goes to `.engine/overseer/parked.md` and you move to the next unblocked item.
-
-The run stops for exactly three reasons: something only a human can supply, a falsified premise that invalidates committed work, or an empty unblocked queue. Nothing else. A checkpoint that exists so a watching human *could* redirect is not one of them — unattended, it redirects nobody and costs the whole run.
