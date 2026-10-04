@@ -113,8 +113,8 @@ python3 evals/run_audit_scenarios.py --runs 1 --only 02          # a targeted re
    It names a second class apart, `MAYBE`: hook files that put their own strings in front of the
    model (`overseer_stop.py`, `gate_allows.py`, `lesson_queue.py`, `gate.py`, `env-check.sh`) —
    read the diff and decide whether words or only logic changed.
-2. **Then the `smoke` tier**: one run of every scenario (about a third of the cost; recorded
-   turns cost one session, live ones two). It answers "did anything break", not "by how much".
+2. **Then the `smoke` tier**: one run of every scenario (about a third of the cost; every
+   run is one session). It answers "did anything break", not "by how much".
 3. **The `full` tier — three runs of every scenario — only before a version tag.** It is the
    measurement the baselines are compared on (`compare_audits.py`).
 
