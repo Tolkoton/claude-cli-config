@@ -24,6 +24,7 @@ WHAT IS CHECKED
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -274,6 +275,28 @@ for reason, words in (("deadline", "довше за 12 год"), ("budget", "б�
     check(f"{reason}: the reason is worded, and a task without a questions section gets one", r.returncode == 0 and words in text
           and board.read(root / "tasks/blocked/009-other.md").answers == ("",) and "git stash" not in text, text)
     (root / "tasks/blocked/009-other.md").unlink()
+# three BLOCKs in a row (board 031): the verdicts the Stop hook left go into the task
+put(root, "doing", "010-refused.md", task())
+marker = root / "marker.json"
+marker.write_text(json.dumps({"task": "010-refused", "unit": "-|010-refused|unit 2", "blocks": [
+    {"utc": "2026-10-04T10:00:00Z", "request": "r1", "check": 4, "reason": "masked  test gap"},
+    {"utc": "2026-10-04T10:05:00Z", "request": "r2", "check": None, "reason": "ДРУГА-ПРИЧИНА"},
+    {"utc": "2026-10-04T10:09:00Z", "request": "r3", "check": 1, "reason": "false DONE"}]}, ensure_ascii=False), encoding="utf-8")
+r = cli(root, "park", "010-refused", "three-blocks", "--verdicts", str(marker))
+refused = root / "tasks/blocked/010-refused.md"
+text = refused.read_text(encoding="utf-8") if refused.is_file() else ""
+why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
+check("three-blocks: the reason names the unit and the three verdicts stand under it, in order, before the questions", r.returncode == 0
+      and "наглядач тричі поспіль відхилив один юніт (-|010-refused|unit 2)" in why
+      and why.index("BLOCK 1 (2026-10-04T10:00:00Z, запит `r1`, перевірка #4): masked test gap") < why.index("BLOCK 2 (2026-10-04T10:05:00Z, запит `r2`): ДРУГА-ПРИЧИНА")
+      < why.index("BLOCK 3 (2026-10-04T10:09:00Z, запит `r3`, перевірка #1): false DONE"), r.stderr + text)
+check("…with one question that waits for the owner, and a journal entry", board.read(refused).answers == ("",) and "1. Три наглядачі поспіль" in text
+      and "— 010-refused\n- Що сталося: наглядач тричі поспіль" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"), text)
+put(root, "doing", "011-bare.md", task())
+r = cli(root, "park", "011-bare", "three-blocks", "--verdicts", str(root / "no-such-marker.json"))
+text = (root / "tasks/blocked/011-bare.md").read_text(encoding="utf-8")
+check("the negative case: without a readable marker the task is still parked, with no verdict lines invented", r.returncode == 0
+      and "наглядач тричі поспіль" in text and "BLOCK 1" not in text, r.stderr + text)
 r = cli(root, "park", "999-nowhere", "no-commit")
 check("the negative cases: a task that is in neither doing/ nor todo/ is refused, and so is an unknown reason", r.returncode == 2
       and "neither" in r.stderr and cli(root, "park", "008-next", "because").returncode == 2 and (root / "tasks/todo/008-next.md").is_file(), r.stderr)

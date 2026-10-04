@@ -289,6 +289,52 @@ p.launch(f"OVERSEER_REQUEST {third}")
 p.answer(BLOCK)
 said, fourth = p.claim("And again.\n\n=== UNIT 3 COMPLETE ===", after_audit=True)
 check("third BLOCK: park for the owner, and NO fourth audit is requested", "third in a row" in said and "tasks/blocked/" in said and "Launch the agent" not in said and fourth == "", said)
+check("…the park entry is written by the hook, not left to the builder", "three BLOCKs in a row" in p.read(".engine/overseer/parked.md")
+      and "already written the PARKED entry" in said and said.count("BLOCK 3: #4 masked test gap") == 1, said + p.read(".engine/overseer/parked.md"))
+check("…no marker for a runner that is not there", not list((p.root / ".claude/state").rglob("three-blocks-*.json")))
+
+
+def three_blocks(project: Project) -> dict[str, Any]:
+    """Three audits answered BLOCK on one unit; returns what the Stop hook printed after the third."""
+    project.audit(BLOCK)
+    for attempt in (2, 3):   # a message claimed twice is not audited twice, so each claim has its own words
+        _, rid = project.claim(f"Attempt {attempt}.\n\n=== UNIT 3 COMPLETE ===", after_audit=True)
+        project.launch(f"OVERSEER_REQUEST {rid}")
+        project.answer(BLOCK)
+    out = project.run(STOP, [], {"hook_event_name": "Stop", "last_assistant_message": "And again.\n\n=== UNIT 3 COMPLETE ===",
+                                 "transcript_path": project.transcript(after_audit=True)}).stdout
+    printed: dict[str, Any] = json.loads(out)
+    return printed
+
+
+p = Project()
+printed = three_blocks(p)
+check("no runner: the person at the terminal is told in a message of their own, with the three reasons",
+      printed.get("decision") == "block" and "тричі поспіль" in printed.get("systemMessage", "") and printed["systemMessage"].count("masked test gap") == 3, str(printed))
+p = Project()
+p.write("tasks/doing/031-refused.md", "# task\n")
+p.write(".claude/state/board/lock", f"{os.getpid()}\n")
+printed = three_blocks(p)
+marker = json.loads(p.read(".claude/state/board/three-blocks-031-refused.json") or "{}")
+check("under the board runner: the session is stopped outright, the builder is asked nothing",
+      printed.get("continue") is False and "decision" not in printed and "031-refused" in printed.get("stopReason", ""), str(printed))
+check("…and the marker for the runner names the task, the unit and the three verdicts", marker.get("task") == "031-refused"
+      and marker.get("unit") == "-|031-refused|unit 3" and [b.get("check") for b in marker.get("blocks", [])] == [4, 4, 4]
+      and len({b.get("request") for b in marker["blocks"]}) == 3 and "masked test gap" in marker["blocks"][0]["reason"], str(marker))
+check("…nothing is written to the park queue: the task file carries it", not p.read(".engine/overseer/parked.md"))
+check("…the count restarts: the unit gets three attempts again after the owner's answer", p.rows()[-1]["verdict"] == "PARK")
+p = Project()
+p.write("tasks/doing/031-refused.md", "# task\n")
+p.write(".claude/state/board/lock", "999999999\n")
+printed = three_blocks(p)
+check("negative — a board task but a lock whose runner is gone: as in any interactive session, no marker, no outright stop",
+      printed.get("decision") == "block" and "continue" not in printed and "tasks/blocked/" in printed["reason"]
+      and not p.read(".claude/state/board/three-blocks-031-refused.json"), str(printed))
+p = Project()
+p.write(".claude/state/board/lock", f"{os.getpid()}\n")
+printed = three_blocks(p)
+check("negative — a runner but no task in doing/: nothing for it to move, so no marker", printed.get("decision") == "block"
+      and not list((p.root / ".claude/state/board").glob("three-blocks-*")), str(printed))
 q = Project()
 q.audit(BLOCK)
 q.stop("Fixing.")

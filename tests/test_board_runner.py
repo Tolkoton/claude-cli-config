@@ -20,6 +20,11 @@ and then does what its script for that call says — the things tasks/README.md 
     tidy            commit everything that is uncommitted (what the runner asks for when a closed
                     task left the tree dirty, board 029)
     <step>-dirty    do <step>, then stage a file outside tasks/ and leave it uncommitted
+    refused         claim one unit complete three times; each claim is audited through the REAL
+                    overseer hooks (overseer_stop.py, overseer_verdict.py — the Stop, PreToolUse
+                    and SubagentStop envelopes a session would send) and answered BLOCK. What the
+                    Stop hook printed after the third goes to <home>/hook-said; the fake then ends
+                    its session, as claude does on `continue: false` (board 031)
 
 FAKE_STOP_AT=<n> makes call n ask for a soft stop while it runs — through the runner's own
 `--stop-after-task`, or (FAKE_STOP_HOW=file) by creating the flag file itself.
@@ -111,6 +116,36 @@ elif step == "vanish" and doing:
     git("add", "-A", "tasks"); git("commit", "-q", "-m", "gone")
 elif step == "tidy":
     git("add", "-A"); git("commit", "-q", "-m", "the leftovers")
+elif step == "refused":
+    hooks = Path(os.environ["FAKE_HOOKS"])
+    state = Path(".claude/state/overseer")
+
+    def hook(script, args, envelope):
+        return subprocess.run([sys.executable, str(hooks / script), *args], input=json.dumps(envelope), capture_output=True, text=True).stdout
+
+    def use(i, name, tool_input):
+        return [{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": f"t{i}", "name": name, "input": tool_input}]}},
+                {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"}]}}]
+
+    said = ""
+    for turn in range(1, 5):   # three claims, each audited and refused; the fourth stop hears the third verdict
+        records = [{"type": "user", "message": {"role": "user", "content": "do the unit"}}]
+        records += use(0, "Agent", {"subagent_type": "overseer", "prompt": "OVERSEER_REQUEST x"}) if turn > 1 else []
+        records += use(1, "Edit", {"file_path": os.path.abspath("src/unit.py")}) + use(2, "Bash", {"command": "pytest -q"})
+        transcript = home / f"transcript-{n}-{turn}.jsonl"
+        transcript.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        said = hook("overseer_stop.py", [], {"hook_event_name": "Stop", "transcript_path": str(transcript),
+                                            "last_assistant_message": f"Attempt {turn}.\n\n=== UNIT 1 COMPLETE ==="})
+        if turn == 4:
+            break
+        request = json.loads((state / "pending.json").read_text())["id"]
+        hook("overseer_verdict.py", ["guard"], {"hook_event_name": "PreToolUse", "tool_name": "Agent",
+                                               "tool_input": {"subagent_type": "overseer", "prompt": f"OVERSEER_REQUEST {request}"}})
+        reply = {"verdict": "BLOCK", "check": 4, "reason": f"ПРИЧИНА-{turn}: the assertion passes without the fix",
+                 "evidence": ["src/unit.py:1"], "category": "none"}
+        hook("overseer_verdict.py", ["record"], {"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": f"a{turn}",
+                                                "last_assistant_message": "```json\n" + json.dumps(reply) + "\n```"})
+    (home / "hook-said").write_text(said)
 elif step == "limit":
     result = "You've hit your session limit · resets 3pm (UTC)"
 elif step == "auth":
@@ -185,7 +220,7 @@ class World:
         full = {**{k: v for k, v in os.environ.items() if not k.startswith("BOARD_")},
                 "CLAUDE_PROJECT_DIR": str(self.repo), "BOARD_CLAUDE": str(self.fake),
                 "BOARD_INBOX": str(self.inbox), "BOARD_PAUSE_SEC": "0", "BOARD_LIMIT_WAIT_SEC": "0",
-                "FAKE_HOME": str(self.home), "FAKE_RUNNER": str(RUNNER)}
+                "FAKE_HOME": str(self.home), "FAKE_RUNNER": str(RUNNER), "FAKE_HOOKS": str(ROOT / ".claude/hooks")}
         # The suite itself may run inside a Claude Code session; the runner under test is the
         # owner's process unless a case says otherwise (CLAUDECODE="1").
         for name in ("CLAUDE_UNATTENDED_SESSION", "CLAUDECODE"):
@@ -1246,6 +1281,77 @@ w = World("done")
 w.put("todo", "001-first.md")
 r = w.run()
 check("the negative case: nothing odd happened — no journal is made", r.returncode == 0 and not w.has("tasks/ANOMALIES.md"))
+# --- three BLOCKs park the task, and the runner does it (board 031) -----------------------------------
+print("three BLOCKs in a row on one unit: the hook stops the session, the runner parks the task and takes the next")
+WIRED = json.dumps({"hooks": {"SubagentStop": [{"matcher": "overseer", "hooks": [
+    {"type": "command", "command": 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py" record'}]}]}})
+
+
+def audited_world(plan: str) -> World:
+    """A world whose settings wire the overseer as a separate agent, with a code file to claim a unit on."""
+    world = World(plan)
+    (world.repo / ".claude").mkdir(exist_ok=True)
+    (world.repo / ".claude/settings.json").write_text(WIRED)
+    (world.repo / "src").mkdir()
+    (world.repo / "src/unit.py").write_text("def unit():\n    return 1\n")
+    sh(world.repo, "git", "add", "-A")
+    sh(world.repo, "git", "commit", "-q", "-m", "the project")
+    return world
+
+
+w = audited_world("refused done")
+w.put("todo", "001-refused.md")
+w.put("todo", "002-next.md")
+r = w.run()
+said = json.loads((w.home / "hook-said").read_text() or "{}") if (w.home / "hook-said").exists() else {}
+check("the hook, under the runner, stopped the session and asked nothing of the agent", said.get("continue") is False and "decision" not in said
+      and "001-refused" in said.get("stopReason", ""), said)
+text = (w.repo / "tasks/blocked/001-refused.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-refused.md") else ""
+why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
+check("the runner moved the task to blocked/ after ONE session — the fake never touched the task file", r.returncode == 0
+      and bool(text) and not w.has("tasks/doing/001-refused.md") and " attempt 001-refused 2" not in events(w), r.stdout + r.stderr + events(w))
+check("«Чому зупинилась» carries the unit and the three overseers' verdicts", "наглядач тричі поспіль відхилив один юніт (-|001-refused|unit 1)" in why
+      and all(f"BLOCK {k} (" in why and f"перевірка #4): ПРИЧИНА-{k}:" in why for k in (1, 2, 3)), text)
+check("…and one question to the owner, unanswered", "1. Три наглядачі поспіль" in text and text.rstrip().endswith("Відповідь:"), text)
+journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
+check("the event is in the anomaly journal", "— 001-refused\n- Що сталося: наглядач тричі поспіль відхилив один юніт" in journal, journal)
+check("the runner took the next task: it is done by the second call", len(w.calls()) == 2 and w.has("tasks/done/002-next/report.md")
+      and "state=waiting-owner" in w.status(), w.status() + r.stdout)
+check("one commit holds the move and the journal; the event is logged; the marker is gone",
+      "board: 001-refused → blocked — the runner parked it (three-blocks); the board goes on" in w.log()
+      and " task-parked 001-refused three-blocks" in events(w) and not list(w.state.glob("three-blocks-*")), events(w))
+check("the ledger the audits wrote is kept in the stash the task names, and the tree is clean", "git stash apply " in why
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", why)
+review = sh(w.repo, "python3", str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "review", "--since", "main", ok=False)
+check("the review shows it among the anomalies", "наглядач тричі поспіль" in review.stdout.split("Аномалії")[-1], review.stdout[-1500:] + review.stderr)
+parked = w.repo / "tasks/blocked/001-refused.md"
+parked.write_text(text.replace("Відповідь:", "Відповідь: спробуй інакше"), encoding="utf-8")
+sh(w.repo, "git", "commit", "-q", "-am", "owner: answer")
+sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+(w.home / "plan").write_text("refused done done")
+r = w.run()
+check("after the owner's answer the task is taken again and finished: the old BLOCKs do not park it a second time", r.returncode == 0
+      and w.has("tasks/done/001-refused/report.md") and events(w).count(" task-parked 001-refused") == 1, r.stdout + r.stderr + events(w))
+w = audited_world("idle done")
+w.put("todo", "001-quiet.md")
+r = w.run()
+check("the negative case: a session without three BLOCKs is simply continued — nothing is parked", r.returncode == 0 and len(w.calls()) == 2
+      and w.has("tasks/done/001-quiet/report.md") and "task-parked" not in events(w) and not w.has("tasks/ANOMALIES.md"), events(w))
+w = audited_world("done")
+w.put("doing", "001-left.md")
+w.put("todo", "002-next.md")
+w.state.mkdir(parents=True, exist_ok=True)
+(w.state / "three-blocks-001-left.json").write_text(json.dumps({"task": "001-left", "unit": "-|001-left|unit 1", "blocks": [
+    {"utc": "2026-10-04T10:00:00Z", "request": "r1", "check": 4, "reason": "ЗАЛИШЕНА-ПРИЧИНА"}]}, ensure_ascii=False))
+r = w.run()
+text = (w.repo / "tasks/blocked/001-left.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-left.md") else ""
+check("a marker left by a runner that died before parking: the next runner parks the task first, with no session for it",
+      r.returncode == 0 and "ЗАЛИШЕНА-ПРИЧИНА" in text and len(w.calls()) == 1 and "tasks/doing/002-next.md" in w.argv(0)[1]
+      and w.has("tasks/done/002-next/report.md") and not list(w.state.glob("three-blocks-*")), text + r.stdout + r.stderr)
+check("the runner's head and both manuals say who parks a task after three BLOCKs",
+      "THREE BLOCKS PARK THE TASK" in runner_text.split("set -uo pipefail")[0]
+      and all("три вердикти наглядача" in " ".join((ROOT / m).read_text(encoding="utf-8").split()) for m in ("tasks/README.md", "templates/project/tasks/README.md")))
+
 head_text = runner_text.split("set -uo pipefail")[0]
 check("the runner's head no longer lists stalled or deadline among its states and names what stops the board",
       "stalled|deadline" not in head_text and "ONE TASK NEVER STOPS THE BOARD" in head_text and "logged-out" in head_text and "pull-conflict" in head_text)

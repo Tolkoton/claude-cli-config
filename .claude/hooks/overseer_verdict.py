@@ -67,6 +67,7 @@ PENDING_REL = STATE_REL / "pending.json"
 VERDICTS_REL = STATE_REL / "verdicts.jsonl"
 LEDGER_REL = Path(".engine/overseer/ledger.md")
 PARKED_REL = Path(".engine/overseer/parked.md")
+BOARD_STATE_REL = Path(".claude/state/board")   # the board runner's state: its lock, and the marker left for it
 VERDICTS = ("PASS", "BLOCK", "ADR_REQUIRED", "ESCALATE")
 INVALID = "INVALID"
 CATEGORIES = ("strategy", "recovery", "optimization", "none")
@@ -318,16 +319,20 @@ def verdict_for(root: Path, request_id: str) -> JsonObj | None:
     return next((row for row in reversed(rows(root)) if row.get("request") == request_id), None)
 
 
-def blocks_in_a_row(root: Path, unit_key: str) -> int:
-    """BLOCK verdicts on this unit since its last other verdict; an INVALID row judged nothing."""
-    count = 0
+def last_blocks(root: Path, unit_key: str) -> list[JsonObj]:
+    """The BLOCK rows on this unit since its last other verdict, oldest first; an INVALID row judged nothing."""
+    found: list[JsonObj] = []
     for row in reversed(rows(root)):
         if row.get("unit_key") != unit_key or row.get("verdict") == INVALID:
             continue
         if row.get("verdict") != "BLOCK":
             break
-        count += 1
-    return count
+        found.append(row)
+    return found[::-1]
+
+
+def blocks_in_a_row(root: Path, unit_key: str) -> int:
+    return len(last_blocks(root, unit_key))
 
 
 def passes_in_a_row(root: Path, slice_name: str) -> int:
@@ -635,6 +640,21 @@ def park(root: Path, item: str, blocked_on: str, evidence: str) -> None:
             fh.write(entry)
     except OSError:
         pass
+
+
+def runner_alive(root: Path) -> bool:
+    """The board runner (board-runner.sh) is working here: its lock names a live process."""
+    try:
+        os.kill(int((root / BOARD_STATE_REL / "lock").read_text(encoding="utf-8").strip()), 0)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def three_blocks_marker(root: Path, task: str) -> Path:
+    """What the Stop hook leaves for the runner after the third BLOCK (board 031): the runner, not
+    the builder, moves the task to tasks/blocked/ (`board.py park <task> three-blocks`)."""
+    return root / BOARD_STATE_REL / f"three-blocks-{task}.json"
 
 
 # ------------------------------------------------------------------ command line

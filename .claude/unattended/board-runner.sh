@@ -21,8 +21,9 @@
 #   the task is closed  when the agent moved it to done/ or blocked/. Then: the working tree is
 #                       checked (see below), push, next task
 #   a task is stuck     three attempts in a row without a new commit; a task older than twelve
-#                       hours; the task's budget spent: the runner PARKS the task and takes the
-#                       next one (see below) — one task never stops the board
+#                       hours; the task's budget spent; three overseer BLOCKs in a row on one of
+#                       its units: the runner PARKS the task and takes the next one (see below)
+#                       — one task never stops the board
 #   it stops            todo/ empty or everything left waiting for the owner; a soft stop; and the
 #                       few critical things below — always with a summary
 #
@@ -36,6 +37,13 @@
 # work goes on. THE WHOLE BOARD STOPS only on: a pull that conflicts (reason=pull-conflict);
 # claude logged out (reason=logged-out; the task stays in doing/ and is continued by the next
 # start); a git or board.py failure after which nothing can be committed; the soft stop.
+#
+# THREE BLOCKS PARK THE TASK, AND THE RUNNER DOES IT (board 031). When three overseers in a row
+# refused one unit, the Stop hook (overseer_stop.py) asks nothing of the agent: it leaves the marker
+# .claude/state/board/three-blocks-<task>.json with the three verdicts and stops the session. The
+# runner finds the marker and parks the task like any stuck one (reason three-blocks), with the
+# verdicts written under «Чому зупинилась». The hook leaves the marker only for the task that is in
+# doing/, so a runner that died before parking leaves it to the next one, which parks first.
 #
 # A TASK CLOSES WITH A CLEAN TREE (board 029). When the agent has moved its task to done/ or
 # blocked/, the runner looks at `git status`. Files that are uncommitted now and were not before
@@ -125,6 +133,7 @@ STOP_FLAG="$STATE/stop-after-task"
 GATE_PY="$HERE/../hooks/gate.py"
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
 DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
+blocks_marker() { echo "$STATE/three-blocks-$1.json"; }   # left by overseer_stop.py after the third BLOCK
 board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
 memo() { python3 "$HERE/board_state.py" "$STATE" "$@"; }
 
@@ -424,12 +433,15 @@ intake() {
 # goes to blocked/ with the reason and a question; the journal gets its entry; one commit.
 park_task() {
   local stem="$1" reason="$2" detail="$3" stash="" before after
+  local -a verdicts=()
+  [ "$reason" != three-blocks ] || verdicts=(--verdicts "$(blocks_marker "$stem")")
   before=$(git rev-parse -q --verify refs/stash 2>/dev/null)
   git stash push -q -u -m "board: $stem parked ($reason)" -- . ':(exclude)tasks' >> "$STATE/logs/git.log" 2>&1
   after=$(git rev-parse -q --verify refs/stash 2>/dev/null)
   [ "$after" != "$before" ] && stash="$after"
-  board park "$stem" "$reason" --detail "$detail" ${stash:+--stash "$stash"} > /dev/null \
+  board park "$stem" "$reason" --detail "$detail" ${stash:+--stash "$stash"} "${verdicts[@]}" > /dev/null \
     || finish error "$stem" park "board.py park $stem $reason failed"
+  rm -f "$(blocks_marker "$stem")"
   [ "$reason" = budget ] && memo rebudget "$stem"
   board_commit "board: $stem → blocked — the runner parked it ($reason); the board goes on" \
     || finish error "$stem" commit "cannot commit the parked task"
@@ -521,6 +533,9 @@ run_task() {
       *) note_anomaly "$stem" "задача зникла з дошки: її немає ні в doing/, ні в done/, ні в blocked/, ні в todo/" "виконавець узяв наступну задачу; файл задачі можна повернути з історії git"
          OUTCOME=missing; return 0 ;;
     esac
+    if [ -f "$(blocks_marker "$stem")" ]; then
+      park_task "$stem" three-blocks ""; return 0
+    fi
     if [ "$(memo get "$stem" age_sec)" -ge "$TASK_MAX" ]; then
       park_task "$stem" deadline "$((TASK_MAX / 3600))"; return 0
     fi
@@ -575,6 +590,7 @@ while :; do
       TASK=$(board start "$TASK") || finish error "$TASK_NAME" start "board.py start refused"
       board_commit "board: $TASK_NAME → doing" || finish error "$TASK_NAME" commit "cannot commit the move to doing/"
       dirty_paths > "$DIRTY_BEFORE"
+      rm -f "$(blocks_marker "$TASK_NAME")"   # a fresh start: a marker from before the owner's answer is stale
       memo retry "$TASK_NAME"
       ;;
     *)

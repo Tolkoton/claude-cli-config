@@ -83,7 +83,9 @@ waits 15 minutes. When the agent has moved the task to `done/` or `blocked/` the
 the branch and takes the next one.
 
 One task never stops the board. After three attempts in a row without a commit, after twelve
-hours on one task, or when the task's budget (`BOARD_MAX_USD`) is spent, the runner parks the
+hours on one task, when the task's budget (`BOARD_MAX_USD`) is spent, or when three overseers in a
+row answered BLOCK on one of its units (the Stop hook then leaves a marker with the verdicts and
+stops the session; the agent is asked nothing), the runner parks the
 task itself (`board.py park`): it goes to `tasks/blocked/` with a section `## Чому зупинилась` and
 a question to the owner, the agent's uncommitted work outside `tasks/` goes into a git stash that
 section names, the event is written into the anomaly journal `tasks/ANOMALIES.md`, and the next

@@ -282,12 +282,26 @@ FRESH_BLOCK_REASON = (
 )
 FRESH_THREE_BLOCKS_REASON = (
     "OVERSEER_BLOCK — the third in a row on one unit ({unit}; request {id}): {finding}\n"
-    "Three overseers refused this unit, so it is no longer yours to retry: it is parked for the owner. "
-    "On the task board: write the question under «Питання до власника» in the task (what was refused "
-    "three times, the three reasons from the ledger, what you tried), leave `Відповідь:` empty and move "
-    "the task to tasks/blocked/. Without a board task: append a PARKED entry to "
-    ".engine/overseer/parked.md (Class: human-input). Then take the next unblocked item, or end the "
-    "turn with `OVERSEER_SLICE_AWAITING_OWNER: three BLOCKs on {unit}` on its own line."
+    "Three overseers refused this unit, so it is no longer yours to retry: it is parked for the owner, "
+    "and this hook has already written the PARKED entry in .engine/overseer/parked.md. Tell the human "
+    "plainly, in your next message: which unit was refused three times, the three reasons below, what "
+    "you tried. If a board task is in tasks/doing/: write that as a question under «Питання до власника» "
+    "in the task, leave `Відповідь:` empty and move the task to tasks/blocked/. Then take the next "
+    "unblocked item, or end the turn with `OVERSEER_SLICE_AWAITING_OWNER: three BLOCKs on {unit}` on "
+    "its own line.\n{reasons}"
+)
+# To the person at the terminal, in the owner's language like everything the board says to the owner.
+THREE_BLOCKS_HUMAN = (
+    "Наглядач тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
+    "відкладено до вашого рішення (запис у .engine/overseer/parked.md, вердикти — у "
+    ".engine/overseer/ledger.md).\n{reasons}"
+)
+# Under the board runner nothing is asked of the builder: the session is stopped and the runner
+# moves the task (board 031 — the rule is carried out by a script, not by an agent on its word).
+THREE_BLOCKS_RUNNER_STOP = (
+    "OVERSEER_BLOCK — the third in a row on one unit ({unit}; request {id}): {finding}\n"
+    "Three overseers refused this unit. The session is stopped here: the board runner moves the task "
+    "{task} to tasks/blocked/ with the three verdicts and a question to the owner, and takes the next task.\n{reasons}"
 )
 FRESH_ROUTE_REASON = (
     "OVERSEER_{verdict} (request {id}): {finding}\n"
@@ -550,10 +564,18 @@ def _stop_or_continue(project_dir: Path) -> NoReturn:
     _emit_block(UNATTENDED_CONTINUE_REASON.format(detail=detail))
 
 
-def _emit_block(reason: str) -> NoReturn:
+def _emit_block(reason: str, system_message: str = "") -> NoReturn:
     """Print the block decision and exit 0 — Claude injects `reason` and
-    continues the turn."""
-    json.dump({"decision": "block", "reason": reason}, sys.stdout)
+    continues the turn. `system_message` is shown to the person at the terminal."""
+    json.dump({"decision": "block", "reason": reason} | ({"systemMessage": system_message} if system_message else {}),
+              sys.stdout, ensure_ascii=False)
+    sys.exit(0)
+
+
+def _emit_halt(reason: str) -> NoReturn:
+    """Stop the session outright (`continue: false` outranks any hook's block): nothing is
+    injected and the builder gets no further turn."""
+    json.dump({"continue": False, "stopReason": reason}, sys.stdout, ensure_ascii=False)
     sys.exit(0)
 
 
@@ -783,6 +805,23 @@ def _claimed_unit(project_dir: Path, envelope: dict[str, object], message: str) 
     return found.group(1) if edited and checked else None
 
 
+def _three_blocks(project_dir: Path, unit: str, request_id: str, finding: str, blocks: list[dict[str, object]]) -> NoReturn:
+    """Three overseers in a row refused one unit. Under the board runner the task is the runner's to
+    move: a marker with the verdicts is left for it and the session is stopped — the builder is asked
+    nothing. Anywhere else the park entry is written here and the person at the terminal is told."""
+    import overseer_verdict as ov
+
+    kept = [{"utc": row.get("utc"), "request": row.get("request"), "check": row.get("check"), "reason": row.get("reason")} for row in blocks]
+    reasons = "\n".join(f"BLOCK {n}: " + (f"#{row['check']} " if row["check"] else "") + str(row["reason"]) for n, row in enumerate(kept, 1))
+    task = ov.board_task(project_dir)
+    if task != "-" and ov.runner_alive(project_dir):
+        ov.write_json(ov.three_blocks_marker(project_dir, task), {"task": task, "unit": unit, "utc": ov.utc_now(), "blocks": kept})
+        _emit_halt(THREE_BLOCKS_RUNNER_STOP.format(unit=unit, id=request_id, finding=finding, task=task, reasons=reasons))
+    ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_REL.as_posix())
+    _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding, reasons=reasons),
+                THREE_BLOCKS_HUMAN.format(unit=unit, reasons=reasons))
+
+
 def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str, waiting: dict[str, object]) -> str | None:
     """A request is waiting. Returns the text that hands its verdict to the builder, or None when
     the verdict ends the matter without a word (a manual audit: the report is the human's).
@@ -821,10 +860,11 @@ def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str
         count = ov.blocks_in_a_row(project_dir, unit)
         if count >= ov.MAX_BLOCKS:
             # The row restarts the count: after the owner's answer the unit gets three attempts again.
+            blocks = ov.last_blocks(project_dir, unit)
             ov.append_row(project_dir, {"utc": ov.utc_now(), "request": request_id, "unit_key": unit, "verdict": "PARK",
                                         "reason": f"{count} BLOCKs in a row"})
             _record_audit(project_dir, message)
-            _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding))
+            _three_blocks(project_dir, unit, request_id, finding, blocks)
         return FRESH_BLOCK_REASON.format(id=request_id, count=count, limit=ov.MAX_BLOCKS, finding=finding)
     return FRESH_ROUTE_REASON.format(verdict=verdict, id=request_id, finding=finding)
 

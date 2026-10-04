@@ -33,7 +33,7 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py action-line <action>    the line an agent writes under its question to offer the action
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
-    board.py park <NNN-name> <reason> [--detail N] [--stash SHA]
+    board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--verdicts FILE]
                                      the runner gives up on a task, not on the board (see below)
     board.py anomaly <task|-> <what happened> <what was done>   one entry in tasks/ANOMALIES.md
     board.py summary                 the board in a dozen lines, for the owner
@@ -77,7 +77,8 @@ makes `next` exit 5: the runner stops and says so instead of working on it.
 
 A PARKED TASK (board 021). One task never stops the board: when the runner gives up on a task —
 attempts in a row without a commit, a task open too long, its budget spent, a task the agent put
-back into todo/ — `park` moves it to blocked/ itself, with a section `## Чому зупинилась` (one
+back into todo/, three overseer BLOCKs in a row on one unit (board 031: the Stop hook leaves a
+marker, `--verdicts` writes its verdicts into the task) — `park` moves it to blocked/ itself, with a section `## Чому зупинилась` (one
 dated line per stop, placed before the questions) and a question to the owner with an empty
 `Відповідь:`; any answer returns it to todo/ like every answered task. The same call writes the
 event into THE ANOMALY JOURNAL, tasks/ANOMALIES.md: `## <UTC> — <task or дошка>` with two lines,
@@ -91,6 +92,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import sys
@@ -617,6 +619,9 @@ PARK_REASONS = {
     "budget": ("задача витратила свій бюджет: {n} USD",
                ("Задача вичерпала свій бюджет. Продовжити? Будь-яка відповідь поверне задачу в чергу й дасть їй ще один такий самий "
                "бюджет; якщо продовжувати не треба — не відповідайте або приберіть задачу.")),
+    "three-blocks": ("наглядач тричі поспіль відхилив один юніт ({n})",
+                     ("Три наглядачі поспіль відхилили юніт цієї задачі; їхні вердикти — у розділі «Чому зупинилась». Що робити далі? "
+                     "Будь-яка відповідь поверне задачу в чергу, і юніт отримає три нові спроби; вказівку агентові напишіть тут же.")),
     "returned": ("агент повернув задачу з `doing/` у `todo/`, не закінчивши її і нічого не спитавши",
                  ("Агент не закінчив задачу й не поставив питання. Що робити далі? Будь-яка відповідь поверне задачу в чергу; "
                  "вказівку агентові напишіть тут же.")),
@@ -636,16 +641,32 @@ def anomaly(board: Board, task: str, what: str, done: str) -> Path:
     return path
 
 
-def park(board: Board, stem: str, reason: str, detail: str, stash: str) -> Path | None:
+def blocks_of(marker: Path | None) -> tuple[str, list[str]]:
+    """The unit and the overseers' verdicts from the marker the Stop hook left (overseer_stop.py,
+    board 031), as lines for the task file. Nothing when there is no readable marker."""
+    try:
+        data = json.loads(marker.read_text(encoding="utf-8")) if marker else {}
+    except (OSError, ValueError):
+        data = {}
+    blocks = [row for row in data.get("blocks", []) if isinstance(row, dict)] if isinstance(data, dict) else []
+    lines = [f"  - BLOCK {n} ({row.get('utc') or 'час невідомий'}, запит `{row.get('request')}`"
+             + (f", перевірка #{row['check']}" if row.get("check") else "") + f"): {' '.join(str(row.get('reason', '')).split())}"
+             for n, row in enumerate(blocks, 1)]
+    return (str(data.get("unit", "")) if isinstance(data, dict) else ""), lines
+
+
+def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts: Path | None = None) -> Path | None:
     """The runner gives up on a task: doing/ (or todo/) → blocked/, with the reason, a question
-    for the owner and an entry in the anomaly journal. None when the task is in neither."""
+    for the owner and an entry in the anomaly journal. None when the task is in neither.
+    `verdicts` (reason three-blocks) is the hook's marker: its verdicts are written under the reason."""
     stem = stem.removesuffix(".md")
     source = next((p for c in ("doing", "todo") for p in [board.tasks / c / f"{stem}.md"] if p.is_file()), None)
     if source is None:
         return None
-    what, question = (part.format(n=detail) for part in PARK_REASONS[reason])
+    unit, refused = blocks_of(verdicts)
+    what, question = (part.format(n=unit or detail) for part in PARK_REASONS[reason])
     saved = (f" Незакомічену роботу агента виконавець зберіг у сховку git: `git stash apply {stash}`." if stash else "")
-    line = f"- {utc_now()} — {what}; виконавець переніс задачу в `blocked/` і взяв наступну.{saved}"
+    line = "\n".join([f"- {utc_now()} — {what}; виконавець переніс задачу в `blocked/` і взяв наступну.{saved}", *refused])
     text = source.read_text(encoding="utf-8").rstrip("\n") + "\n"
     if not QUESTIONS.search(text):
         text += "\n## Питання до власника\n"
@@ -742,6 +763,7 @@ def main() -> int:
     park_parser.add_argument("reason", choices=sorted(PARK_REASONS))
     park_parser.add_argument("--detail", default="", help="the runner's number: attempts, hours or dollars")
     park_parser.add_argument("--stash", default="", help="the stash commit that holds the agent's uncommitted work")
+    park_parser.add_argument("--verdicts", type=Path, default=None, help="three-blocks: the marker the Stop hook left, with the overseers' verdicts")
     anomaly_parser = commands.add_parser("anomaly")
     anomaly_parser.add_argument("task")
     anomaly_parser.add_argument("what")
@@ -809,7 +831,7 @@ def main() -> int:
             gate_reject(path, RULE_NO if read(path).declines else OWNER_ACTIONS[read(path).action])
         return 0
     if args.command == "park":
-        parked = park(board, args.name, args.reason, args.detail, args.stash)
+        parked = park(board, args.name, args.reason, args.detail, args.stash, args.verdicts)
         if parked is None:
             print(f"board: {args.name} is in neither tasks/doing/ nor tasks/todo/", file=sys.stderr)
             return EXIT_REFUSED
