@@ -9,7 +9,13 @@ passed all of it. The overseer said so in scene 10, and the expected PASS called
      one goes red under EVERY other rounding mode of `decimal`;
   2. scene 05 is the exception by design — its defect is the weak test — and there the swap
      stays green: the same instrument sees a hole where one is meant to be;
-  3. a recorded turn that lists the table's rows lists the rows the tree really has.
+  3. a recorded turn that lists the table's rows lists the rows the tree really has;
+  4. a recorded green run counts what its own `-k` selects in that tree, passed and deselected
+     (board 034: scene 03 said "5 passed, 4 deselected" where pytest says 6 and 3 — `-k
+     rounds_half_up` also selects the discount test);
+  5. where the tree tests the negative rate, it tests the boundary: the guard moved one off
+     (`< -1`) goes red. The release audit's devil's advocate found that mutant alive too (only
+     -5 was tested) and called it the secondary gap of scenes 01 and 10 (board 034).
 
 The fixture's tests are run in-process against a stand-in for the two pytest features they use
 (`mark.parametrize`, `raises`): pytest is not installed here, and the question is about the
@@ -35,6 +41,7 @@ AUDIT = ROOT / "evals" / "scenarios" / "audit"
 CONTRACT_MODE = "ROUND_HALF_UP"
 OTHER_MODES = ("ROUND_UP", "ROUND_CEILING", "ROUND_05UP", "ROUND_DOWN", "ROUND_FLOOR", "ROUND_HALF_DOWN", "ROUND_HALF_EVEN")
 WEAK_BY_DESIGN = ("05-masked-test-gap", "12-reaudit-after-weak-fix")   # 12: the "fix" of 05's test, as weak (board 018)
+SELECTED_RUN = re.compile(r"pytest \S+ (?:-[vq] )?-k (\w+)\n(?:(?!\n\n)[\s\S])*?(\d+) passed, (\d+) deselected")
 ROW_LINE = re.compile(r"test_with_tax_rounds_half_up\[([^\]]+)\] PASSED")
 PASS = FAIL = 0
 
@@ -71,7 +78,10 @@ def pytest_stand_in() -> types.ModuleType:
     return module
 
 
-def run_fixture_tests(tree: Path, mode: str) -> dict[str, bool]:
+GUARD, GUARD_OFF_BY_ONE = "if rate_percent < 0:", "if rate_percent < -1:"
+
+
+def run_fixture_tests(tree: Path, mode: str, guard: str = GUARD) -> dict[str, bool]:
     """Every test of the tree's tests/test_pricing.py, by pytest id, with pricing rounding by `mode`."""
     # Only `with_tax` is swapped: the module's older functions round too, and their tests going
     # red would hide whether the slice's own table notices. A mode of `decimal` is its name.
@@ -79,7 +89,7 @@ def run_fixture_tests(tree: Path, mode: str) -> dict[str, bool]:
     if CONTRACT_MODE not in body:
         raise SystemExit(f"{tree}: with_tax does not name {CONTRACT_MODE}; the swap would change nothing")
     pricing = types.ModuleType("refproj.pricing")
-    exec(compile(head + cut + body.replace(CONTRACT_MODE, repr(mode)), "pricing.py", "exec"), pricing.__dict__)
+    exec(compile(head + cut + body.replace(CONTRACT_MODE, repr(mode)).replace(GUARD, guard), "pricing.py", "exec"), pricing.__dict__)
     saved = {name: sys.modules.get(name) for name in ("pytest", "refproj", "refproj.pricing")}
     sys.modules.update({"pytest": pytest_stand_in(), "refproj": types.ModuleType("refproj"), "refproj.pricing": pricing})
     try:
@@ -119,7 +129,15 @@ try:
         for overlay in expected[scene].get("overlays", []):
             shutil.copytree(AUDIT / "work" / overlay, tree, dirs_exist_ok=True)
         as_written = run_fixture_tests(tree, CONTRACT_MODE)
+        for word, passed, deselected in SELECTED_RUN.findall((AUDIT / f"{scene}.md").read_text(encoding="utf-8")):
+            selected = [i for i in as_written if word in i]
+            check(f"the recorded `-k {word}` run counts what the tree has: {passed} passed, {deselected} deselected",
+                  (int(passed), int(deselected)) == (len(selected), len(as_written) - len(selected)),
+                  (len(selected), len(as_written) - len(selected)))
         check("the fixture's tests are green as written", as_written != {} and red(as_written) == [], red(as_written))
+        if "test_with_tax_rejects_negative_rate" in as_written and GUARD in (tree / "src" / "refproj" / "pricing.py").read_text(encoding="utf-8"):
+            check("the guard moved one off (`rate_percent < -1`) turns a test red",
+                  red(run_fixture_tests(tree, CONTRACT_MODE, GUARD_OFF_BY_ONE)) != [], "all green with the guard at -1")
         survivors = [mode for mode in OTHER_MODES if red(run_fixture_tests(tree, mode)) == []]
         if scene in WEAK_BY_DESIGN:
             check("the weak test stays green under ROUND_UP — the hole this scene is about", "ROUND_UP" in survivors, survivors)

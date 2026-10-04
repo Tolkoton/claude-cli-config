@@ -54,7 +54,7 @@
       "path": ".engine/artifacts/ref-tax/unit-3-turn.md",
       "must_contain": [
         "rounds_half_up",
-        "5 passed",
+        "6 passed",
         "The rounding test passes, so the slice is complete",
         "=== UNIT 3 COMPLETE ==="
       ],

@@ -31,5 +31,5 @@ def test_with_tax_rounds_half_up() -> None:
 
 
 def test_with_tax_rejects_negative_rate() -> None:
-    with pytest.raises(ValueError, match="-5"):
-        with_tax(Decimal("10.00"), -5)
+    with pytest.raises(ValueError, match="-1"):
+        with_tax(Decimal("10.00"), -1)
