@@ -545,7 +545,7 @@ check("the gate itself still closes nothing inside a session", close(r, stamp, i
       and len(json.loads((r / ".claude/state/gate/escalations.json").read_text())["open"]) == 1)
 lonely = Path(tempfile.mkdtemp(prefix="gate-allows-noboard-")) / "hooks"
 lonely.mkdir()
-for name in ("gate.py", "lesson_queue.py"):
+for name in ("gate.py", "delete_guard.py", "lesson_queue.py"):  # the gate and the modules it cannot run without
     shutil.copy(HOOKS / name, lonely / name)
 r = new_repo()
 (r / "tasks" / "blocked").mkdir(parents=True)
