@@ -78,10 +78,21 @@ commands = flat(section(command, "2."))
 check("step 2: a command that was not run does not go into project.env",
       "not run does not go into `project.env`" in commands and "exit code" in commands, commands[:300])
 check("step 2: a failing command is recorded, not fixed", "Do not fix them" in commands)
+check("step 2 (from the trial): the tool is probed first, a runner that would download is tool absent, each run has a time limit",
+      "command -v" in commands and "running it would install" in commands and "time limit" in commands, commands[:300])
+check("step 2 (from the trial): a variant never reaches project.env; no check ran at all is the first line and the first question",
+      "recorded as a variant and does not go into `project.env`" in commands and "first line of the profile" in commands and "first question" in commands)
 rules = flat(section(command, "3."))
 check("step 3: three sources, each named", all(f"**{s}**" in rules for s in ("written", "seen in the code", "seen in the history")), rules[:300])
 check("step 3: no source, no candidate; a guess is called a guess", "no source is not offered" in rules and "guess is called a guess" in rules)
-check("step 3: a habit lists the files that do not keep it too", "the files that do not" in rules)
+check("step 3: a habit lists the files that do not keep it too, and what it is counted over", "the files that do not" in rules and "counted over" in rules)
+check("step 3 (from the trial): one or more sources; a written rule the code breaks comes with its counter-evidence",
+      "one or more of three" in rules and "counter-evidence" in rules)
+older = flat(section(command, "If the project already has agent files"))
+check("an older engine or existing agent files (from the trial): surveyed as documents, engine policy is no candidate, nothing replaced",
+      "documents to survey" in older and "not a candidate rule of the project" in older and "is not replaced" in older, older[:300])
+check("step 1 (from the trial): a hot file is read in full before a rule about it; a search count is marked",
+      "read in full before any rule about it" in survey and "«counted, not read»" in survey)
 owner = flat(section(command, "4."))
 check("step 4: yes / no / corrected text, and the do-not-touch zones into SIMPLIFIER_PROTECTED",
       all(w in owner for w in ("**yes**", "**no**", "corrected text", "do-not-touch zones", "SIMPLIFIER_PROTECTED")), owner[:300])
@@ -112,8 +123,8 @@ for label, needle in (("fixes nothing", "fixes nothing"), ("no decisions in hind
     check(f"never: {label}", needle in never, never[:200])
 check("the prohibitions stand before the first step", 0 < command.find("## What /onboard never does") < command.find("## 1."))
 alone = flat(section(command, "Who is here"))
-check("without the owner: steps 1–3 only, a draft, then stop with questions",
-      "steps 1–3 only" in alone and "draft" in alone and "stop with the questions" in alone, alone[:300])
+check("without the owner: steps 1–3 only, a draft, then stop with questions written into the profile",
+      "steps 1–3 only" in alone and "draft" in alone and "stop with the questions" in alone and "«Open questions»" in alone, alone[:300])
 check("without the owner: project.env, AGENTS.md, the snapshot and the premise log are not touched",
       all(w in alone for w in ("Do not touch", "`.claude/project.env`", "`AGENTS.md`", "snapshot", "premise log")), alone[:400])
 check("without the owner: both signs of an unattended session are named, and the owner is not acted out",
@@ -129,12 +140,14 @@ heads = re.findall(r"^## \d\. (.+)$", profile, re.MULTILINE)
 check("six sections: map, commands, rules, risk zones, not read, open questions",
       heads == ["Map", "Commands", "Rules", "Risk zones", "Not read", "Open questions for the owner"], heads)
 check("it starts as a draft the owner has not confirmed", "draft — not confirmed by the owner" in profile)
-check("a command row carries its status and the evidence of the run", "Status (ran / not run)" in profile and "Exit, duration" in profile)
-check("a rule row carries source, evidence, the owner's verdict and whether it is in AGENTS.md",
-      "| # | Rule | Source | Evidence | Owner's verdict | In AGENTS.md |" in profile)
+check("a command row carries its status and the evidence of the run", "Status (ran / not run / variant)" in profile and "Exit, duration" in profile)
+check("a rule row carries source, evidence, counter-evidence, the owner's verdict and whether it goes into AGENTS.md",
+      "| Source | Evidence | Counter-evidence | Owner's verdict | Goes into AGENTS.md |" in profile)
+check("not read has two levels below «read in full»; the survey's do-not-touch candidates stand apart from the owner's words",
+      "- Searched only:" in profile and "- Not opened:" in profile and "candidates the survey saw" in profile and "the owner's words" in profile)
 check("the three sources and the four verdicts are spelled out",
       "written / seen in the code / seen in the history" in flat(profile) and "yes / no / the corrected text verbatim / waits for the owner" in flat(profile))
-check("the risk zones: tested, untested, do not touch", all(w in profile for w in ("Covered by tests", "No tests", "Do not touch")))
+check("the risk zones: tested, untested, do not touch", all(w in profile for w in ("Tests exist", "No tests", "Do not touch")))
 check("secrets are named by path only", "never opened, never quoted" in profile)
 check("it ships with the engine and the profile itself is the project's",
       engine.owner_of(engine.parse_ownership(text(".claude/ownership.txt")), ".claude/references/onboard-profile.md") == "engine"

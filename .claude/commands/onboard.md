@@ -6,8 +6,8 @@ You are running **/onboard**: the engine's first meeting with a project it did n
 rules of such a project live in its owner's head, not in its code — so this is a session with the
 owner present, and everything you conclude alone is a *candidate* until the owner has said yes.
 
-Speak the owner's language. `$ARGUMENTS` may name a directory to start the survey from; empty
-means the whole project.
+Speak the owner's language; with no owner present, write in the language of the project's own
+documents. `$ARGUMENTS` may name a directory to start the survey from; empty means the whole project.
 
 ## What /onboard never does
 
@@ -20,17 +20,27 @@ means the whole project.
 - **It installs nothing.** Not the engine (`engine.py install` did that before this command), not
   a package, not a tool. A command whose tool is absent is recorded as «not run», never repaired.
 - **It reads no secrets.** `.env`, `secrets/`, credential and key files are not opened and never
-  quoted; the profile says only that they exist and where.
+  quoted; the profile says only that they exist and where. A script that loads such a file itself
+  is not run. Identifiers of external accounts found in documents are not copied into the profile.
 - **It never answers for the owner** and never infers a verdict from an earlier remark.
 
 ## Who is here
 
 Unattended — `CLAUDE_UNATTENDED_SESSION=1`, or `.claude/state/overseer/mode` says `unattended` —
-or nobody answers: do **steps 1–3 only**, write the profile as a draft (its first line says so,
+or the session has no way to ask (no interactive question, or whoever started it said so): do
+**steps 1–3 only**, write the profile as a draft (its first line says so,
 every candidate rule has the verdict «waits for the owner»), and stop with the questions of
-step 4: on the task board they go into the task's «Питання до власника» and the task to
-`blocked/`; elsewhere, print them. Do not touch `.claude/project.env`, `AGENTS.md`, the snapshot
+step 4. They are written into the profile's «Open questions» section and printed; on the task
+board they also go into the task's «Питання до власника» and the task to `blocked/`. Do not touch `.claude/project.env`, `AGENTS.md`, the snapshot
 or the premise log, and do not act out the owner's part. Steps 4–8 are for a session the owner sits in.
+
+## If the project already has agent files or an older engine
+
+Its `AGENTS.md`, `CLAUDE.md`, progress journals and earlier engine records (also under the old
+paths `.claude/overseer/`, `.claude/premises/`, `.claude/architecture/`) are documents to survey
+and sources of *written* rules like any other. A rule that is the engine's own policy (commits,
+hooks, the overseer) is not a candidate rule of the project. In step 6 an existing `AGENTS.md` or
+`project.env` is not replaced: show the owner the difference and change only what they agree to.
 
 ## 1. Survey — read only
 
@@ -40,26 +50,43 @@ you go; nothing else is written in this step.
 - **Languages and layout**: what is in which directory, which directories are code, tests,
   generated, vendored.
 - **How it is built, tested and checked** — from the CI files, Makefile/task runner, package
-  manifests, pre-commit and linter configuration. Collect every command with the file and line
-  that names it. These are *found* commands; step 2 decides which of them work.
+  manifests, pre-commit and linter configuration, an existing `project.env`, agent instruction
+  files, setup and deploy documents, usage lines in script headers. Collect every command with
+  the file and line that names it. These are *found* commands; step 2 decides which of them
+  work. A family of deploy or provisioning commands in one document is one row.
 - **Dependencies**: the manifests and lock files, the runtime versions they ask for.
+- **A repository of several stacks** is mapped part by part; a command and a rule name the part
+  they belong to.
 - **Existing documents and decisions**: README, docs, ADRs, agent instruction files. Note which
   look current and which contradict the code — as an observation, not a fix.
-- **History**: `git log` — which files change most often and are at the same time the largest or
-  most tangled (the places where work will most likely land); reverts; repeated fixes of the same
-  place.
-- **A large project is not read whole.** Read the hot places first, and write in the profile's
-  «Not read» section exactly what you did not open. A claim about an unread file is not made.
+- **History**: `git log` — which files change most often and are at the same time the largest
+  (commits touching the file, and its lines: the places where work will most likely land);
+  reverts; the same file fixed again and again. On a long history, say how far back you looked.
+- **A large project is not read whole.** Read the hot places first — a hot source file is read
+  in full before any rule about it is offered — and write in the profile's «Not read» section
+  what you only searched and what you did not open. A count from a search over files you did not
+  read is marked «counted, not read»; any other claim about an unread file is not made.
 
 ## 2. Check the commands — by running them
 
-Run every command found in step 1, one at a time, and record for each: the exact command, the
+First check that each command's tool is there (`command -v`, `--version`). Then run every command
+found in step 1, one at a time, each with a time limit (ten minutes unless the owner names
+another; a timeout is recorded as «ran, timed out»), and record for each: the exact command, the
 exit code, how long it took, and what failed (counts and names, not a pasted log).
 
 - **A command that was not run does not go into `project.env`** — it would be an unverified
   premise about someone else's system (constitution, Article 1). It goes into the profile as
-  «not run», with the reason: tool absent, needs a service, needs a credential, would change
-  something outside the working tree.
+  «not run», with the reason: tool or runtime version absent, dependencies not installed, needs
+  the network, a service or a credential, long-running or interactive, needs arguments the survey
+  cannot supply, would change the sources or something outside the working tree (a throwaway
+  directory under the system's temp directory does not count as outside).
+- A runner that would create an environment or download packages on first use (`uv run`, `npx`,
+  …) counts as tool absent when the environment is not there: running it would install.
+- A variant of a found command (fewer arguments, another interpreter) may be run to learn
+  something; it is recorded as a variant and does not go into `project.env`.
+- **If none of lint, type-check and tests could be run**, say so in the first line of the profile
+  and make it the first question: the meeting is not complete until the owner has prepared the
+  environment, and steps 6–7 wait for it.
 - Run nothing that deploys, publishes, migrates, pushes, or writes outside the project. If a
   command's effect is unclear, it is «not run» and a question for the owner.
 - A command that runs and fails is still a verified command: the failures are what the snapshot
@@ -67,16 +94,19 @@ exit code, how long it took, and what failed (counts and names, not a pasted log
 
 ## 3. Recover the rules — every candidate with its source
 
-Write the candidate rules into the profile. Each names one of three sources:
+Write the candidate rules into the profile. Each names its source — one or more of three:
 
 - **written** — a document, linter setting or CI step says it; cite `file:line`;
-- **seen in the code** — a habit most files keep; give the count and list the files that keep it
-  **and the files that do not**;
+- **seen in the code** — a habit most files keep; give the count and what it is counted over
+  (which directory, which kind of file), and list the files that keep it **and the files that do
+  not** (up to ten by name, the rest as a number). Kept in one directory and not in another, it
+  is a rule of that directory, or a guess;
 - **seen in the history** — a reverted change, the same place fixed again and again; cite the commits.
 
 A candidate with no source is not offered (Article 4). A guess is called a guess. A written rule
-the code does not follow is offered as it is — with both the citation and the counter-examples —
-and the owner decides which of the two is the rule.
+the code does not follow is offered as it is — with both the citation and the counter-evidence —
+and the owner decides which of the two is the rule. A candidate is something a change could
+break: one linter setting or one sentence of a document is not by itself a rule.
 
 ## 4. The owner decides
 
