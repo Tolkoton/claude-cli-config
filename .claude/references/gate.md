@@ -20,7 +20,7 @@ the same schema. Settings live in `.claude/project.env` and nowhere else.
 | `pre_commit` | `git commit` | the staged diff: bypass guard, then the full set | yes |
 | `ci` | pipeline | the whole project: `ruff check .`, `mypy .`, `TEST_CMD_FULL` else `TEST_CMD` | yes |
 
-Order inside a layer: bypass guard, lint, types, tests — tests only after a clean lint and types;
+Order inside a layer: bypass guard, delete guard (`stop`, `pre_commit`), lint, types, tests — tests only after a clean lint and types;
 then, unless `COMPLEXITY_GATE` is off, the simplifier's signals (`simplify_signals.py`) as `warn`
 findings with rule `simplify/<kind>` — the changed files at `stop`, the whole repository at
 `pre_commit` and `ci`. A signal never blocks (`.claude/references/simplifier.md`).
@@ -85,7 +85,7 @@ A block when the turn's diff **adds** a `# type: ignore`, a `# noqa`, `pytest.ma
 configuration: the parsed `[tool.ruff]` / `[tool.mypy]` of `pyproject.toml`, any change of
 `ruff.toml`, `.ruff.toml`, `mypy.ini`, `.mypy.ini`, or the values of `LINT_CMD`, `TYPECHECK_CMD`,
 `TEST_CMD`, `TEST_CMD_FULL`, `FORMAT_CMD`, `GATE_MAX_BLOCKS`, `COMPLEXITY_MAX_CYCLOMATIC`,
-`COMPLEXITY_MAX_NESTING` in `.claude/project.env`; or **loosens the snapshot** `.engine/baseline.json` (above). Syntax only:
+`COMPLEXITY_MAX_NESTING`, `COVERAGE_CMD` in `.claude/project.env`; or **loosens the snapshot** `.engine/baseline.json` (above). Syntax only:
 comments come from the tokenizer, marks from the AST, configuration from the parsed tables, so a
 string, a docstring or a reformat is not a finding.
 
@@ -100,10 +100,62 @@ Allowed when the justification stands next to it:
   only while the contract is **sealed and unchanged** (`.claude/state/contracts/<slug>.sha256`
   matches), so the work being judged cannot grant itself the exemption by editing a slice file.
 
-`PROJECT_MARKER` and `CODE_EXTENSIONS` are guarded more strictly: they decide whether lint, types
-and tests run at all. A change of either value blocks, and passes one way only — the sealed
-contract names the key: `gate-allow: PROJECT_MARKER — <reason>` (or `CODE_EXTENSIONS`). A reason in
-`project.env` itself or a grant of the whole file does not pass. Unset and empty are the same value.
+`PROJECT_MARKER`, `CODE_EXTENSIONS` and `DELETE_GUARD_LINES` are guarded more strictly: they
+decide whether a check runs at all. A change of any of them blocks, and passes one way only — the
+sealed contract names the key: `gate-allow: PROJECT_MARKER — <reason>` (or the other key). A reason in
+`project.env` itself or a grant of the whole file does not pass. Unset and empty are the same value
+(for `DELETE_GUARD_LINES`: the default, 20). `COVERAGE_CMD` is guarded like the other commands.
+
+## The delete guard (stop, pre_commit) — `delete_guard.py`
+
+Deleted code that no test touched leaves every test green — there were none — and nobody learns
+that behaviour went with it. So the gate **blocks** when the diff against the base (HEAD; the index
+at `pre_commit`) deletes working code no test touched:
+
+| Deleted | Counts when |
+|---|---|
+| a function, a method, a class | its name is defined nowhere in the new text of the file |
+| a file | it is gone (a Python file: each of its functions and classes is judged) |
+| lines inside one function | more than `DELETE_GUARD_LINES` (default 20) code lines; docstrings, comments and blank lines are not counted |
+
+Working code is a file with an extension of `CODE_EXTENSIONS` that is not a test (a `tests/`,
+`test/`, `spec/`, `__tests__/` directory, `test_*`, `*_test`, `*.test`, `*.spec`, `conftest`).
+**A move is not a deletion:** a function or class whose name is defined anew anywhere in the same
+change, and a removed line that the same change adds again anywhere, do not count. For a language
+other than Python there are no names: the unit is the file and its removed lines.
+
+**Was there a test** — the more exact way wins:
+
+1. `COVERAGE_CMD` is set: the command runs in a clean checkout of the code *before* the change —
+   with the tests as they were and, only when those leave a deletion unanswered, once more with the
+   test files of the change laid over it — and leaves `coverage.json` (coverage.py's
+   `coverage json`). A function or class passes when a test executed a line of its body; removed
+   lines pass when at most `DELETE_GUARD_LINES` of them were never executed. The result is cached
+   per (commit, tests, command) in `.claude/state/delete-guard/coverage/`. No readable report →
+   a warning (`delete/coverage-unavailable`) and the coarser way.
+2. not set: the module has its test file (`test_<module>`, `<module>_test`, `<module>.test`,
+   `<module>.spec`), or a test file mentions the name. Test files of the base and of the change
+   count together, so a test deleted with its code still says the code was tested.
+
+**Three ways through a block** (`delete/untested`):
+
+1. **A test.** Write one that pins what the code does today and passes on the code before the
+   deletion, then delete. It may sit in the same change, uncommitted.
+2. **Dead code needs no test, the owner's word does.** A simplifier finding about that code with
+   evidence from a tool (a signal of `simplify_signals.py`), confirmed by the owner in their own
+   terminal:
+   ```bash
+   python3 .claude/hooks/delete_guard.py confirm <findings.json> F-xxxxxxxx [--request request.txt]
+   ```
+   Refused inside a Claude Code session and for a finding with no tool evidence; the confirmation
+   is machine state (`.claude/state/delete-guard/confirmed.json`) and covers what the finding
+   names — a symbol, the definitions at its lines, or the whole file. A «так» in
+   `.engine/simplifier/decisions.jsonl` is not a confirmation: an agent can write that file.
+3. **The owner's grant in the sealed slice contract:** `gate-allow: delete — <reason>` (every
+   deletion of the slice) or `gate-allow: <path> — <reason>` (one file).
+
+`python3 .claude/hooks/delete_guard.py show` prints the threshold, the mode and what is confirmed.
+What the guard cannot know is in `docs/engine-limits.md`.
 
 ## Who reads the reason (package costs)
 
@@ -166,4 +218,4 @@ No file under `.github/workflows/` is shipped; add the step to your pipeline you
 
 `python3 evals/run_gate_evals.py --engine-ref HEAD` — defective files that must be caught, clean
 files that must not be blocked, every layer timed. `bash tests/run_all.sh` runs `tests/test_gate.py`,
-`tests/test_gate_evals.py` and the snapshot's scenes, `tests/test_baseline.py`. Reference results: `evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json`.
+`tests/test_gate_evals.py`, the snapshot's scenes, `tests/test_baseline.py`, and the delete guard's, `tests/test_delete_guard.py`. Reference results: `evals/baseline/linux-ubuntu-22.04/gate-evals-package-7.json`.

@@ -188,6 +188,39 @@ such exemption before the overseer, who judges it (check #4). What that rests on
 - **`needs_audit.py` knows paths, not words.** A hook that changes the sentence it shows the
   model is reported as `MAYBE`; whether an audit is due is then a reading of the diff.
 
+## The delete guard (board 072)
+
+The gate blocks a change that deletes working code no test touched (`.claude/references/gate.md`).
+What that does not give:
+
+- **Executed is not checked.** With `COVERAGE_CMD` the guard knows a test ran the lines, not that
+  any test looked at what they returned. A test that calls a function and asserts nothing lets the
+  function be deleted. That is the limit of every coverage figure.
+- **Without `COVERAGE_CMD` the answer is coarse.** "The module has its test file" passes every
+  function of that module, tested or not; "a test file mentions the name" is a word match, so a
+  common name (`run`, `main`, `__init__`) is always "mentioned". The untested module — the usual
+  state of code the engine did not build — is what this mode catches.
+- **Names are known for Python only.** In any other language the unit is the file: a deleted file,
+  or more than `DELETE_GUARD_LINES` removed lines in one file. A function deleted in fewer lines
+  than that passes unseen.
+- **Module-level code is not counted in Python.** Lines removed outside every function (a table,
+  a constant, top-level statements) do not block; neither does a function shortened by fewer
+  lines than the threshold. The threshold of 20 is a starting value, not yet calibrated.
+- **A move is told by the name or by the text.** A function renamed in the same change reads as
+  one deleted and one added; a function deleted while an unrelated one of the same name is added
+  reads as moved. A removed line counts as moved when the same text is added anywhere in the change.
+- **`COVERAGE_CMD` runs in a clean checkout of the old commit**, made with `git archive`: no
+  virtual environment, no untracked or ignored file. A command that needs them must create them
+  (`uv run …`), and it costs one more test run — two, when the change also edits tests — per
+  distinct change that deletes something. When
+  it leaves no readable `coverage.json` the guard warns and falls back to the coarse answer.
+- **Only the diff.** Like the bypass guard, the guard compares with HEAD at `stop` and with the
+  index at `pre_commit`: a deletion committed outside the gate is no longer a diff.
+- **The owner's confirmation is machine state.** It holds on the machine where the owner ran
+  `delete_guard.py confirm`, and — as for the snapshot — rests on `CLAUDECODE` and on
+  `.claude/state/` being closed to the agent's edit tools. That a finding's tool evidence is
+  true is not re-checked at confirmation: the validator checks that the signal existed.
+
 ## The snapshot "as it was" (board 071)
 
 With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).

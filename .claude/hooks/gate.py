@@ -30,8 +30,8 @@ something to say, so a clean edit does not overwrite the verdict of the last rea
 concise list of the most important findings goes to stderr.
 
 Settings stay in .claude/project.env: CODE_EXTENSIONS, PROJECT_MARKER, LINT_CMD, TYPECHECK_CMD,
-TEST_CMD, FORMAT_CMD, and the two optional keys TEST_CMD_FULL (pre_commit / ci only) and
-GATE_MAX_BLOCKS.
+TEST_CMD, FORMAT_CMD, and the optional keys TEST_CMD_FULL (pre_commit / ci only), GATE_MAX_BLOCKS,
+DELETE_GUARD_LINES and COVERAGE_CMD.
 
 BYPASS GUARD (stop, pre_commit). A block when the turn's diff ADDS a `# type: ignore`, a `# noqa`,
 a pytest skip / skipif / xfail, or CHANGES the linter's or the type checker's configuration
@@ -40,7 +40,7 @@ keys in project.env) — unless the justification stands next to it:
     # gate-allow: <reason>           same line, or the comment-only line directly above
 (any added line of a config file) or the slice contract (.engine/slices/*.md) says
     gate-allow: <type-ignore|noqa|skip|xfail|config path> — <reason>
-A change of PROJECT_MARKER or CODE_EXTENSIONS in project.env passes one way only: the sealed slice
+A change of PROJECT_MARKER, CODE_EXTENSIONS or DELETE_GUARD_LINES in project.env passes one way only: the sealed slice
 contract names the key (`gate-allow: PROJECT_MARKER — <reason>`); a reason in project.env itself or
 a grant of the whole file is not enough.
 A reason is at least 12 characters and two words. Syntax only: comments come from the tokenizer,
@@ -54,6 +54,12 @@ list, a lint or type finding only when the count of its (file, rule) is above th
 A failure whose output names no test and no `file:line: message` blocks as before. Without the
 file nothing changes. The bypass guard also watches the snapshot: a diff that adds a test to the
 list or raises a count blocks unless the owner's `baseline.py record` approved exactly that text.
+
+THE DELETE GUARD (stop, pre_commit). A block when the diff deletes a function, a class or a file
+of working code, or more than DELETE_GUARD_LINES lines (default 20) inside one function, and no
+test touched that code. A move within the same change is not a deletion. Through: a test; a
+simplifier finding the owner confirmed; `gate-allow: delete — <reason>` in a sealed contract.
+See delete_guard.py.
 
 Standard library only; Python 3.11+. The linters are external commands.
 """
@@ -95,10 +101,14 @@ SNAPSHOT_PART = {"lint": "lint", "typecheck": "types", "tests": "tests"}
 TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 40}
 HEADINGS = {"lint": "LINT FAILED", "typecheck": "TYPECHECK FAILED", "tests": "TESTS FAILED"}
 GATE_KEYS = ("LINT_CMD", "TYPECHECK_CMD", "TEST_CMD", "TEST_CMD_FULL", "FORMAT_CMD", "GATE_MAX_BLOCKS",
-             "COMPLEXITY_MAX_CYCLOMATIC", "COMPLEXITY_MAX_NESTING")
-# These two decide WHETHER lint, types and tests run at all, so a reason written by the work being
-# judged is not enough: only a sealed slice contract that names the key lets the change through.
-SCOPE_KEYS = ("PROJECT_MARKER", "CODE_EXTENSIONS")
+             "COMPLEXITY_MAX_CYCLOMATIC", "COMPLEXITY_MAX_NESTING", "COVERAGE_CMD")
+# These decide WHETHER a check runs at all, so a reason written by the work being judged is not
+# enough: only a sealed slice contract that names the key lets the change through.
+SCOPE_KEYS = {
+    "PROJECT_MARKER": "it decides whether lint, types and tests run at all",
+    "CODE_EXTENSIONS": "it decides whether lint, types and tests run at all",
+    "DELETE_GUARD_LINES": "it decides how much untested code may be deleted unseen",
+}
 CONFIG_BASENAMES = ("ruff.toml", ".ruff.toml", "mypy.ini", ".mypy.ini")
 SKIP_NAMES = {
     "pytest.mark.skip": "skip",
@@ -477,23 +487,30 @@ def config_justified(text: str | None, added: set[int] | None) -> bool:
 
 
 def changed_keys(old: str | None, new: str | None, keys: tuple[str, ...]) -> list[str]:
+    # Unset and empty mean the same to every reader of these keys.
     before, after = parse_env_text(old or ""), parse_env_text(new or "")
-    return [k for k in keys if before.get(k) != after.get(k)]
+    return [k for k in keys if before.get(k, "") != after.get(k, "")]
+
+
+def scope_values(text: str | None) -> dict[str, str]:
+    env = parse_env_text(text or "")
+    values = {key: env.get(key, "") for key in SCOPE_KEYS}
+    values["DELETE_GUARD_LINES"] = str(delete_guard_module().threshold(env))
+    return values
 
 
 def guard_scope_keys(rel: str, old: str | None, new: str | None, allowed: dict[str, tuple[str, str]], report: Report) -> None:
-    # Unset and empty mean the same to every reader of these two keys, so dropping an empty line
-    # is not a change.
-    before, after = parse_env_text(old or ""), parse_env_text(new or "")
-    for key in (k for k in SCOPE_KEYS if before.get(k, "") != after.get(k, "")):
+    # Unset and empty mean the same to every reader of these keys (for the delete guard's
+    # threshold: the default), so dropping an empty line or writing the default is not a change.
+    before, after = scope_values(old), scope_values(new)
+    for key in (k for k in SCOPE_KEYS if before[k] != after[k]):
         if key.lower() in allowed:
             report.add(Finding(rel, None, "bypass/config", "log",
                                f"{key} changed, allowed by the slice contract {allowed[key.lower()][0]}"))
             continue
         report.add(Finding(
             rel, None, "bypass/config", "block",
-            f"the diff changes {key} — it decides whether lint, types and tests run at all, and the "
-            "work being judged may not decide that",
+            f"the diff changes {key} — {SCOPE_KEYS[key]}, and the work being judged may not decide that",
             f"restore {key}; the change passes only when the sealed slice contract carries "
             f"`gate-allow: {key} — <reason>` (a reason in {rel} itself, or a grant of the whole file, "
             "is not enough)",
@@ -540,6 +557,31 @@ def baseline_module() -> Any:
     import baseline
 
     return baseline
+
+
+def delete_guard_module() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import delete_guard
+
+    return delete_guard
+
+
+def delete_guard(root: Path, layer: str, diff_ref: str | None, env: dict[str, str], report: Report) -> None:
+    """Code no test touched is not deleted in silence (delete_guard.py): a function, a class, a file,
+    or more than DELETE_GUARD_LINES lines inside one function."""
+    for item in delete_guard_module().check(root, layer, diff_ref, env, contract_grants(root)):
+        finding = Finding(**item)
+        report.add(finding)
+        if finding.severity == "block":
+            where = f"{finding.file}:{finding.line}" if finding.line else str(finding.file)
+            report.reasons.append(f"DELETE GUARD {where} [{finding.rule}] {finding.message}. {finding.hint}")
+
+
+def deleted_code(root: Path, layer: str, diff_ref: str | None, env: dict[str, str]) -> list[str]:
+    """Working-code files the change removed: `changed_files` lists only what still exists."""
+    args = ["--cached"] if layer == "pre_commit" else [diff_ref or "HEAD"]
+    gone = lines_of(git(root, "diff", "--name-only", "--diff-filter=D", *args))
+    return [rel for rel in gone if delete_guard_module().is_working_code(env, rel)]
 
 
 def guard_baseline(root: Path, rel: str, old: str | None, new: str | None, report: Report) -> None:
@@ -1055,12 +1097,17 @@ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
     code = eligible(env, files)
     # A configuration file is not code, but changing the gate's own settings is exactly what
     # the guard exists to see; so a config-only turn still reaches the guard.
-    if layer == "stop" and not code and not any(is_config_file(f) for f in files):
+    # Nor is a file that is gone: a turn that only deletes code still reaches the delete guard.
+    if (layer == "stop" and not code and not any(is_config_file(f) for f in files)
+            and not deleted_code(root, layer, diff_ref, env)):
         return
     started = time.perf_counter()
     if layer in ("stop", "pre_commit"):
         bypass_guard(root, layer, files, diff_ref, report)
         report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 1000)
+        started = time.perf_counter()
+        delete_guard(root, layer, diff_ref, env, report)
+        report.steps_ms["delete_guard"] = int((time.perf_counter() - started) * 1000)
     if layer == "stop":
         # The marker stands for "the tooling is installed". The guard above needs no tooling, so
         # it has already run; only the checks that call a tool wait for the marker.

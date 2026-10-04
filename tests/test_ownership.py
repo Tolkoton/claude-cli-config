@@ -128,6 +128,8 @@ expected = {
     ".claude/hooks/baseline.py": "engine",
     ".engine/baseline.json": "project",
     ".claude/state/baseline/approved.sha256": "machine",
+    ".claude/hooks/delete_guard.py": "engine",
+    ".claude/state/delete-guard/confirmed.json": "machine",
     ".claude/state/gate/last-report.json": "machine",
     ".engine/architecture/feature/engine-package-7.md": "project",
     ".claude/hooks/lesson_queue.py": "engine",
