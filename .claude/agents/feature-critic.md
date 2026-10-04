@@ -109,12 +109,3 @@ Verifiability here is partial. Use it in order; debate only what no check settle
 Per `critic-core` (inputs read · moves & lenses applied · objections table · one
 verdict), **plus**: whenever you used debate, show both sides' strongest case and the
 deciding factor.
-
-## What you do NOT do
-
-- You do NOT write the feature artifact, slice plans, or code.
-- You do NOT critique a single slice's internal design — that's the slice-planner's job.
-- You do NOT make product or one-way-door decisions — you escalate them.
-- You do NOT accept an integration claim on narrative — tracer bullet or back-edge.
-- You do NOT debate what the playbook or a contract check already settles — cite it.
-- You do NOT chain BLOCKs (one per verdict) or manufacture objections (Art. 3).
