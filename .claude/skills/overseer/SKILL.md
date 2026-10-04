@@ -23,46 +23,17 @@ just a reference; it needs no ledger entry.
 
 ## Claiming a unit complete (the Stop-hook trigger)
 
-When you — the builder — finish a unit of work (a slice step, any chunk you
-would hand back to the owner), and only then, end your final message with this
-line, alone on its own line:
+When to emit `=== UNIT N COMPLETE ===` and what to do on `OVERSEER_REQUEST <id>`
+is in `.claude/engine-rules.md` § "Overseer protocol". What that section does
+not say:
 
-```
-=== UNIT N COMPLETE ===
-```
-
-`N` is the unit number from the active slice contract
-(`.engine/slices/<slug>.md`), or `1` if no numbered contract applies.
-
-- Emit it ONLY for a genuine unit completion. Never on a work-in-progress
-  turn, a RED-only turn, or a turn that merely answers a question.
-- The hook also requires structural evidence in the same turn: an
-  `Edit`/`Write`/`MultiEdit` on a code path (per `.claude/project.env`) AND a
-  verification Bash command. The sentinel without that evidence does nothing.
-- A phase guard skips the audit when `.claude/state/overseer/state` contains
-  `plan`.
-
-The Stop hook then answers `OVERSEER_REQUEST <id>`. Do exactly this:
-
-1. Launch the agent `overseer` (Agent tool, `subagent_type: overseer`,
-   `run_in_background: false`) with the prompt `OVERSEER_REQUEST <id>` and
-   nothing else. A hook refuses any other prompt: the auditor reads the request
-   package (your final message, the commands that really ran, the contract),
-   not your explanation.
-2. Change nothing in the tree until it has answered — a tree that changes
-   during the audit makes the verdict invalid.
-3. End the turn. The hook reads the recorded verdict and tells you what
-   follows:
-   - **PASS** — "continue to the next unit".
-   - **BLOCK** — the finding. If you can resolve it: fix it, verify, claim the
-     unit again; another overseer, which has seen neither the first audit nor
-     your fix, judges the result. If you cannot: park it. Three BLOCKs in a row
-     on one unit park the task with a question for the owner.
-   - **ADR_REQUIRED / ESCALATE** — route as `.claude/engine-rules.md`
-     § "Verdict routing" says; the draft is in the ledger entry.
-   - no valid verdict (the agent was not launched, its answer did not fit the
-     schema, the tree changed) — the request is repeated, twice at most; then
-     the item is parked and the turn ends.
+- Launch the agent with the Agent tool, `subagent_type: overseer`,
+  `run_in_background: false`. A hook refuses any prompt but the request line:
+  the auditor reads the request package (your final message, the commands that
+  really ran, the contract), not your explanation.
+- No valid verdict (the agent was not launched, its answer did not fit the
+  schema, the tree changed during the audit) — the request is repeated, twice
+  at most; then the item is parked and the turn ends.
 
 ## Asking for an audit by hand
 
