@@ -32,7 +32,7 @@ Read CLAUDE.md in full. For each line/section, ask:
 
 Target: CLAUDE.md ≤ 200 lines. Per Anthropic research, models reliably follow ~300 instructions; CLAUDE.md should not consume more than ~30% of that budget.
 
-After the pass, show the user the proposed diff. Get confirmation. Commit with `chore(docs): prune CLAUDE.md`.
+After the pass, show the user the proposed diff. Get confirmation.
 
 ### Pass 2 — ADR audit (`docs/adr/`)
 
@@ -122,11 +122,6 @@ Promotions:
 
 Next maintenance recommended: <date + 1 week / 1 month>
 ```
-
-Commit each affected layer as a separate commit:
-- `chore(claude-md): prune to <N> lines`
-- `chore(decisions): mark superseded, add missing links`
-- `chore(memory): consolidate and archive`
 
 ## Failure modes
 

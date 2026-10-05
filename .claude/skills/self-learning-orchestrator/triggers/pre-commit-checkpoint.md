@@ -12,7 +12,7 @@ Any of:
 
 ## Procedure
 
-This trigger orchestrates two concerns in the right order: memory updates, then commit. Lint, types and tests are the Stop gate's job (the project's own commands from `.claude/project.env`).
+This trigger orchestrates two concerns in the right order: memory updates, then handing the staged work over. Lint, types and tests are the Stop gate's job (the project's own commands from `.claude/project.env`).
 
 ### Step 1 — Memory checks
 
@@ -33,7 +33,7 @@ Examples that look like conventions but aren't:
 
 **Q2: Was there a substantive decision in this change?**
 
-If yes — follow `triggers/decision-checkpoint.md`. The ADR is committed in the **same commit** as the code that implements it.
+If yes — follow `triggers/decision-checkpoint.md`. The ADR is staged together with the code that implements it.
 
 **Q3: Was there a non-obvious bug found and fixed in this work?**
 
@@ -54,11 +54,13 @@ If a `claude-progress.md` exists for this task:
 3. Refresh "Next session: pick up here" if more work remains.
 4. If the task is fully complete, mark `Status: completed` and add a "Result" section with PR link or final commit.
 
-The progress file should always reflect the *current* state after this commit. If you skip this step, the next session start will use stale information.
+The progress file should always reflect the *current* state of the staged work. If you skip this step, the next session start will use stale information.
 
-### Step 3 — Commit
+### Step 3 — Stage and suggest the commit message
 
-Propose the commit message in conventional-commits format:
+The commit itself is a human checkpoint (`.claude/engine-rules.md`, "Commits are a human checkpoint"):
+`git add <files>`, print a one-line summary and a suggested message in conventional-commits format,
+then continue with the next item.
 
 ```
 <type>(<scope>): <short description>
@@ -68,28 +70,25 @@ Propose the commit message in conventional-commits format:
 <footer — refs, breaking changes>
 ```
 
-Show it to the user. Get confirmation. Then commit.
+If a decision (Q2) or convention (Q1) was added in this trigger, stage it with the code change: one logical unit including the memory updates.
 
-If a decision (Q2) or convention (Q1) was added in this trigger, they go in the **same commit** as the code change. One commit, one logical unit including the memory updates.
-
-If a lesson was queued (Q3), the queue file itself is gitignored — don't commit it. It'll be processed at session-end.
+If a lesson was queued (Q3), it'll be processed at session-end.
 
 ## Sequencing rules
 
-- Memory checks BEFORE commit: ADRs and convention lines must be in the same commit as the code.
-- Progress file update BEFORE commit message: the file's state should match what's about to be committed.
-- Commit AFTER user confirmation. Never auto-commit.
+- Memory checks BEFORE staging: ADRs and convention lines belong to the same unit as the code.
+- Progress file update BEFORE the suggested message: the file's state should match what is staged.
 
 ## Skip conditions
 
-If ALL of the following are true, skip everything except the commit message:
+If ALL of the following are true, skip everything except the suggested commit message:
 - Diff < 30 LOC.
 - Single file changed.
 - No new public API.
 - No new dependency.
 - Obviously a typo / minor fix / version bump.
 
-In that case: just commit. The full checklist is overhead for trivial changes.
+In that case: stage it and suggest the message. The full checklist is overhead for trivial changes.
 
 ## Failure modes
 
@@ -99,19 +98,19 @@ In that case: just commit. The full checklist is overhead for trivial changes.
 - **Lesson written as memory entry instead of queued.** Premature classification. The queue gives you the benefit of seeing patterns across the session.
 - **Commit message describing WHAT not WHY.** "Add function foo" tells future-you nothing. "Add foo because Y was too slow on batch sizes > 1000" is useful.
 
-## After commit
+## After the hand-over
 
 If the queue has lesson candidates:
 - Continue with the next task.
 - Process the queue at session-end (`triggers/session-end-dreaming.md`).
 
-If this commit completed the task:
+If this unit completed the task:
 - Trigger session-end-dreaming now, even if the session continues with a different task.
 - Memory hygiene is per-task, not per-session.
 
 ## What this trigger does NOT do
 
-- Does not run `git push`. Push is a separate user action.
+- Does not run `git commit` or `git push`. The engine rules say who commits and where.
 - Does not open a PR. That's a separate trigger if you have one.
 - Does not write MEMORY.md entries directly. Those go through session-end-dreaming with classification.
 - Does not run the full periodic-maintenance review. That's a different cadence.

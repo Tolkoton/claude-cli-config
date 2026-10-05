@@ -1,6 +1,6 @@
 # Trigger: Session-End Dreaming
 
-The session or task is ending. This is the trigger where lesson candidates accumulated during the session get *classified*, *written* to the right memory file, and *committed* — turning ephemeral experience into durable knowledge. Skipping this silently drops everything you learned.
+The session or task is ending. This is the trigger where lesson candidates accumulated during the session get *classified*, *written* to the right memory file, and *staged* — turning ephemeral experience into durable knowledge. Skipping this silently drops everything you learned.
 
 ## When this fires
 
@@ -89,24 +89,23 @@ Example (project-scope):
 **Source**: <project> @<sha> (import fix)
 ```
 
-### Phase 4 — Commit and clean up
+### Phase 4 — Stage and clean up
 
 After all entries are written:
 
-1. Show the user the diff for the memory files. **Always confirm before committing.**
+1. Show the user the diff for the memory files.
 
    ```bash
-   git diff -- '.engine/overseer/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
+   git diff -- .engine/overseer/MEMORY.md CLAUDE.md docs/adr/
    ```
 
-2. On confirmation, commit:
+2. Stage them and suggest a commit message (`chore(memory): distill lessons from <task or session description>`); the engine rules say who commits and where.
 
    ```bash
-   git add .engine/overseer/MEMORY.md CLAUDE.md decisions.md
-   git commit -m "chore(memory): distill lessons from <task or session description>"
+   git add .engine/overseer/MEMORY.md CLAUDE.md docs/adr/
    ```
 
-   Note: `~/.claude/memory/` is NOT in the project repo. If you have a separate git repo for `~/.claude/` (recommended for backup), commit there separately.
+   Note: `~/.claude/memory/` is NOT in the project repo.
 
 3. Archive the lesson queue:
 
