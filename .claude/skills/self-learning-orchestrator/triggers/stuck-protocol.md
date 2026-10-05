@@ -40,7 +40,7 @@ If writing this exposes that approaches (1)–(3) are all variations of the same
 Before generating more hypotheses, check if past-you (or past-Claude) already solved this:
 
 ```
-grep -r "<symptom keywords>" ~/.claude/memory/ .engine/architecture/MEMORY.md CLAUDE.md decisions.md 2>/dev/null
+grep -r "<symptom keywords>" ~/.claude/memory/ .engine/overseer/MEMORY.md CLAUDE.md docs/adr/ 2>/dev/null
 ```
 
 If you find anything — read it, apply the lesson, re-attempt. If it resolves, **add the symptom keywords to the matched MEMORY entry** so it's more searchable next time.
@@ -71,7 +71,7 @@ If a different approach also looks hard, the problem may be too large for one ta
 
 Not a failure mode. The user has context you don't:
 - They know the domain history.
-- They know related decisions not yet in `decisions.md`.
+- They know related decisions not yet in `docs/adr/`.
 - They may know the answer outright.
 
 When asking, be specific:

@@ -84,7 +84,7 @@ volatile the artifact is.
 | `.claude/settings.json` + 9 hooks | `engine.py install` (shipped from the engine repository) | Claude Code harness (session start) | rare |
 | `.engine/lesson-queue.md` | hooks (gate, overseer, parked, escalation) and the developer (`lesson_queue.py`, rule in `self-learning-orchestrator`) | the session-end trigger of the same skill | the overseer-PASS review request; drained by triage |
 | `~/.claude/memory/<tech>/MEMORY.md` `[global]` | `self-learning-orchestrator` | all (session start) | per session-end |
-| `decisions.md`, `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator` | same | created on demand |
+| `claude-progress.md`, `<task>/reflections.md` | `self-learning-orchestrator` | same | created on demand |
 
 ---
 
@@ -139,7 +139,7 @@ flowchart TD
 ```mermaid
 flowchart LR
   moment([dev moment]) --> SLO[self-learning-orchestrator]
-  SLO -->|session start, reads| MEM["MEMORY.md files + .engine/PROGRESS.md + decisions.md"]
+  SLO -->|session start, reads| MEM["MEMORY.md files + .engine/PROGRESS.md + docs/adr/"]
   LES["lesson capture (in flow)"] -->|append| LQ[".engine/lesson-queue.md"]
   WRAP["session end"] -->|drains| LQ
   WRAP -->|classify into| MEM

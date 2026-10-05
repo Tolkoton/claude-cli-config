@@ -8,7 +8,7 @@ Memory files rot. Without periodic review they grow to the point Claude ignores 
 - Calendar reminder (recommended cadence: weekly for active projects, monthly for slow projects, every 3 months minimum).
 - Before a major project milestone (release, end of quarter, project handoff).
 - When CLAUDE.md exceeds 200 lines or any MEMORY.md exceeds 50 entries (signal to consolidate).
-- When `git log --oneline -- CLAUDE.md decisions.md` shows no changes in > 3 months — possibly stale.
+- When `git log --oneline -- CLAUDE.md docs/adr/` shows no changes in > 3 months — possibly stale.
 
 ## Cost
 
@@ -34,21 +34,21 @@ Target: CLAUDE.md ≤ 200 lines. Per Anthropic research, models reliably follow 
 
 After the pass, show the user the proposed diff. Get confirmation. Commit with `chore(docs): prune CLAUDE.md`.
 
-### Pass 2 — decisions.md audit
+### Pass 2 — ADR audit (`docs/adr/`)
 
-Read decisions.md. For each entry:
+Read the ADRs. For each one:
 
 | Question | Action |
 |---|---|
-| Has this decision been silently reversed in the code? | Add a new entry that supersedes it, with explanation. Mark the old one as superseded. |
+| Has this decision been silently reversed in the code? | Write a new ADR that supersedes it, with explanation. Change only the old one's status line to `Superseded by ADR-MMMM`. |
 | Is the Context now stale (refers to a library or version that no longer applies)? | Add a footnote: "Note <date>: Context refers to <old state>; current state is <new state>." Do NOT rewrite the original Context. |
-| Is the Status still `draft` after >1 month? | Either accept or reject. Drafts are noise. |
-| Does any entry have no link to code? | Add a `<see commit X>` link if findable; otherwise add a `# See decisions.md <date>` comment in the relevant code. |
-| Are there clusters of related entries (e.g., 5 entries about auth)? | Consider adding an index section at the top of decisions.md grouping them. |
+| Is the Status still `Proposed` after >1 month? | Either accept or reject. Drafts are noise. |
+| Does any ADR have no link to code? | Add a `# See ADR-NNNN` comment in the relevant code. |
+| Are there clusters of related ADRs (e.g., 5 about auth)? | Consider an index (`docs/adr/README.md`) grouping them. |
 
-Do NOT delete old entries. The supersession chain is the history; deletion is lossy.
+Do NOT delete or rewrite old ADRs. The supersession chain is the history; deletion is lossy.
 
-### Pass 3 — Project memory (`.engine/architecture/MEMORY.md`)
+### Pass 3 — Project memory (`.engine/overseer/MEMORY.md`)
 
 This file accumulates project-specific lessons. Apply harsher pruning than tech memory because project memory is less likely to bite again once the underlying code has changed:
 
@@ -57,7 +57,8 @@ This file accumulates project-specific lessons. Apply harsher pruning than tech 
 | Is the entry's "Source" commit/code now deleted or heavily refactored? | The lesson likely no longer applies; delete or archive. |
 | Is the same observation made in 2+ entries? | Consolidate into one. |
 | Is the entry generic enough to belong in `~/.claude/memory/<tech>/` instead? | Move it. (Promotion path.) |
-| Is the entry > 1 year old and not referenced since? | Archive to `.engine/architecture/MEMORY-archive-<year>.md`. |
+| Does the entry cite fewer than two ledger entries? | Delete it — the file's own citation-or-prune rule. |
+| Is the entry > 1 year old and not referenced since? | Archive to `.engine/overseer/MEMORY-archive-<year>.md`. |
 
 After pruning, group remaining entries by topic if there are >20 of them. Topic headers improve search.
 
@@ -81,7 +82,7 @@ Look across all memory layers for promotion candidates:
 | Candidate | Promote to | Criterion |
 |---|---|---|
 | MEMORY.md entry referenced in ≥3 projects' stuck-protocol searches | New `~/.claude/skills/<name>/` skill | Pattern is general and recurring |
-| `decisions.md` rule consistently applied across multiple tasks | CLAUDE.md convention | Should be automatic, not re-derived |
+| An ADR's rule consistently applied across multiple tasks | CLAUDE.md convention | Should be automatic, not re-derived |
 | Reflection that recurs in ≥3 task reflections.md | MEMORY.md tech-scope entry | Was tech-scope all along |
 
 Promotion is rare — most reviews produce 0–2 promotions. The act of looking is what matters; finding none is a successful review.
@@ -99,13 +100,13 @@ CLAUDE.md:
   - rewrote: <count> rules (clearer wording / positive form)
   - added: <count> rules (promoted from MEMORY)
 
-decisions.md:
-  - <N> entries reviewed
+docs/adr/:
+  - <N> ADRs reviewed
   - marked superseded: <count>
   - drafts resolved: <count>
   - added missing code links: <count>
 
-.engine/architecture/MEMORY.md:
+.engine/overseer/MEMORY.md:
   - was <N> entries, now <M> entries
   - consolidated: <count>
   - archived: <count>

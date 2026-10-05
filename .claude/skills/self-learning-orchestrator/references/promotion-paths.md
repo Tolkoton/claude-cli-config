@@ -18,7 +18,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
                                  │ promote (when lesson recurs in ≥3 projects)
                                  │
                     ┌────────────┴────────────┐
-                    │ .engine/architecture/MEMORY.md│ ← project-scope
+                    │ .engine/overseer/MEMORY.md│ ← project-scope
                     └────────────▲────────────┘
                                  │ promote (when lesson is general)
                                  │
@@ -35,7 +35,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
     Independent track for rules (not memory):
 
     ┌─────────────────┐  promote when rule  ┌─────────────┐
-    │ decisions.md    │ ─── consistently ──►│  CLAUDE.md  │
+    │ docs/adr/ (ADR) │ ─── consistently ──►│  CLAUDE.md  │
     │ ADR             │     applied         │  rule       │
     └─────────────────┘                     └─────────────┘
 
@@ -66,7 +66,7 @@ Memory layers form a hierarchy. As knowledge proves itself useful, it can be **p
 ### project MEMORY.md → tech MEMORY.md
 
 **When**: periodic-maintenance pass 5, OR explicit promotion request.
-**Criterion**: the lesson appears in 2+ projects' `.engine/architecture/MEMORY.md` files, OR the lesson is clearly about a library's behavior rather than the project's domain.
+**Criterion**: the lesson appears in 2+ projects' `.engine/overseer/MEMORY.md` files, OR the lesson is clearly about a library's behavior rather than the project's domain.
 
 **Test**: rewrite the lesson removing all project-specific names. Does it still make sense and still teach a useful thing? If yes, promote.
 
@@ -108,7 +108,7 @@ Example:
 - ADR: "2026-05-14: All money handled as Decimal..."
 - After ~10 commits all using Decimal, add to CLAUDE.md:
   ```
-  - Money is the `Money` dataclass; never raw float. (See decisions.md 2026-05-14.)
+  - Money is the `Money` dataclass; never raw float. (See ADR-0007.)
   ```
 
 ### CLAUDE.md rule → hook / lint enforcement
@@ -130,11 +130,11 @@ Example:
 
 Knowledge moves up by default. But sometimes it moves down:
 
-### CLAUDE.md rule → decisions.md note (demote)
+### CLAUDE.md rule → ADR (demote)
 
 **When**: the rule has become situational rather than universal.
-**Example**: CLAUDE.md says "use FastAPI for all APIs". Then a new module needs gRPC. The rule becomes "we use FastAPI by default; gRPC for streaming, see decisions.md 2026-07-XX."
-- Move the decision detail to decisions.md.
+**Example**: CLAUDE.md says "use FastAPI for all APIs". Then a new module needs gRPC. The rule becomes "we use FastAPI by default; gRPC for streaming, see ADR-0015."
+- Move the decision detail to a new ADR in docs/adr/.
 - Keep a one-line CLAUDE.md pointer.
 
 ### Skill → tech memory (demote)

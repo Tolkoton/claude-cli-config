@@ -42,13 +42,13 @@ For each candidate, ask in order:
 
 1. **Is this generic / obvious?** ("Pydantic is great", "tests are important"). → **DISCARD**. Don't pollute memory.
 
-2. **Is this project-specific tactical?** ("the dunning service uses raw text() because of legacy schema"). → **PROJECT-SCOPE** memory: append to `.engine/architecture/MEMORY.md`.
+2. **Is this project-specific tactical?** ("the dunning service uses raw text() because of legacy schema"). → **PROJECT-SCOPE** memory: `.engine/overseer/MEMORY.md`, through `lesson_queue.py resolve <id> --to memory` (it needs two ledger citations).
 
 3. **Is this a tech/library quirk that would bite in any project using the same stack?** ("argon2-cffi's verify raises VerifyMismatchError, not returns False"). → **TECH-SCOPE** memory: append to `~/.claude/memory/<tech>/MEMORY.md`.
 
 4. **Could it be both?** ("PyJWT version-pinning matters because v2.x changed the API"). → **BOTH**: write to project AND to `~/.claude/memory/python/MEMORY.md` (or the most relevant tech).
 
-5. **Is this a decision worth re-litigating?** → not a lesson; should have been an ADR. Add to decisions.md now (with apology that it's late).
+5. **Is this a decision worth re-litigating?** → not a lesson; should have been an ADR. Write it in `docs/adr/` now (`triggers/decision-checkpoint.md`), late as it is.
 
 6. **Is this a rule that should apply automatically forever?** → add to CLAUDE.md as a one-liner.
 
@@ -85,7 +85,7 @@ Example (project-scope):
 
 **Context**: Project consumes vendor invoice exports.
 **Observation**: The 'amount' field is sometimes a string ("123.45") and sometimes a number, depending on the vendor's serializer. Pydantic's default coercion handles the string case but logs a warning in strict mode.
-**Action / rule**: Accept both via `Union[str, Decimal]` with a custom validator that normalizes to Decimal. See decisions.md "money handling".
+**Action / rule**: Accept both via `Union[str, Decimal]` with a custom validator that normalizes to Decimal. See ADR-0007 (money handling).
 **Source**: <project> @<sha> (import fix)
 ```
 
@@ -96,13 +96,13 @@ After all entries are written:
 1. Show the user the diff for the memory files. **Always confirm before committing.**
 
    ```bash
-   git diff -- '.engine/architecture/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
+   git diff -- '.engine/overseer/MEMORY.md' '~/.claude/memory/' CLAUDE.md decisions.md
    ```
 
 2. On confirmation, commit:
 
    ```bash
-   git add .engine/architecture/MEMORY.md CLAUDE.md decisions.md
+   git add .engine/overseer/MEMORY.md CLAUDE.md decisions.md
    git commit -m "chore(memory): distill lessons from <task or session description>"
    ```
 
@@ -133,7 +133,7 @@ After all entries are written:
    - <N> added to project memory
    - <N> added to tech memory (<list>)
    - <N> added to CLAUDE.md as rules
-   - <N> deferred as ADRs (added to decisions.md)
+   - <N> deferred as ADRs (written in docs/adr/)
    - <N> queued items unresolved (carry forward)
    ```
 

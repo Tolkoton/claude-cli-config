@@ -35,18 +35,18 @@ Missing files are fine — silently skip. The point is to load whatever exists.
 ### 2. Read project-scoped memory
 
 ```
-Read .engine/architecture/MEMORY.md
+Read .engine/overseer/MEMORY.md
 ```
 
 Or wherever the project keeps project-scoped lessons (some projects use `docs/lessons.md` instead). Check CLAUDE.md for the canonical path.
 
-### 3. Read decisions log
+### 3. Read the ADRs
 
 ```
-Read decisions.md
+ls docs/adr/        # then Read the ones that touch today's work
 ```
 
-If long (>50 entries), read the most recent 10 — older decisions are background.
+If there are many (>50), read the most recent 10 — older decisions are background.
 
 ### 4. Check for resume context
 
@@ -70,7 +70,7 @@ If no progress file exists:
 ### 5. Briefly report back
 
 Summarize to the user in 3–5 lines:
-- "I've loaded CLAUDE.md, <N> tech memory files, decisions.md (last <N> entries), and <claude-progress.md OR fresh task>."
+- "I've loaded CLAUDE.md, <N> tech memory files, the ADRs in docs/adr/ (last <N>), and <claude-progress.md OR fresh task>."
 - "Current branch: <branch>. Uncommitted: <yes/no>. Last commit: <sha> <message>."
 - "Last task notes say: <one-line from progress.md if relevant>."
 - "Ready to proceed. What's next?"
@@ -81,7 +81,7 @@ Do not dump the full memory content — the user already knows what's there. Jus
 
 - **No CLAUDE.md**: workable but degraded. Mention this.
 - **No `~/.claude/memory/`**: workable but degraded. Mention this. Offer to start the structure at session-end.
-- **No `decisions.md`**: workable. Mention it. Offer to start one when the first ADR-worthy decision happens.
+- **No `docs/adr/`**: workable. Mention it. The first ADR-worthy decision creates it.
 
 ## What to do if memory disagrees with reality
 

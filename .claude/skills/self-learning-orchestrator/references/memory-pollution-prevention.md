@@ -17,8 +17,8 @@ Beyond that line, additional rules don't increase compliance — they just push 
 |---|---|---|---|
 | CLAUDE.md | 100 rules / 200 lines | 150 rules / 300 lines | Split into `CLAUDE.md` (always-loaded steering) and `docs/CONVENTIONS.md` (referenced when needed) |
 | `~/.claude/memory/<tech>/MEMORY.md` | 30 entries | 50 entries | Split by sub-topic into multiple files in `~/.claude/memory/<tech>/` |
-| `.engine/architecture/MEMORY.md` | 30 entries | 50 entries | Aggressive prune in periodic-maintenance; archive old entries |
-| `decisions.md` | 50 entries | 100 entries | Add an index section at top; otherwise leave (history is sacred) |
+| `.engine/overseer/MEMORY.md` | 30 entries | 50 entries | Aggressive prune in periodic-maintenance; archive old entries |
+| `docs/adr/` | 50 ADRs | 100 ADRs | Add an index (`docs/adr/README.md`); otherwise leave (history is sacred) |
 | `claude-progress.md` | 1 screen of "What's left" | 2 screens | Decompose the task; create a separate file per sub-task |
 | `.engine/lesson-queue.md` | 10 entries between session-ends | 20 entries | Session-ends are happening too rarely or threshold for queueing is too low |
 
@@ -38,7 +38,7 @@ You opened CLAUDE.md to fix one rule, noticed another that could be improved, th
 
 You're capturing every minor choice as an ADR — "use list comprehension here", "use f-string instead of .format()". Six months later there are 200 ADRs, none are findable, and no one reads them.
 
-**Detection**: `decisions.md` grows > 10 entries / month sustainably.
+**Detection**: `docs/adr/` grows > 10 ADRs / month sustainably.
 
 **Fix**: re-run the ADR filters before writing. If you can explain the choice in a single inline comment, it's not an ADR. ADRs are for choices that *need a paragraph* of context.
 
@@ -84,7 +84,7 @@ Two CLAUDE.md sections give contradictory guidance, neither author noticing the 
 
 ### 8. Duplicate fact across layers
 
-The same observation lives in CLAUDE.md, decisions.md, MEMORY.md, AND inline comments. Updating one but not the others causes silent drift.
+The same observation lives in CLAUDE.md, an ADR, MEMORY.md, AND inline comments. Updating one but not the others causes silent drift.
 
 **Detection**: search for distinctive phrases across all memory files; if the same fact appears in 3+ places, you have a duplication.
 
@@ -116,7 +116,7 @@ Memory needs pruning when ANY of:
 - A periodic-maintenance hasn't run in > 3 months.
 - You catch yourself re-reading CLAUDE.md but not actually following one of the rules.
 - Claude (in your sessions) violates a CLAUDE.md rule and the violation goes unnoticed for a commit.
-- decisions.md has any entries with Status: draft older than 1 month.
+- docs/adr/ has any ADR with Status: Proposed older than 1 month.
 - `git log --oneline -- CLAUDE.md` shows zero commits in 3 months on an actively developed project.
 
 ## Detection signals — when to PROMOTE
@@ -124,7 +124,7 @@ Memory needs pruning when ANY of:
 Promotion (memory → skill, MEMORY → CLAUDE rule, etc.) is rarer but equally important:
 
 - A specific lesson in MEMORY.md is matched in the stuck-protocol search in ≥ 3 different projects.
-- A decisions.md rule has been re-applied in ≥ 5 commits without Claude needing to be told.
+- An ADR's rule has been re-applied in ≥ 5 commits without Claude needing to be told.
 - A workflow pattern (e.g., specific kind of test setup) appears in 3+ skills' instructions.
 - A lesson-queue topic appears in 3+ sessions in a row.
 
@@ -138,7 +138,7 @@ A few practices reduce pollution proactively:
 
 3. **Date everything.** Every memory entry has a date. Without a date, you can't see what's stale.
 
-4. **No drafts.** decisions.md entries are either `accepted` or `rejected`. `draft` is allowed for ≤ 1 week. Then resolve.
+4. **No drafts.** An ADR is either `Accepted` or `Rejected`. `Proposed` is allowed for ≤ 1 week. Then resolve.
 
 5. **Re-read trigger.** During periodic-maintenance, force a re-read of CLAUDE.md as if you'd never seen it. Would you still write each rule today? If not, delete.
 

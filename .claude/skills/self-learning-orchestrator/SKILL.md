@@ -1,6 +1,6 @@
 ---
 name: self-learning-orchestrator
-description: Orchestrates the self-learning loop across a Claude Code dev cycle — knows WHEN to read, update, or distill the project's living memory (CLAUDE.md, decisions.md, MEMORY.md files, claude-progress.md, reflections.md) and dispatches to the right sub-skill at each moment. Use this skill at session start (read prior learning), when a substantive decision is being made, when stuck for more than ~20 minutes, before any commit, at session/task end (distill lessons), and on periodic maintenance days. Also use whenever the user mentions "session start", "session end", "wrap up", "done for now", "/clear", "/bye", "stuck", "tried everything", "we picked", "going with", "trade-off", "ready to commit", "review my changes", "wrap up the task", "memory maintenance", "review CLAUDE.md", "this took forever to debug", "remember this for next time", "lesson learned", or whenever you notice a workflow moment (just opened a new session, just fixed a non-obvious bug, just completed a task) where memory should be consulted or updated. Proactively detect these moments even if the user has not explicitly asked.
+description: Orchestrates the self-learning loop across a Claude Code dev cycle — knows WHEN to read, update, or distill the project's living memory (CLAUDE.md, the ADRs in docs/adr/, MEMORY.md files, claude-progress.md, reflections.md) and dispatches to the right sub-skill at each moment. Use this skill at session start (read prior learning), when a substantive decision is being made, when stuck for more than ~20 minutes, before any commit, at session/task end (distill lessons), and on periodic maintenance days. Also use whenever the user mentions "session start", "session end", "wrap up", "done for now", "/clear", "/bye", "stuck", "tried everything", "we picked", "going with", "trade-off", "ready to commit", "review my changes", "wrap up the task", "memory maintenance", "review CLAUDE.md", "this took forever to debug", "remember this for next time", "lesson learned", or whenever you notice a workflow moment (just opened a new session, just fixed a non-obvious bug, just completed a task) where memory should be consulted or updated. Proactively detect these moments even if the user has not explicitly asked.
 ---
 
 # Self-Learning Orchestrator
@@ -14,8 +14,8 @@ A layered memory stack with deliberately different update frequencies:
 | Artifact | Scope | Lifetime | Update cadence |
 |---|---|---|---|
 | `CLAUDE.md` | project | forever | rare, deliberate |
-| `decisions.md` | project | append-only forever | per substantive decision (~weekly) |
-| `.engine/architecture/MEMORY.md` | project | append-only, periodic prune | per session-end |
+| `docs/adr/NNNN-*.md` (ADR) | project | append-only, superseded never edited | per substantive decision (~weekly) |
+| `.engine/overseer/MEMORY.md` | project | every entry cites two ledger entries, or is pruned | on the hook's lesson review (`resolve --to memory`) |
 | `~/.claude/memory/<tech>/MEMORY.md` | global per-tech | append-only forever, periodic consolidate | per session-end |
 | `claude-progress.md` | task | deleted on completion | per commit |
 | `<task>/reflections.md` | task | archived on completion | per failed attempt |
@@ -76,8 +76,8 @@ recommend; it does not decide. On the owner's «так» the board runner runs `
 ## Hard rules
 
 1. **Always read CLAUDE.md and the relevant MEMORY.md files at session start.** Skipping this is the single largest learning leak — every subsequent decision is uninformed by prior lessons.
-2. **Never write to CLAUDE.md, decisions.md, or MEMORY.md silently.** Attended: show the user what you propose to add and where, and get explicit confirmation. Unattended, or in answer to the hook's `LESSON_REVIEW_REQUESTED`: that request is the confirmation for `.engine/overseer/MEMORY.md` (through `resolve --to memory`, which refuses without two ledger citations) and for the two proposal files; **CLAUDE.md and `.engine/rules.md` are never written by hand or by a hook — only `promote` writes the latter, after an overseer PASS.** Memory pollution is irreversible without git archaeology.
-3. **One artifact per piece of knowledge.** A specific fact lives in exactly one of: CLAUDE.md (rule), decisions.md (rationale), MEMORY.md (experience), reflections.md (per-task), code comment (per-line). Duplication causes drift. See `references/artifact-scope-decision-tree.md`.
+2. **Never write to CLAUDE.md, an ADR, or MEMORY.md silently.** Attended: show the user what you propose to add and where, and get explicit confirmation. Unattended, or in answer to the hook's `LESSON_REVIEW_REQUESTED`: that request is the confirmation for `.engine/overseer/MEMORY.md` (through `resolve --to memory`, which refuses without two ledger citations) and for the two proposal files; **CLAUDE.md and `.engine/rules.md` are never written by hand or by a hook — only `promote` writes the latter, after an overseer PASS.** Memory pollution is irreversible without git archaeology.
+3. **One artifact per piece of knowledge.** A specific fact lives in exactly one of: CLAUDE.md (rule), an ADR in `docs/adr/` (rationale), MEMORY.md (experience), reflections.md (per-task), code comment (per-line). Duplication causes drift. See `references/artifact-scope-decision-tree.md`.
 4. **Defer non-blocking captures to the queue.** Bug fix in flow with a non-obvious cause? `lesson_queue.py add`, do not stop to write a full ADR. The queue is triaged when the hook asks (after an overseer PASS) and at session-end.
 5. **Session-end is non-optional.** Skipping session-end-dreaming silently drops all lesson candidates accumulated during the session. If a session is ending and the queue is non-empty, process it before `/clear`.
 6. **Periodic maintenance is non-optional.** Without prune, MEMORY.md and CLAUDE.md rot to the point of being ignored. Schedule weekly or monthly, treat as real work.

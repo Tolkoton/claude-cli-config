@@ -16,7 +16,7 @@ Before writing anything, run the filter. Most "decisions" are not ADRs.
 
 ### Filter 1: Was there really a choice?
 
-If the answer was forced by external constraint (only one library available, regulation requires X, existing code already uses Y), this is a **constraint**, not a decision. Record it in CLAUDE.md's "Constraints" section, not in decisions.md. Skip the rest of this trigger.
+If the answer was forced by external constraint (only one library available, regulation requires X, existing code already uses Y), this is a **constraint**, not a decision. Record it in CLAUDE.md's "Constraints" section, not in an ADR. Skip the rest of this trigger.
 
 ### Filter 2: Would someone re-litigate this in 6 months?
 
@@ -26,33 +26,10 @@ A useful heuristic: if you can explain the choice in a single inline comment, do
 
 ## If both filters pass: write the ADR
 
-Append this to `decisions.md` at the project root (create the file if missing):
-
-```markdown
-## YYYY-MM-DD: <short title in present tense>
-
-**Status**: accepted
-
-**Context**
-<2–4 sentences. What problem are we solving? What constraints / forces are at play?>
-
-**Decision**
-<1–3 sentences. Concrete and specific.>
-
-**Why this and not the alternatives**
-- <Alt A>: <why ruled out>
-- <Alt B>: <why ruled out>
-- The chosen option: <why it wins for THIS context>
-
-**Consequences**
-- <Positive>
-- <Cost we accept>
-- <What becomes easier>
-- <What becomes harder>
-
-**Links**
-- <PR / commit / issue / related ADR>
-```
+Write it as `docs/adr/NNNN-short-kebab-title.md` — the next free number, never renumbered (create
+the directory if missing). The format, the status lifecycle and the first ADR of a project are in
+`.claude/skills/documentation/references/adr-template.md`; use that template, not a second one. This
+is the ADR the overseer's check #8 looks for and the one `ADR_REQUIRED` asks for.
 
 ## When this trigger should ALSO update CLAUDE.md
 
@@ -61,10 +38,10 @@ If the decision establishes a **rule** that should apply automatically from now 
 ```markdown
 # CLAUDE.md
 ## Conventions
-- Money is the `Money` dataclass; never raw Decimal or float. (See decisions.md "2026-05-14: All money handled as Decimal".)
+- Money is the `Money` dataclass; never raw Decimal or float. (See ADR-0007.)
 ```
 
-Without the rule in CLAUDE.md, the decision lives in `decisions.md` but Claude won't apply it consistently. The ADR is the WHY; the CLAUDE.md line is the WHAT.
+Without the rule in CLAUDE.md, the decision lives in `docs/adr/` but Claude won't apply it consistently. The ADR is the WHY; the CLAUDE.md line is the WHAT.
 
 ## When this trigger should NOT update CLAUDE.md
 
@@ -74,24 +51,24 @@ Without the rule in CLAUDE.md, the decision lives in `decisions.md` but Claude w
 
 ## Show the user, then write
 
-Even after the filters pass, never write `decisions.md` silently. Show the proposed entry. Get confirmation. Then commit it in the **same commit** as the code that implements the decision. Code without ADR loses the why; ADR without code is fantasy.
+Even after the filters pass, never write an ADR silently. Show the proposed ADR. Get confirmation. Then commit it in the **same commit** as the code that implements the decision. Code without ADR loses the why; ADR without code is fantasy.
 
 ## Common mistakes to avoid
 
 - **Writing 5 ADRs in one day.** This is decision-theatre. Most of them are tactical implementation choices. Re-run the filters.
 - **Writing the ADR before the decision is real.** "We might use X" is not an ADR. Wait until you commit to it.
 - **Writing the ADR and forgetting CLAUDE.md.** Then the rule doesn't get applied.
-- **Writing the ADR but no cross-reference from the relevant code.** Future code archaeologist won't find it. At least put `# See decisions.md <date>` in the code.
-- **Status: draft forever.** Either accept or reject. Drafts are noise.
+- **Writing the ADR but no cross-reference from the relevant code.** Future code archaeologist won't find it. At least put `# See ADR-NNNN` in the code.
+- **Status: Proposed forever.** Either accept or reject. Drafts are noise.
 
 ## What about superseding an old decision?
 
-If today's decision overrides one already in `decisions.md`:
+If today's decision overrides an accepted ADR:
 
-1. Write the new entry as normal.
-2. In the old entry, change `Status: accepted` → `Status: superseded by <date of new entry>`.
-3. In the new entry's Context, briefly explain what changed.
-4. **Do not delete the old entry.** The supersession chain is the history.
+1. Write the new ADR as normal, with the line `Supersedes ADR-NNNN`.
+2. In the old ADR, change only the status line to `Superseded by ADR-MMMM`.
+3. In the new ADR's Context, briefly explain what changed.
+4. **Do not delete or edit the old ADR's text.** The supersession chain is the history.
 
 ## After writing
 

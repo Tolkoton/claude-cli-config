@@ -94,7 +94,7 @@ In that case: just commit. The full checklist is overhead for trivial changes.
 ## Failure modes
 
 - **Convention added to CLAUDE.md but not to behavior.** You wrote "always use X" but the code still has Y in 5 places. Either fix Y first, or don't add the rule yet.
-- **ADR with no code reference.** Someone reading the code later won't know to look in decisions.md. At minimum add `# See decisions.md <date>` near the relevant code.
+- **ADR with no code reference.** Someone reading the code later won't know to look in docs/adr/. At minimum add `# See ADR-NNNN` near the relevant code.
 - **Progress.md left stale.** "Tests passing" written before tests were re-run. Always update progress.md *after* the quality gates pass, not before.
 - **Lesson written as memory entry instead of queued.** Premature classification. The queue gives you the benefit of seeing patterns across the session.
 - **Commit message describing WHAT not WHY.** "Add function foo" tells future-you nothing. "Add foo because Y was too slow on batch sizes > 1000" is useful.
