@@ -246,6 +246,14 @@ try:
     check("a board that waits for the owner is cleaned too, and still ends waiting-owner",
           r.returncode == 0 and w.tasks("done") == ["031-cleanup-2026-10-05"] and w.tasks("blocked") == ["030-asked.md"] and "state=waiting-owner" in w.status(), out(r))
 
+    # `board.py next` answers 4 here, not 3: todo/ holds tasks, and none of them can start.
+    w = World().task("todo", "010-with-owner", more=ATTENDED).task("todo", "020-after", dep="010")
+    w.commit("tasks that wait for the owner's presence")
+    r = w.runner("2026-10-05")
+    check("todo/ holds only tasks that wait for the owner's presence: cleaned too, they stay where they were, the run ends waiting-owner",
+          r.returncode == 0 and w.tasks("done") == ["021-cleanup-2026-10-05"] and w.tasks("todo") == ["010-with-owner.md", "020-after.md"]
+          and w.said("nightly") == ["nightly"] and "state=waiting-owner" in w.status(), out(r))
+
     w = World(env='CLEANUP_EVERY_DAYS="0"\n')
     r = w.runner("2026-10-05")
     check("NEGATIVE: switched off — the runner stops idle at once, no task, no agent, no journal", r.returncode == 0 and w.tasks("done") == [] and w.said("calls") == [] and w.text("tasks/ANOMALIES.md") == "" and "state=idle" in w.status(), out(r))

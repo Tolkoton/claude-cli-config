@@ -694,7 +694,8 @@ while :; do
       if [ -n "$PLACED" ]; then
         event "cleanup-task $PLACED"
         board anomaly "$(basename "$PLACED" .md)" "дошка вільна: виконавцеві нема чого брати (\`todo/\` порожня, або все, що лишилося, чекає власника чи його присутності)" \
-          "виконавець сам поклав задачу прибирання \`$PLACED\` і взяв її: нічний режим спрощувача, безпечне застосовується, решта — у звіт для власника. Наступна така — не раніше ніж за добу (\`CLEANUP_EVERY_DAYS\`)." > /dev/null
+          "виконавець сам поклав задачу прибирання \`$PLACED\` і взяв її: нічний режим спрощувача, безпечне застосовується, решта — у звіт для власника. Наступна така — не раніше ніж за добу (\`CLEANUP_EVERY_DAYS\`)." > /dev/null \
+          || event "anomaly-failed cleanup-task $PLACED"   # the journal never stops the board; the task is placed all the same
         board_commit "board: nothing to take — the cleanup task $PLACED" || finish error - commit "cannot commit the cleanup task"
         continue
       fi

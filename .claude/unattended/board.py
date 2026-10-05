@@ -34,9 +34,11 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      `name<TAB>action<TAB>argument<TAB>sha256` line each
     board.py action-line <action>    the line an agent writes under its question to offer the action
     board.py maintain-task [--today YYYY-MM-DD]
-    board.py cleanup-task [--today YYYY-MM-DD]
                                      the runner's weekly call: put the maintenance task into todo/
                                      when it is due (see THE MAINTENANCE TASK); prints its path
+    board.py cleanup-task [--today YYYY-MM-DD]
+                                     the runner's call when nothing can be taken: put the cleanup
+                                     task into todo/ when it is due (see THE CLEANUP TASK); prints its path
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
     board.py action-reject <name>    its answer is wiped and the question asked again
     board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--wip BRANCH [--wip-remote NAME]]
