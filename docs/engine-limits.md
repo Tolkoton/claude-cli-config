@@ -352,11 +352,27 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   `overseer_verdict.py guard` refuses any prompt but the request line, and a request left without
   a verdict is repeated twice, then parked and the turn ends. An agent that never launches the
   auditor gets no PASS — and no audit either.
-- **A hook cannot tell who started it.** The environment of a hook and of the builder's own Bash
-  is the same (probed on Claude Code 2.1.288). A builder that pipes a made-up SubagentStop
-  envelope into `overseer_verdict.py record`, or writes `.claude/state/overseer/` itself, forges a
-  verdict. The rules forbid both and it shows in the transcript; nothing makes it impossible. The
-  spare design — the hook starts `claude -p` itself — closes this and was not built (board 015).
+- **A verdict can be forged by the builder, and this is not closed** (board 032; the owner's
+  decision of 2026-10-05). The builder's Bash and the hooks run as the same user with the same
+  environment (probed on Claude Code 2.1.288) and the same rights on the disk, so a hook cannot
+  tell who started it and a file cannot tell who wrote it. Two ways, both reproduced on the real
+  hooks in a temporary project:
+  1. a made-up SubagentStop envelope piped into `overseer_verdict.py record` — the ledger gets an
+     `OVERSEER_PASS` although no auditor ran;
+  2. a line appended to `.claude/state/overseer/verdicts.jsonl` — the next Stop hook answers
+     "PASS recorded, proceed". `protect-paths.sh` sees Edit and Write, not Bash.
+
+  The same rights reach the request package (`request.json`: the tree fingerprint, the count of
+  PASSes in a row) and, in this repository, the auditor's own instructions (`.claude/agents/`).
+  The rules forbid all of it and it shows in the transcript and in the diff; nothing makes it
+  impossible. So the independence of the verdict rests on the builder not forging it — the
+  guarantee holds against a mistaken or careless builder, not against one that sets out to
+  deceive. Why it stays open: the owner counts such forgery a theoretical possibility, and the
+  only thing that closes both ways is a boundary the operating system holds (a sandbox for the
+  builder's commands, or an auditor under another system user), which costs every command of
+  every session. The spare design — the hook starts `claude -p` itself — closes only the first
+  way: the verdict would still be kept in a file the builder can write. The options, their price
+  and the test of each are kept in `tasks/done/032-unforgeable-verdict-design/report.md`.
 - **"Read-only" is checked, not enforced.** The agent has no editing tool and the guard refuses
   one anyway, but it has Bash, to run the tests. The tree is fingerprinted when the agent starts
   and compared when it answers: HEAD, `git status`, the content of every changed or untracked
@@ -386,7 +402,11 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
 - **The verdict on a budget overrun is relayed by the builder.** `simplifier.py accept` checks
   the answer file it is given (schema, nothing above `flag_only`) and records its hash, but it
   cannot know the file is what the `simplifier` subagent really answered. The reason lands in
-  the ledger, which the overseer and the owner read; that is the check.
+  the ledger, which the overseer and the owner read; that is the check. The answer of the
+  simplifier in general travels the same way: the builder saves it to a file and hands that file
+  to `validate`, `route` and `accept`, and the request to the agent is not pinned to a fixed line
+  as the overseer's is, so a builder can also add words to it. Recording the answer by a hook
+  was designed with the overseer's boundary and put off with it (board 032).
 - **`test_safety` is the agent's claim.** The validator refuses `auto_remove` for code with
   `test_safety: none`; whether the named test really covers the removed code is shown by the
   builder (the suite green after the removal), not by the validator.
