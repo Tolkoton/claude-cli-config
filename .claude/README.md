@@ -72,7 +72,7 @@ volatile the artifact is.
 | `.engine/overseer/ledger.md` | `overseer` | `overseer` (counts PASS streak) | append-only |
 | `.engine/overseer/MEMORY.md` | `overseer` | `overseer` | cross-slice, cited-or-pruned |
 | `.engine/overseer/audit.md` | any agent (a proposal) | humans (ratify, Article 7) | append-only |
-| `.engine/overseer/escalations.md` | humans | `overseer` | append-only |
+| `.engine/overseer/escalations.md`, `parked.md` | any agent (a decision already made; a park where there is no board) | `overseer` | history: append-only, nothing in them is closed — what is open is a task in `tasks/` |
 | `.claude/state/overseer/state` | (manual / planning) | `overseer_stop.py` (phase guard) | ephemeral |
 | `.claude/state/overseer/.last_audit_sha`, `.last_continue_sha` | `overseer_stop.py` | `overseer_stop.py` (recursion guard) | ephemeral |
 | `.engine/artifacts/spikes/*` | developer, smoke/probe scripts | `.engine/PROGRESS.md`, ADRs | dated, kept |

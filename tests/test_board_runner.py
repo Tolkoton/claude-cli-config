@@ -662,7 +662,8 @@ r = w.run()
 state = escalations(w)
 check("the owner answered «так» in the branch: the escalation is closed", state["open"] == []
       and [e["stamp"] for e in state["closed"]] == [stamp], state)
-check("…the parked entry is RESUMED", f"## {stamp} — gate stop layer — RESUMED" in (w.repo / ".engine/overseer/parked.md").read_text())
+check("…board 037: the gate's question lived on the board only — the log parked.md has no entry of it, open or closed",
+      not w.has(".engine/overseer/parked.md") or stamp not in (w.repo / ".engine/overseer/parked.md").read_text())
 check("…the task is in done/ with the answer and a report", not w.has(f"tasks/blocked/{name}")
       and "Відповідь: так" in (w.repo / f"tasks/done/{stem}/task.md").read_text()
       and stamp in (w.repo / f"tasks/done/{stem}/report.md").read_text())

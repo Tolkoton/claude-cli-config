@@ -258,13 +258,15 @@ FRESH_BLOCK_REASON = (
     "The verdict is the overseer agent's and is recorded in .engine/overseer/ledger.md. Route it as "
     ".claude/engine-rules.md § \"Verdict routing\" says. If you can resolve it: fix it, verify, and "
     "claim the unit again (`=== UNIT N COMPLETE ===`) — another overseer, which has seen neither this "
-    "audit nor your fix, will judge the result. If you cannot: park the item in "
-    ".engine/overseer/parked.md and take the next unblocked one. Do not record a verdict yourself."
+    "audit nor your fix, will judge the result. If you cannot: put the item on the task board — `python3 "
+    ".claude/unattended/board.py open-item --to blocked --title … --what … --question …` (a question for the "
+    "owner; `--to todo` when it is work for an agent) — and take the next unblocked one. Do not record a "
+    "verdict yourself."
 )
 FRESH_THREE_BLOCKS_REASON = (
     "OVERSEER_BLOCK — the third in a row on one unit ({unit}; request {id}): {finding}\n"
     "Three overseers refused this unit, so it is no longer yours to retry: it is parked for the owner, "
-    "and this hook has already written the PARKED entry in .engine/overseer/parked.md. Tell the human "
+    "and this hook has already put it before the owner ({parked}). Tell the human "
     "plainly, in your next message: which unit was refused three times, the three reasons below, what "
     "you tried. If a board task is in tasks/doing/: write that as a question under «Питання до власника» "
     "in the task, leave `Відповідь:` empty and move the task to tasks/blocked/. Then take the next "
@@ -275,7 +277,7 @@ FRESH_THREE_BLOCKS_REASON = (
 # instead), in the owner's language like everything the board says to the owner.
 THREE_BLOCKS_HUMAN = (
     "Наглядач тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
-    "відкладено до вашого рішення (запис у .engine/overseer/parked.md, вердикти — у "
+    "відкладено до вашого рішення (запис — {parked}, вердикти — у "
     ".engine/overseer/ledger.md).\n{reasons}"
 )
 # Under the board runner nothing is asked of the builder: the session is stopped and the runner
@@ -289,8 +291,10 @@ FRESH_ROUTE_REASON = (
     "OVERSEER_{verdict} (request {id}): {finding}\n"
     "The draft ADR or the escalation is in the newest entry of .engine/overseer/ledger.md. Route it as "
     ".claude/engine-rules.md § \"Verdict routing\" says: reversible — write the ADR in docs/adr/, or "
-    "log the AUTONOMOUS entry in .engine/overseer/escalations.md, and continue; a one-way door or an "
-    "Article 5 product decision — park it and take the next unblocked item."
+    "log the AUTONOMOUS entry in .engine/overseer/escalations.md (a log of decisions already made), and "
+    "continue; a one-way door or an Article 5 product decision — ask the owner on the task board (`python3 "
+    ".claude/unattended/board.py open-item --to blocked --title … --what … --question …`) and take the next "
+    "unblocked item."
 )
 FRESH_PASS_IGNORED_REASON = (
     "OVERSEER_PASS IGNORED. A verdict typed by the builder means nothing: every audit is done by the "
@@ -313,8 +317,9 @@ NOT_WIRED_REASON = (
     "recorded by .claude/hooks/overseer_verdict.py, which works only through two handlers in "
     ".claude/settings.json; this project's settings do not carry them, so no request was made.\n"
     "Do NOT audit the unit yourself and do NOT type a verdict: neither counts. You cannot fix this "
-    "either — the settings file is the owner's. Park the unit in .engine/overseer/parked.md (Class: "
-    "human-only; Unblocks when: `python3 <engine>/engine.py update <this project>` has been run — it adds "
+    "either — the settings file is the owner's. Put the unit before the owner as a task of the board "
+    "(`python3 .claude/unattended/board.py open-item --to blocked --title … --what … --question …`; what "
+    "unblocks it: `python3 <engine>/engine.py update <this project>` has been run — it adds "
     "the two handlers — or they are added by hand: PreToolUse, matcher "
     "`Agent|Task|Edit|Write|MultiEdit|NotebookEdit`, command `python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/"
     "overseer_verdict.py\" guard`; SubagentStop, matcher `overseer`, the same command with `record`). If a "
@@ -333,7 +338,7 @@ NOT_WIRED_HUMAN = (
 REQUEST_TYPED_RE = re.compile(r"^[ \t>*`]*OVERSEER_REQUEST\b", re.MULTILINE)
 
 GATE_OPEN_NOTICE = (
-    "\n\nGATE ESCALATION OPEN ({scope}; parked {stamp} in .engine/overseer/parked.md). "
+    "\n\nGATE ESCALATION OPEN ({scope}; opened {stamp}; where the project has a task board, the gate's question is in tasks/blocked/). "
     "OVERSEER_PASS will not be accepted for this work until the owner closes it — by answering "
     "«так» under the gate's question in tasks/blocked/ (the board runner then closes it), or with "
     "`gate.py --close-escalation` in their own terminal. Neither is yours to do: audit as usual, "
@@ -518,7 +523,8 @@ CONTRACT_CHANGED_REASON = (
     "CONTRACT CHANGED AFTER APPROVAL — no audit was run. The active slice contract {contract} "
     "no longer matches the fingerprint sealed when the planner-critic loop approved it "
     "({fingerprint}). An audit against a moved goalpost proves nothing, so this turn is "
-    "ESCALATED instead: append an entry to .engine/overseer/escalations.md naming the "
+    "ESCALATED instead: put it before the owner as a task of the board (`python3 .claude/unattended/board.py "
+    "open-item --to blocked --title … --what … --question …`), naming the "
     "contract, what changed (git diff it), and who changed it; then either restore the "
     "approved contract, or have the OWNER delete the fingerprint and re-plan the slice with "
     "/plan-slice. Do not delete the fingerprint yourself. The owner may not be at the terminal: if a "
@@ -597,9 +603,9 @@ def _three_blocks(project_dir: Path, unit: str, request_id: str, finding: str, b
     if task != "-" and ov.runner_alive(project_dir):
         ov.write_json(ov.three_blocks_marker(project_dir, task), {"task": task, "unit": unit, "utc": ov.utc_now(), "blocks": kept})
         _emit_halt(THREE_BLOCKS_RUNNER_STOP.format(unit=unit, id=request_id, finding=finding, task=task, reasons=reasons))
-    ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_REL.as_posix())
-    _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding, reasons=reasons),
-                THREE_BLOCKS_HUMAN.format(unit=unit, reasons=reasons))
+    parked = ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_REL.as_posix())
+    _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding, reasons=reasons, parked=parked),
+                THREE_BLOCKS_HUMAN.format(unit=unit, reasons=reasons, parked=parked))
 
 
 def _answer_pending(project_dir: Path, envelope: dict[str, object], message: str, waiting: dict[str, object]) -> str | None:

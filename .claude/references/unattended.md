@@ -22,24 +22,30 @@ published contract) parks and waits in **both** modes.
 
 ## Parking an item
 
-Append to `.engine/overseer/parked.md`:
+Everything that can be open is a file of the task board, and it is closed the way every task is:
+by moving to `tasks/done/`. To park an item, put it there:
 
-```
-## <ISO timestamp UTC> — <slice slug or item id> — PARKED
-- Blocked on: <the specific thing needed, in one line>
-- Class: human-input | ask-gated | one-way-door | falsified-premise | external-verification
-- Reversibility: <cost to reverse if decided wrong — required for one-way-door>
-- Evidence: <file:line / test name / spike path / transcript turn>
-- Unblocks when: <the observable event that lets this resume>
-- Continued with: <what was worked on instead, or "queue exhausted">
+```bash
+python3 .claude/unattended/board.py open-item --to blocked --title "<the item, in a line>" \
+    --what "<what happened, the exact thing needed, the evidence>" --question "<what you ask the owner>"
 ```
 
-For an ask-gated command: `Class: ask-gated`, the exact command under `Blocked on`,
-`Unblocks when: a human runs it or the session becomes attended`. `park-ask-gated.py` denies
-such a command unattended and hands you this instruction if you forget. Move an entry to
-`RESUMED` in place when it unblocks; keep the history.
+`--to blocked` is a question for the owner (`7NN-open-item-….md` with an empty `Відповідь:`; any
+answer returns it to `todo/` as an instruction); `--to todo` is work an agent can do later
+(`--do` says what); `--key <item id>` names the item, so a second call returns the task still
+open instead of writing another. If the item is your own board task, ask in that task and move
+it to `tasks/blocked/` instead (`tasks/README.md`, rule 4).
 
-Surface the parked queue to the human when, and only when: nothing in the unblocked queue
+For an ask-gated command: the exact command in `--what`, and the question is whether the owner
+runs it. `park-ask-gated.py` denies such a command unattended and hands you this instruction if
+you forget.
+
+`.engine/overseer/parked.md` and `.engine/overseer/escalations.md` are history. They are only
+appended to — an AUTONOMOUS decision, closed by being logged, still goes to `escalations.md`;
+a project without `tasks/` parks in `parked.md` — nothing in them is ever marked closed, and
+nothing reads them to learn what is open: the owner's review shows `tasks/blocked/`.
+
+Surface what is parked to the human when, and only when: nothing in the unblocked queue
 can move; a single item is parked on a one-way door; three or more items are parked awaiting
 ratification (the contract is systematically under-specified); or a premise in
 `.engine/premises/premise-log.md` flips to `falsified` and committed work depends on it.

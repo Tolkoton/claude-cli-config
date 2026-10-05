@@ -20,8 +20,8 @@ mode file, the park queue in full).
   `rebase`, `merge`, `cherry-pick`, `revert`; `gh pr create/merge`, `gh release`; adding or
   removing packages (uv, poetry, pip, npm, cargo…); migrations (alembic, `manage.py migrate`);
   `docker push/run`, `docker compose up`. Unattended, do not invoke one at all — the prompt is
-  answered by nobody. Park it in `.engine/overseer/parked.md` (`Class: ask-gated`, the exact
-  command, `Unblocks when: a human runs it or the session becomes attended`) and continue.
+  answered by nobody. Put it on the task board (`board.py open-item --to blocked`: the exact
+  command, what waits for it, the question to the owner) and continue.
 - **Hard-denied** whatever the instruction: deleting `/`, `~` or `$HOME`; force pushes,
   `git reset --hard origin*`, history rewriting, `git clean -fdx`; reading or editing `.env`,
   `secrets/`, SSH/GPG/AWS credentials; editing migrations and `.github/workflows/`; publishing
@@ -58,8 +58,8 @@ the next unblocked item. A `gate-allow` is not a way through: the overseer reads
 
 ## Verdict routing — almost nothing stops the run
 A verdict records a finding. Route by whether the fix needs a human, not by the verdict's name.
-- `BLOCK` you can resolve → fix it, log it, continue. Otherwise park the item and continue
-  with the next unblocked one.
+- `BLOCK` you can resolve → fix it, log it, continue. Otherwise park the item — a task on the
+  board (`board.py open-item`), never a line in a log — and continue with the next one.
 - `ADR_REQUIRED`, reversible → write the ADR in `docs/adr/` and continue. One-way door → draft
   it `PROPOSED — provisional`, park, continue.
 - `ESCALATE` on a two-way door → append an AUTONOMOUS entry to

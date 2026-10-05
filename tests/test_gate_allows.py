@@ -475,9 +475,10 @@ wrong = close(r, "2020-01-01T00:00:00Z", inside_claude=False)
 check("closing an unknown stamp closes nothing and says which are open", wrong.returncode == 1 and stamp in wrong.stderr, wrong.stderr)
 done = close(r, stamp, inside_claude=False)
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
-check("the owner's command closes it: state, and the parked entry reads RESUMED",
+check("the owner's command closes it in the state; board 037: the log is history — its entry is left as it was written",
       done.returncode == 0 and state["open"] == [] and state["closed"][0]["stamp"] == stamp
-      and f"## {stamp} — gate stop layer — RESUMED" in (r / ".engine/overseer/parked.md").read_text(), (done.stderr, state))
+      and f"## {stamp} — gate stop layer — PARKED" in (r / ".engine/overseer/parked.md").read_text()
+      and "RESUMED" not in (r / ".engine/overseer/parked.md").read_text(), (done.stderr, state))
 check("...and PASS is accepted again", audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 
 print("an escalation outside any slice covers its files")
@@ -535,9 +536,9 @@ check("a board in the project: the escalation is a task in tasks/blocked/",
 check("...it names the file the gate blocked on and asks «Закрити ескалацію?» and offers «так» with an empty answer line",
       "mod.py" in question and "`так`" in question and "1. Закрити ескалацію?" in question and question.rstrip().endswith("Відповідь:"), question)
 check("...the escalation state names the task", state["open"][-1].get("task") == f"tasks/blocked/{asked[0].name}" if asked else False, state)
-parked = (r / ".engine/overseer/parked.md").read_text()
-check("...the parked entry names both ways to close: the board answer and the owner's command",
-      f"tasks/blocked/{asked[0].name}" in parked and "«так»" in parked and f"--close-escalation {stamp}" in parked if asked else False, parked)
+parked = r / ".engine/overseer/parked.md"
+check("...board 037: with the question on the board nothing is written to the log parked.md",
+      bool(asked) and (not parked.exists() or "gate stop layer" not in parked.read_text()), parked.read_text() if parked.exists() else "")
 message = str(json.loads(proc.stdout or "{}").get("systemMessage", ""))
 check("...the session is told where the owner is asked, and not to answer it itself",
       message.startswith("GATE ESCALATION") and "tasks/blocked/900-gate-escalation-" in message and "leave its answer line empty" in message, message)

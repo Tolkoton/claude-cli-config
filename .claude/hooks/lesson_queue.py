@@ -22,7 +22,8 @@ hash of source + the normalised essence, and every id ever seen is kept in machi
 when its source is scanned again. No model is involved in collecting.
 
 THE COLLECTORS (`collect`, called by the Stop gate and the overseer hook): the blocking findings of
-`.claude/state/gate/last-report.json`, the PARKED entries of `.engine/overseer/parked.md`, the
+`.claude/state/gate/last-report.json`, the PARKED entries of `.engine/overseer/parked.md` and the
+open items of the task board (the tasks that carry `Відкритий пункт:`, board 037), the
 non-AUTONOMOUS entries of `.engine/overseer/escalations.md`; the overseer hook adds an
 `OVERSEER_BLOCK:` verdict itself (`add_from_verdict`). The agent adds a line when it finds a
 non-obvious cause (the rule is in the self-learning-orchestrator skill, not in the persistent context).
@@ -242,6 +243,14 @@ def collect_parked(root: Path, queue: bool = True) -> int:
         if match["item"] in resumed:
             continue
         if add(root, "parked", match["item"], f"{match['item']}: {bullet(body, 'Blocked on') or 'parked'}", queue):
+            added += 1
+    # Board 037: where the project has a task board a parked item is a task with the line
+    # `Відкритий пункт: <item>` — in blocked/ or todo/ while it is open — and no entry in the log.
+    for path in sorted(p for column in ("blocked", "todo") for p in (root / "tasks" / column).glob("*.md")):
+        head = read(path).split("\n## ", 1)[0]
+        item = re.search(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", head, re.MULTILINE)
+        title = re.search(r"^# \d+ — (.+)$", head, re.MULTILINE)
+        if item and add(root, "parked", item.group(1), f"{item.group(1)}: {title.group(1).strip() if title else 'parked'}", queue):
             added += 1
     return added
 

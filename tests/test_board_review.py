@@ -291,10 +291,9 @@ check("the draft report of a blocked task is pointed at", "tasks/blocked/report-
 check("a settings proposal that waits for «так» is named as one, and that it differs from the live file", "apply-settings" in waiting
       and "docs/tasks/settings.json" in waiting and "відрізняється" in waiting, waiting)
 check("the gate's question is named as one", "20260101T000000Z" in waiting and "відповідь `так` (рівно це слово) закриє її" in waiting and "закрити`" not in waiting, waiting)
-check("open escalations: the one without a decision — not the closed, not the answered", "ЕСКАЛАЦІЯ-ВІДКРИТА" in waiting
-      and "ЕСКАЛАЦІЯ-ЗАКРИТА" not in waiting and "ЕСКАЛАЦІЯ-ВИРІШЕНА" not in waiting, waiting)
-check("parked: the item whose latest entry is PARKED — not the resumed one", "ВІДКЛАДЕНЕ-ЧЕКАЄ" in waiting and "ключ від сервісу" in waiting
-      and "ВІДКЛАДЕНЕ-ПОВЕРНУТЕ" not in waiting, waiting)
+check("board 037: the logs are history — an entry of escalations.md or parked.md, whatever its status, is not shown as waiting",
+      not any(word in doc for word in ("ЕСКАЛАЦІЯ-ВІДКРИТА", "ЕСКАЛАЦІЯ-ЗАКРИТА", "ЕСКАЛАЦІЯ-ВИРІШЕНА", "ВІДКЛАДЕНЕ-ЧЕКАЄ", "ВІДКЛАДЕНЕ-ПОВЕРНУТЕ", "ключ від сервісу"))
+      and "escalations.md" not in waiting and "parked.md" not in waiting, waiting)
 check("rule proposals: the PROPOSED one only", "ПРАВИЛО-ПРОПОЗИЦІЯ" in waiting and "ПРАВИЛО-ВЖЕ-ПРИЙНЯТЕ" not in waiting, waiting)
 rules = {line.split("`")[1]: line for line in waiting[waiting.index("### Пропозиції правил"):].splitlines() if line.startswith("- `RP-")}
 check("board 036: a rule proposal links to its question in blocked/ and says what consent is",

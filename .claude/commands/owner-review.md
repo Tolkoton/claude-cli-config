@@ -37,8 +37,9 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    took alone. Ask whether any of those decisions should be reversed — a reversal is a new task.
 3. **Чекає на власника** — every open question, one at a time, with its context and options. The
    owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
-   never takes them; they are done in an interactive session, not in this one), the settings proposals, the open escalations,
-   the parked items and the rule proposals (each names its question in `blocked/`): each either gets an answer, becomes a new task, or waits.
+   never takes them; they are done in an interactive session, not in this one), the settings proposals, the gate's open escalations
+   and the rule proposals (each names its question in `blocked/`): each either gets an answer, becomes a new task, or waits.
+   Everything open is a task of the board; the logs `escalations.md` and `parked.md` are history and are not part of the review.
 4. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
    whether the follow-up task should move up the queue); then what the runner, the gate, a hook or the agent found odd, wrote into
    `tasks/ANOMALIES.md` and worked past (each entry says who wrote it): a task the runner parked in

@@ -74,8 +74,9 @@ python3 .claude/hooks/baseline.py show      # what is left
 `stop_hook_active` is read first. Claude Code sets it on the stop that follows a block, so the gate
 ends its work on it only while this session's counter is 0; with the counter above 0 the re-entry is
 checked again. A block adds one (per `session_id`), a pass resets. On the `GATE_MAX_BLOCKS`th block
-in a row (default 3) the gate lets the turn end, appends a PARKED entry (class `human-input`) to
-`.engine/overseer/parked.md`, says so in a `systemMessage`, and starts counting again. That entry
+in a row (default 3) the gate lets the turn end, puts its question to the owner on the task board
+(`tasks/blocked/9NN-gate-escalation-….md`; a project without `tasks/` gets a PARKED entry in the log
+`.engine/overseer/parked.md` instead), says so in a `systemMessage`, and starts counting again. That
 is not the end of it: see "An open escalation refuses the PASS" below.
 
 ## The bypass guard (stop, pre_commit)
@@ -197,11 +198,11 @@ written on the agent's machine, and is wiped and asked again. Without a board, o
 the owner closes it in their own terminal:
 
 ```bash
-python3 .claude/hooks/gate.py --close-escalation <stamp|all>   # the stamp is in the parked entry
+python3 .claude/hooks/gate.py --close-escalation <stamp|all>   # the stamp is in the gate's question
 ```
 
-The command refuses inside a Claude Code session (`CLAUDECODE` set) and marks the parked entry
-`RESUMED`. Editing `parked.md` by hand closes nothing.
+The command refuses inside a Claude Code session (`CLAUDECODE` set). It changes the state file
+only: `parked.md` is history, nothing in it is marked closed, and editing it closes nothing.
 
 ## Wiring a git pre-commit hook and CI (nothing here installs them)
 

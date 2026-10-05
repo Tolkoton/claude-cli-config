@@ -1,5 +1,7 @@
 # Parked queue — items that cannot move, and what each is waiting on
 
+> **History only.** Everything open lives on the task board (`tasks/`) and is closed by moving to `tasks/done/`. This file is only appended to; nothing in it is marked closed, and nothing reads it to learn what is open.
+
 The mechanism that replaces stop-and-wait. When an item cannot proceed, it is
 parked here with the specific thing it needs, and work continues on the next
 unblocked item. Nothing halts the run except an empty unblocked queue.
@@ -42,6 +44,7 @@ Surface the parked queue when ANY of these is true:
 - Continued with: <what was worked on instead, or "queue exhausted">
 ```
 
-Move an entry to `RESUMED` in place when it unblocks; keep the history.
+A project with a task board parks there (`python3 .claude/unattended/board.py open-item`), not here;
+an entry written here is never edited afterwards.
 
 ## Parked items

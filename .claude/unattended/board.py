@@ -40,6 +40,10 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py action-reject <name>    its answer is wiped and the question asked again
     board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--wip BRANCH [--wip-remote NAME]]
                  [--verdicts FILE]   the runner gives up on a task, not on the board (see below)
+    board.py open-item --to <blocked|todo|done> --title T --what W [--question Q] [--do D]
+                 [--key K] [--source WHO]
+                                     something open becomes a task of the board (see AN OPEN ITEM);
+                                     prints its path; exit 1: no board, or nothing to ask
     board.py anomaly <task|-> <what happened> <what was done> [--source WHO]
                                      one entry in tasks/ANOMALIES.md; WHO wrote it: виконавець
                                      (the default), агент, ворота, hook <name>
@@ -113,6 +117,18 @@ commits it with tasks/, and the review shows the new entries. The agent's uncomm
 parked task is kept on a branch `wip/<task>/<UTC>` the runner pushed (`--wip`, `--wip-remote`)
 and in a stash on the runner's machine (`--stash`); the task file and the journal name both.
 
+AN OPEN ITEM (board 037). Everything that can be open is a file of the board, and it is closed
+the way every task is: by moving to done/. `open_item` (the command `open-item`; called by
+.claude/hooks/overseer_verdict.py when a unit is parked, and by an agent that an escalation or a
+refused ask-gated command leaves with something only the owner can settle) writes
+`7NN-open-item-<key>.md`: into blocked/ with one question and an empty `Відповідь:` when the
+owner must answer, into todo/ when it is work for an agent, into done/ (task.md and report.md)
+when it is recorded as already settled. With `--key` the line `Відкритий пункт: <key>` goes under
+the title, and a second call with the key of a task still in todo/, doing/ or blocked/ returns
+that task instead of writing another. The logs .engine/overseer/parked.md and escalations.md are
+history: they are appended to where a project has no board, nothing in them is ever closed, and
+nothing reads them to learn what is open.
+
 A gate question whose escalation was CLOSED ANOTHER WAY (board 035) — the owner ran `gate.py
 --close-escalation` in a terminal, so the stamp is among the closed ones in
 .claude/state/gate/escalations.json — and that nobody answered asks nothing any more:
@@ -159,6 +175,8 @@ ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".e
 MAINTAIN_NAME = re.compile(r"^\d{3,}-maintain-(\d{4}-\d\d-\d\d)(?:\.md)?$")
 MAINTAIN_COMMAND, MAINTAIN_DAYS = ".claude/commands/maintain.md", 7
 FIRST_RESERVED = 800  # ordinary tasks are numbered under the rule questions and the gate's
+ITEM = re.compile(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
+ITEM_FIRST = 700  # open items (board 037) are numbered from here, under the rule questions
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_ATTENDED = 2, 3, 4, 5
 
@@ -526,6 +544,48 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
 """
     target = board.tasks / "blocked" / f"{number}-rule-proposal-{ident}.md"
     target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    return target
+
+
+def open_item(board: Board, column: str, title: str, what: str, question: str = "", do: str = "",
+              key: str = "", source: str = "") -> Path | None:
+    """Something open as a task of the board (board 037): a question in blocked/, work in todo/,
+    or — settled already — a directory in done/ whose report is `do`. None when the project has
+    no board or a question is asked without its text; the task that already carries `key` when
+    one is still in todo/, doing/ or blocked/."""
+    title, what, question, do, key, source = (" ".join(part.replace("<!--", "<! --").split()) for part in (title, what, question, do, key, source))
+    if not board.tasks.is_dir() or not title or (column == "blocked" and not question):
+        return None
+    if key:
+        for path in (p for c in ("todo", "doing", "blocked") for p in board.files(c)):
+            found = ITEM.search(path.read_text(encoding="utf-8").split("\n## ", 1)[0])
+            if found and found.group(1) == key:
+                return path
+    taken = {n for c in COLUMNS for n in board.numbers(c)}
+    number = next(n for n in range(ITEM_FIRST, ITEM_FIRST + len(taken) + 1) if n not in taken)
+    now = utc_now()
+    slug = re.sub(r"[^0-9a-z]+", "-", (key or title).lower()).strip("-")[:40].strip("-") or re.sub(r"\D", "", now)
+    work, ready = {
+        "blocked": (("Це питання до власника, не робота для агента. Коли власник відповість, задача повернеться в чергу: "
+                     "виконай відповідь, запиши її у звіт і закрий задачу."), "Власник відповів, і відповідь виконано."),
+        "todo": (do or "Розібратися з описаним вище і довести справу до кінця; чого без власника не вирішити — питанням у `tasks/blocked/`.",
+                 "Описане вище зроблено і перевірено, або на нього є відповідь власника."),
+        "done": ("Нічого: пункт записано вже закритим. Чому — у `report.md` поруч.", "Уже готово."),
+    }[column]
+    text = (f"# {number} — {title}\n\nЗалежить від: —\nАудит потрібен: ні\n" + (f"Відкритий пункт: {key}\n" if key else "")
+            + f"\n## Що сталося\n{what or '(не записано)'}\n\n- Записано: {now}, {source or RUNNER}\n"
+            + f"\n## Що зробити\n{work}\n\n## Готово, коли\n{ready}\n\n## Питання до власника\n"
+            + (f"1. {question}\n   Відповідь:\n" if column == "blocked" else ""))
+    name = f"{number}-open-item-{slug}"
+    if column == "done":
+        folder = board.tasks / "done" / name
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "report.md").write_text(f"# {number} — {title}: звіт\n\n## Що змінилось для власника\n{do or what or '(не записано)'}\n", encoding="utf-8")
+        target = folder / "task.md"
+    else:
+        target = board.tasks / column / f"{name}.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
     return target
 
@@ -921,6 +981,14 @@ def main() -> int:
     anomaly_parser.add_argument("what")
     anomaly_parser.add_argument("done")
     anomaly_parser.add_argument("--source", default=RUNNER, help="who writes: виконавець (default), агент, ворота, hook <name>")
+    item_parser = commands.add_parser("open-item")
+    item_parser.add_argument("--to", choices=("blocked", "todo", "done"), required=True, help="blocked: the owner must answer; todo: work for an agent; done: settled already")
+    item_parser.add_argument("--title", required=True)
+    item_parser.add_argument("--what", required=True, help="what happened and what it waits for")
+    item_parser.add_argument("--question", default="", help="the one question to the owner (required with --to blocked)")
+    item_parser.add_argument("--do", default="", help="todo: what to do; done: why it is settled (the report)")
+    item_parser.add_argument("--key", default="", help="the item's own name: a second call with it returns the task still open")
+    item_parser.add_argument("--source", default="агент", help="who writes: агент (default), hook <name>, наглядач")
     commands.add_parser("summary")
     review_parser = commands.add_parser("review")
     review_parser.add_argument("--since", default=None, help="a commit or a date; default: the newest version tag")
@@ -1001,6 +1069,13 @@ def main() -> int:
             print(f"board: {args.name} is in neither tasks/doing/ nor tasks/todo/", file=sys.stderr)
             return EXIT_REFUSED
         print(board.shown(parked))
+        return 0
+    if args.command == "open-item":
+        item = open_item(board, args.to, args.title, args.what, args.question, args.do, args.key, args.source)
+        if item is None:
+            print("no task written: the project has no tasks/ directory, the title is empty, or --to blocked came without --question", file=sys.stderr)
+            return 1
+        print(board.shown(item))
         return 0
     if args.command == "anomaly":
         print(board.shown(anomaly(board, args.task, args.what, args.done, args.source)))

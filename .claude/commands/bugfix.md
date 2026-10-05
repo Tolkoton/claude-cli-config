@@ -49,7 +49,8 @@ record. "I know where the bug is" without a reproduction is an unverified premis
   fix on a guess — no change to the working code at all. Set the record's status to `parked` and
   say what would let it resume (a log, a failing input, access to where it happens). With a
   board task: write that as the question for the owner and move the task to `tasks/blocked/`.
-  Without one: an entry in `.engine/overseer/parked.md` (`Class: human-input`). Then stop this
+  Without one: a question on the board (`board.py open-item --to blocked`; a project with no
+  `tasks/`: an entry in `.engine/overseer/parked.md`, `Class: human-input`). Then stop this
   command and continue with the next unblocked item.
 
 ## 3. The failing test

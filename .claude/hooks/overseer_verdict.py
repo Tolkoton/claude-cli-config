@@ -630,7 +630,13 @@ def record(root: Path, envelope: JsonObj) -> JsonObj | None:
 # ------------------------------------------------------------------ parking (called by overseer_stop.py)
 
 
-def park(root: Path, item: str, blocked_on: str, evidence: str) -> None:
+def park(root: Path, item: str, blocked_on: str, evidence: str) -> str:
+    """The unit is put before the owner. Where the project has a task board the item is a question
+    in tasks/blocked/ (board 037: everything open lives on the board) and its path is returned;
+    without a board it is one more entry of the log .engine/overseer/parked.md, which is history."""
+    asked = board_item(root, item, blocked_on, evidence)
+    if asked:
+        return asked
     path = root / PARKED_REL
     entry = (f"\n## {utc_now()} — {item} — PARKED\n- Blocked on: {one_line(blocked_on)}\n- Class: human-input\n"
              f"- Evidence: {one_line(evidence)}\n- Unblocks when: the owner answers, or the audit is repeated and passes\n")
@@ -640,6 +646,24 @@ def park(root: Path, item: str, blocked_on: str, evidence: str) -> None:
             fh.write(entry)
     except OSError:
         pass
+    return PARKED_REL.as_posix()
+
+
+def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | None:
+    """The parked unit as a question in tasks/blocked/ (board.py open_item), or None: no board in
+    this project, or it could not be written. Best effort: a problem here changes no verdict."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board
+
+        task = board.open_item(
+            board.Board(root / "tasks"), "blocked", f"Наглядач відклав юніт: {item}",
+            f"Юніт `{item}` відкладено до рішення власника: {one_line(blocked_on)}. Докази: `{one_line(evidence)}`; вердикти — у `{LEDGER_REL.as_posix()}`.",
+            "Що робити з цим юнітом далі? Будь-яка відповідь — вказівка агентові (наприклад: повторити аудит, прийняти як є, переробити).",
+            key=item, source="hook наглядача (overseer_stop.py)")
+        return task.relative_to(root).as_posix() if task else None
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
 
 
 def runner_alive(root: Path) -> bool:

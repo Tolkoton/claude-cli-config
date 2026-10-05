@@ -28,8 +28,7 @@ simpler and safer than fixing forward?
 - It is: **prepare** the command — `git revert <sha>` — and propose exactly that. It is prepared,
   not run: `git revert` is the owner's act (ask-gated). Attended — show the command and what it
   undoes besides the bug, and let the owner decide. Unattended — write the command and the
-  question into the board task under «Питання до власника», add the entry to
-  `.engine/overseer/parked.md` (`Class: ask-gated`, the exact command), move the task to
+  question into the board task under «Питання до власника», move the task to
   `tasks/blocked/`, and write no fix.
 - It is not (the change is old and built upon, it carried something that must stay, or it was
   not found): say why in the card, section 3, and go on.

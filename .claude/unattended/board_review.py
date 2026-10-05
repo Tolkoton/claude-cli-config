@@ -18,7 +18,8 @@ WHAT IT SHOWS, in eight sections: the state now; what was done since `--since` (
 newest version tag), each finished task with the owner's parts of its report; everything that
 waits for the owner — every unfilled `Відповідь:` in blocked/ with the text above it, the
 tasks that need the owner present (`Потрібна присутність власника: так`, board 016), the
-settings proposals, the open escalations, the parked items, the rule proposals; the goals document (board 051: the decisions
+settings proposals, the gate's open escalations, the rule proposals (board 037: what is open is read from the board
+only — the logs .engine/overseer/escalations.md and parked.md are history and are not read here); the goals document (board 051: the decisions
 that cite no line of it, the architects' requests to the analyst and which were closed by a quote, the amendments and what
 they touched, the analyst's lessons — read by .claude/hooks/goals.py, figures to read and not targets); the new entries of the anomaly journal
 tasks/ANOMALIES.md, after the overdue debts of urgent fixes (board 075; the open ones stand on a line of the state now) (board 021: what the runner — and since board 035 the gate, a hook or the agent — found odd and worked past); the plan; the
@@ -58,8 +59,6 @@ IMPORT_RE = re.compile(r"(?:(?<=\s)|^)@([^\s`]+)", re.MULTILINE)
 FENCE_RE = re.compile(r"^```.*?^```[ \t]*$", re.MULTILINE | re.DOTALL)
 SPAN_RE = re.compile(r"`[^`\n]*`")
 STATUS = re.compile(r"^state=(\S+) task=(\S+) since=(\S+)(?: reason=(.*))?$")
-ENTRY = re.compile(r"(?=^## \d{4}-\d\d-\d\d)", re.MULTILINE)
-PARKED = re.compile(r"^## (\S+) — (.+) — (PARKED|RESUMED|SURFACED)[ \t]*$", re.MULTILINE)
 PROPOSAL = re.compile(r"^## (RP-\w+) — \S+ — PROPOSED[ \t]*$", re.MULTILINE)
 GOLDEN = re.compile(r"^evals/baseline/[^/]+/results-[^/]+\.json$")
 FINDING_MAX = 260
@@ -410,29 +409,6 @@ def open_questions(questions: str) -> list[str]:
     return blocks
 
 
-def undecided(text: str) -> list[str]:
-    """Entries of the escalations log nobody closed: no `Status: CLOSED`, no filled `Human chose:`."""
-    found = []
-    for block in ENTRY.split(text)[1:]:
-        chose = re.search(r"^- Human chose:[ \t]*(\S.*)$", block, re.MULTILINE)
-        if "Status: CLOSED" not in block and not chose:
-            found.append(block.splitlines()[0][3:].strip())
-    return found
-
-
-def still_parked(text: str) -> list[str]:
-    """Items of the parked queue whose latest entry is not RESUMED, each with what it waits for."""
-    latest: dict[str, tuple[str, str, str]] = {}
-    entries = list(PARKED.finditer(text))
-    for index, entry in enumerate(entries):
-        body = text[entry.end(): entries[index + 1].start() if index + 1 < len(entries) else len(text)]
-        needs = re.search(r"^- Blocked on:[ \t]*(.*)$", body, re.MULTILINE)
-        when, item, status = entry.group(1), entry.group(2).strip(), entry.group(3)
-        if item not in latest or when >= latest[item][0]:
-            latest[item] = (when, status, needs.group(1).strip() if needs else "")
-    return [f"{item} (від {when[:10]}) — чекає: {needs or 'не записано'}" for item, (when, status, needs) in latest.items() if status != "RESUMED"]
-
-
 Asked = tuple[str, str, board.Task]  # a blocked task: its path, its text, what board.py reads in it
 
 
@@ -470,8 +446,6 @@ def escalation_lines(src: Source, state: Path, asked: list[Asked]) -> list[str]:
     lines = [f"- Ворота, на дошці: `{posixpath.basename(path)}` (ескалація `{task.gate}`)." for path, _, task in asked if task.gate]
     lines += [f"- Ворота, на цій машині: `{entry.get('stamp')}` — зріз {entry.get('slice') or 'не названо'}."
               for entry in load_json(state / "gate/escalations.json").get("open") or [] if isinstance(entry, dict)]
-    lines += [f"- Журнал наглядача (`.engine/overseer/escalations.md`), без рішення: {entry}" for entry in undecided(src.show(".engine/overseer/escalations.md"))]
-    lines += [f"- Відкладене (`.engine/overseer/parked.md`): {entry}" for entry in still_parked(src.show(".engine/overseer/parked.md"))]
     return lines or ["- Немає."]
 
 

@@ -25,9 +25,10 @@ Read `.claude/state/overseer/mode`. Contents `unattended` → nobody is in the l
 absent or anything else → attended, and every gate below behaves exactly as
 written.
 
-Unattended, a gate that would block instead **parks**: append the item to
-`.engine/overseer/parked.md` with what it needs, continue with whatever else can
-move, and surface it at the next legitimate interruption. Concretely:
+Unattended, a gate that would block instead **parks**: put the item on the task
+board with what it needs (`python3 .claude/unattended/board.py open-item --to
+blocked …`), continue with whatever else can move, and surface it at the next
+legitimate interruption. Concretely:
 
 - **Phase 1 (interactive framing)** — derive the frame from the feature artifact,
   the domain map, and the existing code. Write it. Do not ask.

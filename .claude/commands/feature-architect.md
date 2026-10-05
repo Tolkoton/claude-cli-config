@@ -37,7 +37,8 @@ feature artifact; mark every item the owner would have ratified as
 `PROVISIONAL — owner ratification pending` with its cost-to-reverse; and start
 the autonomous run. The two HARD GATEs below (1b acceptance criteria, 1e autonomy
 grant) become parks: the feature proceeds on the provisional frame, and the
-ratification sits in `.engine/overseer/parked.md` for the owner's return.
+ratification is a question on the task board for the owner's return
+(`python3 .claude/unattended/board.py open-item --to blocked …`).
 
 **Except** — a frame item that is a genuine one-way door (a price, a published
 contract, an irreversible data decision, anything spending money or touching a

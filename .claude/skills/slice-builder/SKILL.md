@@ -108,7 +108,7 @@ Read the vendor docs the user pointed to. Report back:
 
 Record all four findings in the slice artifact.
 
-**Missing test-environment details** (folder ID, account ID, sandbox URL) are the textbook human-only input — reason 1. If they are not in `.env`, `.env.example`, the slice contract, or the vendor docs: append a `PARKED / human-input` entry to `.engine/overseer/parked.md` naming the exact values needed and where they should go, then move to the next unblocked item. Do not guess a credential and do not halt the run waiting for one.
+**Missing test-environment details** (folder ID, account ID, sandbox URL) are the textbook human-only input — reason 1. If they are not in `.env`, `.env.example`, the slice contract, or the vendor docs: put a question on the task board (`python3 .claude/unattended/board.py open-item --to blocked --title … --what … --question …`) naming the exact values needed and where they should go, then move to the next unblocked item. Do not guess a credential and do not halt the run waiting for one.
 
 ### Step 2 — Skeleton
 
@@ -165,13 +165,13 @@ Write `scripts/smoke_test_<slice>.py`:
 Then take the cheapest path that closes the slice:
 
 - **Assertable against a sandbox** — run it, capture the output to the ledger, close the slice. No park.
-- **Needs human eyes on a real external system** — park it. Append `PARKED / external-verification` to `.engine/overseer/parked.md` with the exact command and the printed instruction, mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. The slice resumes when the smoke result comes back.
+- **Needs human eyes on a real external system** — park it. Put it on the task board (`board.py open-item --to blocked`) with the exact command and the printed instruction, mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. The slice resumes when the smoke result comes back.
 
 Never block the run on a smoke walkthrough, and never mark a slice DONE on an unrun smoke.
 
 ### Step 6 — PROGRESS update
 
-Append to `.engine/PROGRESS.md` at repo root (create if missing) as soon as the code is complete — do not wait on the smoke result. If the smoke is parked, write the entry with `Smoke: PARKED — see .engine/overseer/parked.md` and update it in place when the result arrives:
+Append to `.engine/PROGRESS.md` at repo root (create if missing) as soon as the code is complete — do not wait on the smoke result. If the smoke is parked, write the entry with `Smoke: PARKED — see tasks/blocked/<the task>` and update it in place when the result arrives:
 
 ```
 ## Slice N — <name> (DONE YYYY-MM-DD)
@@ -217,11 +217,11 @@ STOP and ESCALATE to **`master-architect`** (or pause and discuss with the owner
 
 In both cases, do NOT continue **this slice** — the trigger is real and the level is wrong. But do not halt the run either. Route through park-and-continue:
 
-1. Append a `PARKED` entry to `.engine/overseer/parked.md` with class `one-way-door` for a missing architectural decision or an API semantics mismatch, `human-input` for anything needing the owner, naming which skill should pick it up (`master-architect` / `feature-architect`).
+1. Put the item on the task board (`python3 .claude/unattended/board.py open-item --to blocked …`), saying whether it is a one-way door (a missing architectural decision, an API semantics mismatch) or something else that needs the owner, and naming which skill should pick it up (`master-architect` / `feature-architect`).
 2. Record what you found in the slice artifact and in `.engine/PROGRESS.md`; mark the slice `BLOCKED`.
 3. Leave the partial work as-is — never revert someone else's decision surface on your own.
 4. Move to the next unblocked item.
-5. Surface only per the thresholds in `parked.md`: nothing else can move, a single one-way door, or three parked ratification items.
+5. Surface only per the thresholds of `.claude/references/unattended.md`: nothing else can move, a single one-way door, or three parked ratification items.
 
 ## Notes on test scope
 

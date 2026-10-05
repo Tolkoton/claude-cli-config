@@ -12,9 +12,9 @@ Layers
                 the model as additionalContext, and only when there is something to show.
     stop        quick, incremental: lint and types on the files the turn changed, tests that map
                 to them. Reads `stop_hook_active` first. Counts consecutive blocks; on the Nth it
-                lets the turn end and parks the item for a human (GATE_MAX_BLOCKS, default 3);
-                in a project with a task board the question also becomes a task in
-                tasks/blocked/, and the owner's answer «так» there closes it.
+                lets the turn end and parks the item for a human (GATE_MAX_BLOCKS, default 3):
+                in a project with a task board the question is a task in tasks/blocked/, and
+                the owner's answer «так» there closes it; without a board, a parked.md entry.
                 Also refuses to be passed by silencing: see "bypass guard".
     pre_commit  the full set on the staged change (what a git pre-commit hook runs).
     ci          the full set (what a pipeline runs). No workflow file ships; see
@@ -882,15 +882,8 @@ def close_escalation(root: Path, which: str) -> int:
     data["open"] = [e for e in data["open"] if e not in closing]
     data["closed"].extend(e | {"closed_utc": utc_now()} for e in closing)
     write_json(root / ESCALATIONS_REL, data)
-    path = root / PARKED_REL
-    try:
-        text = path.read_text(encoding="utf-8")
-        for entry in closing:
-            text = text.replace(f"## {entry['stamp']} — gate stop layer — PARKED",
-                                f"## {entry['stamp']} — gate stop layer — RESUMED", 1)
-        path.write_text(text, encoding="utf-8")
-    except OSError:
-        pass
+    # Nothing is closed inside .engine/overseer/parked.md (board 037): the log is history, and
+    # the open thing is the gate's question on the board, which the runner moves to done/.
     for entry in closing:
         print(f"gate: escalation {entry['stamp']} ({entry.get('slice')}) closed")
     return 0
@@ -919,14 +912,16 @@ def board_question(root: Path, stamp: str, report: Report, evidence: str, blocks
 
 
 def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> str | None:
-    """Park the item; returns the board task that asks the owner, when there is a board."""
+    """Park the item; returns the board task that asks the owner, when there is a board. With
+    that task the item lives on the board and nowhere else (board 037); only a project without
+    a board gets an entry in the log .engine/overseer/parked.md."""
     stamp = utc_now()
     evidence = str(report_path.relative_to(root) if report_path.is_relative_to(root) else report_path)
     task = board_question(root, stamp, report, evidence, blocks)
     open_escalation(root, stamp, report, task)
+    if task:
+        return task
     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
-    on_board = (f"the owner answers «так» in {task} (board-runner.sh then closes the escalation; "
-                "the agent does not answer it), or " if task else "")
     entry = (
         f"\n## {stamp} — gate stop layer — PARKED\n"
         f"- Blocked on: the Stop gate blocked {blocks} turns in a row and was not satisfied\n"
@@ -937,7 +932,7 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
         "- Reversibility: nothing was decided; the work is on disk and uncommitted\n"
         f"- Evidence: {evidence}\n"
         f"{top}\n"
-        f"- Unblocks when: {on_board}a human reads the report, fixes or accepts the finding, and runs in their "
+        "- Unblocks when: a human reads the report, fixes or accepts the finding, and runs in their "
         f"own terminal `python3 .claude/hooks/gate.py --close-escalation {stamp}` (refused inside a "
         "Claude Code session; until then no OVERSEER_PASS is accepted for work that holds these files)\n"
         "- Continued with: the turn was allowed to end\n"
@@ -1154,11 +1149,12 @@ def finish_stop(report: Report, root: Path, session: str) -> tuple[str, dict[str
     write_count(root, session, 0)
     path = write_report(report, "escalated")
     task = park_escalation(root, report, path, count)
-    message = (f"GATE ESCALATION: the Stop gate blocked {count} turns in a row. The turn may end; the "
-               f"item is parked in {PARKED_REL} for a human. Report: {REPORT_REL}")
+    message = f"GATE ESCALATION: the Stop gate blocked {count} turns in a row. The turn may end; the item is "
     if task:
-        message += (f". The owner is asked on the task board: {task} — leave its answer line empty; "
-                    "the board runner acts on the owner's answer")
+        message += (f"a question to the owner on the task board: {task} — leave its answer line empty; "
+                    f"the board runner acts on the owner's answer. Report: {REPORT_REL}")
+    else:
+        message += f"parked in {PARKED_REL} for a human. Report: {REPORT_REL}"
     return "escalated", {"systemMessage": message}
 
 

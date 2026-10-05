@@ -298,7 +298,7 @@ p.answer(BLOCK)
 said, fourth = p.claim("And again.\n\n=== UNIT 3 COMPLETE ===", after_audit=True)
 check("third BLOCK: park for the owner, and NO fourth audit is requested", "third in a row" in said and "tasks/blocked/" in said and "Launch the agent" not in said and fourth == "", said)
 check("…the park entry is written by the hook, not left to the builder", "three BLOCKs in a row" in p.read(".engine/overseer/parked.md")
-      and "already written the PARKED entry" in said and said.count("BLOCK 3: #4 masked test gap") == 1, said + p.read(".engine/overseer/parked.md"))
+      and "already put it before the owner (.engine/overseer/parked.md)" in said and said.count("BLOCK 3: #4 masked test gap") == 1, said + p.read(".engine/overseer/parked.md"))
 check("…no marker for a runner that is not there", not list((p.root / ".claude/state").rglob("three-blocks-*.json")))
 
 
@@ -319,6 +319,17 @@ p = Project()
 printed = three_blocks(p)
 check("no runner: the person at the terminal is told in a message of their own, with the three reasons",
       printed.get("decision") == "block" and "тричі поспіль" in printed.get("systemMessage", "") and printed["systemMessage"].count("masked test gap") == 3, str(printed))
+p = Project()
+(p.root / "tasks/blocked").mkdir(parents=True)
+printed = three_blocks(p)
+asked = sorted((p.root / "tasks/blocked").glob("*.md"))
+question = asked[0].read_text(encoding="utf-8") if asked else ""
+check("board 037 — a project with a task board: the parked unit is a question in tasks/blocked/, with the three reasons and an empty answer",
+      len(asked) == 1 and asked[0].name.startswith("700-open-item-") and "Відкритий пункт: " in question and question.count("masked test gap") == 3
+      and question.rstrip().endswith("Відповідь:") and f"tasks/blocked/{asked[0].name}" in printed.get("reason", "") + printed.get("systemMessage", ""), question + str(printed))
+check("…and the log parked.md gets nothing: the item lives on the board only", not p.read(".engine/overseer/parked.md"))
+three_blocks(p)
+check("…the same unit parked again while its question is open: still one task", len(list((p.root / "tasks/blocked").glob("*.md"))) == 1)
 p = Project()
 p.write("tasks/doing/031-refused.md", "# task\n")
 p.write(".claude/state/board/lock", f"{os.getpid()}\n")
@@ -357,6 +368,13 @@ _, rid = p.claim()
 said = [p.stop(f"turn {n}") for n in range(3)]
 check("asked again twice (the agent was not launched), then the turn ends", "the agent was not launched" in said[0] and "request 2 of 3" in said[0] and "request 3 of 3" in said[1] and said[2] == "", str(said))
 check("…with the item parked and the request closed", "got no valid verdict in 3 requests" in p.read(".engine/overseer/parked.md") and not p.read(".claude/state/overseer/pending.json"))
+p = Project()
+(p.root / "tasks/blocked").mkdir(parents=True)
+_, rid = p.claim()
+said = [p.stop(f"turn {n}") for n in range(3)]
+asked = sorted((p.root / "tasks/blocked").glob("*.md"))
+check("board 037 — with a task board the unanswered request is a question in tasks/blocked/, not a line of the log",
+      len(asked) == 1 and "got no valid verdict in 3 requests" in asked[0].read_text(encoding="utf-8") and not p.read(".engine/overseer/parked.md"), [a.name for a in asked])
 p = Project()
 _, rid = p.claim()
 check("the builder cannot pass itself while a request waits", "OVERSEER_PASS recorded" not in p.stop("Audited it myself.\n\nOVERSEER_PASS") and not p.rows())

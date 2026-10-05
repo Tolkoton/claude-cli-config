@@ -1,5 +1,7 @@
 # Overseer escalations log
 
+> **History only.** Everything open lives on the task board (`tasks/`) and is closed by moving to `tasks/done/`. This file is only appended to; nothing in it is marked closed, and nothing reads it to learn what is open.
+
 Records every PRODUCT_DECISION / BLOCKER_CLASSIFICATION / DESIGN_FORK /
 ADR_RATIFICATION escalation and the human's resolution. Used in the
 2-week audit to tune escalation thresholds.

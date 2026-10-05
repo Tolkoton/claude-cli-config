@@ -403,6 +403,57 @@ check("«так» in todo/ allows nothing", cli(root, "audit-allowed").returncod
 r = cli(root, "audit-allowed", "--tasks-dir", str(new_board() / "tasks"))
 check("--tasks-dir names another board", r.returncode == 1, r.stdout + r.stderr)
 
+# --- an open item (board 037) ---------------------------------------------------------------------
+print("an open item is a task of the board (board 037)")
+root = new_board()
+r = cli(root, "open-item", "--to", "blocked", "--key", "S9 cloud-probe", "--title", "Проба в хмарі", "--what", "потрібна хмарна сесія",
+        "--question", "Запустити пробу?", "--source", "hook park-ask-gated.py")
+item = root / r.stdout.strip()
+text = item.read_text(encoding="utf-8") if r.returncode == 0 and item.is_file() else ""
+check("--to blocked: 700-open-item-<key>.md in blocked/, with the question and an empty answer",
+      r.stdout.strip() == "tasks/blocked/700-open-item-s9-cloud-probe.md" and board.read(item).answers == ("",)
+      and "1. Запустити пробу?" in text and "Відкритий пункт: S9 cloud-probe\n" in text and "hook park-ask-gated.py" in text, r.stdout + r.stderr + text)
+check("the summary shows it waiting for the owner", "чекає відповіді власника: 700-open-item-s9-cloud-probe.md — 1. Запустити пробу?" in cli(root, "summary").stdout)
+r = cli(root, "open-item", "--to", "blocked", "--key", "S9 cloud-probe", "--title", "Ще раз", "--what", "те саме", "--question", "Інше питання?")
+check("the same key while the task is open: that task, not a second one", r.stdout.strip() == "tasks/blocked/700-open-item-s9-cloud-probe.md"
+      and len(list((root / "tasks/blocked").glob("*.md"))) == 1 and item.read_text(encoding="utf-8") == text, r.stdout)
+r = cli(root, "open-item", "--to", "blocked", "--title", "Без питання", "--what", "щось")
+check("negative — --to blocked without a question writes nothing and exits 1", r.returncode == 1 and len(list((root / "tasks/blocked").glob("*.md"))) == 1, r.stdout + r.stderr)
+item.write_text(text.replace("Відповідь:", "Відповідь: запустити"), encoding="utf-8")
+check("an answered item goes back to todo/ like every answered task", cli(root, "unblock").stdout.strip() == item.name and (root / "tasks/todo" / item.name).is_file())
+r = cli(root, "open-item", "--to", "todo", "--title", "Вердикт не записано", "--what", "hook не побачив відповіді", "--do", "знайти причину")
+work = root / r.stdout.strip()
+check("--to todo: the next free number, no question, what to do in the task; `next` offers the lower number first",
+      re.fullmatch(r"tasks/todo/701-open-item-\d{14}\.md", r.stdout.strip()) is not None
+      and board.read(work).answers == () and "знайти причину" in work.read_text(encoding="utf-8") and cli(root, "next").stdout.strip().endswith(item.name), r.stdout + r.stderr)
+r = cli(root, "open-item", "--to", "done", "--key", "C8b", "--title", "Прогін після переміщення", "--what", "чекав грошей", "--do", "закрито рішенням власника")
+closed = root / r.stdout.strip()
+check("--to done: a directory with task.md and report.md, and the reason in the report",
+      r.stdout.strip() == "tasks/done/702-open-item-c8b/task.md" and "закрито рішенням власника" in (closed.parent / "report.md").read_text(encoding="utf-8")
+      and 702 in board.Board(root / "tasks").numbers("done"), r.stdout + r.stderr)
+r = cli(root, "open-item", "--to", "blocked", "--key", "C8b", "--title", "Знову", "--what", "відкрито знову", "--question", "Так?")
+check("a key that only a done/ task carries opens a new item", r.stdout.strip() == "tasks/blocked/703-open-item-c8b.md", r.stdout)
+
+
+def ask_gated(project: Path, command: str) -> str:
+    """What the hook that parks an ask-gated command prints for `command` in `project`."""
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_UNATTENDED_SESSION"} | {"CLAUDE_PROJECT_DIR": str(project)}
+    return subprocess.run([sys.executable, str(ROOT / ".claude/hooks/park-ask-gated.py")], input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
+                          capture_output=True, text=True, check=False, env=env).stdout
+
+
+(root / ".claude/state/overseer").mkdir(parents=True)
+check("negative — attended, the hook that parks an ask-gated command says nothing", ask_gated(root, "git push origin work") == "")
+(root / ".claude/state/overseer/mode").write_text("unattended\n", encoding="utf-8")
+said = json.loads(ask_gated(root, "git push origin work") or "{}").get("hookSpecificOutput", {})
+check("unattended it still denies the command, and now sends the agent to the board, not to a line in parked.md",
+      said.get("permissionDecision") == "deny" and "board.py open-item --to blocked" in said.get("permissionDecisionReason", "")
+      and "Append a PARKED entry" not in said.get("permissionDecisionReason", ""), said)
+check("…and a command outside the ask list is still not its business", ask_gated(root, "git status") == "")
+bare = Path(tempfile.mkdtemp(prefix="board-none-"))
+r = cli(bare, "open-item", "--to", "blocked", "--title", "Немає дошки", "--what", "x", "--question", "Так?")
+check("negative — a project without tasks/: exit 1, nothing is created", r.returncode == 1 and not (bare / "tasks").exists(), r.stdout + r.stderr)
+
 # --- summary ------------------------------------------------------------------------------------
 print("summary")
 root = new_board()
