@@ -1,0 +1,121 @@
+[
+ {
+  "target": "/home/lao/engine/.claude/references/hooks.md:62-68",
+  "category": "duplication",
+  "claim": "The section 'The sealed contract' restates, sentence for sentence, what the same file's table already says in the `contract_fingerprint.py` row (seal writes the sha256 and refuses to overwrite; check compares) and the `overseer_stop.py` row (compares the active contract with its fingerprint first), plus the two lines of the always-loaded engine-rules.md (changed after approval → escalation, not an audit; re-approving is the owner's act; never delete the fingerprint); dropping the section leaves every statement present once, with engine-rules.md:5 pointing at the table rows instead.",
+  "evidence": [
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/references/hooks.md:62-68",
+    "detail": "section: seal records SHA-256 in .claude/state/contracts/<slug>.sha256 and refuses to overwrite; overseer_stop.py compares before auditing; changed contract gets no audit, blocked with an escalation; re-approving is the owner's act; never delete the fingerprint"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/references/hooks.md:30",
+    "detail": "contract_fingerprint.py row: `seal` writes .claude/state/contracts/<slug>.sha256 and refuses to overwrite; `check` compares"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/references/hooks.md:16",
+    "detail": "overseer_stop.py row: 'Compares the active slice contract with its sealed fingerprint first.'"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/engine-rules.md:53-54",
+    "detail": "'The slice contract is sealed by /plan-slice: changed after approval, the turn gets an escalation, not an audit. Re-approving is the owner's act; never delete the fingerprint.'"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/engine-rules.md:5",
+    "detail": "the only pointer to the section: 'hooks.md (what each hook does, inspecting or disabling one, the sealed contract)'"
+   },
+   {
+    "source": "grep",
+    "ref": "/home/lao/engine/tests/test_text_hygiene.py:84-87",
+    "detail": "the only test reading hooks.md checks for 'python3', 'refuse' and 'apt'/'any operating system' — none of them in the section"
+   }
+  ],
+  "protected": false,
+  "chesterton_checked": true,
+  "test_safety": "characterization_exists",
+  "proposed_action": "confirm",
+  "traceability": "none found — the sealed-contract rule itself traces to tests/test_contract_fingerprint.py, which pins the hook's behaviour, not this prose",
+  "reversal_risk": "low"
+ },
+ {
+  "target": "/home/lao/engine/AGENTS.md:32-33",
+  "category": "duplication",
+  "claim": "The sentence 'Unattended work goes through the task board only: board-runner.sh takes one task at a time, each in a fresh session' repeats, inside the same always-loaded context, engine-rules.md's 'Unattended work runs through the task board only (below)' and its task-board section, and AGENTS.md's own `tasks/` row already names board-runner.sh; the one detail not in the loaded set ('each in a fresh session') is in the on-demand unattended.md the rules point at, so the two lines can go with nothing lost.",
+  "evidence": [
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/AGENTS.md:32-33",
+    "detail": "'Unattended work goes through the task board only: `.claude/unattended/board-runner.sh` takes one task at a time, each in a fresh session.'"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/engine-rules.md:85-86",
+    "detail": "'Unattended work runs through the task board only (below); detail: `.claude/references/unattended.md`.'"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/.claude/engine-rules.md:88-92",
+    "detail": "'The task board and paid runs' — how work arrives and where it ends"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/AGENTS.md:47",
+    "detail": "key-paths row: '`tasks/` | The task board: todo/ doing/ blocked/ done/; `board-runner.sh` works from it (`tasks/README.md`)'"
+   },
+   {
+    "source": "grep",
+    "ref": "/home/lao/engine/.claude/references/unattended.md:56",
+    "detail": "'takes the tasks in tasks/todo/ one at a time and starts a fresh session for each'"
+   },
+   {
+    "source": "grep",
+    "ref": "/home/lao/engine/tests/test_board.py:573-574",
+    "detail": "the test on AGENTS.md's board text only counts the '| `tasks/` |' row, which stays"
+   }
+  ],
+  "protected": false,
+  "chesterton_checked": true,
+  "test_safety": "characterization_exists",
+  "proposed_action": "confirm",
+  "traceability": "AGENTS.md:3-5 — 'Keep it short and true … Budget: CLAUDE.md + this file + every import ≤ 200 lines'",
+  "reversal_risk": "low"
+ },
+ {
+  "target": "/home/lao/engine/docs/working-on-the-engine.md:20-22",
+  "category": "duplication",
+  "claim": "In a 42-line file the paragraph at 20-22 and the section at 24-29 both say that the Stop gate runs TEST_CMD from .claude/project.env whenever a .py or .sh file changed, and 'tests/ holds every check of this repository' is already AGENTS.md's `tests/` row; only the clause 'left empty it would run pytest -x, which is not installed here' is said nowhere else, so the paragraph collapses to that one clause.",
+  "evidence": [
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/docs/working-on-the-engine.md:20-22",
+    "detail": "'tests/ holds every check of this repository; the Stop gate runs TEST_CMD from .claude/project.env whenever a .py or .sh file changed. Left empty it would run pytest -x, which is not installed here.'"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/docs/working-on-the-engine.md:26-28",
+    "detail": "'CODE_EXTENSIONS=\"py sh\", TEST_CMD runs the suites — so the Stop gate verifies the engine's own code'"
+   },
+   {
+    "source": "read",
+    "ref": "/home/lao/engine/AGENTS.md:50",
+    "detail": "'`evals/`, `tests/` | The measuring instruments and every check of this repository'"
+   },
+   {
+    "source": "grep",
+    "ref": "/home/lao/engine/AGENTS.md:18",
+    "detail": "the file is reached only from AGENTS.md (lines 18, 48, 64); no test reads it"
+   }
+  ],
+  "protected": false,
+  "chesterton_checked": true,
+  "test_safety": "none",
+  "proposed_action": "confirm",
+  "traceability": "docs/working-on-the-engine.md:5-6 — 'AGENTS.md … holds only what every session needs; the rest moved here'",
+  "reversal_risk": "low"
+ }
+]

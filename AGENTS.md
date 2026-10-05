@@ -14,10 +14,8 @@ through it unattended — meant to be installed into a real project by `engine.p
 
 It is the template, not a consumer of it: no `src/`, no application tests, no `pyproject.toml`.
 The "code" is the skills, hooks, installer and harness under `.claude/`, `engine.py`, `evals/`
-and `tests/`. Consequences: `.claude/project.env` here describes the engine itself
-(`SOURCE_DIRS` names the hook, harness, evals and test directories, `CODE_EXTENSIONS="py sh"`,
-`TEST_CMD` runs the suites), so the Stop gate verifies the engine's own code; the seed a target
-project receives (`templates/project/`) still says `src` and `py`. The backlog is
+and `tests/`, and `.claude/project.env` here describes the engine itself, so the Stop gate
+verifies the engine's own code (how: `docs/working-on-the-engine.md`). The backlog is
 the task board (`tasks/`), not an issue tracker; `.engine/architecture/feature-dag.json` is the
 slice graph `/feature-architect` plans a feature into.
 
@@ -43,15 +41,11 @@ task at a time, each in a fresh session.
 | `.claude/references/` | Read on demand: `hooks.md`, `unattended.md`, the design playbooks |
 | `.claude/skills/`, `.claude/commands/`, `.claude/agents/` | Agent definitions and the critics |
 | `.claude/hooks/` | The hooks, wired only in the project's `settings.json` |
-| `.claude/ownership.txt` | Who owns every path: engine, project, machine, user (read by engine.py) |
 | `.claude/state/` | Machine state, written by hooks and scripts only; one `.gitignore` line |
 | `.engine/` | What the agent produces: records, slices, architecture, premises, PROGRESS |
 | `.engine/goals.md` | The project's goals; changed only by the owner's answer (`goals.py`). This repository has none yet |
 | `tasks/` | The task board: `todo/ doing/ blocked/ done/`; `board-runner.sh` works from it (`tasks/README.md`) |
-| `templates/project/` | The seeds a new project starts from (CLAUDE.md, AGENTS.md, records) |
-| `user/` | The owner's own skills and settings layer. Never ships. |
-| `docs/tasks/` | Proposals the engine may not apply itself, each with a test and one command |
-| `docs/engine-limits.md` | What the guarantees assume |
+| `docs/working-on-the-engine.md` | Read on demand: the verification commands, the rarer paths (ownership, seeds, `user/`, limits) |
 | `docs/release.md` | The release order: `engine.py release <version>`, the owner's command only |
 | `evals/`, `tests/` | The measuring instruments and every check of this repository |
 
@@ -66,14 +60,5 @@ Exercise the thing you changed and show the negative case: a hook change is not 
 you have seen it **block** something. Where a tool is absent, a PATH shim that records its argv
 shows the hook issuing the right command.
 
-```bash
-bash tests/run_all.sh                 # every suite, one line each (the pre-tag check)
-bash tests/run_all.sh --fast          # the Stop-gate subset
-python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-22.04/results-task-039.json
-python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
-bash .claude/unattended/board-runner.sh --status
-```
-
-`tests/` holds every check of this repository; the Stop gate runs `TEST_CMD` from
-`.claude/project.env` whenever a `.py` or `.sh` file changed. Left empty it would run
-`pytest -x`, which is not installed here.
+`bash tests/run_all.sh` runs every suite (the pre-tag check), `--fast` the Stop-gate subset; the
+other commands and what the Stop gate runs here: `docs/working-on-the-engine.md`.

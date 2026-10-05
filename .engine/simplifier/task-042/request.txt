@@ -1,0 +1,16 @@
+LENS: instructions
+SCOPE: AGENTS.md .claude/engine-rules.md .claude/references/hooks.md docs/working-on-the-engine.md CLAUDE.md
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

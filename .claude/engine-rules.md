@@ -1,9 +1,8 @@
 # Engine rules — the standing policy for autonomous Claude Code work
 
-Installed and updated by `engine.py`; edits belong in the engine repository, not here. Rarely
-needed detail lives in `.claude/references/` and is read on demand: `hooks.md` (what each hook
-does, how to inspect or disable one, the recursion guards) and `unattended.md` (the
-mode file, the park queue in full).
+Installed and updated by `engine.py`; edits belong in the engine repository, not here. Detail
+is read on demand from `.claude/references/`: `hooks.md` (what each hook does, inspecting or
+disabling one, the contract's fingerprint) and `unattended.md` (the mode file, parking in full).
 
 ## Commits are a human checkpoint
 - Never run `git commit` except on the run's own `unattended/<date>` branch, through
@@ -51,10 +50,8 @@ the next unblocked item. A `gate-allow` is not a way through: the overseer reads
 - Planning stands the overseer down: `python3 .claude/hooks/overseer_phase.py set plan` before
   drafting a contract, `… clear` when done. Never write `.claude/state/` with your own tools —
   it is the state of hooks and scripts; the named scripts are the only sanctioned path.
-- The slice contract is sealed: `/plan-slice` records its SHA-256 in
-  `.claude/state/contracts/<slug>.sha256`. A contract changed after approval gets no audit —
-  the turn is blocked with an escalation instead. Re-approving is the owner's act; never
-  delete the fingerprint yourself.
+- The slice contract is sealed by `/plan-slice`: changed after approval, the turn gets an
+  escalation, not an audit. Re-approving is the owner's act; never delete the fingerprint.
 
 ## Verdict routing — almost nothing stops the run
 A verdict records a finding. Route by whether the fix needs a human, not by the verdict's name.
@@ -77,9 +74,9 @@ with a phone, ratification of a genuine one-way door. (2) A load-bearing premise
 in a way that invalidates committed work. (3) Nothing left in the queue can move.
 Not reasons: a background task in flight (do non-racing work; its notification will come),
 something worth reporting (report while continuing), a two-way door you already decided (log
-it), a natural-feeling pause. Address the human only at a surface threshold: nothing unblocked
-can move, a single one-way door, three parked ratification items, or a falsified premise
-behind committed work. To stop for real, emit an `OVERSEER_` halt marker naming the reason.
+it), a natural-feeling pause. Address the human only for one of the three, or when three parked
+items await ratification (`unattended.md`). To stop for real, emit an `OVERSEER_` halt marker
+naming the reason.
 
 ## Attended vs unattended
 `.claude/state/overseer/mode` containing `unattended` means nobody is watching; absent or
