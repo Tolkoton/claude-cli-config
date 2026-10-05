@@ -338,7 +338,7 @@ NOT_WIRED_HUMAN = (
 REQUEST_TYPED_RE = re.compile(r"^[ \t>*`]*OVERSEER_REQUEST\b", re.MULTILINE)
 
 GATE_OPEN_NOTICE = (
-    "\n\nGATE ESCALATION OPEN ({scope}; opened {stamp}; where the project has a task board, the gate's question is in tasks/blocked/). "
+    "\n\nGATE ESCALATION OPEN ({scope}; opened {stamp}). "
     "OVERSEER_PASS will not be accepted for this work until the owner closes it — by answering "
     "«так» under the gate's question in tasks/blocked/ (the board runner then closes it), or with "
     "`gate.py --close-escalation` in their own terminal. Neither is yours to do: audit as usual, "
