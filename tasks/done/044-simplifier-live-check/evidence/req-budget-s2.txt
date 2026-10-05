@@ -1,0 +1,25 @@
+LENS: budget
+SCOPE: the files named by the signals and the change
+
+COMPLEXITY BUDGET (the figures of the overrun):
+COMPLEXITY BUDGET EXCEEDED: max_net_new_lines, max_new_public_symbols
+slice order-quote-s2-discount-stock, measured from 5f6535fa15 to the working tree
+  production: 0 new files, +9 lines, 1 new public symbols, 0 new abstractions, 0 new dependencies
+  tests: +46 lines (reported, never limited)
+  - max_net_new_lines: 9 used, 4 allowed (production code, net of deletions)
+  - max_new_public_symbols: 1 used, 0 allowed (src/refproj/orders.py:OutOfStock)
+CHANGED FILES: .engine/artifacts/tdd/order-quote-s2.txt .engine/simplifier/req-budget-s2.txt scripts/smoke_test_order_quote.py src/refproj/orders.py tests/test_orders.py
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-4bcf2835",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": "src/refproj/orders.py",
+  "line": 29,
+  "message": "unused function 'quote_order' (60% confidence)"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

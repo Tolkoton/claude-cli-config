@@ -1,0 +1,7 @@
+LENS: requirements
+SCOPE: tasks/doing/010-order-quote.md
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[]
+
+Answer with the JSON list of findings and nothing else.

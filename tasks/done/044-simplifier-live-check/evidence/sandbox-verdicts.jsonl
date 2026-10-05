@@ -1,0 +1,1 @@
+{"utc": "2026-10-05T21:19:03Z", "request": "20261005T211608Z-590a25", "origin": "manual", "slice": "order-quote-s1-lines-subtotal", "unit_key": "order-quote-s1-lines-subtotal|010-order-quote|unit 1", "attempt": 1, "agent_id": "aa994b2aa09553bdb", "verdict": "INVALID", "reason": "the answer does not fit the schema: the answer holds no JSON object", "check": null}

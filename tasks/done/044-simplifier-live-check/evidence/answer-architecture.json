@@ -1,0 +1,40 @@
+[
+ {
+  "target": "/tmp/044-live/project/.engine/architecture/feature/order-quote.md:102-103",
+  "category": "invented_requirement",
+  "claim": "The test S2 is made to owe for 'an order with both a shortage and a bad percent asserts OutOfStock' pins an error precedence the owner never specified; dropping it leaves criteria 3 and 4 fully covered by the other owed tests and costs no owner-visible behaviour.",
+  "evidence": [
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/tasks/doing/010-order-quote.md:13-21",
+    "detail": "The owner's text and criteria 3-4 define the shortage error and the bad-percent error separately; no line says which wins when both apply."
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/.engine/architecture/feature/order-quote.md:100-103",
+    "detail": "The stated reason for the owed tests ('a pass cannot be for the wrong reason — OutOfStock is itself a ValueError') is served by the `type(exc) is ValueError` assertions on the bad-percent cases; the combined-case test adds nothing to that purpose and only pins the ordering of D3."
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/.engine/architecture/feature/order-quote.md:114-118",
+    "detail": "D3's rejection of percent-first rests on 'it needs a second, duplicated range check in orders.py' — but percent-first is reachable with no duplication by calling pricing.apply_discount(subtotal, percent) before the stock pass (apply_discount validates the range itself, pricing.py:11-12). The ordering is therefore an arbitrary architect choice, not one forced by criterion 4."
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/.engine/architecture/feature/order-quote.md:93-95",
+    "detail": "The same section deliberately refuses to pin the repeated-sku case with a test so that 'the owner's answer must cost no test edit' — the combined-case test contradicts that stance for an equally unasked behaviour."
+   },
+   {
+    "source": "judgement",
+    "ref": "",
+    "detail": "Some order between the two errors will exist in the built code; recording it in D3 as a decision is fine, but making it a test the slice must write turns an unasked ordering into a contract that a later owner answer (or a simpler one-pass implementation) would have to break."
+   }
+  ],
+  "protected": false,
+  "chesterton_checked": true,
+  "test_safety": "none",
+  "proposed_action": "confirm",
+  "traceability": "none found — tasks/doing/010-order-quote.md criteria 3 and 4 each name one error; no criterion names a precedence between them",
+  "reversal_risk": "low"
+ }
+]

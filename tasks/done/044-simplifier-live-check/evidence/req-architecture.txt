@@ -1,0 +1,7 @@
+LENS: architecture
+SCOPE: .engine/architecture/feature/order-quote.md
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[]
+
+Answer with the JSON list of findings and nothing else.

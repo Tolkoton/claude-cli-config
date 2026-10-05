@@ -1,0 +1,55 @@
+[
+ {
+  "target": "tasks/doing/010-order-quote.md:20",
+  "category": "premature_abstraction",
+  "claim": "The dedicated public exception class `OutOfStock` with a `.sku` field in criterion 3 can go: the owner's own behavioural statement (line 13, 'refuses with an error naming the item') is already met by the `ValueError` that `inventory.reserve` raises today, and dropping the new class is the only way slice 2 can fit the owner's own budget on lines 26-27 (`max_new_public_symbols: 0`, `max_net_new_lines: 4`).",
+  "evidence": [
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/tasks/doing/010-order-quote.md:13",
+    "detail": "the owner's requirement is 'розрахунок відмовляє з помилкою, де названо товар' — an error naming the item; no caller or goal line asks to catch it by type or read a `sku` attribute"
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/tasks/doing/010-order-quote.md:20",
+    "detail": "criterion 3 adds a new public class `OutOfStock(ValueError)` with the sku in the text and a `sku` field"
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/tasks/doing/010-order-quote.md:24-27",
+    "detail": "the stock check is assigned to slice 2, whose budget the owner fixes at 0 new public symbols and 4 net new lines — a class definition with a `sku` field alone is at least 4 lines and 1 public symbol, so criterion 3 and the budget cannot both hold"
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/src/refproj/inventory.py:18-22",
+    "detail": "`reserve(item, quantity)` is pure (returns a new StockItem, touches nothing) and raises `ValueError(f\"only {on_hand} of {sku} on hand, asked for {quantity}\")` — the sku is already in the text; calling it per line is the stock check in one line"
+   },
+   {
+    "source": "grep",
+    "ref": "/tmp/044-live/project/tasks/doing/010-order-quote.md:20",
+    "detail": "`OutOfStock` and a read of `.sku` on an exception appear nowhere in the repository outside the task text and the feature record derived from it; the `sku` field has no reader"
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/tests/test_inventory.py:14-16",
+    "detail": "`test_cannot_reserve_more_than_on_hand` already pins the shortage error of `reserve` (`match=\"only 4\"`)"
+   },
+   {
+    "source": "read",
+    "ref": "/tmp/044-live/project/.engine/goals.md:1-2",
+    "detail": "the goals document is an unapproved empty template (version 0), so no goal or principle requires a typed exception"
+   },
+   {
+    "source": "judgement",
+    "ref": "",
+    "detail": "Without the class, slice 2 is: one keyword parameter `discount_percent: int = 0`, `total = apply_discount(subtotal, discount_percent)`, and `for line in lines: reserve(line.item, line.quantity)` — 0 files, 0 public symbols, ~3-4 net lines, 0 dependencies, criterion 4 intact. Reusing `reserve` also rejects a quantity <= 0 (`ValueError('quantity must be positive')`), which the task does not specify either way. Criterion 3 is the owner's word, marked 'остаточні', so this is the owner's call, not a removal the agent may make."
+   }
+  ],
+  "protected": false,
+  "chesterton_checked": true,
+  "test_safety": "characterization_exists",
+  "proposed_action": "confirm",
+  "traceability": "tasks/doing/010-order-quote.md:13 (the owner's behavioural statement) — criterion 3 on line 20 is the only line asking for the class; no goal line exists (.engine/goals.md is an unapproved template)",
+  "reversal_risk": "low"
+ }
+]
