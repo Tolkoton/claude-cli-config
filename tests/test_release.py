@@ -8,8 +8,13 @@ set — are stubs there: each appends one line to a log outside the repository a
 the code an environment variable names, so a case can make either one red and can prove that a
 refused release ran neither. Nothing outside a temporary directory is touched, and nothing
 here reaches a network: the only push goes to the bare repository on disk.
+
+The audit check (board 047) is real there: evals/needs_audit.py and the board's journal writer are
+copied in, and the synthetic repository records a complete full-tier audit of the commit it
+releases, so a case changes a text the model reads — or the audit's record — to make it stale.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -19,6 +24,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE_PY = ROOT / "engine.py"
+COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py")
+SKILL = ".claude/skills/demo/SKILL.md"
+JOURNAL = "tasks/ANOMALIES.md"
 PASS = FAIL = 0
 IDENT = ("-c", "user.name=t", "-c", "user.email=t@example.invalid")
 
@@ -80,7 +88,11 @@ class Repo:
         self.log = base / "checks.log"
         git(base, "init", "-q", "--bare", "-b", "main", str(self.remote))
         git(base, "init", "-q", "-b", "main", str(self.work))
-        shutil.copy(ENGINE_PY, self.work / "engine.py")
+        for path in COPIED:
+            (self.work / path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(ROOT / path, self.work / path)
+        write(self.work / SKILL, "the words a model reads\n")
+        write(self.work / "tasks/README.md", "the board\n")
         write(self.work / "tests/run_all.sh", RUN_ALL_STUB)
         write(self.work / "evals/run_hook_scenarios.py", GOLDEN_STUB)
         write(self.work / "evals/baseline/box/results-old.json", "{}\n")
@@ -93,7 +105,20 @@ class Repo:
         write(self.work / "evals/baseline/box/results-new.json", "{}\n")
         git(self.work, "add", "-A")
         git(self.work, "commit", "-q", "-m", "a newer baseline")
-        self.head = commit(self.work, "work to release")
+        self.audited = commit(self.work, "work to release")
+        self.head = self.audit("audit-work.json", self.audited)
+
+    def audit(self, name: str, engine_commit: str, **fields: str) -> str:
+        """Commit the record of an audit of `engine_commit` (full and complete unless `fields` say otherwise)."""
+        record = {"tier": "full", "status": "complete", "recorded_utc": "2026-01-01T00:00:00Z", "engine_commit": engine_commit} | fields
+        write(self.work / "evals/baseline/box" / name, json.dumps(record) + "\n")
+        git(self.work, "add", "-A")
+        git(self.work, "commit", "-q", "-m", f"the record {name}")
+        return git(self.work, "rev-parse", "HEAD")
+
+    def journal(self) -> str:
+        path = self.work / JOURNAL
+        return path.read_text(encoding="utf-8") if path.exists() else ""
 
     def release(self, *args: str, session: bool = False, **env: str) -> subprocess.CompletedProcess[str]:
         environ = {k: v for k, v in os.environ.items() if k != "CLAUDECODE" and not k.startswith("FAKE_")}
@@ -258,6 +283,9 @@ def main() -> int:
         check("release: the work tree is still clean", git(repo.work, "status", "--porcelain") == "")
         check("release: says what it did", "released v0.2.0" in out and repo.head[:7] in out, out)
 
+        check("release: says which audit covers it", "audit-work.json" in out and repo.audited[:7] in out, out)
+        check("release: nothing written into the journal", repo.journal() == "")
+
         print("the next release moves stable forward; the same version twice is refused")
         before = repo.state()
         repo.log.unlink(missing_ok=True)
@@ -270,6 +298,80 @@ def main() -> int:
         check("second release: v0.2.0 stays where it was", ref(repo.remote, "refs/tags/v0.2.0") == repo.head)
         check("second release: --message is the tag's subject",
               git(repo.work, "tag", "-l", "--format=%(subject)", "v0.3.0") == "engine v0.3.0: more work")
+
+        print("a text the model reads changed after the last full audit")
+        repo = fresh(base, "stale-audit")
+        commit(repo.work, "a reworded skill", SKILL)
+        before = repo.state()
+        proc = repo.release("v0.2.0", "--owner-approved")
+        out = proc.stdout + proc.stderr
+        refused("text changed, no fresh audit", repo, proc, before, "full audit", checks_ran=False)
+        check("stale audit: names the changed file and the audit it is measured from",
+              f"M {SKILL}" in out and "audit-work.json" in out, out)
+        check("stale audit: names the command to run",
+              "evals/run_audit_scenarios.py --tier full" in out and "audit-v0.2.0.json" in out, out)
+        check("stale audit: names the owner's flag", "--without-audit" in out, out)
+        check("stale audit: nothing written into the journal", repo.journal() == "")
+        refused("a smoke audit of the new text does not count", repo,
+                (repo.audit("audit-smoke.json", before["head"], tier="smoke", recorded_utc="2026-02-01T00:00:00Z"),
+                 repo.release("v0.2.0", "--owner-approved"))[1], repo.state(), "full audit", checks_ran=False)
+        refused("a full audit that stopped half way does not count", repo,
+                (repo.audit("audit-partial.json", before["head"], status="partial", recorded_utc="2026-02-02T00:00:00Z"),
+                 repo.release("v0.2.0", "--owner-approved"))[1], repo.state(), "full audit", checks_ran=False)
+        refused("the bypass flag inside an agent session", repo,
+                repo.release("v0.2.0", "--owner-approved", "--without-audit", session=True), repo.state(), "CLAUDECODE", checks_ran=False)
+        check("bypass in a session: nothing written into the journal", repo.journal() == "")
+        repo.audit("audit-again.json", before["head"], recorded_utc="2026-02-03T00:00:00Z")
+        proc = repo.release("v0.2.0", "--owner-approved")
+        check("a full audit of the new text: released", proc.returncode == 0 and "audit-again.json" in proc.stdout, proc.stdout + proc.stderr)
+
+        print("no full audit at all")
+        repo = fresh(base, "no-audit")
+        git(repo.work, "rm", "-q", "evals/baseline/box/audit-work.json")
+        git(repo.work, "commit", "-q", "-m", "the audit's record is gone")
+        before = repo.state()
+        refused("no full audit recorded", repo, repo.release("v0.2.0", "--owner-approved"), before, "full audit", checks_ran=False)
+
+        print("the owner's bypass: released, and written into the journal")
+        repo = fresh(base, "bypass")
+        skill = commit(repo.work, "a reworded skill", SKILL)
+        proc = repo.release("v0.2.0", "--owner-approved", "--without-audit")
+        out = proc.stdout + proc.stderr
+        check("bypass: exit 0", proc.returncode == 0, out)
+        check("bypass: the checks ran", [line.split()[0] for line in repo.ran()] == ["tests", "golden"], str(repo.ran()))
+        check("bypass: the tag, main and stable are on HEAD, here and on the remote",
+              {ref(cwd, r) for cwd in (repo.work, repo.remote) for r in ("refs/tags/v0.2.0", "refs/heads/main", "refs/heads/stable")} == {skill})
+        entry = repo.journal()
+        check("bypass: one journal entry", entry.count("\n## ") == 1, entry)
+        check("bypass: the entry names the version, the flag, the changed file and the owner",
+              all(part in entry for part in ("v0.2.0", "--without-audit", SKILL, "Хто записав: власник")), entry)
+        check("bypass: the release says where it is recorded", JOURNAL in out, out)
+        check("bypass: the journal is the only thing left in the work tree",
+              git(repo.work, "status", "--porcelain").split() == ["??", JOURNAL], git(repo.work, "status", "--porcelain"))
+
+        print("the bypass flag with a fresh audit bypasses nothing")
+        repo = fresh(base, "bypass-unneeded")
+        proc = repo.release("v0.2.0", "--owner-approved", "--without-audit")
+        check("unneeded bypass: released", proc.returncode == 0, proc.stdout + proc.stderr)
+        check("unneeded bypass: nothing written into the journal", repo.journal() == "")
+
+        print("a bypass whose release fails leaves no journal entry")
+        repo = fresh(base, "bypass-rejected")
+        commit(repo.work, "a reworded skill", SKILL)
+        write(repo.work / JOURNAL, "# the journal\n")
+        git(repo.work, "add", "-A")
+        git(repo.work, "commit", "-q", "-m", "a journal")
+        hook = repo.remote / "hooks" / "pre-receive"
+        write(hook, "#!/bin/sh\nexit 1\n")
+        hook.chmod(0o755)
+        before = repo.state()
+        refused("bypass, the remote rejects the push", repo, repo.release("v0.2.0", "--owner-approved", "--without-audit"),
+                before, "push", checks_ran=True)
+        check("bypass, rejected push: the journal is as it was", repo.journal() == "# the journal\n", repo.journal())
+        repo.log.unlink(missing_ok=True)
+        refused("bypass, red suites", repo, repo.release("v0.2.0", "--owner-approved", "--without-audit", FAKE_TESTS_RC="1"),
+                before, "tests are red", checks_ran=True)
+        check("bypass, red suites: the journal is as it was", repo.journal() == "# the journal\n", repo.journal())
 
         print("released from main itself")
         repo = fresh(base, "on-main")

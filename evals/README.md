@@ -124,7 +124,9 @@ python3 evals/run_audit_scenarios.py --runs 1 --only 02          # a targeted re
 2. **Then the `smoke` tier**: one run of every scenario (about a third of the cost; every
    run is one session). It answers "did anything break", not "by how much".
 3. **The `full` tier — three runs of every scenario — only before a version tag.** It is the
-   measurement the baselines are compared on (`compare_audits.py`).
+   measurement the baselines are compared on (`compare_audits.py`). `engine.py release` refuses
+   while a text the model reads has changed since the last complete full-tier record
+   (`docs/release.md`, "The audit a release needs").
 
 `--only` stays for a targeted re-run and combines with a tier; `--runs N` is still accepted (the
 file then says `"tier": "custom"`) and is refused when it contradicts a tier. A bare invocation

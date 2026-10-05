@@ -6,7 +6,7 @@
     engine.py update  <project> [--ref REF] [--dry-run] [--reseed-pristine] [--take PATH]
     engine.py update  --all     [--ref REF] [--dry-run] [--reseed-pristine]
     engine.py status  [<project>] [--ref REF]
-    engine.py release <version> --owner-approved [--baseline FILE] [--remote NAME] [--message TEXT]
+    engine.py release <version> --owner-approved [--baseline FILE] [--remote NAME] [--message TEXT] [--without-audit]
 
 REF defaults to the newest `v*` tag. Files are read from the ref with git, never from the
 working tree, so an install can be repeated byte for byte. `.claude/ownership.txt` in that
@@ -47,7 +47,9 @@ add and the line ranges that now duplicate .claude/engine-rules.md.
 `release` is the owner's command and the only one that pushes (docs/release.md): on a clean work
 tree with green suites and a golden set identical to its baseline it tags HEAD with the version
 and moves `main` and `stable` onto it, fast-forward only. Without --owner-approved, or inside a
-Claude Code session, it does nothing.
+Claude Code session, it does nothing. It refuses while a text the model reads has changed since
+the last complete full-tier audit (evals/needs_audit.py); --without-audit, the owner's, releases
+anyway and writes that into the anomaly journal.
 
 engine.py never commits and never touches a file it does not own: review with `git status`.
 Exit status: 0 done, 1 done but some engine files were held back (see "keep"), 2 error.
@@ -142,6 +144,14 @@ RELEASE_TESTS = ("bash", "tests/run_all.sh")
 RELEASE_GOLDEN = "evals/run_hook_scenarios.py"
 RELEASE_BASELINES = "evals/baseline/*/results-*.json"
 RELEASE_ENVIRONMENT = "evals/environment.py"
+# The audit a release must not forget (board 047): the records of the paid overseer audit, the
+# script that says whether a text the model reads changed since a commit, the command the refusal
+# names, and the journal — with its one writer — a bypass is recorded in.
+RELEASE_AUDITS = "evals/baseline/*/audit-*.json"
+RELEASE_NEEDS_AUDIT = "evals/needs_audit.py"
+RELEASE_AUDIT_COMMAND = "python3 evals/run_audit_scenarios.py --tier full --max-cost 35 --out evals/baseline/@env/audit-{version}.json --owner-approved"
+RELEASE_JOURNAL = "tasks/ANOMALIES.md"
+RELEASE_BOARD = ".claude/unattended/board.py"
 # The overseer's handlers (board 033). Every audit is done by the agent `overseer` and recorded by
 # this script, which works only through its handlers in the project's settings file; the Stop hook
 # has no other way to audit. A project that edited its settings keeps its file, so the handlers it
@@ -1357,6 +1367,60 @@ def run_check(src: EngineSource, what: str, command: list[str], red: str) -> Non
         raise EngineError(f"{red}; nothing was released")
 
 
+def last_full_audit(src: EngineSource) -> tuple[str, str] | None:
+    """(record, audited commit) of the complete full-tier audit recorded last, or None. A smoke
+    run, a run that stopped half way and a record whose commit this repository lacks do not count."""
+    found: list[tuple[str, str, str]] = []
+    for path in sorted(src.root.glob(RELEASE_AUDITS)):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict) or record.get("tier") != "full" or record.get("status") != "complete":
+            continue
+        commit = ref_commit(src, str(record.get("engine_commit") or "-"))
+        if commit:
+            found.append((str(record.get("recorded_utc") or ""), path.relative_to(src.root).as_posix(), commit))
+    return max(found)[1:] if found else None
+
+
+def audit_gap(src: EngineSource) -> str | None:
+    """Why this release is not covered by a full audit, or None when it is: nothing the model
+    reads differs between the commit audited last and the work tree (evals/needs_audit.py)."""
+    audit = last_full_audit(src)
+    if audit is None:
+        return f"no complete full audit is recorded in this repository ({RELEASE_AUDITS})"
+    record, commit = audit
+    res = subprocess.run(
+        [sys.executable, RELEASE_NEEDS_AUDIT, commit, "--json"], cwd=src.root, capture_output=True, text=True, check=False
+    )
+    if res.returncode == 0:
+        print(f"  audit   nothing the model reads changed since the full audit {record} ({commit[:7]})")
+        return None
+    try:
+        found = json.loads(res.stdout)
+        changed = [*found["text"], *found["maybe"]]
+    except (ValueError, KeyError, TypeError):
+        return f"{RELEASE_NEEDS_AUDIT} could not compare with the last full audit, {record} ({commit[:7]}): {res.stderr.strip()[:300]}"
+    listed = "".join(f"\n    {line}" for line in changed)
+    return f"{len(changed)} file(s) the model reads changed since the last full audit, {record} ({commit[:7]}):{listed}"
+
+
+def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> None:
+    """One entry in the anomaly journal, through the board's own writer; no entry, no release."""
+    res = subprocess.run(
+        [
+            sys.executable, RELEASE_BOARD, "anomaly", "-",
+            f"реліз {version} ({head[:7]}) зроблено без свіжого повного аудиту: власник дав прапорець --without-audit. Перевірка сказала: {gap}",
+            f"реліз продовжено; повний аудит лишається за власником: {RELEASE_AUDIT_COMMAND.format(version=version)}",
+            "--source", "власник",
+        ],
+        cwd=src.root, capture_output=True, text=True, check=False,
+    )
+    if res.returncode != 0:
+        raise EngineError(f"--without-audit could not be written into {RELEASE_JOURNAL}; nothing was released\n  {res.stderr.strip()[:300]}")
+
+
 def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
     if not args.owner_approved:
         raise EngineError("release does nothing without --owner-approved: a release is the owner's decision (docs/release.md)")
@@ -1377,6 +1441,15 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
     if not (src.root / baseline).is_file():
         raise EngineError(f"the baseline {baseline} is not a file in {src.root}")
     print(f"engine release: {version} at {head[:7]} -> {', '.join(RELEASE_BRANCHES)} on {remote}")
+    gap = audit_gap(src)
+    if gap and not args.without_audit:
+        raise EngineError(
+            f"a release needs a fresh full audit, and {gap}\n"
+            f"  run it, commit its record and release again:\n    {RELEASE_AUDIT_COMMAND.format(version=version)}\n"
+            f"  or release without it — the owner's --without-audit, written into {RELEASE_JOURNAL}; nothing was released"
+        )
+    if gap:
+        print(f"  audit   SKIPPED on --without-audit: {gap}")
     run_check(src, "the suites", list(RELEASE_TESTS), "the tests are red")
     run_check(
         src,
@@ -1388,11 +1461,19 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
     if src.resolve("HEAD") != head:
         raise EngineError("HEAD moved while the checks ran; nothing was released")
 
+    journal = src.root / RELEASE_JOURNAL
+    journal_before = journal.read_bytes() if journal.is_file() else None
+    if gap:
+        record_bypass(src, version, head, gap)
     git(src.root, "tag", "-a", version, "-m", args.message or f"engine {version}", head)
     try:
         git(src.root, "push", "--atomic", remote, f"refs/tags/{version}", *(f"{head}:refs/heads/{b}" for b in RELEASE_BRANCHES))
     except EngineError as exc:
         git(src.root, "tag", "-d", version)
+        if gap and journal_before is None:
+            journal.unlink(missing_ok=True)
+        elif gap and journal_before is not None:
+            journal.write_bytes(journal_before)
         raise EngineError(f"the push was refused, the local tag is removed again and nothing was released\n  {exc}") from None
     print(f"  pushed  {version}, {', '.join(RELEASE_BRANCHES)} -> {remote} (fast-forward)")
     current = subprocess.run(
@@ -1405,6 +1486,8 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
             git(src.root, "branch", "-f", branch, head)
         except EngineError as exc:
             print(f"  note    the local branch {branch} was not moved (the remote one was): {exc}")
+    if gap:
+        print(f"  note    released without a fresh full audit: recorded in {RELEASE_JOURNAL}, which is now uncommitted — commit it")
     print(f"released {version} ({head[:7]}): {', '.join(RELEASE_BRANCHES)} and the tag point at it, here and on {remote}")
     return EXIT_OK
 
@@ -1475,6 +1558,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     release.add_argument("--remote", default="origin", help="the remote to push to (default: origin)")
     release.add_argument("--message", metavar="TEXT", help="the tag's message (default: `engine <version>`)")
+    release.add_argument(
+        "--without-audit",
+        action="store_true",
+        help=f"the owner's: release although a text the model reads changed since the last full audit; written into {RELEASE_JOURNAL}",
+    )
     release.set_defaults(handler=cmd_release)
     return parser
 

@@ -29,9 +29,11 @@ session the flag does not count.
    | version | `vMAJOR.MINOR.PATCH`; the tag exists neither here nor on the remote; newer than every released version |
    | clean | `git status --porcelain` is empty |
    | fast-forward | after `git fetch`, every existing `main` and `stable` — local and on the remote — is an ancestor of HEAD |
+   | audit | `evals/needs_audit.py <commit of the last full audit>` reports that nothing the model reads changed (see "The audit a release needs") |
    | tests | `bash tests/run_all.sh` (every suite) exits 0 |
    | golden set | `evals/run_hook_scenarios.py --engine-ref HEAD --compare <baseline>` reports identical behaviour |
    | clean again | the checks left nothing behind and HEAD did not move |
+   | journal | only with `--without-audit` and a stale audit: one entry in `tasks/ANOMALIES.md` |
    | tag | an annotated tag on HEAD (`--message TEXT` sets its message; default `engine <version>`) |
    | push | one atomic, non-forced push: the tag, `HEAD → main`, `HEAD → stable` |
    | local | the local `main` and `stable` are moved to HEAD; the branch you are on stays checked out |
@@ -42,6 +44,29 @@ session the flag does not count.
    Exit status: 0 released, 2 refused (the message says why).
 4. **Update the projects:** `python3 engine.py update --all` (see `docs/TEMPLATE-SETUP.md`).
 
+## The audit a release needs
+
+A release is a full audit without regressions, green tests, an identical golden set and a moved
+`stable`. The audit is paid, so the release never runs it — but it does not let it be forgotten.
+The last full audit is the record `evals/baseline/*/audit-*.json` with `"tier": "full"` and
+`"status": "complete"` whose `recorded_utc` is the latest and whose `engine_commit` this
+repository has; a smoke run and a run that stopped half way do not count. `evals/needs_audit.py`
+compares that commit with the work tree. When a text the model reads differs — its TEXT list or
+its MAYBE list of hook files — or when no such record exists, the release is refused before the
+suites run, with the changed files and the command to run:
+
+```bash
+python3 evals/run_audit_scenarios.py --tier full --max-cost 35 --out evals/baseline/@env/audit-v0.13.0.json --owner-approved
+```
+
+Commit the record it writes (compare it with the previous one first: `evals/compare_audits.py`;
+the release does not read the verdicts) and release again. `--without-audit` releases anyway: it
+is a second flag of the owner's, beside `--owner-approved`, and each use appends an entry to the
+anomaly journal `tasks/ANOMALIES.md` — the version, the commit and what the check said — written
+by the board's own writer just before the tag. The entry is left uncommitted; commit it. A
+refused push takes the entry back out. With a fresh audit the flag bypasses nothing and records
+nothing.
+
 ## Options
 
 - `--baseline FILE` — the golden-set results to compare with. Default: the
@@ -51,6 +76,8 @@ session the flag does not count.
   before it can be released; otherwise the golden set differs and the release stops.
 - `--remote NAME` — default `origin`.
 - `--message TEXT` — the tag's message.
+- `--without-audit` — release although the last full audit does not cover the texts being
+  released; recorded in `tasks/ANOMALIES.md` (above).
 
 ## What it never does
 
@@ -59,7 +86,8 @@ session the flag does not count.
 - It never moves a tag. A version that exists is refused; release the next one.
 - It never commits, merges or switches branches.
 - It runs no paid check. The overseer audit (`evals/run_audit_scenarios.py --tier full`) before
-  a tag stays a separate, deliberate run — see `evals/README.md`.
+  a tag stays a separate, deliberate run — see `evals/README.md`; the release only checks that
+  its record covers what is being released.
 
 ## Limits
 
