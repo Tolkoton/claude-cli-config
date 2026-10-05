@@ -58,7 +58,12 @@ project's `DEPS_UPDATE_CMD` — the patches as one group, every minor version al
 output to `.engine/maintain/update-result.md`; the task then returns to the agent, which reports.
 Once a week the runner puts the maintenance task into `todo/` itself (`board.py maintain-task`:
 `NNN-maintain-<date>.md`, a task to run `/maintain`) — never while one waits in `todo/`, `doing/` or
-`blocked/`, `MAINTAIN_EVERY_DAYS` in `project.env` (empty: 7, `0`: never). A task that says `Потрібна присутність
+`blocked/`, `MAINTAIN_EVERY_DAYS` in `project.env` (empty: 7, `0`: never). When nothing can be taken — `todo/` is
+empty, or all that is left waits for the owner — it puts a cleanup task there instead of stopping
+(`board.py cleanup-task`: `NNN-cleanup-<date>.md`, a task to run `simplifier.py nightly` and act by the
+simplifier's rules), with an entry in the anomaly journal, in one commit — not more than once a day, never
+while one waits in `todo/`, `doing/` or `blocked/`, `CLEANUP_EVERY_DAYS` in `project.env` (empty: 1, `0`:
+never); the pass after that task finds nothing due and stops as before. A task that says `Потрібна присутність
 власника: так` it never takes (`board.py next` does not offer one; left in `doing/` it stops the runner with
 `reason=attended`): such a task is done in an interactive session with the owner (`tasks/README.md`).
 It moves the task to `doing/` in its own commit and starts

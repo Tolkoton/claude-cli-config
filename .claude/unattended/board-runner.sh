@@ -25,6 +25,8 @@
 #                       hours; the task's budget spent; three overseer BLOCKs in a row on one of
 #                       its units: the runner PARKS the task and takes the next one (see below)
 #                       — one task never stops the board
+#   nothing to take     once a day the runner puts a cleanup task into todo/ itself and takes it
+#                       (THE CLEANUP TASK below)
 #   it stops            todo/ empty or everything left waiting for the owner; a soft stop; and the
 #                       few critical things below — always with a summary
 #
@@ -115,6 +117,13 @@
 # maintain-task`: once a week it puts NNN-maintain-<date>.md into todo/ — a task to run /maintain —
 # unless one already waits in todo/, doing/ or blocked/. One commit. MAINTAIN_EVERY_DAYS in
 # .claude/project.env (empty: 7; 0: never); BOARD_TODAY names another day (the tests).
+#
+# THE CLEANUP TASK (board 045). When nothing can be taken — todo/ is empty, or all that is left
+# waits for the owner — the runner asks `board.py cleanup-task` before it stops: not more than once
+# a day it puts NNN-cleanup-<date>.md into todo/ — a task to run `simplifier.py nightly` and act by
+# the simplifier's rules — writes that into the anomaly journal, commits both in one commit and
+# takes the task. The next pass finds nothing due and stops as before. CLEANUP_EVERY_DAYS in
+# .claude/project.env (empty: 1; 0: never); BOARD_TODAY names another day (the tests).
 #
 # Every number is an environment variable, so the tests run in seconds:
 #   BOARD_BRANCH (unattended/work)  BOARD_REMOTE (origin)  BOARD_INBOX (~/engine-ops/tasks-inbox)
@@ -681,6 +690,14 @@ while :; do
   case "$RC" in
     0) ;;
     3|4)
+      PLACED=$(board cleanup-task) || finish error - cleanup "board.py cleanup-task failed"
+      if [ -n "$PLACED" ]; then
+        event "cleanup-task $PLACED"
+        board anomaly "$(basename "$PLACED" .md)" "дошка вільна: виконавцеві нема чого брати (\`todo/\` порожня, або все, що лишилося, чекає власника чи його присутності)" \
+          "виконавець сам поклав задачу прибирання \`$PLACED\` і взяв її: нічний режим спрощувача, безпечне застосовується, решта — у звіт для власника. Наступна така — не раніше ніж за добу (\`CLEANUP_EVERY_DAYS\`)." > /dev/null
+        board_commit "board: nothing to take — the cleanup task $PLACED" || finish error - commit "cannot commit the cleanup task"
+        continue
+      fi
       push_branch
       if [ "$RC" -eq 4 ] || [ -n "$(find tasks/blocked -maxdepth 1 -name '[0-9]*.md' 2>/dev/null | head -1)" ]; then
         finish waiting-owner - owner "nothing can move: what is left waits for the owner's answers, for the owner's presence or for tasks that are not done ($FINISHED task(s) closed in this run)"

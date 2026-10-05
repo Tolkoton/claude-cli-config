@@ -46,6 +46,7 @@
 # Board 074: test_bugfix 5 s stays out (about thirty runs of bugfix.py on synthetic projects, each with two throwaway copies).
 # Board 075: test_hotfix 7 s stays out (about seventy runs of hotfix.py and complexity_budget.py on synthetic projects).
 # Board 076: test_maintain 35 s stays out (about twenty synthetic projects, eight runs of the real runner, the full gate after every stub update).
+# Board 045: test_cleanup 45 s stays out (about twenty synthetic projects, eight runs of the real runner with a fake claude).
 test_deny_gaps.py
 test_root_delete_deny.py
 test_format_on_edit.py

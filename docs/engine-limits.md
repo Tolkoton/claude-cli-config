@@ -439,8 +439,11 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   refuting line in the request. Real false findings may be harder.
 - **The eval's paid-run gate is the same seat belt as the audit's** (below): the task's
   «Платні прогони» line or `--owner-approved` outside a session.
-- **The nightly cleanup is a command, not a schedule.** Nothing in the engine runs
-  `simplifier.py nightly`; without a cron line the history grows only at `pre_commit` and `ci`.
+- **The nightly cleanup runs in the board runner's free time, not on a clock** (board 045). The
+  runner places the cleanup task only when it has nothing else to take, and not more than once a
+  day; a board that is never idle, or a runner that is not started, runs no `simplifier.py nightly`,
+  and the history then grows only at `pre_commit` and `ci`. A cleanup day without sharp growth
+  still costs one agent session, which only records the signals.
 
 ## The task board, its runner and the paid-run gate
 

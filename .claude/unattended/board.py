@@ -34,6 +34,7 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      `name<TAB>action<TAB>argument<TAB>sha256` line each
     board.py action-line <action>    the line an agent writes under its question to offer the action
     board.py maintain-task [--today YYYY-MM-DD]
+    board.py cleanup-task [--today YYYY-MM-DD]
                                      the runner's weekly call: put the maintenance task into todo/
                                      when it is due (see THE MAINTENANCE TASK); prints its path
     board.py action-done <name> <applied|failed|stale>   the offer is replaced by what happened
@@ -92,7 +93,15 @@ THE MAINTENANCE TASK (board 076). Once a week the runner puts `NNN-maintain-<dat
 itself (`maintain-task`): a task that says to run `/maintain`. Not when one is already in todo/,
 doing/ or blocked/; not sooner than MAINTAIN_EVERY_DAYS (`.claude/project.env`; empty — 7, `0` —
 never) after the newest one, wherever it lies; and not in a project without the command
-`.claude/commands/maintain.md`. The engine schedules nothing else.
+`.claude/commands/maintain.md`.
+
+THE CLEANUP TASK (board 045). The runner's free time goes against complexity: when nothing can be
+taken — todo/ is empty, or all that is left waits for the owner or the owner's presence — the
+runner puts `NNN-cleanup-<date>.md` into todo/ itself (`cleanup-task`): a task that runs the
+simplifier's nightly mode and acts by its rules. Not while a task is in doing/ or one can start;
+not while a cleanup task waits in todo/, doing/ or blocked/; not sooner than CLEANUP_EVERY_DAYS
+(`.claude/project.env`; empty — 1, `0` — never) after the newest one, wherever it lies; and not in
+a project without `.claude/hooks/simplifier.py`. The engine schedules nothing else.
 
 AN ATTENDED TASK (board 016) says `Потрібна присутність власника: так` under its title: work no
 agent may do alone — above all a change to its own guards, which the permission classifier
@@ -174,6 +183,8 @@ ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".e
                 DEPS_ACTION: ".engine/maintain/updates.json"}  # the file whose sha256 the offer names
 MAINTAIN_NAME = re.compile(r"^\d{3,}-maintain-(\d{4}-\d\d-\d\d)(?:\.md)?$")
 MAINTAIN_COMMAND, MAINTAIN_DAYS = ".claude/commands/maintain.md", 7
+CLEANUP_NAME = re.compile(r"^\d{3,}-cleanup-(\d{4}-\d\d-\d\d)(?:\.md)?$")
+CLEANUP_SCRIPT, CLEANUP_DAYS = ".claude/hooks/simplifier.py", 1
 FIRST_RESERVED = 800  # ordinary tasks are numbered under the rule questions and the gate's
 ITEM = re.compile(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
 ITEM_FIRST = 700  # open items (board 037) are numbered from here, under the rule questions
@@ -713,22 +724,34 @@ def action_done(board: Board, path: Path, outcome: str) -> Path:
     return target
 
 
+def _every(root: Path, key: str, default: int) -> int:
+    """How often, in days, the runner places a task of its own: the key of `.claude/project.env`, else the default."""
+    found = re.search(rf'^{key}="?([^"\n]*)"?\s*$', _text(root / ".claude/project.env"), re.MULTILINE)
+    raw = found.group(1).strip() if found else ""
+    return int(raw) if raw.isdigit() else default
+
+
+def _due(board: Board, name: re.Pattern[str], today: date, every: int) -> bool:
+    """None of the runner's own tasks of this kind is open, and the newest one is `every` days old."""
+    found = {c: [m.group(1) for p in (board.tasks / c).glob("*") if (m := name.match(p.name))] for c in COLUMNS}
+    if found["todo"] or found["doing"] or found["blocked"]:
+        return False
+    return not found["done"] or (today - date.fromisoformat(max(found["done"]))).days >= every
+
+
+def _own_number(board: Board) -> int:
+    """The next number for a task the runner places itself: after the owner's tasks, under the open items."""
+    taken = {n for c in COLUMNS for p in (board.tasks / c).glob("*") if (n := number_of(p.name)) is not None}
+    number = max((n for n in taken if n < ITEM_FIRST), default=0) + 1
+    return number if number < ITEM_FIRST else next(n for n in range(1, ITEM_FIRST) if n not in taken)
+
+
 def maintain_task(board: Board, root: Path, today: date) -> Path | None:
     """Put the weekly maintenance task into todo/ when it is due (THE MAINTENANCE TASK); None — not now."""
-    env = {m.group(1): m.group(2) for m in re.finditer(r'^(MAINTAIN_\w+)="?([^"\n]*)"?\s*$', _text(root / ".claude/project.env"), re.MULTILINE)}
-    raw = env.get("MAINTAIN_EVERY_DAYS", "").strip()
-    every = int(raw) if raw.isdigit() else MAINTAIN_DAYS
-    if every == 0 or not (root / MAINTAIN_COMMAND).is_file():
+    every = _every(root, "MAINTAIN_EVERY_DAYS", MAINTAIN_DAYS)
+    if every == 0 or not (root / MAINTAIN_COMMAND).is_file() or not _due(board, MAINTAIN_NAME, today, every):
         return None
-    found = {c: [m.group(1) for p in (board.tasks / c).glob("*") if (m := MAINTAIN_NAME.match(p.name))] for c in COLUMNS}
-    if found["todo"] or found["doing"] or found["blocked"]:
-        return None
-    if found["done"] and (today - date.fromisoformat(max(found["done"]))).days < every:
-        return None
-    taken = {n for c in COLUMNS for p in (board.tasks / c).glob("*") if (n := number_of(p.name)) is not None}
-    number = max((n for n in taken if n < FIRST_RESERVED), default=0) + 1
-    if number >= FIRST_RESERVED:
-        number = next(n for n in range(1, FIRST_RESERVED) if n not in taken)
+    number = _own_number(board)
     path = board.tasks / "todo" / f"{number:03d}-maintain-{today.isoformat()}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"""# {number:03d} — Регулярний догляд {today.isoformat()}
@@ -747,6 +770,46 @@ def maintain_task(board: Board, root: Path, today: date) -> Path | None:
 ## Готово, коли
 - Звіт догляду написано, і в `report.md` — його головне для власника.
 - Якщо є що оновити — задача в `blocked/` з питанням «Оновити ці N залежностей?» і рядком дії.
+
+## Питання до власника
+""", encoding="utf-8")
+    return path
+
+
+def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
+    """Put the cleanup task into todo/ when the board is idle and it is due (THE CLEANUP TASK); None — not now."""
+    every = _every(root, "CLEANUP_EVERY_DAYS", CLEANUP_DAYS)
+    if every == 0 or not (root / CLEANUP_SCRIPT).is_file() or not _due(board, CLEANUP_NAME, today, every):
+        return None
+    if board.files("doing") or board.eligible() is not None:
+        return None
+    number, often = _own_number(board), "раз на добу" if every == 1 else f"раз на {every} діб"
+    path = board.tasks / "todo" / f"{number:03d}-cleanup-{today.isoformat()}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"""# {number:03d} — Прибирання {today.isoformat()}
+
+Залежить від: —
+Потрібна присутність власника: ні
+Аудит потрібен: ні
+
+Цю задачу поклав виконавець дошки: йому не було чого брати, а вільний час іде на боротьбу зі
+складністю — не частіше ніж {often}.
+
+## Що зробити
+1. Запусти `python3 {CLEANUP_SCRIPT} nightly` і збережи його вивід для звіту.
+2. Якщо у виводі є `SIMPLIFIER CALL:` — зроби один прохід спрощувача, як написано в
+   `.claude/references/simplifier.md` («One run»): запит `request --lens code`, агент `simplifier`,
+   `validate`, друга думка (якщо ввімкнена), `route --title "code, nightly {today.isoformat()}"`.
+   Якщо там `no sharp growth` — спрощувача не запускай: на сьогодні це все.
+3. Безпечне застосуй: знахідку `auto_remove` прибирай лише за всіх трьох умов із того самого
+   документа («What happens to a finding») — по одній на commit, із рядком `Simplifier-Finding: <id>`.
+   Бракує хоч однієї умови — не прибирай: це питання для власника.
+4. Решту (`confirm`, `flag_only`) не чіпай: `route` уже записав її в `.engine/simplifier/report.md`
+   для огляду власника.
+
+## Готово, коли
+- У `report.md`: вивід нічного режиму, що прибрано (commit-и) і що чекає огляду власника.
+- Якщо щось прибрано — повний набір тестів зелений.
 
 ## Питання до власника
 """, encoding="utf-8")
@@ -964,6 +1027,7 @@ def main() -> int:
     commands.add_parser("owner-actions")
     commands.add_parser("action-line").add_argument("action", choices=sorted(ACTION_FILES))
     commands.add_parser("maintain-task").add_argument("--today", default=os.environ.get("BOARD_TODAY") or None, help="YYYY-MM-DD (default: today, UTC)")
+    commands.add_parser("cleanup-task").add_argument("--today", default=os.environ.get("BOARD_TODAY") or None, help="YYYY-MM-DD (default: today, UTC)")
     action_done_parser = commands.add_parser("action-done")
     action_done_parser.add_argument("name")
     action_done_parser.add_argument("outcome", choices=sorted(ACTION_OUTCOMES))
@@ -1048,8 +1112,9 @@ def main() -> int:
             return EXIT_REFUSED
         print(action_line(root, args.action))
         return 0
-    if args.command == "maintain-task":
-        placed = maintain_task(board, root, date.fromisoformat(args.today) if args.today else datetime.now(UTC).date())
+    if args.command in ("maintain-task", "cleanup-task"):
+        place = maintain_task if args.command == "maintain-task" else cleanup_task
+        placed = place(board, root, date.fromisoformat(args.today) if args.today else datetime.now(UTC).date())
         if placed:
             print(board.shown(placed))
         return 0
