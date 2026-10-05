@@ -180,11 +180,6 @@ NO round history. This catches what the round-anchored critic drifted past
 - `CRITIC_PREMISE_PROBE_REQUIRED` / `CRITIC_ESCALATE` → route to the human gate as
   above before writing.
 
-*(Calibration, ~every 5th slice: submit a deliberately shallow counterfactual artifact
-to the cold-reader in a blind pair. If it does not rate the real artifact above the
-counterfactual, the critic is mis-calibrated — halt and retune its prompt before
-trusting further runs.)*
-
 ---
 
 # Write the artifact
