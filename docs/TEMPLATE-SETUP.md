@@ -71,6 +71,7 @@ your project's language and toolchain. Every hook reads this file at runtime.
 | `TYPECHECK_CMD` | Type-check command for verify-on-stop | Python auto-detect (mypy) |
 | `TEST_CMD` | Test command for verify-on-stop | Python auto-detect (pytest -x) |
 | `FORMAT_CMD` | Format command for format-on-edit (`{file}` = file path) | Python auto-detect (ruff) |
+| `PUSH_PROTECTED_BRANCHES` | Branches `block-dangerous.sh` refuses a push into (space- or comma-separated); a project that releases from `master` or `production` names them here | `main stable` |
 
 ### Behavior when a variable is not set
 

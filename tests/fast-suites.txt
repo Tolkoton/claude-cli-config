@@ -55,6 +55,8 @@
 # Board 058: test_audit_noise 2 s is in (offline: about twenty runs of compare_audits.py on small result files).
 # Board 714: test_shell_protected_paths 19 s stays out (about a hundred runs of the real block-dangerous.sh,
 # most of them starting python3 for shell_paths.py); test_env_probe, out already, carries the list file in its fixture.
+# Board 017: test_push_hardening stays out (about a hundred runs of the real block-dangerous.sh, each against a
+# throwaway repository, and five of gate.py); test_commit_policy, out already, pins the push into main.
 test_deny_gaps.py
 test_hook_env.py
 test_root_delete_deny.py

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commits are legal on unattended/<date> and nowhere else; push is not the hook's business.
+"""Commits are legal on unattended/<date> and nowhere else; an ordinary push is the ask rule's.
 
 Owner-ratified 2026-08-27. The checkpoint is kept where it does work -- nothing reaches
 main without a human -- while a long run gets a committed base to build on.
@@ -14,6 +14,10 @@ and a push is the settings file — `Bash(git push:*)` in permissions.ask prompt
 force forms are denied — so this test pins the LIVE .claude/settings.json (S7 is applied;
 the live file is the contract) and the proposal in docs/tasks/settings.json for exactly
 those three rules.
+
+Board 017 (owner decision) put the dangerous forms of a push back into the hook: forced, the
+deletion of a remote branch, and a push into main or stable. One case here pins the last of
+them; every form is in tests/test_push_hardening.py.
 
 Every hook case runs against a REAL throwaway git repo with a real branch checked out,
 because the hook reads the branch with `git branch --show-current`; faking it would test
@@ -99,7 +103,7 @@ CASES = [
     ("compound commit on main", "cd . && git commit -m x", MAIN, False, True),
     ("commit -C form on main", "git -C . commit -m x", MAIN, False, True),
     ("commit on an ordinary feature branch", "git commit -m x", FEAT, False, True),
-    ("push on main: not the hook's business any more (ask rule prompts)", "git push origin main", MAIN, False, False),
+    ("push into main: refused by the hook itself (board 017)", "git push origin main", MAIN, False, True),
     ("push on a feature branch: allowed by the hook", "git push origin feat/x", FEAT, False, False),
     ("force-push blocked everywhere, unattended included", FORCE_PUSH, UNATT, False, True),
     ("ordinary staging on main", "git add .", MAIN, False, False),

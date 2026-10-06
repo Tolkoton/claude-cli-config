@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Bash. Blocks destructive commands, git commit, and a shell write to a
+# PreToolUse hook for Bash. Blocks destructive commands, git commit, the dangerous forms of a
+# push (forced, deleting a remote branch, into a protected branch), and a shell write to a
 # protected path or a read of a secret one (the list: protected-path-list.sh).
 # Exit 2 = block + show reason to Claude via stderr.
 # Exit 0 = allow.
@@ -131,6 +132,135 @@ for pattern in "${DANGEROUS_PATTERNS[@]}"; do
   fi
 done
 
+# Push (board 017, owner decision): the `ask` rule in settings.json still puts every push in
+# front of a human, but the dangerous forms are refused HERE, whatever the answer to the prompt
+# would be. The three literal patterns above knew one spelling each: `git -C dir push --force`,
+# a flag after the refspec, `-uf`, `+branch`, `--mirror`, `--delete`, `:branch` and
+# `git push -f` at the end of a line all passed. Now every `git … push` in the command is read
+# word by word, up to the next separator:
+#   * a force push: --force, --force-with-lease, --force-if-includes, --mirror, a short-flag
+#     cluster with `f` (-f, -uf), a refspec that starts with `+`;
+#   * the deletion of a remote branch: --delete, a cluster with `d`, a refspec that starts with `:`;
+#   * a push into main or stable: a refspec whose destination is one of them (main, HEAD:main,
+#     x:refs/heads/main), --all and --branches, and a push that names no refspec (or HEAD)
+#     while the checked-out branch is one of them.
+# Quotes are not parsed, like everywhere in this hook: a message that quotes such a push is
+# refused too. A push from inside a script is not seen (docs/engine-limits.md).
+#
+# Which branches: PUSH_PROTECTED_BRANCHES in .claude/project.env, space- or comma-separated
+# ("main master production"); unset or empty means main and stable. Read with sed rather than
+# `source` — a deny hook must not execute a project file — and guarded by the gate: the work
+# being judged may not change the key (gate.py, SCOPE_KEYS).
+push_protected_branches() {
+  local env_file="${CLAUDE_PROJECT_DIR:-.}/.claude/project.env" value=""
+  if [ -f "$env_file" ]; then
+    value=$(sed -nE 's/^[[:space:]]*PUSH_PROTECTED_BRANCHES=["'"'"']?([A-Za-z0-9_.\/, -]*)["'"'"']?.*$/\1/p' "$env_file" | tail -1 | tr ',' ' ')
+  fi
+  [ -n "${value// /}" ] || value="main stable"
+  printf '%s' "$value"
+}
+read -ra PUSH_PROTECTED <<<"$(push_protected_branches)"
+
+push_protected() {
+  local name="${1#refs/heads/}" protected
+  for protected in "${PUSH_PROTECTED[@]}"; do
+    [ "$name" = "$protected" ] && return 0
+  done
+  return 1
+}
+
+# The branch a push without a refspec sends: the one checked out where the command runs.
+push_branch() {
+  local dir="$1" base
+  base=$(read_field cwd 2>/dev/null || true)
+  base="${base:-${CLAUDE_PROJECT_DIR:-.}}"
+  case "$dir" in
+    "") dir="$base" ;;
+    /*) ;;
+    *) dir="$base/$dir" ;;
+  esac
+  git -C "$dir" branch --show-current 2>/dev/null || true
+}
+
+# Prints why the push in the words given is refused; prints nothing for a push that may go on.
+# $1 — the directory of `git -C`, the rest — the words after `push`.
+push_refusal() {
+  local dir="$1"; shift
+  local -a positional=()
+  local word flags all="" skip=""
+  for word in "$@"; do
+    if [ -n "$skip" ]; then skip=""; continue; fi
+    case "$word" in
+      --force|--force-with-lease|--force-with-lease=*|--force-if-includes|--mirror)
+        echo "a force push ($word)"; return ;;
+      --delete)
+        echo "the deletion of a remote branch ($word)"; return ;;
+      --all|--branches)
+        all="$word" ;;
+      --repo|--push-option|--receive-pack|--exec)
+        skip=1 ;;
+      --*) ;;
+      -[A-Za-z0-9]*)
+        flags="${word%%o*}"                      # `-o <option>`: what follows the o is its value
+        case "$flags" in *f*) echo "a force push ($word)"; return ;; esac
+        case "$flags" in *d*) echo "the deletion of a remote branch ($word)"; return ;; esac
+        [ "$word" = "${flags}o" ] && skip=1 ;;
+      +*)
+        echo "a force push (the refspec $word starts with +)"; return ;;
+      :?*)
+        echo "the deletion of a remote branch (the refspec $word)"; return ;;
+      *) positional+=("$word") ;;
+    esac
+  done
+  if [ -n "$all" ]; then
+    echo "a push of every branch, ${PUSH_PROTECTED[*]} among them ($all)"; return
+  fi
+  local branch="" refspec dst implicit=""
+  [ "${#positional[@]}" -le 1 ] && implicit=1
+  for refspec in "${positional[@]:1}"; do
+    dst="${refspec##*:}"
+    case "$dst" in HEAD|@) implicit=1; continue ;; esac
+    if push_protected "$dst"; then
+      echo "a push into ${dst#refs/heads/} (the refspec $refspec)"; return
+    fi
+  done
+  if [ -n "$implicit" ]; then
+    branch=$(push_branch "$dir")
+    if [ -n "$branch" ] && push_protected "$branch"; then
+      echo "a push into $branch (no other branch is named, and $branch is checked out)"
+    fi
+  fi
+}
+
+if printf '%s' "$CMD" | grep -q 'push'; then
+  while IFS= read -r SEGMENT; do
+    read -ra WORDS <<<"$SEGMENT" || true
+    for ((i = 0; i < ${#WORDS[@]}; i++)); do
+      case "${WORDS[i]}" in git|*/git) ;; *) continue ;; esac
+      GIT_DIR_ARG=""
+      j=$((i + 1))
+      while [ "$j" -lt "${#WORDS[@]}" ]; do      # git's own options stand before the subcommand
+        case "${WORDS[j]}" in
+          -C) GIT_DIR_ARG="${WORDS[j+1]:-}"; j=$((j + 2)) ;;
+          -c|--git-dir|--work-tree|--namespace|--config-env) j=$((j + 2)) ;;
+          -*) j=$((j + 1)) ;;
+          *) break ;;
+        esac
+      done
+      [ "${WORDS[j]:-}" = "push" ] || continue
+      REASON=$(push_refusal "$GIT_DIR_ARG" "${WORDS[@]:j+1}")
+      if [ -n "$REASON" ]; then
+        echo "BLOCKED by the engine safety hook (block-dangerous.sh): $REASON." >&2
+        echo "Command: $CMD" >&2
+        echo "" >&2
+        echo "An ordinary push of a working branch is not refused here (the ask rule prompts for it)." >&2
+        echo "If this one is genuinely needed, ask the user to run it manually outside Claude Code." >&2
+        exit 2
+      fi
+    done
+  done < <(printf '%s\n' "$CMD" | tr ';&|()`' '\n\n\n\n\n\n' | tr -d "\"'")
+fi
+
 # Protected paths (board 714). protect-paths.sh refuses them to Edit|Write|MultiEdit; a shell
 # command wrote and read them freely, because this hook did not know the list. Both hooks now
 # source the one list. Here: a command none of whose words matches the list goes on untouched
@@ -175,8 +305,9 @@ if [ -n "$NAMED" ]; then
   fi
 fi
 
-# Block a direct git commit on a protected branch (defense-in-depth). A push is not blocked
-# here: the `ask` rule in settings.json decides it (owner decision 2026-10-01).
+# Block a direct git commit on a protected branch (defense-in-depth). An ordinary push is not
+# blocked here: the `ask` rule in settings.json decides it (owner decision 2026-10-01); its
+# dangerous forms were refused above (board 017).
 BRANCH=""
 # Ask git, do not look for a .git DIRECTORY: in a `git worktree` checkout .git is a FILE.
 # With the old `[ -d .../.git ]` the branch stayed unknown there, and a legitimate commit
@@ -187,9 +318,10 @@ fi
 
 # Commit only. Push left this block on 2026-10-01 (owner decision, docs/plan/package-3b-finish.md):
 # what stands between the agent and a push is the settings file — `Bash(git push:*)` in
-# permissions.ask prompts (unattended, park-ask-gated.py parks it) and the force forms are
-# denied there and in DANGEROUS_PATTERNS above. A hook that also refused every push on main
-# second-guessed a decision the ask rule already puts in front of a human.
+# permissions.ask prompts (unattended, park-ask-gated.py parks it). Board 017 put the dangerous
+# forms back into the hook, in the push section above: a forced push, the deletion of a remote
+# branch and a push into main or stable (PUSH_PROTECTED_BRANCHES) are refused whatever the
+# prompt would be answered; a release is the operator's, outside Claude Code.
 PROTECTED_BRANCHES=("main" "master" "production" "prod" "release")
 for protected in "${PROTECTED_BRANCHES[@]}"; do
   if [ "$BRANCH" = "$protected" ]; then

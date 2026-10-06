@@ -20,7 +20,7 @@ The cost is irreversible damage in the worst case. Includes:
 
 The cost is "I shared this with the world" or "I changed long-term state". Includes:
 
-- **`git push`, `gh pr create/merge`, `gh release`**: pushing affects the remote (push is governed by this `ask` rule alone since 2026-10-01; the hook no longer blocks it); PRs and releases are intent statements. Worth one explicit "yes" each.
+- **`git push`, `gh pr create/merge`, `gh release`**: pushing affects the remote (an ordinary push is governed by this `ask` rule alone since 2026-10-01; the hook refuses only its dangerous forms — forced, deleting a remote branch, into `main` or `stable` — board 017); PRs and releases are intent statements. Worth one explicit "yes" each.
 - **Dependency adds/removes**: `uv add`, `poetry add`, `pip install`. Adding a dependency is a long-term commitment (licenses, security, transitive bloat). Defer to the human.
 - **Schema migrations**: `alembic upgrade/downgrade/revision`, `python manage.py migrate/makemigrations`. Even on dev DB, the schema delta is something the human should consciously approve.
 - **`docker push`, `docker run`, `docker compose up`**: starting containers can hog ports, create state on disk, or push images. Not catastrophic but worth confirming.

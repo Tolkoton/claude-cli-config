@@ -101,8 +101,10 @@ Allowed when the justification stands next to it:
   only while the contract is **sealed and unchanged** (`.claude/state/contracts/<slug>.sha256`
   matches), so the work being judged cannot grant itself the exemption by editing a slice file.
 
-`PROJECT_MARKER`, `CODE_EXTENSIONS` and `DELETE_GUARD_LINES` are guarded more strictly: they
-decide whether a check runs at all. A change of any of them blocks, and passes one way only — the
+`PROJECT_MARKER`, `CODE_EXTENSIONS`, `DELETE_GUARD_LINES` and `PUSH_PROTECTED_BRANCHES` are guarded
+more strictly: the first three decide whether a check runs at all, the last which branches
+`block-dangerous.sh` refuses a push into (unset or empty: `main stable`; order and commas do not
+matter). A change of any of them blocks, and passes one way only — the
 sealed contract names the key: `gate-allow: PROJECT_MARKER — <reason>` (or the other key). A reason in
 `project.env` itself or a grant of the whole file does not pass. Unset and empty are the same value
 (for `DELETE_GUARD_LINES`: the default, 20). `COVERAGE_CMD` is guarded like the other commands.

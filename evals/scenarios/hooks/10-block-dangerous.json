@@ -186,7 +186,7 @@
     },
     {
       "id": "bd-push-on-main",
-      "why": "Push is not the hook's business (owner decision 2026-10-01): the settings file governs it — `Bash(git push:*)` in ask prompts (parked when unattended), the force forms are denied. The hook lets it through.",
+      "why": "Board 017 (owner decision): a push into main or stable is refused by the hook itself, whatever the ask rule would be answered; a release is the operator's, outside Claude Code. Until then this scenario expected allow (owner decision 2026-10-01: the settings file alone governed push).",
       "input": {
         "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
@@ -194,7 +194,7 @@
           "command": "git push origin main"
         }
       },
-      "expect": "allow"
+      "expect": "block"
     },
     {
       "id": "bd-push-on-feature-branch",
@@ -256,7 +256,7 @@
     },
     {
       "id": "bd-push-on-protected-branch-in-worktree",
-      "why": "Push left the protected-branch block on 2026-10-01; the ask rule prompts instead. Kept as a scenario so the worktree checkout (where .git is a file) stays measured for push too.",
+      "why": "An ordinary push stays with the ask rule (2026-10-01); `release` is not on the default list of board 017 (main, stable). Kept as a scenario so the worktree checkout (where .git is a file) stays measured for push too.",
       "setup": [
         {
           "git": [
@@ -275,6 +275,524 @@
         "tool_name": "Bash",
         "tool_input": {
           "command": "git push origin release"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-push-force-flag-after-refspec",
+      "why": "Board 017: the flag stands anywhere before the separator, not only right after `push`.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/pricing --force"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-short-at-end",
+      "why": "Board 017: `-f` as the last word; the old pattern wanted a space after it.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -f"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-dash-C",
+      "why": "Board 017: git's own option hides the subcommand from a literal pattern.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git -C . push --force"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-dash-c-config",
+      "why": "Board 017: `git -c key=value push`.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git -c core.askpass=true push origin feat/pricing --force"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-many-spaces",
+      "why": "Board 017: several spaces between the words.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git   push    --force   origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-cluster",
+      "why": "Board 017: merged short flags, -uf.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -uf origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-with-lease-value",
+      "why": "Board 017: --force-with-lease=<ref> after the remote.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/pricing --force-with-lease=feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-force-if-includes",
+      "why": "Board 017: --force-if-includes.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push --force-if-includes origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-plus-refspec",
+      "why": "Board 017: a refspec with a plus is a forced push without any flag.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin +feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-mirror",
+      "why": "Board 017: --mirror overwrites and deletes whatever the remote has.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push --mirror origin"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-head-to-main",
+      "why": "Board 017: a push into main by another refspec.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin HEAD:main"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-refs-heads-stable",
+      "why": "Board 017: a push into stable, the destination written in full.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/pricing:refs/heads/stable"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-all",
+      "why": "Board 017: --all pushes every branch, main among them.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push --all origin"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-bare-on-main",
+      "why": "Board 017: no refspec while main is checked out is a push into main.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-delete-flag",
+      "why": "Board 017: the deletion of a remote branch, --delete.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin --delete feat/old"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-delete-short",
+      "why": "Board 017: the deletion of a remote branch, -d.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -d origin feat/old"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-delete-colon",
+      "why": "Board 017: the deletion of a remote branch, a refspec that starts with a colon.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin :feat/old"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-push-upstream-feature-allowed",
+      "why": "Board 017, negative: the ordinary first push of a working branch.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -u origin feat/pricing"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-push-bare-on-feature-allowed",
+      "why": "Board 017, negative: no refspec on a working branch.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-push-tags-allowed",
+      "why": "Board 017, negative: tags.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push --tags origin"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-push-main-as-source-allowed",
+      "why": "Board 017, negative: main is the source of the refspec, the destination is a working branch.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin main:feat/copy-of-main"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-push-branch-named-like-main-allowed",
+      "why": "Board 017, negative: a branch whose name only ends in main.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/main"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-stash-push-allowed",
+      "why": "Board 017, negative: `git stash push` is not a push to a remote.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git stash push -m wip"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-branch-delete-local-allowed",
+      "why": "Board 017, negative: -d of another subcommand.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git branch -d feat/old"
         }
       },
       "expect": "allow"

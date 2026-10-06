@@ -40,8 +40,8 @@ keys in project.env) — unless the justification stands next to it:
     # gate-allow: <reason>           same line, or the comment-only line directly above
 (any added line of a config file) or the slice contract (.engine/slices/*.md) says
     gate-allow: <type-ignore|noqa|skip|xfail|config path> — <reason>
-A change of PROJECT_MARKER, CODE_EXTENSIONS or DELETE_GUARD_LINES in project.env passes one way only: the sealed slice
-contract names the key (`gate-allow: PROJECT_MARKER — <reason>`); a reason in project.env itself or
+A change of PROJECT_MARKER, CODE_EXTENSIONS, DELETE_GUARD_LINES or PUSH_PROTECTED_BRANCHES in
+project.env passes one way only: the sealed slice contract names the key (`gate-allow: PROJECT_MARKER — <reason>`); a reason in project.env itself or
 a grant of the whole file is not enough.
 A reason is at least 12 characters and two words. Syntax only: comments come from the tokenizer,
 marks from the AST, configuration from the parsed tables — a string that merely mentions them
@@ -108,6 +108,7 @@ SCOPE_KEYS = {
     "PROJECT_MARKER": "it decides whether lint, types and tests run at all",
     "CODE_EXTENSIONS": "it decides whether lint, types and tests run at all",
     "DELETE_GUARD_LINES": "it decides how much untested code may be deleted unseen",
+    "PUSH_PROTECTED_BRANCHES": "it decides which branches block-dangerous.sh refuses a push into",
 }
 CONFIG_BASENAMES = ("ruff.toml", ".ruff.toml", "mypy.ini", ".mypy.ini")
 SKIP_NAMES = {
@@ -496,6 +497,8 @@ def scope_values(text: str | None) -> dict[str, str]:
     env = parse_env_text(text or "")
     values = {key: env.get(key, "") for key in SCOPE_KEYS}
     values["DELETE_GUARD_LINES"] = str(delete_guard_module().threshold(env))
+    # The hook's own reading (block-dangerous.sh): spaces or commas, empty means main and stable.
+    values["PUSH_PROTECTED_BRANCHES"] = " ".join(sorted(set(values["PUSH_PROTECTED_BRANCHES"].replace(",", " ").split()))) or "main stable"
     return values
 
 

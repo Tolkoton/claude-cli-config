@@ -76,6 +76,38 @@ constitution and `cat` of an env file reached the shell). What is refused, and w
 - Without `python3` the hook cannot tell a read from a write: a command that names a protected
   path is then refused whole. Without the list file both hooks refuse every call.
 
+### A dangerous push
+
+Every push still meets the `ask` rule of the settings file. Three kinds are refused by
+`block-dangerous.sh` itself, whatever the prompt would be answered (board 017, owner decision;
+it takes back part of the decision of 2026-10-01, which left push to the settings file alone):
+
+- **a forced push** — `--force`, `--force-with-lease`, `--force-if-includes`, `--mirror`, a
+  short-flag cluster with `f` (`-f`, `-uf`), a refspec that starts with `+`;
+- **the deletion of a remote branch** — `--delete`, a cluster with `d`, a refspec that starts
+  with `:`;
+- **a push into a protected branch** — a refspec whose destination is one (`main`, `HEAD:main`,
+  `x:refs/heads/main`), `--all` and `--branches`, and a push that names no branch (or `HEAD`)
+  while one of them is checked out. The branches are `main` and `stable`, or the ones
+  `PUSH_PROTECTED_BRANCHES` in `.claude/project.env` names; the gate guards the key like
+  `PROJECT_MARKER` (only a sealed slice contract that names it lets a change through). A release
+  into such a branch is the operator's, outside Claude Code.
+
+The push is found in any spelling: behind `git -C <dir>` or `git -c key=value`, with several
+spaces or tabs, after a separator, with the flag anywhere before the next separator. What is
+**not seen**, and accepted as such by the owner:
+
+- a push made by a script the command only starts (`engine.py release`, the board runner);
+- a remote, a refspec or a flag kept in a variable or produced by a substitution;
+- a push into a protected branch through configuration, when the local branch has another
+  name: an upstream set to `origin/main`, `push.default`, a `remote.<name>.push` refspec, a
+  remote whose URL is another repository's `main`;
+- an alias (`git config alias.p push`).
+
+**Refused though harmless**: quotes are not parsed, so a command whose message quotes such a
+push (a commit message, a board item) is refused too — put the text in a file. A branch that
+merely carries the name elsewhere (`feat/main`, `main:feat/copy` with main as the source) passes.
+
 ## One hook, one run per event
 
 Claude Code runs an identical hook handler defined in two settings files once. The same
@@ -150,8 +182,8 @@ shows the two instruments together.
 
 | environment | commit | push |
 |---|---|---|
-| attended, the owner's machine | refused — the commit is the owner's review checkpoint | `permissions.ask` prompts; force push denied |
-| unattended (the board runner) | allowed on `unattended/*` only | ask → parked by `park-ask-gated.py` |
+| attended, the owner's machine | refused — the commit is the owner's review checkpoint | `permissions.ask` prompts; the dangerous forms refused by the hook ("A dangerous push") |
+| unattended (the board runner) | allowed on `unattended/*` only | ask → parked by `park-ask-gated.py`; the dangerous forms refused |
 | cloud session (`CLAUDE_CODE_REMOTE=true`) | allowed on the session's own non-protected branch **only** when `CLOUD_COMMIT_POLICY="session-branch"` in `.claude/project.env`; ships `off` | `permissions.ask`; force push denied |
 
 The cloud rule is a switch and not a default because the shape of a cloud session has not
