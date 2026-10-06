@@ -12,3 +12,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-05 | parked | 044-applied-finding-stays-open | 044-applied-finding-stays-open: Знахідка спрощувача, яку архітектор уже врахував, лишається у звіті власника як «confirm» #70a7af4f
 - 2026-10-05 | parked | 044-vulture-public-api-noise | 044-vulture-public-api-noise: Сигнал «мертвий код» позначає публічну функцію бібліотеки, якою користуються лише тести #6843a85a
 - 2026-10-05 | parked | --045-cleanup-when-board-idle-unit-1 | -/045-cleanup-when-board-idle/unit 1: Наглядач відклав юніт: -/045-cleanup-when-board-idle/unit 1 #aeb3ea2a
+- 2026-10-06 | parked | 049-doing-two-sides | 049-doing-two-sides: Після 049: два місця ще вважають, що в doing/ одна задача #077689b3
