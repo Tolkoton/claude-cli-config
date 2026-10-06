@@ -95,7 +95,7 @@ def snapshot(root: Path, skip: tuple[str, ...] = ()) -> dict[str, str]:
     return found
 
 
-TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "Цілі та звірка з ними", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
+TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "Цілі та звірка з ними", "Тестування", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
 
 
 def section(document: str, title: str) -> str:
@@ -472,6 +472,58 @@ shutil.copytree(clone, top / "elsewhere")
 git(top / "elsewhere", "remote", "set-url", "origin", str(origin))
 r = cli(top / "elsewhere", "--branch", "unattended/absent")
 check("a branch origin does not have: exit 2", r.returncode == 2 and "unattended/absent" in r.stderr, r)
+
+# --- the testing section (board 062) ------------------------------------------------------------
+print("the testing section")
+sys.path.insert(0, str(ROOT / ".claude" / "hooks"))
+import testing  # noqa: E402
+
+t = top / "testing"
+write(t, "tasks/todo/.gitkeep", "")
+git(t, "init", "-q", "-b", BRANCH)
+git(top, "init", "-q", "--bare", "testing-origin.git")
+git(t, "remote", "add", "origin", str(top / "testing-origin.git"))
+
+
+def publish(message: str) -> None:
+    git(t, "add", "-A")
+    git(t, "commit", "-q", "-m", message)
+    git(t, "push", "-q", "origin", BRANCH)
+
+
+publish("base")
+r = cli(t)
+check("no testing ledger: the section says so and shows nothing else", r.returncode == 0 and "Журналу тестування" in section(r.stdout, "Тестування")
+      and "### Суперечки" not in section(r.stdout, "Тестування"), r.stdout[-900:] + r.stderr)
+NONE = {kind: {"when": "none", "reason": "r"} for kind in testing.KINDS}
+testing.append_row(t, {"type": "decision", "point": "a", "slice": "exporter-4", "decision": "builder", "reason": "ПРИЧИНА-СЕРІЯ", "small": "МАЛИЙ", "uniform": "ОДНОРІДНИЙ", "mandatory": {}}, "t", [])
+testing.append_row(t, {"type": "decision", "point": "a", "slice": "discount", "decision": "tester", "reason": "r", "by_script": True,
+                       "mandatory": {"O3": "the exit criterion carries a threshold the owner ratified"}}, "t", [])
+testing.append_row(t, {"type": "handin", "slice": "discount", "accepted": True, "questions": [{"id": "Q1"}, {"id": "Q2"}]}, "t", [])
+testing.append_row(t, {"type": "round", "slice": "discount", "round": 1, "items": [{"test": "test_over", "verdict": "test_right", "reason": "ПРИЧИНА-ТЕСТ -- правий"},
+                                                                                {"test": "test_half", "verdict": "test_wrong", "reason": "cents"}]}, "t", [])
+testing.append_row(t, {"type": "parked", "slice": "rounding"}, "t", [])
+testing.append_row(t, {"type": "decision", "point": "b", "slice": "discount", "block": "prices", "block_large": True, "mandatory": {},
+                       "checks": NONE | {"integration": {"when": "defer", "until": "block-closed:prices", "reason": "БОРГ-ПРИЧИНА"}}}, "t", [])
+testing.append_row(t, {"type": "mutation", "slice": "stock", "block": "stock", "seconds": 412, "exit": "0"}, "t", [])
+testing.append_row(t, {"type": "mutation_result", "slice": "stock", "block": "stock", "survived": 7, "handled": 3}, "t", [])
+publish("ledger")
+r = cli(t)
+part = section(r.stdout, "Тестування") if r.returncode == 0 else r.stderr
+check("a dispute stands with its end; «the test was right» is its own line", "ПРАВИЙ ТЕСТ — знайдено справжню помилку в коді (ПРИЧИНА-ТЕСТ -- правий)" in part
+      and "тест був хибний" in part and "коло 1 із 2" in part, part)
+check("a parked slice", "`rounding` — третє коло" in part, part)
+check("a decision «not switching» with its reason and both conditions", "`exporter-4`: ПРИЧИНА-СЕРІЯ (малий: МАЛИЙ; однорідний: ОДНОРІДНИЙ)" in part, part)
+check("a mandatory case that fired, and that the manager did not arrive there itself", "O3 на `discount`, точка (a)" in part and "МЕНЕДЖЕР САМ ДО ЦЬОГО НЕ ДІЙШОВ" in part, part)
+check("an open testing debt with its event", "інтеграційні тести зрізу `discount` — відкладено до події `block-closed:prices`: БОРГ-ПРИЧИНА" in part, part)
+check("a mutation run with its duration and the survivors handled", "блок `stock`: 412 с, вихід 0; уціліло 7, розібрано 3" in part, part)
+check("a large block closed without a mutation check is shown", "великий блок `prices` закрито БЕЗ мутаційної перевірки" in part, part)
+check("questions to the contract are counted", "питань до контракту, знайдених до коду: 2" in part, part)
+testing.append_row(t, {"type": "decision", "point": "b", "slice": "rounding2", "events_due": ["block-closed:prices"], "mandatory": {"O6:integration": "due"},
+                       "checks": NONE | {"integration": {"when": "now", "reason": "r"}}}, "t", [])
+publish("debt closed")
+part = section(cli(t).stdout, "Тестування")
+check("the debt run at its event leaves the list", "### Борги тестування\n\n- Немає." in part and "O6 на `rounding2`" in part, part)
 
 # --- the session command and the operator's instruction ---------------------------------------
 print("the command and the manual")

@@ -52,6 +52,7 @@ import board_state
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 import goals  # the goals document's reader lives with the hooks
 import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
+import testing  # and the reader of the testing ledger (.engine/testing/ledger.md, board 062)
 
 CONTEXT_BUDGET = 200
 MAX_HOPS = 4  # how deep Claude Code follows `@path` imports (tests/test_context_budget.py)
@@ -529,6 +530,56 @@ def goals_section(src: Source) -> list[str]:
     return lines
 
 
+# ------------------------------------------------------------------ testing
+
+VERDICT_WORDS = {"test_right": "ПРАВИЙ ТЕСТ — знайдено справжню помилку в коді", "test_wrong": "тест був хибний, виправлено",
+                 "contract_ambiguous": "контракт двозначний — питання пішло планувальникові"}
+KIND_WORDS = {"catch_up": "наздогнати контрактні тести", "integration": "інтеграційні тести", "mutation": "мутаційний прогін"}
+
+
+def testing_section(src: Source, period: Since) -> list[str]:
+    """What the owner reads of the testing manager and the tester (board 062): reading, not a gate.
+    Open things — parked slices and debts — whatever the period; the rest for the period."""
+    text = src.show(testing.LEDGER_REL.as_posix())
+    every = testing.ledger_rows(text)
+    if not every:
+        return ["- Журналу тестування (`.engine/testing/ledger.md`) ще немає: жоден зріз із запечатаним контрактом не проходив через менеджера тестування."]
+    fresh = [r for r in every if period.utc is None or ((when := as_utc(str(r.get("utc", "")).replace("Z", "+00:00"))) is not None and when >= period.utc)]
+
+    def of(kind: str, pool: list[dict[str, Any]] = fresh) -> list[dict[str, Any]]:
+        return [r for r in pool if r.get("type") == kind]
+
+    decisions = of("decision")
+    lines = [(f"- Зрізів із рішенням менеджера за період: {len({r.get('slice') for r in decisions})}; питань до контракту, знайдених до коду: "
+              f"{sum(len(r.get('questions', [])) for r in of('handin') if r.get('accepted'))}. Це показники для читання, не цілі для агента.")]
+    lines += ["", "### Суперечки про тести", ""]
+    rounds = of("round")
+    for row in rounds:
+        lines += [f"- `{row.get('slice')}`, коло {row.get('round')} із {testing.MAX_ROUNDS}: {item.get('test')} — "
+                  f"{VERDICT_WORDS.get(str(item.get('verdict')), item.get('verdict'))} ({testing.one_line(item.get('reason'), 200)})" for item in row.get("items", [])]
+    lines += [] if rounds else ["- Немає."]
+    lines += ["", "### Відкладені зрізи", "",
+              *([f"- `{r.get('slice')}` — третє коло суперечки не проводилось; обидва кола стоять у журналі тестування." for r in of("parked", every)] or ["- Немає."])]
+    lines += ["", "### Рішення «не перемикатися»", "",
+              *([f"- `{r.get('slice')}`: {testing.one_line(r.get('reason'), 200)} (малий: {testing.one_line(r.get('small'), 120)}; однорідний: {testing.one_line(r.get('uniform'), 120)})"
+                 for r in decisions if r.get("decision") == "builder"] or ["- Немає."])]
+    fired = [(r, case, why) for r in decisions for case, why in (r.get("mandatory") or {}).items()]
+    lines += ["", "### Спрацювання обов'язкових випадків", "",
+              *([f"- {case.partition(':')[0]} на `{r.get('slice')}`, точка ({r.get('point')}): {testing.one_line(why, 200)}"
+                 + (" — МЕНЕДЖЕР САМ ДО ЦЬОГО НЕ ДІЙШОВ, рішення записав скрипт" if r.get("by_script") else "") for r, case, why in fired] or ["- Немає."])]
+    debts = testing.debts_of(every)
+    lines += ["", "### Борги тестування", "",
+              *([f"- {KIND_WORDS.get(d['kind'], d['kind'])} зрізу `{d['slice']}` — відкладено до події `{d['until']}`: {testing.one_line(d.get('reason'), 200)}" for d in debts] or ["- Немає."])]
+    results = {r.get("block"): r for r in of("mutation_result", every)}
+    runs = [f"- блок `{r.get('block')}`: {r.get('seconds')} с, вихід {r.get('exit')}"
+            + (f"; уціліло {results[r.get('block')].get('survived')}, розібрано {results[r.get('block')].get('handled')}" if r.get("block") in results else "; уцілілих ще не розібрано")
+            for r in of("mutation")]
+    runs += [f"- великий блок `{r.get('block')}` закрито БЕЗ мутаційної перевірки: команду `MUTATION_CMD` не задано" for r in decisions
+             if r.get("block_large") and r.get("point") == "b" and (r.get("checks") or {}).get("mutation", {}).get("when") != "now"]
+    lines += ["", "### Мутаційні прогони", "", *(runs or ["- Немає."])]
+    return lines
+
+
 # ------------------------------------------------------------------ anomalies
 
 
@@ -748,6 +799,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
                         ("Зроблено", done_section(src, stems, costs)),
                         ("Чекає на власника", waiting_section(src, state)),
                         ("Цілі та звірка з ними", goals_section(src)),
+                        ("Тестування", testing_section(src, period)),
                         ("Аномалії", anomalies_section(src, period, now)),
                         ("План", plan_section(src)),
                         ("Кандидати в нові задачі", candidates_section(src, stems, period)),

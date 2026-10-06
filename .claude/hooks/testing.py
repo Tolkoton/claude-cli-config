@@ -169,13 +169,36 @@ def rows(root: Path, slug: str | None = None, kind: str | None = None) -> list[J
     return found
 
 
-def ledger(root: Path, title: str, lines: list[str]) -> None:
+LEDGER_ROW_RE = re.compile(r"^<!-- row: (.*) -->$", re.MULTILINE)
+LEDGER_DROPS = ("tests", "results", "manager_said", "run", "files", "rounds")
+
+
+def ledger(root: Path, title: str, lines: list[str], row: JsonObj | None = None) -> None:
+    """One entry of the human journal. The row rides along in a comment (without its bulky
+    fields): the owner's review reads the journal from git, where machine state is not."""
     path = root / LEDGER_REL
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         path.write_text(LEDGER_HEADER, encoding="utf-8")
+    carried = ""
+    if row is not None:
+        compact = json.dumps({k: v for k, v in row.items() if k not in LEDGER_DROPS}, ensure_ascii=False)
+        carried = f"<!-- row: {compact.replace('--', '-\\u002d')} -->\n"
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(f"\n## {utc_now()} — {title}\n" + "".join(f"- {line}\n" for line in lines))
+        handle.write(f"\n## {utc_now()} — {title}\n" + "".join(f"- {line}\n" for line in lines) + carried)
+
+
+def ledger_rows(text: str) -> list[JsonObj]:
+    """The rows the ledger carries, oldest first: what `board.py review` reads."""
+    found = []
+    for raw in LEDGER_ROW_RE.findall(text):
+        try:
+            row = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            found.append(row)
+    return found
 
 
 def append_row(root: Path, row: JsonObj, title: str, lines: list[str]) -> JsonObj:
@@ -185,7 +208,7 @@ def append_row(root: Path, row: JsonObj, title: str, lines: list[str]) -> JsonOb
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-    ledger(root, title, lines)
+    ledger(root, title, lines, row)
     return row
 
 
@@ -477,10 +500,14 @@ def branching_functions(root: Path, files: list[str]) -> int:
 
 
 def open_debts(root: Path) -> list[JsonObj]:
+    return debts_of(rows(root, kind="decision"))
+
+
+def debts_of(decisions: list[JsonObj]) -> list[JsonObj]:
     """Every check a manager deferred and nobody ran since: kind, the event it waits for, whose slice."""
     debts: dict[tuple[str, str], JsonObj] = {}
-    for row in rows(root, kind="decision"):
-        if row.get("point") != "b":
+    for row in decisions:
+        if row.get("type") != "decision" or row.get("point") != "b":
             continue
         for kind, entry in (row.get("checks") or {}).items():
             if not isinstance(entry, dict):

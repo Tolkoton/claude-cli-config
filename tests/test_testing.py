@@ -561,5 +561,44 @@ check("decided and MUTATION_CMD set: the run is recorded with its duration and t
 check("the triage of survivors is recorded without a score", cli(r, "mutation-result", "discount", "--survived", "3", "--handled", "2").returncode == 0
       and "3 survived, 2 handled" in (r / ".engine/testing/ledger.md").read_text())
 
+print("the two definitions and the wiring of the cycle")
+sys.path.insert(0, str(ROOT / "tests"))
+AGENTS_DIR = ROOT / ".claude" / "agents"
+
+
+def front(name: str) -> dict[str, str]:
+    lines = (AGENTS_DIR / f"{name}.md").read_text(encoding="utf-8").split("\n---\n")[0].splitlines()[1:]
+    return {key.strip(): value.strip() for key, _, value in (line.partition(":") for line in lines) if not line.startswith(" ")}
+
+
+manager, tester = front("test-manager"), front("slice-tester")
+check("neither role names a model: both run on the session's, the strongest", "model" not in manager and "model" not in tester, (manager, tester))
+check("the manager has no tool that writes, runs or starts an agent", set(manager["tools"].replace(" ", "").split(",")) == {"Read", "Grep", "Glob"}, manager["tools"])
+check("the tester writes and runs tests but starts no agent", {"Write", "Bash"} <= set(tester["tools"].replace(" ", "").split(",")) and "Agent" not in tester["tools"], tester["tools"])
+manager_text = (AGENTS_DIR / "test-manager.md").read_text(encoding="utf-8")
+tester_text = (AGENTS_DIR / "slice-tester.md").read_text(encoding="utf-8")
+check("the manager's definition carries every mandatory case and both conditions of «do not switch»",
+      all(f"**O{n}**" in manager_text for n in range(1, 9) if n != 0) and "**small**" in manager_text and "**uniform**" in manager_text, "")
+check("the manager's answer names the keys the script reads", all(key in manager_text for key in ('"decision"', '"checks"', '"catch_up"', '"integration"', '"mutation"', '"block_large"')))
+check("the tester: questions first, one test per behaviour, a disputed test apart, `keeps`",
+      tester_text.index("Questions to the contract") < tester_text.index("The list of behaviours") and "One test per behaviour" in tester_text
+      and "A disputed test goes into a separate file" in tester_text and '"keeps": true' in tester_text, "")
+check("the tester's definition does not claim to catch what the author misses (board 061 did not show it)",
+      not any(phrase in tester_text.lower() for phrase in ("author misses", "author missed", "builder misses", "catches what")), "")
+check("both definitions are started by the script's line only", all("TESTING_REQUEST <id>" in text for text in (manager_text, tester_text)))
+for rel, needles in ((".claude/skills/slice-builder/SKILL.md", ("testing.py request <slug> --point a", "--tester objection --package", "testing.py request <slug> --point b")),
+                     (".claude/commands/plan-slice.md", ("(threshold owner-ratified)", "testing.py answer $ARGUMENTS")),
+                     (".claude/agents/slice-planner-critic.md", ("(threshold owner-ratified)",)),
+                     (".claude/commands/feature-architect.md", ("· block: [block name]", "testing.py feature-close $ARGUMENTS")),
+                     (".claude/agents/overseer.md", ("RED run by the script", "Contract tests of the tester"))):
+    text = (ROOT / rel).read_text(encoding="utf-8")
+    check(f"{rel} carries its part of the cycle", all(needle in text for needle in needles), [n for n in needles if n not in text])
+check("the mark /plan-slice writes is the mark the script reads", bool(testing.RATIFIED_RE.search("(threshold owner-ratified)"))
+      and bool(testing.RATIFIED_RE.search("PROVISIONAL — owner ratification pending")) and not testing.RATIFIED_RE.search("The tests pass."))
+check("the block label /feature-architect writes is the label the script reads",
+      testing.parse_feature("f", "## Slices (the DAG)\n- **S2 [name]** — delivers: [...] · contract out: [...] · depends on: [S1] · block: [block name]\n").slices[0].block == "block name")
+for rel in (".claude/project.env", "templates/project/.claude/project.env"):
+    check(f"{rel}: MUTATION_CMD is there and empty", '\nMUTATION_CMD=""\n' in (ROOT / rel).read_text(encoding="utf-8"))
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)
