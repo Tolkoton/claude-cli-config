@@ -7,8 +7,8 @@ this file holds the detail they point at. Wiring: `.claude/settings.json`; confi
 
 | Hook | When | What it does |
 |---|---|---|
-| `block-dangerous.sh` | before any Bash | Hard-blocks destructive patterns and a `git commit` outside an `unattended/<date>` branch (or, in a cloud session, outside the session's own branch when `CLOUD_COMMIT_POLICY=session-branch`). Matches the whole command text, quoted strings included: a commit message that *mentions* a force push is refused too — write such text to a file and pass `-F`. |
-| `protect-paths.sh` | before Edit/Write/MultiEdit | Hard-blocks edits to secrets (`*.env`, `secrets/`, credential files), `migrations/`, `alembic/versions/`, `.git/`, `.github/workflows/`, `.claude/settings.json`, the constitution. One exception: `.claude/project.env`, the template's own config. |
+| `block-dangerous.sh` | before any Bash | Hard-blocks destructive patterns and a `git commit` outside an `unattended/<date>` branch (or, in a cloud session, outside the session's own branch when `CLOUD_COMMIT_POLICY=session-branch`). Matches the whole command text, quoted strings included: a commit message that *mentions* a force push is refused too — write such text to a file and pass `-F`. Also refuses a command that **writes to a protected path** (the target of a redirection, `tee`, `rm`, `mv`, an in-place `sed`, `cp` into it, an `open(…, "w")` in inline code) or **names a secret one**, reading included; reading a guarded file (`git diff`, `grep` in the settings file) passes. The paths are the list in `protected-path-list.sh`; the judging is `shell_paths.py`. |
+| `protect-paths.sh` | before Edit/Write/MultiEdit | Reads the same `protected-path-list.sh` as the Bash hook. Hard-blocks edits to secrets (`*.env`, `secrets/`, credential files), `migrations/`, `alembic/versions/`, `.git/`, `.github/workflows/`, `.claude/settings.json`, the constitution. One exception: `.claude/project.env`, the template's own config. |
 | `format-on-edit.sh` | after Edit/Write/MultiEdit | A thin call to `gate.py --layer post_write`: `FORMAT_CMD` from project.env, else `ruff format` + `ruff check --fix --select I` on `.py` files, then a quick lint; never blocks, reports through `additionalContext` only when something changed. |
 | `park-ask-gated.py` | before any Bash | Unattended only: denies an ask-listed command with a park instruction instead of letting it hang on a prompt nobody answers. No-op when attended. Standard library only. |
 | `verify-on-stop.sh` | turn end | A thin call to `gate.py --layer stop`: runs `LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD` (or ruff / mypy / pytest on the changed files) when a file matching `CODE_EXTENSIONS` changed; blocks the turn with the failure output; refuses to be passed by an added `# type: ignore` / `# noqa` / skip / xfail or a loosened lint or type config; escalates to a human after `GATE_MAX_BLOCKS` blocks in a row. |
@@ -58,6 +58,10 @@ the agent issues. A command run from **inside a shell script** is seen by none o
 from a two-line script). The guard inside `commit_checkpoint.sh` is the only guard on that
 path. The guarantees also assume one session working in one repository: the branch is read
 from the session's repository, not from wherever `cd` points (`docs/engine-limits.md`).
+
+The protected paths are held for a shell command by its **text** alone: a path kept in a variable,
+built from parts, reached after `cd` into its directory or written by a script the command starts
+is not seen (`docs/engine-limits.md`, "A protected path in a shell command").
 
 ## Recursion guards of the overseer hook
 

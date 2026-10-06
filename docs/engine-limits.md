@@ -46,6 +46,36 @@ at top level and runs untouched from a two-line script). Two consequences:
     tool (not scanned), or run a helper script from a file instead of a heredoc; in a
     Python test split the literal (`"git push " + "--force"`).
 
+### A protected path in a shell command
+
+The paths `protect-paths.sh` refuses to Edit and Write (one list, `protected-path-list.sh`) are
+refused to a shell command by `block-dangerous.sh` (board 714; before it `printf x >` into the
+constitution and `cat` of an env file reached the shell). What is refused, and what is not seen:
+
+- **A write to any protected path**: the target of `>` and `>>`, an argument of `tee`, `rm`, `mv`,
+  `truncate`, `touch`, `chmod`; the last argument of `cp`, `ln`, `install`; the file of `sed -i`
+  or `perl -i`; `dd of=`; the value of `--output` and of `curl -o`; `git rm` and `git mv`; in
+  inline code the file of an `open()` with a writing mode, of `write_text()`,
+  `writeFileSync()`, `os.replace()`, `shutil.copy()` into it. **Reading a guarded file passes**
+  (`git diff -- <file>`, `grep`, `cat`, `cp` out of it), and so do `git checkout -- <file>` and
+  `git restore <file>`: putting the committed text back is the remedy, not the breach. With
+  another revision or a `--source` named it is a write and is refused. One file under `.git/`
+  may be removed: a stale `index.lock`.
+- **Any mention of a secret path**, reading included. A word is taken for a path when its form
+  leaves no doubt (a dotfile named `.env` or `.env.<x>`, `secrets/`, `~/.ssh/`,
+  `credentials.json`) or when a file of that name exists; `jq .key` and `process.env` match the
+  list's `\.key$` and `\.env$` and are not files.
+- **Not seen**: a path kept in a variable or put together from parts, `cd <dir>` and then the
+  bare file name, a write made by a script the command only starts, `xargs`. The text of the
+  command is all a PreToolUse hook has. The check holds against a careless command, not
+  against one written to get round it — like everything in this section.
+- **Refused though harmless**: a command whose *message* quotes such a write (a board item, a
+  commit message), and a settings file written into a throwaway project under `/tmp` — the
+  pattern is the path's tail, as it is for Edit. Put the text in a file, or build the
+  throwaway project from a script.
+- Without `python3` the hook cannot tell a read from a write: a command that names a protected
+  path is then refused whole. Without the list file both hooks refuse every call.
+
 ## One hook, one run per event
 
 Claude Code runs an identical hook handler defined in two settings files once. The same
@@ -360,7 +390,8 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   1. a made-up SubagentStop envelope piped into `overseer_verdict.py record` — the ledger gets an
      `OVERSEER_PASS` although no auditor ran;
   2. a line appended to `.claude/state/overseer/verdicts.jsonl` — the next Stop hook answers
-     "PASS recorded, proceed". `protect-paths.sh` sees Edit and Write, not Bash.
+     "PASS recorded, proceed". The file is machine state, not on the list of protected paths;
+     were it there, a write from inside a script would still pass every hook.
 
   The same rights reach the request package (`request.json`: the tree fingerprint, the count of
   PASSes in a row) and, in this repository, the auditor's own instructions (`.claude/agents/`).

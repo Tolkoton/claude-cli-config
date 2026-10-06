@@ -63,7 +63,8 @@ def main() -> int:
         subprocess.run(["git", "init", "-q", "-b", "main"], cwd=project, check=True)
         subprocess.run(["git", "remote", "add", "origin", "https://user:ghp_SECRETTOKEN@github.com/o/r.git"], cwd=project, check=True)
         (project / ".claude/hooks").mkdir(parents=True)
-        (project / ".claude/hooks/block-dangerous.sh").write_bytes((ROOT / ".claude/hooks/block-dangerous.sh").read_bytes())
+        for hook_file in ("block-dangerous.sh", "protected-path-list.sh"):   # the hook refuses without its list
+            (project / ".claude/hooks" / hook_file).write_bytes((ROOT / ".claude/hooks" / hook_file).read_bytes())
         (project / ".claude/project.env").write_text('CLOUD_COMMIT_POLICY="off"\n', encoding="utf-8")
         (project / "f").write_text("x", encoding="utf-8")
         subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A"], cwd=project, check=True)

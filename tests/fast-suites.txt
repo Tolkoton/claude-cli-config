@@ -49,6 +49,8 @@
 # Board 045: test_cleanup 45 s stays out (about twenty synthetic projects, eight runs of the real runner with a fake claude).
 # Board 800: test_hook_env 1.8 s is in (the shared helper tests/hook_env.py and the check that a suite which runs a
 # hook uses it; in-process, plus four throwaway repositories and three runs of block-dangerous.sh).
+# Board 714: test_shell_protected_paths 19 s stays out (about a hundred runs of the real block-dangerous.sh,
+# most of them starting python3 for shell_paths.py); test_env_probe, out already, carries the list file in its fixture.
 test_deny_gaps.py
 test_hook_env.py
 test_root_delete_deny.py

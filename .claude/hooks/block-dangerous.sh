@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Bash. Blocks destructive commands and git commit.
+# PreToolUse hook for Bash. Blocks destructive commands, git commit, and a shell write to a
+# protected path or a read of a secret one (the list: protected-path-list.sh).
 # Exit 2 = block + show reason to Claude via stderr.
 # Exit 0 = allow.
 set -euo pipefail
@@ -129,6 +130,50 @@ for pattern in "${DANGEROUS_PATTERNS[@]}"; do
     exit 2
   fi
 done
+
+# Protected paths (board 714). protect-paths.sh refuses them to Edit|Write|MultiEdit; a shell
+# command wrote and read them freely, because this hook did not know the list. Both hooks now
+# source the one list. Here: a command none of whose words matches the list goes on untouched
+# (two cheap processes); one that names a protected path is handed to shell_paths.py, which
+# refuses a WRITE to any protected path and any mention of a SECRET one, and lets a read of a
+# guarded file through (`git diff -- .claude/settings.json`, `grep` in it). What the text of a
+# command cannot show — a path in a variable, a write made inside a script — it does not catch.
+HOOK_DIR="$(dirname "${BASH_SOURCE[0]}")"
+if [ ! -f "$HOOK_DIR/protected-path-list.sh" ]; then
+  echo "BLOCKED by the engine safety hook (block-dangerous.sh): the list of protected paths" >&2
+  echo "(protected-path-list.sh) is missing beside the hook, so this command cannot be checked." >&2
+  echo "Restore it: python3 engine.py update." >&2
+  exit 2
+fi
+# shellcheck source=/dev/null
+. "$HOOK_DIR/protected-path-list.sh"
+
+join_patterns() { local IFS='|'; printf '%s' "$*"; }
+
+NAMED=$(printf '%s\n' "$CMD" | tr ' \t;&|()<>"'"'"'`,=[]{}' '[\n*]' \
+  | grep -E -e "$(join_patterns "${PROTECTED_PATTERNS[@]}")" \
+  | grep -vE -e "$(join_patterns "${ALLOWED_PATTERNS[@]}")" || true)
+NAMED="${NAMED%%$'\n'*}"
+if [ -n "$NAMED" ]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "BLOCKED by the engine safety hook (block-dangerous.sh): the command names a protected path" >&2
+    echo "($NAMED) and there is no python3 to tell a read from a write, so it is refused." >&2
+    echo "Command: $CMD" >&2
+    exit 2
+  fi
+  HOOK_CWD=$(read_field cwd 2>/dev/null || true)
+  if ! REASON=$(printf '%s' "$CMD" | PP_ALLOWED=$(printf '%s\n' "${ALLOWED_PATTERNS[@]}") \
+      PP_SECRET=$(printf '%s\n' "${SECRET_PATTERNS[@]}") PP_GUARDED=$(printf '%s\n' "${GUARDED_PATTERNS[@]}") \
+      python3 "$HOOK_DIR/shell_paths.py" "${HOOK_CWD:-$PWD}" "${CLAUDE_PROJECT_DIR:-}" 2>&1); then
+    echo "${REASON:-BLOCKED by the engine safety hook (block-dangerous.sh): shell_paths.py failed.}" >&2
+    echo "Command: $CMD" >&2
+    echo "" >&2
+    echo "The same paths are refused to Edit and Write (protect-paths.sh). If the change is genuinely" >&2
+    echo "needed, ask the user to make it outside Claude Code. If the command only MENTIONS the path" >&2
+    echo "in a message, put the text in a file with the Write tool and pass the file." >&2
+    exit 2
+  fi
+fi
 
 # Block a direct git commit on a protected branch (defense-in-depth). A push is not blocked
 # here: the `ask` rule in settings.json decides it (owner decision 2026-10-01).

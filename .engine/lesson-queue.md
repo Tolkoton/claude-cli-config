@@ -17,3 +17,5 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | agent | 003-validator-absolute-path | A path a model writes is checked against path rules only after it is resolved to the file it names (relative to the project root, links and .. resolved): every validator case wrote the path one way, s #23830893
 - 2026-10-06 | parked | 707-trigger-check-half-untested | 707-trigger-check-half-untested: Половина «перевірка» у спусковому гачку наглядача не має тесту #7fd4fb37
 - 2026-10-06 | parked | 708-symlink-loop-traceback | 708-symlink-loop-traceback: Валідатор спрощувача: петля символьних посилань дає traceback замість відмови #e54c40a3
+- 2026-10-06 | overseer | - | BLOCK no.4 masked test gap — the suite passes on an implementation that lets two ordinary spellings of a protected write through, and both are spellings the turn and docs/engine-limits.md say are refu #a2697c7b
+- 2026-10-06 | parked | 714-protected-file-changed-at-stop | 714-protected-file-changed-at-stop: Захищений файл змінився в дереві: перевірка наприкінці ходу (варіант б із 714) #fa32fde5
