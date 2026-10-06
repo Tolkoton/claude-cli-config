@@ -108,6 +108,11 @@ def main() -> int:
         t.check("seal of a missing contract: exit 2", r.returncode == 2)
 
         print("the overseer with a sealed, unchanged contract:")
+        # Board 062: a sealed contract is audited once the testing manager decided at point (a) who writes its
+        # contract tests (tests/test_overseer_fresh.py shows the refusal without it). Here the decision is recorded.
+        rows = project / ".claude/state/testing/rows.jsonl"
+        rows.parent.mkdir(parents=True, exist_ok=True)
+        rows.write_text(json.dumps({"type": "decision", "point": "a", "slice": "tax", "decision": "builder", "request": "none"}) + "\n", encoding="utf-8")
         d, reason = decision(stop(project))
         t.check("unit-completion claim → the audit request as before", d == "block" and "OVERSEER_REQUEST" in reason, reason[:200])
 
