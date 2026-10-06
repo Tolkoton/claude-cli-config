@@ -32,3 +32,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | parked | 058-noise-three-files | 058-noise-three-files: compare_audits --measure-noise: a scene one of three runs lost #fcc2e6fe
 - 2026-10-07 | parked | 059-scorer-residuals | 059-scorer-residuals: run_simplifier_evals: три залишки з PASS overseer-а задачі 059 #39a5bbd4
 - 2026-10-06 | parked | board-start-attended-separate-clone | board-start-attended-separate-clone: Attended-сесія в окремому клоні блокується задачею runner-а в doing/ #6949d5bd
+- 2026-10-06 | parked | rules-file-shorten-remove-by-owner-yes | rules-file-shorten-remove-by-owner-yes: Скорочення чи видалення правила в .engine/rules.md — тим самим шляхом, що й promote #b5634bbc
