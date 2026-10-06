@@ -537,6 +537,29 @@ CONTRACT_CHANGED_REASON = (
 )
 
 
+TESTING_REASON = (
+    "TESTING NOT SETTLED — no audit was run. {reason}. A slice with a sealed contract is audited only after "
+    "the testing manager decided at point (a) who writes its contract tests and, when that is the independent "
+    "tester, after its hand-in was accepted and the sealed tests are unchanged (.claude/hooks/testing.py holds "
+    "this; `python3 .claude/hooks/testing.py status` shows where the slice stands). Do that, then claim the unit "
+    "again. If it cannot be done without the owner, put it before them as a task of the board (`python3 "
+    ".claude/unattended/board.py open-item --to blocked --title … --what … --question …`) and go on with the "
+    "next unblocked item."
+)
+
+
+def _testing_block(project_dir: Path) -> str | None:
+    """Why testing.py lets no audit be requested for the active slice yet; None when it does (and
+    when the slice has no sealed contract, or the script cannot be read: testing never breaks the audit)."""
+    try:
+        import gate
+        import testing
+
+        return testing.audit_block(project_dir.resolve(), gate.active_slice(project_dir))
+    except (ImportError, OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def _active_contract(project_dir: Path) -> Path | None:
     """The contract of the slice .engine/PROGRESS.md marks IN PROGRESS; gate.active_slice owns
     the convention."""
@@ -708,6 +731,9 @@ def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
             contract, fingerprint = changed
             _emit_block(CONTRACT_CHANGED_REASON.format(contract=contract.relative_to(project_dir).as_posix(),
                                                        fingerprint=fingerprint.relative_to(project_dir).as_posix()))
+        testing_reason = _testing_block(project_dir)
+        if testing_reason is not None:
+            _emit_block(TESTING_REASON.format(reason=testing_reason[:1].upper() + testing_reason[1:]))
         escalation = _open_gate_escalation(project_dir)
         request = ov.make_request(
             project_dir, message, origin="hook", unit=unit, transcript_path=_str_field(envelope, "transcript_path"),
