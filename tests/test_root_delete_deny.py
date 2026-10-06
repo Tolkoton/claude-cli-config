@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from hook_env import hook_env
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / ".claude/hooks/block-dangerous.sh"
 PROPOSAL = ROOT / "docs/tasks/settings.json"
@@ -84,7 +86,8 @@ class Checks:
 
 def hook_blocks(cmd: str) -> bool:
     r = subprocess.run(
-        ["bash", str(HOOK)], input=json.dumps({"tool_input": {"command": cmd}}), capture_output=True, text=True, check=False
+        ["bash", str(HOOK)], input=json.dumps({"tool_input": {"command": cmd}}), capture_output=True, text=True, check=False,
+        env=hook_env(),
     )
     return r.returncode == 2
 

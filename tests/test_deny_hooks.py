@@ -46,6 +46,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import hook_env, main_repo
+
 REPO_ROOT = Path(
     subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -73,39 +75,18 @@ def bad(msg: str, expected: object, actual: object) -> None:
     print(f"  FAIL {msg}\n         expected: {expected!r}\n         actual:   {actual!r}")
 
 
-def _pinned_main_repo() -> str:
-    """A throwaway repo checked out on `main`.
-
-    block-dangerous.sh's commit rule became branch-aware on 2026-08-27: a commit
-    is legal on unattended/<date> and refused everywhere else. These cases used
-    the live repo, so the suite returned a different verdict depending on which
-    branch the developer happened to be standing on -- it failed 5 commit cases
-    purely because the checkout was an unattended branch, and would have gone
-    green again on main, hiding the branch-dependence entirely. Pin the branch so
-    each assertion means what it claims to mean.
-    """
-    root = tempfile.mkdtemp()
-
-    def git(*args: str) -> None:
-        subprocess.run(["git", *args], capture_output=True, text=True, cwd=root, check=False)
-
-    git("init", "-q")
-    git("config", "user.email", "t@t")
-    git("config", "user.name", "t")
-    with open(os.path.join(root, "f.txt"), "w") as fh:
-        fh.write("x")
-    git("add", "f.txt")
-    git("commit", "-qm", "init")
-    git("branch", "-M", "main")
-    return root
-
-
-PINNED_MAIN = _pinned_main_repo()
+# block-dangerous.sh's commit rule became branch-aware on 2026-08-27: a commit is legal on
+# unattended/<date> and refused everywhere else. These cases used the live repo, so the suite
+# returned a different verdict depending on which branch the developer happened to be standing
+# on -- it failed 5 commit cases purely because the checkout was an unattended branch, and
+# would have gone green again on main, hiding the branch-dependence entirely. Pin the branch
+# (tests/hook_env.py) so each assertion means what it claims to mean.
+PINNED_MAIN = main_repo()
 
 
 def run_block(cmd: str, path_override: str | None = None) -> subprocess.CompletedProcess[str]:
     """block-dangerous.sh: exit 2 = block (reason on stderr), exit 0 = allow."""
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=PINNED_MAIN)
+    env = hook_env(PINNED_MAIN)
     if path_override:
         env["PATH"] = path_override
     return subprocess.run(
@@ -116,7 +97,7 @@ def run_block(cmd: str, path_override: str | None = None) -> subprocess.Complete
 
 def run_paths(file_path: str, path_override: str | None = None) -> subprocess.CompletedProcess[str]:
     """protect-paths.sh: emits a JSON permissionDecision on stdout; always exit 0."""
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(REPO_ROOT))
+    env = hook_env(REPO_ROOT)
     if path_override:
         env["PATH"] = path_override
     return subprocess.run(
@@ -355,7 +336,7 @@ for name, hook, payload in (
 ):
     res = subprocess.run(
         ["bash", str(hook)], input=payload, capture_output=True, text=True,
-        env=dict(os.environ, CLAUDE_PROJECT_DIR=str(REPO_ROOT)), check=False)
+        env=hook_env(REPO_ROOT), check=False)
     if res.returncode == 0:
         ok(f"{name}: exit 0 on {payload[:22]!r}")
     else:

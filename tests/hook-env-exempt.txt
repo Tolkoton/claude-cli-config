@@ -1,0 +1,52 @@
+# Suites that run a hook — or only name one — without tests/hook_env.py, each with its reason.
+# Read by tests/test_hook_env.py. The suites here were written before the helper; a NEW suite
+# takes the hook's environment from hook_env() instead of a line here. The list may only
+# shrink: a line for a suite that is gone, runs no hook or uses the helper fails the check.
+#
+# "by hand" = the suite sets CLAUDE_PROJECT_DIR to its own synthetic project in the environment
+# it builds itself (the form the helper replaces; move it over when the suite is next touched).
+
+test_analyst_evals.py               # by hand
+test_audit_first_verdict.py         # runs evals/run_audit_scenarios.py, which builds its own sandboxes; the hook path is fixture text
+test_audit_scene_gate_allow.py      # by hand
+test_baseline.py                    # by hand
+test_board.py                       # by hand
+test_board_review.py                # runs board.py review on a path it names; board.py does not read the variable
+test_board_runner.py                # by hand
+test_bugfix.py                      # runs bugfix.py with --root
+test_claude_md_update.py            # runs engine.py only; the hook paths are files of a synthetic engine
+test_cleanup.py                     # by hand
+test_commit_checkpoint.py           # by hand
+test_commit_policy.py               # by hand
+test_complexity_budget.py           # by hand
+test_contract_fingerprint.py        # by hand
+test_delete_guard.py                # by hand
+test_engine_install.py              # runs engine.py only; the hook paths are files of a synthetic engine
+test_env_check.py                   # by hand
+test_env_probe.py                   # by hand
+test_format_on_edit.py              # by hand
+test_gate.py                        # by hand
+test_gate_allows.py                 # by hand
+test_goals.py                       # by hand
+test_hotfix.py                      # by hand
+test_lesson_queue.py                # by hand
+test_maintain.py                    # by hand
+test_needs_audit.py                 # runs evals/needs_audit.py; the hook paths are files of a synthetic repository
+test_no_home_hook_copies.py         # runs git ls-files only; the hook paths are what it searches for
+test_no_machine_paths.py            # runs git ls-files only; the hook paths are globs it reads
+test_onboard.py                     # runs board.py with --root
+test_overseer_fresh.py              # by hand
+test_overseer_phase.py              # by hand
+test_ownership.py                   # runs git only; the hook paths are rows of the ownership map
+test_personal_layer.py              # runs engine.py only; the word is a key of a settings file
+test_release.py                     # runs engine.py release on synthetic repositories
+test_second_opinion.py              # by hand
+test_settings_proposal.py           # runs two hook scripts with --help only
+test_settings_proposal_install.py   # runs engine.py and settings_check.py, which do not read the variable
+test_settings_wiring.py             # by hand
+test_simplifier.py                  # by hand
+test_simplify_signals.py            # by hand
+test_state_migration.py             # runs engine.py only; the hook paths are files of a synthetic project
+test_supervisor_retired.py          # runs git and engine.py only; the paths are files it expects gone
+test_text_hygiene.py                # runs git ls-files only; the hook paths are documents it reads
+test_verify_on_stop.py              # by hand

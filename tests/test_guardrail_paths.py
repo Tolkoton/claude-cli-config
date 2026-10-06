@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from hook_env import hook_env
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / ".claude/hooks/protect-paths.sh"
 
@@ -31,7 +33,7 @@ def refused(path: str) -> bool:
         ["bash", str(HOOK)],
         input=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": path}}),
         capture_output=True,
-        text=True, check=False)
+        text=True, check=False, env=hook_env())
     return '"permissionDecision"' in r.stdout and '"deny"' in r.stdout
 
 

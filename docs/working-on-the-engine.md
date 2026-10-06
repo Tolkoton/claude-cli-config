@@ -17,6 +17,16 @@ python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
 bash .claude/unattended/board-runner.sh --status
 ```
 
+## A suite that runs a hook
+
+The Stop gate runs `TEST_CMD` with `CLAUDE_PROJECT_DIR` naming this repository; by hand the
+variable is unset. A hook that inherits it answers for this repository's branch and
+`project.env`, so the suite is green by hand and red from the gate. Take the hook's
+environment from `tests/hook_env.py` — `hook_env()` (a fresh empty directory),
+`hook_env(main_repo())` (a repository on `main`), `hook_env(root, PATH=shims)` (the suite's
+own project). `tests/test_hook_env.py` fails a new suite that runs a hook without it; the
+suites written before the helper stand in `tests/hook-env-exempt.txt`, which may only shrink.
+
 ## What `.claude/project.env` says here
 
 It describes the engine itself: `SOURCE_DIRS` names the hook, harness, evals and test
