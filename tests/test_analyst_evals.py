@@ -69,6 +69,26 @@ with tempfile.TemporaryDirectory() as tmp:
           evals.paid.paid_run_refusal(tasks, False, True) is None, evals.paid.paid_run_refusal(tasks, False, True))
     check("the limit is the task's number when more is asked", evals.dollar_limit(tasks, 50.0) == 10.0)
     check("…and what was asked when that is less", evals.dollar_limit(tasks, 4.0) == 4.0)
+    # board 712: the owner's session's task beside the runner's — each side reads its own
+    (tasks / "doing/040-owner.md").write_text("# 040\n\nПотрібна присутність власника: так\nПлатні прогони: до 3 доларів.\n", encoding="utf-8")
+    kept = os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
+    try:
+        os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
+        check("two sides in doing/, the agent alone: its own task opens the gate", evals.paid.paid_run_refusal(tasks, False, True) is None)
+        check("…and the limit is its own task's number, not the owner's session's", evals.dollar_limit(tasks, 50.0) == 10.0, evals.dollar_limit(tasks, 50.0))
+        (tasks / "doing/051-x.md").write_text("# 051\n\nАудит потрібен: ні\n", encoding="utf-8")
+        check("negative — the line only in the owner's session's task: the agent alone is refused",
+              evals.paid.paid_run_refusal(tasks, False, True) is not None)
+        check("…and takes no limit from it", evals.dollar_limit(tasks, 50.0) == 50.0, evals.dollar_limit(tasks, 50.0))
+        del os.environ["CLAUDE_UNATTENDED_SESSION"]
+        check("…the owner's session is allowed by its own task, up to its number",
+              evals.paid.paid_run_refusal(tasks, False, True) is None and evals.dollar_limit(tasks, 50.0) == 3.0, evals.dollar_limit(tasks, 50.0))
+    finally:
+        os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
+        if kept is not None:
+            os.environ["CLAUDE_UNATTENDED_SESSION"] = kept
+        (tasks / "doing/040-owner.md").unlink()
+        (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: чотири сцени, ліміт 10 доларів.\n", encoding="utf-8")
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--max-usd", "0.5"], capture_output=True, text=True, env=env, check=False)
     check("a limit smaller than one run starts nothing", "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
 

@@ -69,6 +69,7 @@ class Project:
         if slice_name:
             self.write(".engine/PROGRESS.md", f"# PROGRESS\n\n## Slice {slice_name} — IN PROGRESS\nPlanning artifact: `.engine/slices/{slice_name}.md`.\n")
         self.turn = 0
+        self.unattended = False   # True: the hooks run as in the board runner's session
 
     def write(self, rel: str, text: str) -> None:
         path = self.root / rel
@@ -87,6 +88,8 @@ class Project:
     def run(self, script: Path, args: list[str], envelope: dict[str, Any] | None = None) -> subprocess.CompletedProcess[str]:
         env = dict(os.environ) | {"CLAUDE_PROJECT_DIR": str(self.root)}
         env.pop("CLAUDE_UNATTENDED_SESSION", None)
+        if self.unattended:
+            env["CLAUDE_UNATTENDED_SESSION"] = "1"
         return subprocess.run([sys.executable, str(script), *args], input=json.dumps(envelope or {}),
                               capture_output=True, text=True, env=env, check=False)
 
@@ -361,6 +364,31 @@ check("…and the marker for the runner names the task, the unit and the three v
       and len({b.get("request") for b in marker["blocks"]}) == 3 and "masked test gap" in marker["blocks"][0]["reason"], str(marker))
 check("…nothing is written to the park queue: the task file carries it", not p.read(".engine/overseer/parked.md"))
 check("…the count restarts: the unit gets three attempts again after the owner's answer", p.rows()[-1]["verdict"] == "PARK")
+# board 712: the owner's session's task lies in doing/ beside the runner's, and its name sorts first
+OWNERS = "# task\n\nПотрібна присутність власника: так\n"
+p = Project()
+p.unattended = True
+p.write("tasks/doing/020-with-owner.md", OWNERS)
+p.write("tasks/doing/031-refused.md", "# task\n")
+p.write(".claude/state/board/lock", f"{os.getpid()}\n")
+printed = three_blocks(p)
+marker = json.loads(p.read(".claude/state/board/three-blocks-031-refused.json") or "{}")
+check("two sides in doing/, the runner's session: the unit and the marker are the runner's task's",
+      printed.get("continue") is False and marker.get("task") == "031-refused" and marker.get("unit") == "-|031-refused|unit 3", str(printed) + str(marker))
+check("negative — …and no marker is left on the owner's session's task", not p.read(".claude/state/board/three-blocks-020-with-owner.json"))
+p = Project()
+p.write("tasks/doing/020-with-owner.md", OWNERS)
+p.write("tasks/doing/031-refused.md", "# task\n")
+three_blocks(p)
+check("…the same board in the owner's session: the unit is keyed by the task the owner is working on",
+      p.rows()[-1].get("unit_key") == "-|020-with-owner|unit 3", str(p.rows()[-1]))
+p = Project()
+p.unattended = True
+p.write("tasks/doing/020-with-owner.md", OWNERS)
+p.write(".claude/state/board/lock", f"{os.getpid()}\n")
+printed = three_blocks(p)
+check("negative — the runner's session and only the owner's session's task in doing/: no marker on a task that is not its own",
+      not list((p.root / ".claude/state/board").glob("three-blocks-*")), str(printed))
 p = Project()
 p.write("tasks/doing/031-refused.md", "# task\n")
 p.write(".claude/state/board/lock", "999999999\n")

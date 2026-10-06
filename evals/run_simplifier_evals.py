@@ -72,12 +72,25 @@ def simplifier_module() -> Any:
     return module
 
 
+def task_in_hand(tasks_dir: Path) -> Path | None:
+    """This session's one task in doing/ (board.py own); None when it has none, or more than one.
+    The other side's task beside it — the owner's session's, or the runner's — is not counted."""
+    spec = importlib.util.spec_from_file_location("engine_board", ROOT / ".claude" / "unattended" / "board.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load .claude/unattended/board.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["engine_board"] = module
+    spec.loader.exec_module(module)
+    doing = module.own(tasks_dir.resolve())
+    return doing[0] if len(doing) == 1 else None
+
+
 def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) -> str | None:
     """Why paid sessions may not start, or None (tasks/README.md, «Платні прогони»)."""
     if owner_approved and not in_session:
         return None
-    doing = sorted((tasks_dir / "doing").glob("[0-9]*.md")) if (tasks_dir / "doing").is_dir() else []
-    if len(doing) == 1 and PAID_LINE_RE.search(doing[0].read_text(encoding="utf-8")):
+    task = task_in_hand(tasks_dir)
+    if task and PAID_LINE_RE.search(task.read_text(encoding="utf-8")):
         return None
     flag = " --owner-approved does not count inside a Claude Code session." if owner_approved else ""
     return ("refusing to start paid sessions: the task in tasks/doing/ has no «Платні прогони:» line with a "

@@ -19,6 +19,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import hook_env
+
 ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "evals" / "run_audit_scenarios.py"
 PASS = FAIL = 0
@@ -43,14 +45,19 @@ def board(*doing: tuple[str, str]) -> Path:
     for column in ("todo", "doing", "blocked", "done"):
         (tasks / column).mkdir(parents=True)
     for name, audit in doing:
-        (tasks / "doing" / name).write_text(f"# x\n\nЗалежить від: —\nАудит потрібен: {audit}\n\n## Що зробити\n", encoding="utf-8")
+        # a name that says «owner» is the task of the owner's session (board 049)
+        attended = "Потрібна присутність власника: так\n" if "owner" in name else ""
+        (tasks / "doing" / name).write_text(f"# x\n\nЗалежить від: —\n{attended}Аудит потрібен: {audit}\n\n## Що зробити\n", encoding="utf-8")
     return tasks
 
 
-def run(*args: str, in_session: bool = False) -> subprocess.CompletedProcess[str]:
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+def run(*args: str, in_session: bool = False, unattended: bool = False) -> subprocess.CompletedProcess[str]:
+    # The suite itself may run inside an unattended session; a case says which kind it means.
+    env = {k: v for k, v in hook_env(work).items() if k not in ("CLAUDECODE", "CLAUDE_UNATTENDED_SESSION")}
     if in_session:
         env["CLAUDECODE"] = "1"
+    if unattended:
+        env["CLAUDE_UNATTENDED_SESSION"] = "1"
     return subprocess.run([sys.executable, str(RUNNER), "--claude", str(shim), "--only", "no-such-scenario-zz", *args],
                           capture_output=True, text=True, env=env, check=False)
 
@@ -78,6 +85,28 @@ check("two tasks in doing/: refused", refused(r), r.stderr)
 yes_in_todo = board()
 (yes_in_todo / "todo" / "001-a.md").write_text("# x\n\nАудит потрібен: так\n", encoding="utf-8")
 check("«так» in todo/ allows nothing", refused(run("--tasks-dir", str(yes_in_todo))))
+
+print("two sides in doing/ (board 712): each session is judged by its own task")
+both = (("001-owner.md", "ні"), ("002-runner.md", "так"))
+r = run("--tasks-dir", str(board(*both)), in_session=True, unattended=True)
+check("the agent alone, its task says «так», the owner's session's task lies beside it: the runner goes on", passed(r), r.stderr)
+r = run("--tasks-dir", str(board(*both)), in_session=True)
+check("…the same board in the owner's session: its task says «ні», refused, and that task is named", refused(r) and "001-owner.md" in r.stderr, r.stderr)
+other = (("001-owner.md", "так"), ("002-runner.md", "ні"))
+r = run("--tasks-dir", str(board(*other)), in_session=True, unattended=True)
+check("negative — the agent alone, «так» only in the owner's session's task: refused, its own task is named",
+      refused(r) and "002-runner.md" in r.stderr, r.stderr)
+r = run("--tasks-dir", str(board(*other)), in_session=True)
+check("…the same board in the owner's session: the runner goes on", passed(r), r.stderr)
+r = run("--tasks-dir", str(board(("001-owner.md", "так"))), in_session=True, unattended=True)
+check("negative — the agent alone and only the owner's session's task in doing/: refused, it is nobody's word for the agent", refused(r), r.stderr)
+r = run("--tasks-dir", str(board(("001-owner.md", "ні"), ("002-runner.md", "так"), ("003-runner.md", "так"))), in_session=True, unattended=True)
+check("negative — two tasks of the agent's own side: refused as before", refused(r), r.stderr)
+mode_board = board(*both)
+(mode_board.parent / ".claude/state/overseer").mkdir(parents=True)
+(mode_board.parent / ".claude/state/overseer/mode").write_text("unattended\n", encoding="utf-8")
+r = run("--tasks-dir", str(mode_board), in_session=True)
+check("the mode file says unattended as well as the runner's variable does", passed(r), r.stderr)
 
 print("the owner's flag")
 empty = str(board())

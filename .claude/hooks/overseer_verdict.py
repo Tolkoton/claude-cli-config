@@ -352,9 +352,14 @@ def passes_in_a_row(root: Path, slice_name: str) -> int:
 
 
 def board_task(root: Path) -> str:
+    """The task in doing/ this session works on (board.py own): the owner's session's task beside
+    the runner's is not the runner's unit. `-` when there is none or the board cannot be read."""
     try:
-        names = sorted(p.stem for p in (root / "tasks" / "doing").glob("*.md"))
-    except OSError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board
+
+        names = [p.stem for p in board.own(root / "tasks")]
+    except (ImportError, OSError, ValueError, AttributeError):
         names = []
     return names[0] if names else "-"
 

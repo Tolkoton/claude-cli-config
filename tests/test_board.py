@@ -387,7 +387,27 @@ noted = board.note(root, "ворота (gate.py)", "ВОРОТА-ЗДАЛИСЯ\
 after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
 check("note (a hook, the gate): filed under the task in doing/, on one line, with its writer", noted == root / "tasks/ANOMALIES.md"
       and after.endswith("— 012-in-hand\n- Що сталося: ВОРОТА-ЗДАЛИСЯ другий рядок\n- Що зроблено: ХІД-ЗАКІНЧЕНО\n- Хто записав: ворота (gate.py)\n"), after)
+# board 712: the owner's session's task beside the runner's — the entry goes under the writer's own
+put(root, "doing", "011-with-owner.md", attended_task())
+kept_session = os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
+os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
+board.note(root, "hook x", "ДВІ-СТОРОНИ", "ДАЛІ")
+check("note, two sides in doing/, the agent alone: filed under the agent's task, not under the board",
+      "— 012-in-hand\n- Що сталося: ДВІ-СТОРОНИ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"), (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")[-300:])
+check("…and audit_refusal there speaks of the agent's task only", "012-in-hand.md" in str(board.audit_refusal(root / "tasks")), board.audit_refusal(root / "tasks"))
+del os.environ["CLAUDE_UNATTENDED_SESSION"]
+board.note(root, "hook x", "З-ВЛАСНИКОМ", "ДАЛІ")
+check("…in the owner's session: under the task the owner is working on",
+      "— 011-with-owner\n- Що сталося: З-ВЛАСНИКОМ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
+os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
 (root / "tasks/doing/012-in-hand.md").unlink()
+board.note(root, "hook x", "ЛИШЕ-ЗАДАЧА-ВЛАСНИКА", "ДАЛІ")
+check("negative — the agent alone and only the owner's session's task in doing/: under the board, not under that task",
+      "— дошка\n- Що сталося: ЛИШЕ-ЗАДАЧА-ВЛАСНИКА" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
+del os.environ["CLAUDE_UNATTENDED_SESSION"]
+if kept_session is not None:
+    os.environ["CLAUDE_UNATTENDED_SESSION"] = kept_session
+(root / "tasks/doing/011-with-owner.md").unlink()
 board.note(root, "hook x", "БЕЗ-ЗАДАЧІ", "ДАЛІ")
 check("…and under the board when no task is in doing/", "— дошка\n- Що сталося: БЕЗ-ЗАДАЧІ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
 nowhere = Path(tempfile.mkdtemp(prefix="board-none-"))

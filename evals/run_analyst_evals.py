@@ -93,8 +93,8 @@ def at_ref(ref: str, rel: str) -> str:
 
 def dollar_limit(tasks_dir: Path, asked: float) -> float:
     """The smaller of what was asked and what the task in doing/ allows."""
-    doing = sorted((tasks_dir / "doing").glob("[0-9]*.md")) if (tasks_dir / "doing").is_dir() else []
-    found = LIMIT_RE.search(doing[0].read_text(encoding="utf-8")) if len(doing) == 1 else None
+    task = paid.task_in_hand(tasks_dir)
+    found = LIMIT_RE.search(task.read_text(encoding="utf-8")) if task else None
     return min(asked, float(found.group(1).replace(",", "."))) if found else asked
 
 

@@ -23,7 +23,7 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py where <NNN-name>        todo | doing | blocked | done | missing
     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
-    board.py audit-allowed           exit 0 only when the one task in doing/ asks for the audit
+    board.py audit-allowed           exit 0 only when this session's task in doing/ asks for the audit
     board.py gate-answers            the gate's questions in blocked/ that the owner answered
                                      «так»: one `name<TAB>stamp<TAB>sha256` line each
     board.py gate-done <name> <closed|absent|elsewhere>   such a task goes to done/ with its report
@@ -116,7 +116,10 @@ the flag is the owner's interactive session and nothing else. An attended task i
 that session's and stops nobody (board 049): a plain `next` neither continues it nor waits for
 it — it offers the next task of todo/ — and a plain `start` puts the runner's task beside it, so
 doing/ holds at most one task of each side. `summary` and the review call it «в роботі з
-власником». `start --attended` is still refused while doing/ holds any task.
+власником». `start --attended` is still refused while doing/ holds any task. Whoever asks «which
+task is in hand» — the paid-run checks, the overseer's unit key, a hook's journal entry — gets
+its own side's (`own`, board 712): an agent alone the plain one, the owner's session the attended
+one, or the plain one when no attended task is there.
 
 THE OWNER'S ANSWERS FIRST (board 049). A task the owner has just answered does not go to the end
 of the queue, whatever its number — a gate question is numbered from 900. `unblock` appends the
@@ -373,6 +376,15 @@ def unattended_session(root: Path) -> bool:
         return True
     mode = root / ".claude/state/overseer/mode"
     return mode.is_file() and mode.read_text(encoding="utf-8").strip() == "unattended"
+
+
+def own(tasks: Path) -> list[Path]:
+    """The tasks of doing/ that are the asking session's (board 712): an agent alone has the ones
+    that need no owner; the owner's session has the attended ones and, with none there, the rest."""
+    board = Board(tasks)
+    if unattended_session(tasks.parent):
+        return board.in_hand()
+    return board.in_hand(True) or board.in_hand()
 
 
 def attended_refusal(root: Path) -> str | None:
@@ -883,10 +895,11 @@ def gate_reject(path: Path, word: str = CONSENT) -> None:
 
 
 def audit_refusal(tasks: Path) -> str | None:
-    """Why a paid audit may NOT start for the work in hand; None when the task in doing/ asks for it."""
-    doing = Board(tasks).files("doing")
+    """Why a paid audit may NOT start for the work in hand; None when this session's task in
+    doing/ asks for it. The other side's task beside it neither allows nor refuses anything."""
+    doing = own(tasks)
     if not doing:
-        return f"no task is in {tasks}/doing/"
+        return f"no task of this session is in {tasks}/doing/"
     if len(doing) > 1:
         return f"{tasks}/doing/ holds more than one task: " + ", ".join(p.name for p in doing)
     if not read(doing[0]).audit:
@@ -936,12 +949,12 @@ def anomaly(board: Board, task: str, what: str, done: str, source: str = RUNNER)
 
 
 def note(root: Path, source: str, what: str, done: str) -> Path | None:
-    """The journal entry of a hook or of the gate (board 035): filed under the task in doing/,
-    else under the board. None when the project has no board. The runner commits it."""
+    """The journal entry of a hook or of the gate (board 035): filed under this session's task in
+    doing/, else under the board. None when the project has no board. The runner commits it."""
     board = Board(root / "tasks")
     if not board.tasks.is_dir():
         return None
-    doing = board.files("doing")
+    doing = own(board.tasks)
     return anomaly(board, doing[0].stem if len(doing) == 1 else "-", what, done, source)
 
 
