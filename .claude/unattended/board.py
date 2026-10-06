@@ -183,14 +183,19 @@ TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
 AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
-# The owner's leave for paid runs (board 053), recognised positively and in the task's header only:
-# the line begins with «так», or says «скільки потрібно / треба», or names a dollar sum above zero
-# (the wording before this board; the sum is a ceiling, never a required field). Anything else —
-# the word «ні» anywhere, «не треба», an empty line, wording nobody foresaw — is no leave: the guard fails closed.
+# The owner's leave for paid runs (board 053), recognised positively and in the task's header only.
+# Three wordings and no other: the line BEGINS with the word «так»; it says «скільки потрібно / треба»;
+# it names a limit — a limit word and a dollar sum above zero (the wording before this board). A
+# negation ANYWHERE in the line takes the leave back («так, але не для audit-у», «заборонено,
+# навіть 5 доларів»); only «не більше», «не понад» and «не бюджет» are a limit's own words. A sum
+# is a ceiling, never a required field. What is not recognised is no leave: the guard fails closed.
 PAID = re.compile(r"^Платні прогони:[ \t]*(.*)$", re.MULTILINE)
-PAID_NO = re.compile(r"(?:немає|нема|не(?! більше| понад)|без|no|not|none)\b|.*\bні\b", re.IGNORECASE)
-PAID_YES = re.compile(r"так\b|.*\bскільки (?:потрібно|треба)\b", re.IGNORECASE)
+PAID_LIMIT_WORDS = re.compile(r"\bне (?:більше|понад|бюджет)\b", re.IGNORECASE)
+PAID_NO = re.compile(r"\b(?:ні|не|без|нема\w*|ніко\w*|нія\w*|ніде|ніщо|нічого|жодн\w*|заборон\w*|відмов\w*|нет|no|not|none|never|don.?t|nothing)\b", re.IGNORECASE)
+PAID_YES = re.compile(r"так\b", re.IGNORECASE)
+PAID_AS_NEEDED = re.compile(r"\bскільки (?:потрібно|треба)\b", re.IGNORECASE)
 PAID_CEILING = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.IGNORECASE)
+PAID_LIMIT = re.compile(r"\b(?:ліміт\w*|не більше|не понад|до|запобіжник\w*(?: від \w+)?),?\s+(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.IGNORECASE)
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
@@ -283,12 +288,12 @@ def paid_leave(header: str) -> tuple[bool, float | None]:
     lines = [m.group(1).strip(" \t*_") for m in PAID.finditer(header)]
     if len(lines) != 1:
         return False, None
-    sum_ = PAID_CEILING.search(lines[0])
-    ceiling = float(sum_.group(1).replace(",", ".")) if sum_ else None
-    said_yes = PAID_YES.match(lines[0]) is not None
-    if ceiling == 0 or PAID_NO.match(lines[0]) or not (said_yes or ceiling):
+    line = lines[0]
+    sums = [float(n.replace(",", ".")) for n in PAID_CEILING.findall(line)]
+    recognised = PAID_YES.match(line) or PAID_AS_NEEDED.search(line) or PAID_LIMIT.search(line)
+    if not recognised or PAID_NO.search(PAID_LIMIT_WORDS.sub(" ", line)) or any(n <= 0 for n in sums):
         return False, None
-    return True, ceiling
+    return True, min(sums) if sums else None
 
 
 def parse(text: str) -> Task:

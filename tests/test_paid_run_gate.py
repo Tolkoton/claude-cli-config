@@ -89,6 +89,11 @@ paid = board(("001-a.md", "ні\nПлатні прогони: два повні 
 check("…the owner's own wording without «так» and without a number is leave too", passed(run("--tasks-dir", str(paid))))
 r = run("--tasks-dir", str(board(("001-a.md", "ні\nПлатні прогони: ні"))))
 check("negative — «Платні прогони: ні»: refused, and both lines are named", refused(r) and "«Платні прогони: так»" in r.stderr and "Аудит потрібен: так" in r.stderr, r.stderr)
+for taken_back in ("так, але не для audit-у", "так, але без audit-у", "заборонено, навіть до 5 доларів", "не треба"):
+    r = run("--tasks-dir", str(board(("001-a.md", f"ні\nПлатні прогони: {taken_back}"))))
+    check(f"negative — «Платні прогони: {taken_back}»: the audit is refused", refused(r), r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "ні\n\n## Що зробити\n- …\n\n## Питання до власника\nПлатні прогони: так"))))
+check("negative — «Платні прогони: так» below the header (under «Питання до власника»): the audit is refused", refused(r), r.stderr)
 yes_in_todo = board()
 (yes_in_todo / "todo" / "001-a.md").write_text("# x\n\nАудит потрібен: так\n", encoding="utf-8")
 check("«так» in todo/ allows nothing", refused(run("--tasks-dir", str(yes_in_todo))))
