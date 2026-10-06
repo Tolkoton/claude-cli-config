@@ -210,7 +210,7 @@ When the slice is finished (every step, the smoke recorded): `python3 .claude/ho
 - **a mutation run now** — `python3 .claude/hooks/testing.py mutation <slug>` runs the project's `MUTATION_CMD` over the files of the block (the engine installs no tool). The survivors are sorted by the manager's order: code under an owner's threshold, code of a hardest seam, code on a connection between blocks — those are handled (a fresh tester adds the test when the behaviour is in the contract; code nobody asked for is a finding for the simplifier; an equivalent mutant is closed with one line), the rest goes to the report as a list. Record the count: `… mutation-result <slug> --survived N --handled N`.
 - **deferred** — the debt stands in `.engine/testing/ledger.md` and in the owner's review; the manager cannot defer it twice.
 
-The next slice does not start without this decision (`testing.py request` refuses), and a feature does not close.
+The next slice does not start without this decision, nor while a check it said to do **now** is not done (`testing.py request` refuses and names it); a feature does not close either.
 
 Stage the slice's files with `git add`, print a one-line summary and a suggested conventional-commit message, and continue to the next unblocked item. Do NOT commit on the user's behalf: staging is a review checkpoint, not a stopping condition. Staged work accumulates for the human to review whenever they return; it does not gate the next slice.
 

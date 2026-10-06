@@ -736,6 +736,24 @@ def unfinished(root: Path, slug: str) -> str | None:
     return left[0] if left else None
 
 
+def undone(root: Path, slug: str) -> list[str]:
+    """The checks the manager said to do NOW at point (b) of this slice that nobody did since:
+    a decision is not the check. Empty when there is no such decision or everything was done."""
+    every = rows(root)
+    at = max((i for i, r in enumerate(every) if r.get("type") == "decision" and r.get("slice") == slug and r.get("point") == "b"), default=None)
+    if at is None or last(root, slug, "parked") is not None:
+        return []
+    later = [r for r in every[at + 1:] if r.get("slice") == slug]
+    checks = every[at].get("checks") or {}
+    done = {"catch_up": any(r.get("type") == "handin" and r.get("accepted") and r.get("mode") == "contract" for r in later),
+            "integration": any(r.get("type") == "handin" and r.get("accepted") and r.get("mode") == "block" for r in later),
+            "mutation": any(r.get("type") == "mutation" for r in later)}
+    how = {"catch_up": f"`testing.py request {slug} --tester contract`", "integration": f"`testing.py request {slug} --tester block`",
+           "mutation": f"`testing.py mutation {slug}`"}
+    return [f"{kind} of {slug}: the manager said «now», and it was not done ({how[kind]})" for kind in KINDS
+            if (checks.get(kind) or {}).get("when") == "now" and not done[kind]]
+
+
 def request_manager(root: Path, env: dict[str, str], slug: str, point: str) -> tuple[int, str]:
     if not contract_path(root, slug).is_file():
         return 2, f"no such contract: .engine/slices/{slug}.md"
@@ -749,6 +767,9 @@ def request_manager(root: Path, env: dict[str, str], slug: str, point: str) -> t
         if other:
             return 3, (f"BLOCKED: the slice {other} has no decision of point (b). The next slice does not start before it: "
                        f"`python3 .claude/hooks/testing.py request {other} --point b`.")
+        owed = [line for name in sorted({str(r.get("slice")) for r in rows(root, kind="decision")} - {slug}) for line in undone(root, name)]
+        if owed:
+            return 3, "BLOCKED: the next slice does not start while a check decided at point (b) is not done:\n- " + "\n- ".join(owed)
         if last(root, slug, "opened") is None:
             head = test_touch.git(root, "rev-parse", "HEAD").stdout.strip()
             append_row(root, {"type": "opened", "slice": slug, "base": head}, f"{slug} — the slice opens", [f"the code before it: {head[:12]}"])
@@ -1243,6 +1264,7 @@ def feature_close(root: Path, name: str) -> tuple[int, str]:
         slug = slug_of(root, feature, item)
         if slug and contract_sealed(root, slug) and last(root, slug, "decision", point="b") is None and last(root, slug, "parked") is None:
             problems.append(f"{item.id} ({slug}): no decision of point (b)")
+        problems += undone(root, slug) if slug else []
     due = {"feature-closed"} | {f"block-closed:{b}" for b in feature.blocks()}
     ours = {slug_of(root, feature, s) for s in feature.slices}
     problems += [f"debt: the {d['kind']} check deferred at {d['slice']} until {d['until']} was never run" for d in open_debts(root)
@@ -1306,6 +1328,7 @@ def status(root: Path, slug: str | None) -> str:
         lines.append(f"{name}: (a) {a.get('decision') if a else '—'}; hand-ins accepted {sum(1 for r in rows(root, name, 'handin') if r.get('accepted'))}; "
                      f"rounds {rounds_of(root, name)}; (b) {'decided' if b else '—'}; seal: {check_seal(root, name)[1]}"
                      + ("; PARKED" if last(root, name, "parked") else ""))
+        lines += [f"  NOT DONE — {line}" for line in undone(root, name)]
     debts = open_debts(root)
     lines += [f"debt: {d['kind']} of {d['slice']} until {d['until']}" for d in debts] or ["debts: none"]
     return "\n".join(lines)
