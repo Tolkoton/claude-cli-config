@@ -414,7 +414,10 @@ def cmd_next(board: Board, attended: bool = False) -> int:
 
 
 def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> int:
-    source = (root / given).resolve() if not Path(given).is_absolute() else Path(given).resolve()
+    try:
+        source = (root / given).resolve() if not Path(given).is_absolute() else Path(given).resolve()
+    except RuntimeError:  # a symlink loop, up to Python 3.12: not a file, refused below
+        source = root / given
     if source.parent != (board.tasks / "todo").resolve() or not source.is_file() or not TASK_NAME.match(source.name):
         print(f"board: {given} is not a task file in tasks/todo/", file=sys.stderr)
         return EXIT_REFUSED
@@ -1208,7 +1211,7 @@ def main() -> int:
         print(board.shown(anomaly(board, args.task, args.what, args.done, args.source)))
         return 0
     if args.command == "audit-allowed":
-        refusal = audit_refusal(args.tasks_dir.resolve() if args.tasks_dir else board.tasks)
+        refusal = audit_refusal(Path(os.path.realpath(args.tasks_dir)) if args.tasks_dir else board.tasks)  # not resolve(): RuntimeError on a symlink loop up to Python 3.12
         if refusal:
             print(f"paid audit not allowed: {refusal}")
             return 1

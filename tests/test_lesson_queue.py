@@ -291,6 +291,19 @@ before = rules(r)
 full = lq(r, "promote", fits)
 check("promotion that would pass 200 lines of persistent context is refused and leaves the file as it was",
       full.returncode == 1 and "200" in full.stderr and rules(r) == before, full.stderr)
+(r / "loop.md").symlink_to("loop.md")  # a link to itself
+(r / "CLAUDE.md").write_text("@loop.md\n@.engine/rules.md\n" + "filler\n" * 198)
+full = lq(r, "promote", fits)
+check("an @import that is a symlink loop counts as no file: the budget still refuses, no traceback (board 718)",
+      full.returncode == 1 and "200" in full.stderr and "Traceback" not in full.stderr and rules(r) == before, full.stderr[-300:])
+(r / "loop.md").unlink()
+looped = project()
+(looped / "CLAUDE.md").unlink()
+(looped / "CLAUDE.md").symlink_to("CLAUDE.md")
+count = subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, {str(LQ.parent)!r}); import lesson_queue; from pathlib import Path; print(lesson_queue.context_lines(Path({str(looped)!r})))"],
+                       capture_output=True, text=True, check=False)
+check("a CLAUDE.md that is a symlink loop counts as no file, like a missing one: 0 lines, no traceback (board 718)", count.stdout.strip() == "0", count.stderr[-300:])
+shutil.rmtree(looped)
 (r / "CLAUDE.md").write_text("@.engine/rules.md\n")
 advised = propose(r, "Always show the RED.", "--recommend", "так: двічі зловлено аудитом")
 text = rule_task(r, advised).read_text(encoding="utf-8")

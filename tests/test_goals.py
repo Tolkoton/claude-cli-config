@@ -120,6 +120,13 @@ with tempfile.TemporaryDirectory() as tmp:
     adr.write_text(GOOD, encoding="utf-8")
     r = run(GOALS, root, "check", "docs/adr/0001-cache.md")
     check("passes: standing lines cited; numbers outside the section are not read", r.returncode == 0 and "cites G1, P1, N1" in r.stdout, out(r))
+    (root / "docs/adr/loop.md").symlink_to("loop.md")  # a link to itself
+    r = run(GOALS, root, "check", str(root / "docs/adr/loop.md"))
+    check("refused: an absolute path that is a symlink loop — no such file, not a traceback (board 718)",
+          r.returncode == 3 and "loop.md: no such file" in r.stderr and "Traceback" not in r.stderr, out(r)[-300:])
+    (root / "docs/adr/loop.md").unlink()
+    r = run(GOALS, root, "check", str(root / "docs/adr/../adr/0001-cache.md"))
+    check("negative — an absolute path to a decision of the project is still resolved and checked", r.returncode == 0 and "ok: docs/adr/0001-cache.md" in r.stdout, out(r))
     (root / "docs/adr/0002-queue.md").write_text("# ADR 2\n\nNo section.\n", encoding="utf-8")
     (root / "docs/adr/README.md").write_text("# ADRs\n", encoding="utf-8")
     r = run(GOALS, root, "unreconciled")

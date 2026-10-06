@@ -453,6 +453,10 @@ def context_lines(root: Path) -> int:
     seen: list[Path] = []
 
     def walk(path: Path, hops: int) -> None:
+        try:
+            path = path.resolve()
+        except RuntimeError:  # a symlink loop, up to Python 3.12: not a file, nothing to count
+            return
         if path in seen or not path.is_file():
             return
         seen.append(path)
@@ -460,9 +464,9 @@ def context_lines(root: Path) -> int:
             return
         for token in imports.findall(span.sub("", fence.sub("", read(path)))):
             target = Path(token.rstrip(".,;:)")).expanduser()
-            walk((target if target.is_absolute() else path.parent / target).resolve(), hops + 1)
+            walk(target if target.is_absolute() else path.parent / target, hops + 1)
 
-    walk((root / "CLAUDE.md").resolve(), 0)
+    walk(root / "CLAUDE.md", 0)
     return sum(len(read(p).splitlines()) for p in seen)
 
 

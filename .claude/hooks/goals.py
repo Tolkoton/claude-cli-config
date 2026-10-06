@@ -347,7 +347,8 @@ def cmd_check(root: Path, paths: list[str]) -> int:
     bad = 0
     for rel in paths or sorted(p for p in files if is_decision(p)):
         path = Path(rel)
-        rel = path.resolve().relative_to(root).as_posix() if path.is_absolute() and path.resolve().is_relative_to(root) else rel
+        real = Path(os.path.realpath(path))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
+        rel = real.relative_to(root).as_posix() if path.is_absolute() and real.is_relative_to(root) else rel
         if not (root / rel).is_file():
             print(f"REFUSED: {rel}: no such file", file=sys.stderr)
             bad += 1
