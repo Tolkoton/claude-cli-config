@@ -180,6 +180,11 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\" guard",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py\" guard",
+            "timeout": 15
           }
         ]
       }
@@ -261,6 +266,16 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\" record",
             "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "test-manager|slice-tester",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py\" record",
+            "timeout": 900
           }
         ]
       }

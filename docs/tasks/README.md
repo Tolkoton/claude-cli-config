@@ -126,6 +126,34 @@ protection with its negative case. Apply, from the repository root, then restart
 cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```
 
+## `settings.json` — the testing manager and the slice tester (board 060 / 062)
+
+Two agents decide and write tests in a fresh context: `test-manager` and `slice-tester`. The
+script `.claude/hooks/testing.py` holds what they may not skip, and two handlers let a hook —
+not the model — check that they were really called (owner, board 060, answer 7):
+
+- `PreToolUse`, matcher `Agent|Task|Edit|Write|MultiEdit|NotebookEdit`: `testing.py guard`.
+  Starts either agent only for the pending request and only with the prompt
+  `TESTING_REQUEST <id>`; inside the manager refuses every editing tool, inside the tester
+  every file that is not a test file. For every other call it decides nothing.
+- `SubagentStop`, matcher `test-manager|slice-tester`: `testing.py record`. Checks the manager's
+  decision against the mandatory cases O1–O8, runs the tester's contract tests itself (RED),
+  seals the test files, writes `.engine/testing/ledger.md`. Its timeout is 900 s: it runs tests.
+
+**Until this is applied** these two checks do not act: an agent can be started with any prompt,
+and the answer is recorded by hand (`testing.py record --answer <file>`, refused once the
+handlers are wired). What acts already, without `settings.json`: the mandatory cases
+(`validate`), the script's own RED run and the seal, and `overseer_stop.py`, which requests no
+audit for a slice with a sealed contract before the decision of point (a).
+`tests/test_settings_proposal.py` lists the two handlers as the intended difference and allows
+no other; `tests/test_testing.py` shows every protection with its negative case. Applied by the
+owner's «так» in the task of board 062 (the runner's `apply-settings`), or by hand, then
+restart Claude Code:
+
+```bash
+cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
+```
+
 ## `complexity-thresholds.md` — the default complexity limits (board 010)
 
 The simplifier's signals and the complexity budget measure new and worsened functions against

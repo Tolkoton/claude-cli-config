@@ -11,7 +11,8 @@ an agent), so this is the test of that one file. It holds before and after the a
   on purpose, each with the reason;
 - the proposal carries no personal key; against the live file its hooks block drops the retired
   approve-project-data handler and adds the two stuck-counter handlers (STUCK_HANDLERS) and the
-  two handlers of the fresh-context overseer (OVERSEER_HANDLERS, board 018), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
+  two handlers of the fresh-context overseer (OVERSEER_HANDLERS, board 018) and the two of testing.py
+  (TESTING_HANDLERS, board 062), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
   `cp` of it the one way to apply it;
 - once the live .claude/settings.json equals the proposal, that is reported as applied.
 """
@@ -51,6 +52,11 @@ OVERSEER_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.p
 OVERSEER_GUARD_MATCHER = "Agent|Task|Edit|Write|MultiEdit|NotebookEdit"
 OVERSEER_HANDLERS = {f"PreToolUse|{OVERSEER_GUARD_MATCHER}|command|{OVERSEER_SCRIPT} guard",
                      f"SubagentStop|overseer|command|{OVERSEER_SCRIPT} record"}
+# The testing manager and the slice tester (board 060, answer 7; built by board 062): both agents are started
+# with the script's line only, and their answers are recorded by the script when they stop.
+TESTING_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py"'
+TESTING_HANDLERS = {f"PreToolUse|{OVERSEER_GUARD_MATCHER}|command|{TESTING_SCRIPT} guard",
+                    f"SubagentStop|test-manager|slice-tester|command|{TESTING_SCRIPT} record"}
 
 # Differences against the frozen "before" that are intended. Path -> why.
 INTENDED: dict[str, str] = {
@@ -128,9 +134,9 @@ def main() -> int:
     extra = set(parity.hook_handlers(proposal["hooks"])) - set(parity.hook_handlers(live["hooks"]))
     gone = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
     t.check(
-        "proposal: the only hooks added against the live file are the two stuck-counter handlers and the two "
-        "overseer handlers, and the only removal is approve-project-data on PermissionRequest",
-        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS and gone <= {APPROVE_HANDLER},
+        "proposal: the only hooks added against the live file are the two stuck-counter handlers, the two "
+        "overseer handlers and the two testing handlers, and the only removal is approve-project-data on PermissionRequest",
+        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS and gone <= {APPROVE_HANDLER},
         json.dumps({"extra": sorted(extra), "gone": sorted(gone)}),
     )
     t.check("proposal: the retired hook is not wired anywhere", "approve-project-data" not in json.dumps(proposal["hooks"]))
@@ -157,6 +163,11 @@ def main() -> int:
     verdict_help = subprocess.run([sys.executable, str(verdict_script), "--help"], capture_output=True, text=True, check=False)
     t.check("...and the command names a script that exists with both sub-commands",
             verdict_script.is_file() and "guard" in verdict_help.stdout and "record" in verdict_help.stdout)
+    wired = set(parity.hook_handlers(proposal["hooks"])) & TESTING_HANDLERS
+    t.check("proposal: testing.py guard and record are both wired, each once (board 062)",
+            wired == TESTING_HANDLERS and json.dumps(proposal["hooks"]).count("testing.py") == 2, str(sorted(wired)))
+    testing_help = subprocess.run([sys.executable, str(ROOT / ".claude/hooks/testing.py"), "--help"], capture_output=True, text=True, check=False)
+    t.check("...and the command names a script that exists with both sub-commands", "guard" in testing_help.stdout and "record" in testing_help.stdout)
     t.check(
         "the old second way to apply is gone: no merge script, no fragment",
         not (ROOT / "docs/tasks/apply-lesson-hooks.py").exists() and not (ROOT / "docs/tasks/lesson-hooks.json").exists(),
@@ -191,8 +202,8 @@ def main() -> int:
         json.dumps({"unexpected": unexpected, "intended but absent": missing}, ensure_ascii=False),
     )
     t.check(
-        "effective hooks: the frozen handlers plus exactly the two stuck-counter and the two overseer handlers",
-        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS and not set(frozen["hooks"]) - set(after["hooks"]),
+        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer and the two testing handlers",
+        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS and not set(frozen["hooks"]) - set(after["hooks"]),
         json.dumps(sorted(set(after["hooks"]) ^ set(frozen["hooks"]))),
     )
     for d in diffs:
