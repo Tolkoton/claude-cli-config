@@ -1,0 +1,3897 @@
+{
+  "recorded_utc": "2026-10-06T11:24:56Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "9baf8ee22ef1af77a8e6085c0b2e641a8fcecdca",
+  "cases_engine_commit": "25797983e4b6af4bbf5281c982b74d512e89f0f5",
+  "models": {
+    "gemini": "gemini-3.1-pro-preview",
+    "claude": "fable"
+  },
+  "summary": {
+    "runs": 3,
+    "complete_runs": 2,
+    "cost_usd": 14.217,
+    "gemini": {
+      "caught": 1.0,
+      "caught_with_a_checked_line": 1.0,
+      "false_alarms": 0.452,
+      "false_alarms_with_a_checked_line": 0.452,
+      "unsure": 1,
+      "no_opinion": 0,
+      "false_findings": 24,
+      "correct_findings": 42,
+      "caught_per_run": [
+        1.0,
+        1.0
+      ],
+      "false_alarms_per_run": [
+        0.429,
+        0.476
+      ],
+      "caught_by_kind": {
+        "trap": 1.0,
+        "typical": 1.0
+      },
+      "false_alarms_by_kind": {
+        "planted": 0.167,
+        "first-pass": 0.567
+      },
+      "cost_usd": 1.7136
+    },
+    "claude": {
+      "caught": 1.0,
+      "caught_with_a_checked_line": 1.0,
+      "false_alarms": 0.31,
+      "false_alarms_with_a_checked_line": 0.31,
+      "unsure": 9,
+      "no_opinion": 1,
+      "false_findings": 24,
+      "correct_findings": 42,
+      "caught_per_run": [
+        1.0,
+        1.0
+      ],
+      "false_alarms_per_run": [
+        0.286,
+        0.333
+      ],
+      "caught_by_kind": {
+        "trap": 1.0,
+        "typical": 1.0
+      },
+      "false_alarms_by_kind": {
+        "planted": 0.083,
+        "first-pass": 0.4
+      },
+      "cost_usd": 9.4489
+    },
+    "thresholds": {
+      "margin_over_control": 0.0,
+      "checks": {
+        "gemini catches at least 0.5 of the false findings": true,
+        "gemini raises an alarm on at most 0.1 of the correct ones": false,
+        "gemini catches at least 0.15 more than the control": false
+      },
+      "passed": false
+    }
+  },
+  "runs": [
+    {
+      "run": 1,
+      "complete": true,
+      "answers": [
+        {
+          "case": "planted-abstraction",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.011516,
+          "verdict": "agree",
+          "reason": "The DiscountPolicy abstraction and its single implementation PercentDiscount are only used in cli.py via policy_for. Since PercentDiscount simply delegates to apply_discount, cli.py can call apply_discount directly, making the abstraction unnecessary.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-abstraction",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.07237,
+          "verdict": "agree",
+          "reason": "All occurrences of DiscountPolicy and PercentDiscount are within discounts.py itself, the only external consumer is cli.py's policy_for(percent) call, and policy_for unconditionally returns PercentDiscount whose apply() just delegates to apply_discount; nothing shown relies on the abstraction or a second implementation.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-dead-code",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.007706,
+          "verdict": "agree",
+          "reason": "The function `_legacy_total_v1` is not imported or called anywhere in the provided codebase, confirming it is dead code.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-dead-code",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.06602,
+          "verdict": "agree",
+          "reason": "_legacy_total_v1 appears only at its definition; every import from pricing elsewhere pulls total or apply_discount, and no goal, slice, or test references the legacy float version.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-unused-dependency",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.004696,
+          "verdict": "agree",
+          "reason": "The `requests` dependency is declared in `pyproject.toml` but there are no imports or usages of it anywhere in the repository.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-unused-dependency",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.04635,
+          "verdict": "agree",
+          "reason": "The whole-word search for `requests` finds no import or usage anywhere in the repository; the only other hit is an unrelated mention of 'unused dependencies' in the agent docs, so removing the declaration loses nothing shown.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-impossible-guard",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.008662,
+          "verdict": "agree",
+          "reason": "The preceding check ensures that `percent` is between 0 and 100 inclusive. Consequently, `factor` will always be between 0 and 1 inclusive, making the `factor < 0` condition mathematically impossible to reach.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-impossible-guard",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.07033,
+          "verdict": "agree",
+          "reason": "Line 11 already rejects any percent outside 0..100, so factor = (100 - percent)/100 is always within [0, 1] and the `factor < 0` branch is unreachable; no shown caller or test depends on the RuntimeError.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-future-slice",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.00588,
+          "verdict": "agree",
+          "reason": "The currency-rates slice is explicitly marked with no goals in the feature DAG and its own description confirms it is a speculative addition for future international sales, which are not part of the current stated goals.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-future-slice",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.05741,
+          "verdict": "agree",
+          "reason": "S6 is listed in the feature DAG with an empty goals array, and docs/goals.md names no goal or requirement involving currencies or conversion; the slice's own justification is explicitly speculative (\"Once it sells abroad\"), and no other file references currency-rates.md.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-invented-requirement",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.02059,
+          "verdict": "disagree",
+          "reason": "Although R6 does not explicitly name a goal, the document specifies that everything below the \"Goals\" heading was stated by the owner in the kick-off note. Removing it would mean losing a direct requirement from the owner.",
+          "counter_evidence": [
+            {
+              "ref": "docs/goals.md:3",
+              "detail": "States that everything below the \"Goals\" line was provided by the owner.",
+              "verified": true
+            },
+            {
+              "ref": "docs/goals.md:4",
+              "detail": "Confirms that the content comes from the owner's kick-off note.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "planted-invented-requirement",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.10435,
+          "verdict": "unsure",
+          "reason": "R6 does break the stated convention of naming a goal, but the document attributes everything below 'Goals' to the owner and the agent rules say owner lines may only be proposed for `confirm`; nothing shown lets me tell whether R6 was invented or owner-stated, and the search (only for 'goals.md') does not reveal whether any slice or code depends on an audit log.",
+          "counter_evidence": [
+            {
+              "ref": "docs/goals.md:3",
+              "detail": "States that everything below 'Goals', which includes R6, was stated by the owner in the kick-off note, contradicting the 'invented' characterisation unless shown otherwise.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/simplifier.md:35",
+              "detail": "Goals-document lines are the owner's; the most that may be proposed there is `confirm`, not removal.",
+              "verified": true
+            },
+            {
+              "ref": ".engine/architecture/feature-dag.json:3",
+              "detail": "The feature DAG cites docs/goals.md as the source of requirements; only 6 of 12 lines are shown, so a slice may still reference R6.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "trap-input-validation",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.01944,
+          "verdict": "disagree",
+          "reason": "The parse_order_line() function is used in other contexts, such as processing refunds and generating reports, where reserve() is not called to validate the quantity.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/cli.py:40",
+              "detail": "parse_order_line() is used to process refunds, which does not involve calling reserve().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:22",
+              "detail": "parse_order_line() is used to parse lines for reports, which also bypasses reserve().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-input-validation",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.09554,
+          "verdict": "disagree",
+          "reason": "parse_order_line() is not only used ahead of reserve(): report.py parses order lines without reserving, and cli.py's refund path parses lines and passes them straight to refund_note, so removing the check would let zero/negative quantities through those paths, and it also converts the error into the clerk-facing OrderError that cli/report catch.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:22",
+              "detail": "Lines are parsed here and used in the report without any call to reserve(), so no downstream positivity check applies.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:40",
+              "detail": "Refund path parses lines and feeds them to refund_note() directly; reserve() is not in this path for the parsed line.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "The CLI catches OrderError for clerk-facing messages; the check at orders.py:33 is what produces that error type for non-positive quantities, and reserve()'s error type is not shown.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-error-handling",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.029026,
+          "verdict": "disagree",
+          "reason": "The wrapping is not only for cli.py, as report.py also catches PriceListError. Furthermore, the wrapping adds valuable context (such as the file path) to the error messages, and a test explicitly expects this custom error and message.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "report.py also catches PriceListError to handle errors gracefully.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:44",
+              "detail": "The wrapping adds the file path and a custom message to the OSError.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:46",
+              "detail": "The wrapping adds the file path and line number to the JSONDecodeError.",
+              "verified": true
+            },
+            {
+              "ref": "tests/test_counter.py:34",
+              "detail": "A test explicitly checks for PriceListError and the custom message 'cannot read'.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-error-handling",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.09747,
+          "verdict": "disagree",
+          "reason": "The wrapping is exercised by a test that requires PriceListError with a 'cannot read' message for a missing file, and both cli.py and report.py catch PriceListError specifically to print an operator-facing message; a bare json.loads would raise FileNotFoundError, which neither handler catches, so the test would fail and the CLIs would crash with a traceback.",
+          "counter_evidence": [
+            {
+              "ref": "tests/test_counter.py:34",
+              "detail": "Test asserts load_price_list on an absent file raises PriceListError matching 'cannot read' — this would break if OSError were not wrapped.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "cli.py catches (OrderError, PriceListError, ValueError); an unwrapped OSError would escape as an uncaught traceback.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "report.py also depends on PriceListError being raised, contradicting the claim that only cli.py consumes it.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:46",
+              "detail": "The JSON error path adds the line number and file path to the operator-facing message, which json.loads alone does not provide.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-security-check",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.014938,
+          "verdict": "disagree",
+          "reason": "The order_id is user input and could contain path traversal characters (like '../'). When resolve() is called, it evaluates these characters, which could result in a path outside the base directory, making the is_relative_to check a necessary defense against directory traversal.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/receipts.py:8",
+              "detail": "The docstring notes that the order_id is typed by the clerk, indicating it is untrusted user input.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:10",
+              "detail": "The target path is built using the untrusted order_id and then resolve() is called, which evaluates any traversal characters.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:11",
+              "detail": "This check ensures the resolved path has not escaped the base directory.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-security-check",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.06406,
+          "verdict": "disagree",
+          "reason": "order_id is clerk-typed input (receipts.py:8) and is interpolated into the path; an id like \"../../etc/x\" resolves outside base, so the check is the only thing enforcing R4 that receipts stay under one directory, and cli.py catches the ValueError it raises.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/receipts.py:8",
+              "detail": "order_id is typed by the clerk, i.e. untrusted input that can contain path separators or '..'.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:10",
+              "detail": "resolve() follows '..' segments in order_id, so target can land outside base despite being built from it.",
+              "verified": true
+            },
+            {
+              "ref": "docs/goals.md:19",
+              "detail": "R4 requires receipts to be written under one receipts directory; the check enforces this.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "cli catches ValueError from write_receipt, relying on this check to report a traversal attempt as an error.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-rare-contract-field",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.012206,
+          "verdict": "disagree",
+          "reason": "The refund_reference attribute is explicitly read and used to generate a refund note in the refunds module.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/refunds.py:10",
+              "detail": "Checks if line.refund_reference is None.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/refunds.py:12",
+              "detail": "Uses line.refund_reference in the returned formatted string.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-rare-contract-field",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.10468,
+          "verdict": "disagree",
+          "reason": "refund_reference is read by refunds.refund_note, which cli.py and tests import, so the field is not dead.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/refunds.py:10",
+              "detail": "Checks line.refund_reference is None and raises if missing.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/refunds.py:12",
+              "detail": "Formats line.refund_reference into the refund note text.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:12",
+              "detail": "cli imports refund_note, so the reading path is live.",
+              "verified": true
+            },
+            {
+              "ref": "tests/test_counter.py:10",
+              "detail": "Tests import refund_note, exercising the field.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:36",
+              "detail": "parse_order_line populates refund_reference from the SKU:QUANTITY:REFUND_REFERENCE form.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-string-dispatch",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.008692,
+          "verdict": "disagree",
+          "reason": "The function export_json is called dynamically by the export function using globals().get() based on the format string.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "This line dynamically retrieves functions named export_{fmt}, which includes export_json when fmt is 'json'.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-string-dispatch",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.04933,
+          "verdict": "disagree",
+          "reason": "export_json is resolved dynamically via globals().get(f\"export_{fmt}\") in export(), which report.py imports; removing it would turn a request for format \"json\" into a ValueError rather than a working export, and the plain text search cannot see this dynamic lookup.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "export() looks up writers by constructed name `export_{fmt}` in globals(), so export_json is reachable without a literal call site.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:43",
+              "detail": "If export_json is removed, fmt='json' falls through to the ValueError branch, changing behavior.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:8",
+              "detail": "report.py imports and uses export(), the dispatcher that reaches export_json dynamically.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-decorator-registry",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.009056,
+          "verdict": "disagree",
+          "reason": "The function is decorated with `@check`, which appends it to the `CHECKS` list. The `problems` function then iterates over `CHECKS` and calls each registered function, meaning `no_duplicate_skus` is executed.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/checks.py:13",
+              "detail": "The decorator appends the function to the CHECKS list.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:17",
+              "detail": "The function is decorated with @check.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:29",
+              "detail": "The problems function iterates over CHECKS and calls each function.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-decorator-registry",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.04677,
+          "verdict": "disagree",
+          "reason": "no_duplicate_skus is registered into CHECKS via the @check decorator and is invoked indirectly through problems(), which report.py imports; it is not dead code even though no module names it directly.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/checks.py:17",
+              "detail": "The @check decorator registers no_duplicate_skus into CHECKS at import time.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:29",
+              "detail": "problems() iterates CHECKS and calls every registered check, including no_duplicate_skus.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:7",
+              "detail": "report.py imports problems, so the registered check runs as part of order reporting.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-entry-point-in-config",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.007514,
+          "verdict": "disagree",
+          "reason": "The nightly.py module is executed as a script by a cron job, which relies on the __main__ block and the main() function.",
+          "counter_evidence": [
+            {
+              "ref": "ops/crontab:2",
+              "detail": "The cron job runs python -m refproj.nightly, which requires the __main__ block to execute.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-entry-point-in-config",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.06376,
+          "verdict": "disagree",
+          "reason": "The crontab runs `python -m refproj.nightly` nightly, which executes the __main__ block and main(); removing them would silently break the operator's scheduled job even though nothing in src or tests calls main().",
+          "counter_evidence": [
+            {
+              "ref": "ops/crontab:2",
+              "detail": "Cron entry invokes `python -m refproj.nightly`, which depends on the __main__ block calling main().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-protocol-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.006658,
+          "verdict": "disagree",
+          "reason": "The `sorted` function implicitly calls `__lt__` to compare and sort the objects in the list.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/shelves.py:17",
+              "detail": "The `sorted(shelves)` call relies on `__lt__` to sort the list of `Shelf` objects.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-protocol-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.03798,
+          "verdict": "disagree",
+          "reason": "`sorted(shelves)` in `emptiest` relies on `Shelf.__lt__` to order shelves by `free`; the dataclass does not set `order=True`, so removing `__lt__` makes `sorted` raise TypeError, and `emptiest` is imported by nightly.py.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/shelves.py:17",
+              "detail": "`sorted(shelves)` implicitly calls `__lt__` on Shelf instances; without it, sorting fails since the frozen dataclass has no `order=True`.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/nightly.py:5",
+              "detail": "`emptiest` is imported and thus the sort path that depends on `__lt__` is live.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-reachable-guard",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.014002,
+          "verdict": "disagree",
+          "reason": "Even if there is at least one order line, the list of known prices can be empty if none of the lines' SKUs are found in the price list. The guard correctly handles this case by raising an OrderError instead of causing a ZeroDivisionError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:25",
+              "detail": "The list of known prices is filtered by whether the SKU is in the prices dictionary, which can result in an empty list.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "The potentially empty list of known prices is passed to average_price().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-reachable-guard",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.06576,
+          "verdict": "disagree",
+          "reason": "The list passed to average_price() is not the order lines but only the prices of lines whose SKU is in the price list, so it can be empty even when at least one order line exists; the guard's own message describes exactly that case, and report.py catches OrderError to report it.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:25",
+              "detail": "`known` filters lines by `line.sku in prices`, so it is empty whenever no line has a known price, regardless of how many lines there are.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "average_price(known) is called with that possibly-empty filtered list; without the guard this would raise ZeroDivisionError on len(amounts).",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "OrderError is caught here to produce a clean message, which is what the guard provides for the all-unknown-SKU case.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/rounding.py:21",
+              "detail": "The error text 'no line has a known price' shows the guard targets the unknown-price case, not the no-lines case the claim describes.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-not-a-duplicate",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.010034,
+          "verdict": "disagree",
+          "reason": "The functions do not duplicate each other: round_card rounds to the nearest cent (0.01), while round_cash rounds to the nearest 5 cents (0.05). They are both actively used to handle different payment methods.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/rounding.py:16",
+              "detail": "round_cash rounds the amount to the nearest SMALLEST_COIN (0.05), which is different from round_card.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "Both functions are used conditionally depending on whether the payment method is cash.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-not-a-duplicate",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.05491,
+          "verdict": "disagree",
+          "reason": "round_cash rounds to the nearest 0.05 (smallest coin) while round_card rounds to 0.01; they produce different results, and report.py explicitly selects between them based on the payment method.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/rounding.py:16",
+              "detail": "round_cash quantizes to SMALLEST_COIN (0.05), not CENT (0.01) as round_card does on line 12 — different behavior, not a duplicate.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "round_cash is called for the 'cash' payment method, distinct from round_card for other methods.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:11",
+              "detail": "round_cash is imported and used by report.py.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-field-read-through-a-template",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.006582,
+          "verdict": "disagree",
+          "reason": "The field label_note is accessed in a format string in the report module.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:13",
+              "detail": "The field label_note is accessed here within a format string.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-field-read-through-a-template",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.04812,
+          "verdict": "disagree",
+          "reason": "Removing label_note would break the positional construction Shelf(\"B\", 40, \"fragile only\") in nightly.py and the format template in report.py that reads {shelf.label_note} via string formatting, which a plain attribute search for `.label_note` misses.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/nightly.py:7",
+              "detail": "Shelf is constructed with a third positional argument \"fragile only\" that fills label_note; removing the field makes this a TypeError.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:13",
+              "detail": "SHELF_LABEL template contains {shelf.label_note}, a read of the field through str.format that would raise AttributeError once the field is removed.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-template-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.007212,
+          "verdict": "disagree",
+          "reason": "TableExporter inherits the run() method from Exporter, which explicitly calls self.header(). Therefore, TableExporter.header() is called when export_table() calls run().",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:12",
+              "detail": "The run() method calls self.header(), which resolves to TableExporter.header() for instances of TableExporter.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-template-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.04793,
+          "verdict": "disagree",
+          "reason": "TableExporter.header() is called polymorphically by Exporter.run() at line 12 (self.header()), so export_table() -> run() does invoke it; removing it would make run() hit the base class NotImplementedError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:12",
+              "detail": "Exporter.run() calls self.header(), which dispatches to TableExporter.header() for a TableExporter instance.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:15",
+              "detail": "The base header() raises NotImplementedError, so removing the override breaks export_table().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:30",
+              "detail": "export_table() constructs TableExporter and calls run(), which calls header().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-3a73ae12",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.018436,
+          "verdict": "agree",
+          "reason": "The second call to `path.parent.mkdir(parents=True, exist_ok=True)` is identical to the first and immediately follows it. Since `exist_ok=True` ensures no error is raised if the directory already exists, the second call is a complete no-op and can be safely removed.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3a73ae12",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.19022,
+          "verdict": "agree",
+          "reason": "In the shown file the duplicate pair sits at .claude/hooks/overseer_stop.py:467-468 (not 473-474), but the substance holds: two consecutive identical mkdir(parents=True, exist_ok=True) calls inside one try block, where the second cannot do anything the first did not already do or raise; dropping one of them loses nothing.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-056ef070",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.024802,
+          "verdict": "agree",
+          "reason": "The second `mkdir` call is identical to the first and immediately follows it. Since `mkdir(parents=True, exist_ok=True)` is idempotent, the second call is redundant and can be safely removed.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-056ef070",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.17291,
+          "verdict": "agree",
+          "reason": "In _record_audit the two consecutive calls sha_file.parent.mkdir(parents=True, exist_ok=True) (shown at lines 635-636 of the current file; the claim's line numbers 641/642 are stale) are identical and idempotent, so the second is a no-op and removing it changes nothing.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-856a9dcb",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.018916,
+          "verdict": "agree",
+          "reason": "The calls to `mkdir(parents=True, exist_ok=True)` are idempotent, meaning the first call ensures the directory exists and subsequent identical calls have no effect. Removing the duplicates is safe.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-856a9dcb",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.19006,
+          "verdict": "agree",
+          "reason": "Lines 429-431 are three identical, idempotent mkdir(parents=True, exist_ok=True) calls on the same path inside one try block; the second and third cannot change state or raise anything the first would not, so removing 430-431 is safe.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3af152c0",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.028864,
+          "verdict": "agree",
+          "reason": "The `limits` parameter is indeed never referenced within the body of the `report` function, making it safe to remove from the signature and its call site.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3af152c0",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.26892,
+          "verdict": "unsure",
+          "reason": "Within the shown body (lines 504-528) `limits` is indeed never read, and the only visible call is line 573; but `report` has 538 unshown occurrences and simplifier.py imports this module as `budget` (line 49), so other positional callers of `report(...)` in simplifier.py or tests cannot be ruled out from what is shown.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/hooks/simplifier.py:49",
+              "detail": "complexity_budget is imported as a module here, so `budget.report(...)` with the current positional signature may exist in unshown lines.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-58f5a87a",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.031882,
+          "verdict": "disagree",
+          "reason": "The unused parameter is kept consciously to maintain a uniform signature across all collector functions, as explicitly stated in the project documentation.",
+          "counter_evidence": [
+            {
+              "ref": "docs/plan/package-memory-report.md:31",
+              "detail": "States that the unused slice_name parameter in collect_parked is consciously accepted to keep a single signature for collectors.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-58f5a87a",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.25986,
+          "verdict": "disagree",
+          "reason": "The parameter is indeed unread inside collect_parked, but the repository records this as a deliberate decision: docs/plan/package-memory-report.md:31 says the unused slice_name in collect_parked was consciously accepted to keep a single uniform signature across the collectors (collect_gate, collect_parked, collect_escalations all take root, slice_name), so removing it would break a stated design intent rather than just drop dead code.",
+          "counter_evidence": [
+            {
+              "ref": "docs/plan/package-memory-report.md:31",
+              "detail": "Explicitly states the unused slice_name parameter of collect_parked was accepted on purpose for a uniform collector signature (єдина сигнатура збирачів).",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/lesson_queue.py:211",
+              "detail": "collect_gate(root, slice_name) — the sibling collector signature the uniformity refers to.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/lesson_queue.py:248",
+              "detail": "collect_escalations(root, slice_name, queue) — same shared signature that collect() relies on at lines 269-273.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-43a9cbd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.05559,
+          "verdict": "disagree",
+          "reason": "The target range is incorrect: it starts in the middle of the CONTRACT_CHANGED_REASON string literal and ends in the middle of the _contract_changed function. Removing these lines would cause syntax errors and leave dangling code.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/hooks/overseer_stop.py:664",
+              "detail": "This line is part of the CONTRACT_CHANGED_REASON string literal; removing it breaks the string and causes a syntax error.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/overseer_stop.py:692",
+              "detail": "This line starts the definition of _contract_changed; removing it leaves the rest of the function's body (lines 696-706) dangling.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-43a9cbd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.19936,
+          "verdict": "agree",
+          "reason": "gate.active_slice (gate.py:648-652) performs the identical block split, IN PROGRESS test and the same two regexes as _active_contract, and nothing shown references _active_contract, CONTRACT_RE or SLICE_HEADING_RE outside the target block; _contract_changed can build the contract Path from the slug gate.active_slice returns, so folding the copy into gate loses no behaviour.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-8948ac3f",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.09396,
+          "verdict": "unsure",
+          "reason": "The implementation of EngineSource.resolve (lines 412-416) is not shown in the provided snippets, making it impossible to verify if it runs the same git command and raises EngineError as the claim asserts.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-8948ac3f",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.21599,
+          "verdict": "unsure",
+          "reason": "The claimed duplicate, EngineSource.resolve (engine.py:412-416), is not among the lines shown, so I cannot confirm it runs the same git command, that it raises EngineError (rather than some other exception from the git() helper) only when the ref is missing, or that a try/except around it would preserve ref_commit's exact None-on-nonzero-exit semantics used by check_version and check_fast_forward.",
+          "counter_evidence": [
+            {
+              "ref": "engine.py:1164",
+              "detail": "ref_commit uses subprocess.run directly with check=False; whether src.resolve goes through the git() helper and what that helper raises on failure is not shown, so behavioural equivalence of the proposed try/except cannot be verified.",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:1195",
+              "detail": "check_fast_forward relies on None precisely for 'ref does not exist'; if resolve raises on other git failures too (or raises something other than EngineError), the wrapper would silently convert those into 'branch absent' and skip the fast-forward guard.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-2a3cecd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.05059,
+          "verdict": "disagree",
+          "reason": "Removing these lines would lose the specific workarounds for the enforced rules, such as using `-F` for commit messages that mention dangerous commands and naming new config files `.sh`, which are not stated in engine-rules.md.",
+          "counter_evidence": [
+            {
+              "ref": "AGENTS.md:56-57",
+              "detail": "This provides the `-F` workaround for commit messages containing dangerous command names, which is not in engine-rules.md.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:60",
+              "detail": "This instructs the agent to name new config files `.sh` since `*.env` is unwritable, a detail missing from engine-rules.md.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-2a3cecd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.34912,
+          "verdict": "disagree",
+          "reason": "Only the hooks-not-scripts (61-62) and three-stops (64-65) bullets are genuine restatements of engine-rules.md; the `-F` commit-message rule (57), the constitution/settings.json edit ban (58-59, inside the target range but unaddressed by the claim), the `.claude/project.env` exception and `.sh` naming convention (60), and the jq/python3 requirement (63) appear nowhere else in what is shown, and protect-paths.sh / env-check.sh are not shown at all.",
+          "counter_evidence": [
+            {
+              "ref": "AGENTS.md:57",
+              "detail": "The rule that block-dangerous.sh matches the whole command text so messages must go through `-F` is not in engine-rules.md (lines 9-11 only say where commits are allowed).",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:58",
+              "detail": "Never editing constitution.md/settings.json and proposing in audit.md or docs/tasks/ is within the 56-65 target but has no counterpart in engine-rules.md's hard-denied list (lines 25-28).",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:60",
+              "detail": "The `.claude/project.env` exception and the `.sh` naming convention for new config files are not stated in engine-rules.md:26, which only says editing `.env` is hard-denied; protect-paths.sh is not shown.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:63",
+              "detail": "The jq/python3 dependency and the 'deny hooks refuse every call' consequence are absent from engine-rules.md; env-check.sh is not shown.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:9",
+              "detail": "Engine-rules covers the commit branch rule but not the `-F` detail, so lines 56-57 are only partly duplicated.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-f42f1239",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.057694,
+          "verdict": "disagree",
+          "reason": "The target range includes the 'Escalation JSON format' definition, which is required by the OVERSEER_ESCALATE verdict and is not restated in engine-rules.md. Removing it would leave the agent without the required JSON schema.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:321",
+              "detail": "The verdict list explicitly relies on the JSON block that follows.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:362",
+              "detail": "This line begins the Escalation JSON format section, which falls inside the target range and would be lost.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-f42f1239",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.32621,
+          "verdict": "disagree",
+          "reason": "The range 333-391 includes the 'Escalation JSON format' section (362-372), which is the only place defining the ESCALATE payload and its category enum; line 321 points at 'the JSON block below', line 263 relies on SCOPE_AMENDMENT being a defined category, and engine-rules.md only says '<JSON>' without a schema, so this is not a restatement.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:321",
+              "detail": "Verdict list says `OVERSEER_ESCALATE:` is followed by 'the JSON block below' — that block lives inside the removal range at 364-372.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:366",
+              "detail": "Defines the category enum (PRODUCT_DECISION | BLOCKER_CLASSIFICATION | DESIGN_FORK | ADR_RATIFICATION | SCOPE_AMENDMENT); not present in engine-rules.md.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:263",
+              "detail": "Check #8 says SCOPE_AMENDMENT is #11's category, depending on the enum defined in the target.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:433",
+              "detail": "References 'its routing decides who ratifies', i.e. the ADR routing table in the target.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:49",
+              "detail": "engine-rules only names the marker `OVERSEER_ESCALATE: <JSON>` and never specifies the JSON schema or category names.",
+              "verified": true
+            },
+            {
+              "ref": ".engine/architecture/feature/engine-package-2b.md:73",
+              "detail": "Architecture record relies on the `ESCALATE (SCOPE_AMENDMENT)` category defined only in the target range.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-a463a292",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.046364,
+          "verdict": "disagree",
+          "reason": "The VoI gate in the slice critic is not a pure restatement; it specializes the inherited gate by removing 'argument' from the falsifiability condition (aligning with the slice level's 'no debate' rule) and adding deduplication against the '12-check precursor'.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:206-207",
+              "detail": "Redefines falsifiable to require an artifact-level observable, explicitly excluding opinions/arguments.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:210-211",
+              "detail": "Adds a slice-specific deduplication rule against the '12-check precursor'.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-a463a292",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.39773,
+          "verdict": "disagree",
+          "reason": "The slice section is not a pure restatement: its condition 2 narrows core's 'decidable' (which accepts 'a clearly stronger argument') to an artifact-level observable only, matching the slice level's check-don't-debate rule, and its condition 4 adds dedup against the 12-check precursor map; dropping it would silently loosen the gate at this level.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:206",
+              "detail": "Falsifiable requires an 'artifact-level observable'; no observable → opinion → NOTE. Core's test is broader.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/critic-core.md:50",
+              "detail": "Core's 'decidable' also accepts 'a clearly stronger argument', so the inherited gate would let argument-only objections become BLOCKING.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:71",
+              "detail": "Slice level explicitly says debate is rarely appropriate — check instead; the stricter gate wording encodes this.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:210",
+              "detail": "Marginal condition adds dedup against 'a later 12-check precursor', a slice-specific rule not in core.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-ad6c8b74",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.055272,
+          "verdict": "agree",
+          "reason": "The instruction to read the overseer SKILL.md duplicates principles already present in the agent's context (Constitution and engine-rules), and the path to the critic agent is not required since the Task tool resolves the agent by name.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-ad6c8b74",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.42924,
+          "verdict": "disagree",
+          "reason": "The file itself still depends on the planner having read the overseer SKILL.md — line 175 justifies the cold-reader by citing 'overseer principle #4/#12', which is only meaningful if that document was loaded; the claim that the same four principles are already in every agent's context rests on constitution.md text that is not shown, and engine-rules.md:46 shows SKILL.md is read on demand, not always-loaded. The target range also swallows lines 10-11, the pointer to the critic agent's file, which the claim never argues is redundant.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/plan-slice.md:175",
+              "detail": "Cites 'overseer principle #4/#12' as the rationale for the cold-reader audit; with lines 9-10 removed nothing tells the planner where those numbered principles live.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/commands/plan-slice.md:10",
+              "detail": "Lines 10-11 also carry 'The critic you spawn lives at .claude/agents/slice-planner-critic.md' — the only path pointer to the critic; the claim describes only the SKILL.md read but the target range deletes this too.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:46",
+              "detail": "Engine-rules instructs reading overseer SKILL.md only on OVERSEER_REQUEST, so its content is not 'already in every agent's context' as the claim asserts; the constitution text it also relies on is not shown.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-656c3729",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.0169,
+          "verdict": "agree",
+          "reason": "The target lines instruct the agent to perform a raw file write to manage the overseer state, which the claim correctly identifies as a violation of engine rules that require using the sanctioned script. Removing or replacing this raw write instruction is safe and aligns with the system's design.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-656c3729",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.19191,
+          "verdict": "unsure",
+          "reason": "Nothing shown includes engine-rules.md, overseer_phase.py, or the sibling commands the claim relies on, so neither the alleged prohibition on raw writes nor the existence of a sanctioned replacement can be verified; and the 'or go' option would drop the only instruction in this file that sets the overseer phase during architecture work, with no visible evidence that anything else does so.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/master-architect.md:73",
+              "detail": "This is the only place in the shown file that establishes the 'plan' phase during architecture work; whether removing it (rather than rewriting it) loses a guard depends on engine-rules and the phase script, neither of which is shown.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-b90eb594",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.07657,
+          "verdict": "disagree",
+          "reason": "The orchestrator's stated goal is to act as a trigger dispatcher that speaks cue phrases to activate per-artifact skills. Removing the delegation map would break this core mechanism and leave existing instructions to cue skills unresolved.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:8",
+              "detail": "States the orchestrator's core mechanism is to speak cue phrases so per-artifact skills activate, which requires the delegation map.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:36",
+              "detail": "The state machine explicitly instructs to 'cue plan-mode skill', relying on the delegation map to know the correct phrase.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-b90eb594",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.44896,
+          "verdict": "disagree",
+          "reason": "The stated range 123-137 does not match the described content: lines 123-124 hold the 'never run promote yourself / never edit CLAUDE.md for a lesson' rule that Hard rule 2 relies on, while the map's last row, the fallback clause and the compatibility bullet sit at 138-140 and 180; moreover nothing shown establishes that the seven named skills are absent (the search covered only 'SKILL.md'), and README marks this skill as a vendored copy kept in sync by hand.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:123",
+              "detail": "Inside the target range: the rules.md/200-line-budget and «ні» closes-the-proposal text, part of the promotion protocol, not the delegation map.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:124",
+              "detail": "Inside the target range: 'Never run promote yourself ... never edit CLAUDE.md for a lesson' — a guard that would be lost by removing 123-137 literally.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:145",
+              "detail": "Hard rule 2 depends on the promote-only path stated at 123-124.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:138",
+              "detail": "Map row (codebase-navigation-strategy) outside the stated range; a 123-137 cut leaves a broken table.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:36",
+              "detail": "State machine still says '→ cue plan-mode skill', which only the delegation map explains.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/README.md:183",
+              "detail": "This skill is a vendored copy to be kept in sync manually; a local trim diverges it from its source.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-12b10bb6",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.033824,
+          "verdict": "disagree",
+          "reason": "Removing Step 6 would leave the document inconsistent, as Step 7 explicitly requires the agent to report the branch, uncommitted status, and last commit gathered in Step 6. Additionally, the cost section explicitly counts the 5 git calls (2 from Step 5 and 3 from Step 6).",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:102",
+              "detail": "Step 7 requires the agent to summarize the current branch, uncommitted status, and last commit, which are the exact outputs of Step 6.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:136",
+              "detail": "The cost section accounts for '5 git calls', which includes the 3 calls made in Step 6.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-12b10bb6",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.23847,
+          "verdict": "unsure",
+          "reason": "The claim's premise is a SessionStart hook in settings.json, but settings.json is not shown, so I cannot verify it exists or prints the same three commands; within the file, step 7's report (line 102) consumes the branch name that only step 6 produces (step 5 runs `git log -1` only when a progress file exists), and the claim also proposes removing step 1 (lines 16-32), which is outside the stated target range and feeds step 2's per-tech lookup (line 36).",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:102",
+              "detail": "Step 7 reports 'Current branch: <branch>. Uncommitted: <yes/no>. Last commit:' — the branch comes only from step 6's `git branch --show-current` (line 93); no other step in the file obtains it.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:36",
+              "detail": "Step 2 iterates over 'each tech listed in CLAUDE.md's stack section', depending on step 1's explicit extraction (lines 27-32); the claim's removal of step 1 extends beyond the target lines and breaks this dependency.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:136",
+              "detail": "Cost accounting counts '5 git calls', consistent with steps 5 and 6 both existing; the settings.json hook the claim relies on was not shown, so the duplication cannot be confirmed.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-ccc8ade1",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.041646,
+          "verdict": "disagree",
+          "reason": "The target line is a negative constraint in an LLM prompt designed to prevent the agent from hallucinating or generating an unwanted `tasks.yaml` file instead of slice contracts. Removing it would lose this explicit guardrail.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/feature-architect.md:274",
+              "detail": "This line is an explicit instruction protecting the system by forbidding the LLM from creating a specific unwanted artifact.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-ccc8ade1",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.31158,
+          "verdict": "unsure",
+          "reason": "Line 274 itself looks redundant with line 220 ('no intermediate task list') and feature-dag.json confirms the board is the backlog, but the claim also removes four mentions in slice-builder/SKILL.md and overseer/SKILL.md that are not shown, and the search covered only 'feature-architect.md', not 'tasks.yaml', so I cannot tell whether a test or rule asserts that text or what the other mentions say in context.",
+          "counter_evidence": [],
+          "verified": false
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "complete": true,
+      "answers": [
+        {
+          "case": "planted-abstraction",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.01124,
+          "verdict": "agree",
+          "reason": "The DiscountPolicy abstraction and its single implementation PercentDiscount are only used in cli.py via policy_for, which can easily be refactored to call apply_discount directly.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-abstraction",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.026395,
+          "verdict": "agree",
+          "reason": "The text search shows DiscountPolicy has only one subclass (PercentDiscount), policy_for always returns it, and the sole consumer is cli.py:18; PercentDiscount.apply merely delegates to apply_discount, which already carries the range validation and tests, so collapsing cli.py to call apply_discount directly loses no behavior or protection.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-dead-code",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.00869,
+          "verdict": "agree",
+          "reason": "The function `_legacy_total_v1` is not imported or called anywhere in the provided search results. It is safe to remove.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-dead-code",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.005491,
+          "verdict": "agree",
+          "reason": "_legacy_total_v1 is a private float-based helper whose only occurrence is its own definition; every import and call of pricing uses total or apply_discount, and the goals and DAG reference only the decimal total.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-unused-dependency",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.004864,
+          "verdict": "agree",
+          "reason": "The `requests` dependency is declared in `pyproject.toml` but there are no imports or uses of it anywhere in the repository.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-unused-dependency",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.012308,
+          "verdict": "agree",
+          "reason": "The whole-word search for `requests` across the repository found no import or other use; the only hit outside pyproject.toml is a generic mention of \"unused dependencies\" in an agent prompt, so the declared dependency appears unused.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-impossible-guard",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.011242,
+          "verdict": "agree",
+          "reason": "The guard `0 <= percent <= 100` ensures that `percent` is at most 100, making `100 - percent` at least 0. Thus, `factor` can never be negative, and the check is mathematically impossible to reach.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-impossible-guard",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.017413,
+          "verdict": "agree",
+          "reason": "Line 11 rejects any percent outside 0..100 (including NaN, since comparisons with NaN are False), so (100 - percent)/100 is always within [0, 1] and the factor < 0 branch at line 14 is unreachable; no shown test or caller depends on the RuntimeError.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-future-slice",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.0069,
+          "verdict": "agree",
+          "reason": "The currency-rates slice is explicitly marked with an empty goals array in the feature DAG, and its own documentation admits it is a speculative feature for future international sales. None of the stated goals or requirements ask for currency conversion.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-future-slice",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.017551,
+          "verdict": "agree",
+          "reason": "S6 is marked todo with an empty goals list and no dependents in feature-dag.json, and docs/goals.md contains no goal or requirement mentioning currency or conversion; the slice's own rationale is a hypothetical future need ('once it sells abroad'). Nothing shown uses or requires it.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-invented-requirement",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.017086,
+          "verdict": "disagree",
+          "reason": "The document explicitly states that everything below the \"Goals\" line was provided by the owner in the kick-off note. Therefore, R6 is a genuine requirement from the owner, not an invented one, and cannot be safely removed.",
+          "counter_evidence": [
+            {
+              "ref": "docs/goals.md:3",
+              "detail": "States that everything below the 'Goals' line was stated by the owner.",
+              "verified": true
+            },
+            {
+              "ref": "docs/goals.md:4",
+              "detail": "Completes the sentence confirming the owner provided these requirements in the kick-off note.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "planted-invented-requirement",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.041483,
+          "verdict": "disagree",
+          "reason": "The document states that everything below the Goals line was stated by the owner, which includes R6, and the simplifier's own standing instructions say the most that can be proposed for the goals document's lines is `confirm`; the missing goal tag is a question for the owner, not grounds to delete the line, and the feature DAG is only partially shown so an S-node citing R6 cannot be ruled out.",
+          "counter_evidence": [
+            {
+              "ref": "docs/goals.md:3",
+              "detail": "States that everything below the Goals line was stated by the owner in the kick-off note, which covers R6 at line 21.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/simplifier.md:35",
+              "detail": "The goals document's lines are the owner's; the most an agent may propose there is `confirm`, not removal.",
+              "verified": true
+            },
+            {
+              "ref": ".engine/architecture/feature-dag.json:3",
+              "detail": "The DAG points at docs/goals.md as its source of requirements, and only 6 of its 12 lines are shown, so a node depending on R6 may exist unseen.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-input-validation",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.01884,
+          "verdict": "disagree",
+          "reason": "The parse_order_line function is used in other contexts, such as processing refunds and generating reports, where reserve() is not called. Removing the check would allow invalid quantities in those paths.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/cli.py:40",
+              "detail": "parse_order_line is used to create a refund note without calling reserve().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:22",
+              "detail": "parse_order_line is used to parse lines for a report without calling reserve().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-input-validation",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.025799,
+          "verdict": "disagree",
+          "reason": "parse_order_line() is not only used ahead of reserve(): report.py parses lines and feeds them to problems()/pricing without ever calling reserve(), and cli.py re-parses lines for refund_note() after charging, so a non-positive quantity would pass through those paths unchecked with the OrderError message lost.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:22",
+              "detail": "Lines parsed here go to problems() and price averaging with no reserve() call, so reserve()'s positivity check never runs on this path.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:40",
+              "detail": "parse_order_line() output goes straight to refund_note() without reserve(), so the check in the parser is the only guard here.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "The CLI reports OrderError with a clerk-facing message; the parser's check is what produces 'quantity must be positive' as an OrderError rather than whatever reserve() raises.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-error-handling",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.021238,
+          "verdict": "disagree",
+          "reason": "The function does more than just load JSON; it converts the parsed data into a dictionary of Decimal values. Furthermore, PriceListError is not only caught by cli.py but also by report.py, and the specific error wrapping is explicitly required by tests.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/orders.py:48",
+              "detail": "The function converts the parsed JSON values into Decimal objects, which a simple json.loads would not do.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "PriceListError is also caught and handled by report.py, not just cli.py.",
+              "verified": true
+            },
+            {
+              "ref": "tests/test_counter.py:34",
+              "detail": "The test suite explicitly expects PriceListError to be raised when the price list cannot be read.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-error-handling",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.032835,
+          "verdict": "disagree",
+          "reason": "The wrapping is load-bearing: a test asserts PriceListError with 'cannot read' for a missing file, and both CLI entry points catch (OrderError, PriceListError, ValueError), which would not catch a raw OSError, so a missing price list would become an unhandled traceback instead of an error message; report.py also depends on it, not just cli.py.",
+          "counter_evidence": [
+            {
+              "ref": "tests/test_counter.py:34",
+              "detail": "Test requires load_price_list to raise PriceListError matching 'cannot read' for an absent file; a bare json.loads would raise FileNotFoundError and fail this test.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "Catches PriceListError (and ValueError); OSError from an unwrapped read is neither, so removing the wrap turns a missing file into an uncaught traceback.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:21",
+              "detail": "A second caller besides cli.py uses load_price_list and relies on the same PriceListError handling at report.py:31.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:48",
+              "detail": "The function also converts values to Decimal and rejects malformed mappings, so it is not reducible to a two-line json.loads.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-security-check",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.017278,
+          "verdict": "disagree",
+          "reason": "The `order_id` is untrusted user input and could contain path traversal sequences like `../`. Because `resolve()` evaluates these sequences, `target` could end up outside `base`, making the `is_relative_to()` check a necessary defense against directory traversal.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/receipts.py:8",
+              "detail": "The docstring notes that order_id is typed by the clerk, meaning it is untrusted user input.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:10",
+              "detail": "The resolve() method evaluates path traversal sequences like `../`, which could place the target outside the base directory.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-security-check",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.023404,
+          "verdict": "disagree",
+          "reason": "The order id is typed by the clerk (receipts.py:8) and passed straight from argv (cli.py:42); an id like \"../../etc/x\" makes (base / f\"{order_id}.txt\").resolve() land outside base, so the check guards a reachable path-traversal case and enforces goal R4, with cli.py:43 catching the ValueError it raises.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/receipts.py:8",
+              "detail": "The order id is user-typed input, so it can contain '..' or '/' and resolve() can take target outside base.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:42",
+              "detail": "args[1] from the command line is passed unvalidated as order_id into write_receipt/receipt_path.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "ValueError is explicitly caught and reported to the clerk, relying on the check in receipt_path.",
+              "verified": true
+            },
+            {
+              "ref": "docs/goals.md:19",
+              "detail": "R4 requires receipts to be written under one receipts directory; the check is what enforces that for traversal ids.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-rare-contract-field",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.012206,
+          "verdict": "disagree",
+          "reason": "The refund_reference attribute is explicitly read and used to generate a refund note in the refunds module.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/refunds.py:10",
+              "detail": "Checks if line.refund_reference is None.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/refunds.py:12",
+              "detail": "Uses line.refund_reference in the returned formatted string.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-rare-contract-field",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.017939,
+          "verdict": "disagree",
+          "reason": "refund_reference is read by refund_note in refunds.py, which cli.py and the tests import; parse_order_line also populates it from the third colon-separated field, so the attribute is live.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/refunds.py:10",
+              "detail": "refund_note checks line.refund_reference is None and raises when missing.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/refunds.py:12",
+              "detail": "refund_note interpolates line.refund_reference into the note read to the provider.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:36",
+              "detail": "parse_order_line sets refund_reference from the optional third part of the input.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:12",
+              "detail": "cli imports refund_note, so the reader of refund_reference is reachable from the CLI.",
+              "verified": true
+            },
+            {
+              "ref": "tests/test_counter.py:10",
+              "detail": "tests import refund_note, exercising the code path that reads the field.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-string-dispatch",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.009448,
+          "verdict": "disagree",
+          "reason": "The function export_json is dynamically retrieved and called by the export function using globals().get(). Removing it would break JSON exports.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "The export function dynamically looks up functions named export_{fmt}.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:45",
+              "detail": "The dynamically retrieved function is called here.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-string-dispatch",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.019702,
+          "verdict": "disagree",
+          "reason": "export_json is reached dynamically: export() at exports.py:42 looks up `export_{fmt}` in globals(), so a call with fmt='json' invokes it without any textual reference, and export itself is imported by report.py. Removing it would turn the 'json' format into a ValueError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "globals().get(f\"export_{fmt}\") resolves export_json by name at runtime; plain text search cannot see this caller.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:43",
+              "detail": "Without export_json, fmt='json' falls through to the ValueError branch, changing behavior.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:8",
+              "detail": "export is imported and used by the report, so the dynamic dispatch is live code.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-decorator-registry",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.010004,
+          "verdict": "disagree",
+          "reason": "The function is decorated with @check, which registers it in the CHECKS list. It is then called indirectly when the problems() function iterates over CHECKS.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/checks.py:17",
+              "detail": "The @check decorator is applied to no_duplicate_skus.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:13",
+              "detail": "The decorator appends the function to the CHECKS list.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:29",
+              "detail": "All functions in the CHECKS list are called here.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-decorator-registry",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.0142,
+          "verdict": "disagree",
+          "reason": "The function is registered via the @check decorator into CHECKS and invoked indirectly by problems(), which report.py imports; it is not dead code even though its name is never written at a call site.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/checks.py:17",
+              "detail": "@check decorator registers no_duplicate_skus into CHECKS at import time.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:13",
+              "detail": "check() appends the decorated function to CHECKS.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:29",
+              "detail": "problems() calls every function in CHECKS, including no_duplicate_skus.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:7",
+              "detail": "report.py imports problems, so the check runs as part of reporting.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-entry-point-in-config",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.007514,
+          "verdict": "disagree",
+          "reason": "The nightly.py module is executed as a script by a cron job, which relies on the __main__ block and the main() function.",
+          "counter_evidence": [
+            {
+              "ref": "ops/crontab:2",
+              "detail": "The cron job runs python -m refproj.nightly, which requires the __main__ block to execute.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-entry-point-in-config",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.010722,
+          "verdict": "disagree",
+          "reason": "The module is run as a script by a cron job (`python -m refproj.nightly`), which depends on the `__main__` block and `main()`; removing them would silently break the nightly stock line.",
+          "counter_evidence": [
+            {
+              "ref": "ops/crontab:2",
+              "detail": "Cron entry runs `python -m refproj.nightly` nightly, which executes the `__main__` block calling `main()`.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/nightly.py:15",
+              "detail": "The `__main__` guard is the entry point the crontab invocation relies on.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-protocol-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.007426,
+          "verdict": "disagree",
+          "reason": "The `__lt__` method is implicitly called by the built-in `sorted()` function to compare and sort the list of Shelf objects.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/shelves.py:17",
+              "detail": "The sorted() function relies on the __lt__ method to order the shelves.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-protocol-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.011081,
+          "verdict": "disagree",
+          "reason": "sorted(shelves) in emptiest relies on Shelf.__lt__ to order shelves by free space; without it, a frozen dataclass without order=True has no ordering and sorted() would raise TypeError. emptiest is imported and used by nightly.py.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/shelves.py:17",
+              "detail": "sorted(shelves) invokes __lt__ implicitly to compare Shelf instances.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/nightly.py:5",
+              "detail": "emptiest is imported here, so the sorting path is live.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-reachable-guard",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.014002,
+          "verdict": "disagree",
+          "reason": "Even if there is at least one order line, the list of known prices can be empty if none of the lines' SKUs are found in the price list. The guard correctly handles this case by raising an OrderError instead of causing a ZeroDivisionError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:25",
+              "detail": "The list of known prices is filtered by whether the SKU is in the prices dictionary, which can result in an empty list.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "The potentially empty list of known prices is passed to average_price().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-reachable-guard",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.02224,
+          "verdict": "disagree",
+          "reason": "The guard is reached when lines exist but none has a SKU in the price list: report.py:25 filters `known` to lines whose sku is in prices, so a non-empty order can still yield an empty list, and the error message at rounding.py:21 (\"no line has a known price\") describes exactly that case, which report.py:31 catches as OrderError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:25",
+              "detail": "`known` is filtered by `if line.sku in prices`, so it can be empty even when at least one order line exists.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "average_price(known) is called with that filtered list, so the empty case reaches the guard.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "OrderError raised by the guard is caught here and reported, showing the path is an intended error edge.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-not-a-duplicate",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.01079,
+          "verdict": "disagree",
+          "reason": "The functions do not duplicate each other: round_cash rounds to the nearest 0.05 (SMALLEST_COIN), while round_card rounds to the nearest 0.01 (CENT). Both are actively used to handle different payment methods.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/rounding.py:16",
+              "detail": "Shows round_cash rounding to SMALLEST_COIN rather than CENT.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "Shows both functions being used conditionally based on whether the payment method is cash or card.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-not-a-duplicate",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.014339,
+          "verdict": "disagree",
+          "reason": "round_cash rounds to the nearest 0.05 (smallest coin) while round_card rounds to the cent; they are not duplicates, and report.py selects between them based on the payment method.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/rounding.py:16",
+              "detail": "round_cash quantizes to SMALLEST_COIN (0.05), a different granularity from round_card's CENT (0.01) on line 12.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "round_cash is called when argv[2] == 'cash', with round_card used otherwise — the two produce different results and the distinction is intentional.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:11",
+              "detail": "round_cash is imported by report.py; removing it would break this import.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-field-read-through-a-template",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.006366,
+          "verdict": "disagree",
+          "reason": "The field label_note is accessed in a format string template used for reporting.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:13",
+              "detail": "The field label_note is referenced in the SHELF_LABEL format string.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-field-read-through-a-template",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.015801,
+          "verdict": "disagree",
+          "reason": "The field is read via a format string in report.py and is populated positionally in nightly.py; removing it would break both the constructor call and the label formatting.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:13",
+              "detail": "SHELF_LABEL template references {shelf.label_note}, which reads the attribute when formatted with a Shelf.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/nightly.py:7",
+              "detail": "Shelf(\"B\", 40, \"fragile only\") passes a third positional argument for label_note; removing the field makes this a TypeError.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-template-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.008676,
+          "verdict": "disagree",
+          "reason": "TableExporter inherits the run() method from Exporter, which explicitly calls self.header(). Therefore, when export_table() calls run(), TableExporter.header() is executed.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:12",
+              "detail": "The run() method calls self.header().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:30",
+              "detail": "export_table() calls TableExporter().run(lines), which triggers the inherited run() method and subsequently TableExporter.header().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-template-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.013203,
+          "verdict": "disagree",
+          "reason": "TableExporter.header() is called polymorphically by Exporter.run() via self.header(); removing it would make export_table() fall through to the base class and raise NotImplementedError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:12",
+              "detail": "run() calls self.header(), which dispatches to TableExporter.header() when invoked on a TableExporter instance.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:15",
+              "detail": "The base header() raises NotImplementedError, so removing the override breaks export_table().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:30",
+              "detail": "export_table() instantiates TableExporter and calls run(), which relies on the header() override.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-3a73ae12",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.01858,
+          "verdict": "agree",
+          "reason": "The second call to `mkdir(parents=True, exist_ok=True)` is identical to the first and immediately follows it. Since `exist_ok=True` ensures no error is raised if the directory already exists, the second call is a complete no-op and can be safely removed.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3a73ae12",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.026724,
+          "verdict": "agree",
+          "reason": "In _write_continue_count the two consecutive calls at .claude/hooks/overseer_stop.py:467-468 are byte-identical `path.parent.mkdir(parents=True, exist_ok=True)`; the second is idempotent and cannot change state or error handling, so dropping it is safe (note the claim's quoted line numbers 473/474 are offset from the shown file, where the pair sits at 467-468, but the description identifies the target unambiguously).",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-056ef070",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.021574,
+          "verdict": "agree",
+          "reason": "The mkdir method with exist_ok=True is idempotent, meaning the second consecutive call has no additional effect and can be safely removed.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-056ef070",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.024817,
+          "verdict": "agree",
+          "reason": "In _record_audit the two consecutive sha_file.parent.mkdir(parents=True, exist_ok=True) calls (shown at lines 635-636, not 641-642 as the claim numbers them) are identical and idempotent; the second has no effect and nothing between them changes state, so dropping one is safe.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-856a9dcb",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.018916,
+          "verdict": "agree",
+          "reason": "The calls to `mkdir(parents=True, exist_ok=True)` are idempotent, meaning the first call ensures the directory exists and subsequent identical calls have no effect. Removing the duplicates is safe.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-856a9dcb",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.007729,
+          "verdict": "agree",
+          "reason": "Lines 429-431 are three identical, idempotent mkdir(parents=True, exist_ok=True) calls on the same path inside one try block; the second and third cannot change state or raise anything the first would not, so removing them is behaviour-preserving.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3af152c0",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.028864,
+          "verdict": "agree",
+          "reason": "The `limits` parameter is indeed never referenced within the body of the `report` function, making it safe to remove from the signature and its call site.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3af152c0",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.0,
+          "verdict": "no_opinion",
+          "reason": "the session gave no result: FileNotFoundError",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-58f5a87a",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.042694,
+          "verdict": "disagree",
+          "reason": "The parameter is intentionally kept to maintain a uniform signature across all collector functions, as explicitly stated in the project's documentation, and its removal was previously rejected due to a test dependency.",
+          "counter_evidence": [
+            {
+              "ref": "docs/plan/package-memory-report.md:31",
+              "detail": "Explicitly states the unused parameter is consciously kept for a uniform collector signature.",
+              "verified": true
+            },
+            {
+              "ref": "tasks/blocked/report-012-simplifier-gemini-second-opinion.md:209",
+              "detail": "Shows a previous disagreement with this exact claim, citing a verified test dependency.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-58f5a87a",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.29174,
+          "verdict": "disagree",
+          "reason": "The parameter is indeed unread in the body, and removing it would not change behaviour, but the repository records that this was noticed in review and kept on purpose so the collectors share one signature. Removing it would undo that stated design decision rather than clear up an oversight.",
+          "counter_evidence": [
+            {
+              "ref": "docs/plan/package-memory-report.md:31",
+              "detail": "States that the unused `slice_name` parameter in `collect_parked` was found by the critic and consciously accepted, giving the reason as a single signature for the collectors.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/lesson_queue.py:248",
+              "detail": "`collect_escalations` has the same `(root, slice_name, queue=True)` signature and does use `slice_name` (line 255); this is the shared shape `collect_parked` is kept in line with.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/lesson_queue.py:269",
+              "detail": "`collect()` calls `collect_parked` and `collect_escalations` in the same form here and at lines 270-273, relying on the shared signature.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-43a9cbd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.06087,
+          "verdict": "disagree",
+          "reason": "The target range is incorrect. It misses `CONTRACT_RE` and `SLICE_HEADING_RE` (lines 658-659), truncates the string definition of `CONTRACT_CHANGED_REASON` (lines 660-669), and removes the function signature of `_contract_changed` (lines 692-695) which is still needed.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/hooks/overseer_stop.py:664",
+              "detail": "This line is in the middle of the `CONTRACT_CHANGED_REASON` string definition.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/overseer_stop.py:669",
+              "detail": "This line closes the `CONTRACT_CHANGED_REASON` string definition.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/overseer_stop.py:692",
+              "detail": "This line contains the function signature for `_contract_changed`, which is not meant to be removed.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-43a9cbd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.25919,
+          "verdict": "agree",
+          "reason": "gate.active_slice (gate.py:640-652) shows the same block split, IN PROGRESS test and two regexes as _active_contract, and the only use of _active_contract, CONTRACT_RE and SLICE_HEADING_RE is the single call in _contract_changed, which can build the path from the slug gate returns. The lazy import at line 370 and the tail of gate.active_slice are not shown, but gate.py:760 confirms it returns the slug or None.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-8948ac3f",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.07428,
+          "verdict": "disagree",
+          "reason": "The ref_commit function is actively used as a helper in check_version and check_fast_forward. Removing it would break these callers and require duplicating try/except logic, which would complicate the inline condition at line 1183.",
+          "counter_evidence": [
+            {
+              "ref": "engine.py:1183",
+              "detail": "if on_remote or ref_commit(src, f\"refs/tags/{version}\"):",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:1195",
+              "detail": "commit = ref_commit(src, ref)",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-8948ac3f",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.22052,
+          "verdict": "unsure",
+          "reason": "ref_commit has two live callers that rely on it returning None, so it is only safe to collapse if EngineSource.resolve runs the same rev-parse and raises EngineError solely for a missing ref. The body of resolve (claimed at engine.py:412-416) is not shown, so that equivalence cannot be checked.",
+          "counter_evidence": [
+            {
+              "ref": "engine.py:1183",
+              "detail": "check_version calls ref_commit and relies on a falsy None for a tag that does not exist, so any replacement must keep that behaviour exactly.",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:1195",
+              "detail": "check_fast_forward calls ref_commit for each remote and local branch ref and treats None as 'branch absent, skip'; a resolve that raised for any other reason would change this.",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:412",
+              "detail": "The excerpt of EngineSource ends here on a blank line; the body of resolve that the claim cites at 412-416 is not shown, so its git command and error behaviour are unknown.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-2a3cecd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.04885,
+          "verdict": "disagree",
+          "reason": "While some rules are duplicated in engine-rules.md, the target lines contain specific workarounds and instructions not found elsewhere, such as using `-F` to bypass command-text matching for commit messages and naming new config files `.sh` to avoid `.env` write restrictions.",
+          "counter_evidence": [
+            {
+              "ref": "AGENTS.md:57",
+              "detail": "This line provides a specific workaround (`goes through -F`) for commit messages containing dangerous commands, which is not mentioned in engine-rules.md.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:60",
+              "detail": "This line instructs the agent to name new config files `.sh`, an alternative that is not provided in engine-rules.md or by a script's block message.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-2a3cecd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.36455,
+          "verdict": "disagree",
+          "reason": "The range carries guidance that the fully shown `.claude/engine-rules.md` does not state, so removing lines 56-65 would leave several rules stated nowhere in the loaded context rather than once. The range also includes the constitution/settings.json bullet, which the claim never accounts for.",
+          "counter_evidence": [
+            {
+              "ref": "AGENTS.md:57",
+              "detail": "Says `block-dangerous.sh` matches the whole command text, so a message mentioning a dangerous command must go through `-F`. This workaround appears nowhere in `engine-rules.md`.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:9",
+              "detail": "The commit rule here (lines 9-11) covers only the branch restriction and `commit_checkpoint.sh`. It restates the first half of the AGENTS.md bullet, not the `-F` guidance.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:58",
+              "detail": "The bullet 'Never edit `.claude/constitution.md` or `.claude/settings.json`; propose in `audit.md` or `docs/tasks/`' sits inside the 56-65 range. The claim does not list it as duplicated, and `engine-rules.md` has no settings.json rule.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:60",
+              "detail": "States the `.claude/project.env` exception and the instruction to name new config files `.sh`. A hook that blocks writes does not tell the agent either of these in advance.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:26",
+              "detail": "Only says reading or editing `.env` is hard-denied. It gives no `project.env` exception and no `.sh` naming guidance.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:63",
+              "detail": "Explains that with neither `jq` nor `python3` the deny hooks refuse every call. `engine-rules.md` does not say this, and `env-check.sh` is not shown, so nothing confirms it is stated elsewhere.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-f42f1239",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.06091,
+          "verdict": "disagree",
+          "reason": "Removing the target range would delete the Escalation JSON format, which is required by the verdict list and is not duplicated in engine-rules.md.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:321",
+              "detail": "The verdict list explicitly relies on the JSON block below it to define the OVERSEER_ESCALATE format.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:364",
+              "detail": "The JSON format definition falls within the target removal range and would be lost.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-f42f1239",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.32109,
+          "verdict": "disagree",
+          "reason": "The range is not only restated routing: it also holds the Escalation JSON schema that the verdict list points to, and a tie-break rule for ambiguous doors, neither of which appears in engine-rules.md. Removing lines 333-391 as described would leave OVERSEER_ESCALATE with no defined payload.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:321",
+              "detail": "The verdict list, which the claim keeps, says OVERSEER_ESCALATE is 'followed by the JSON block below'; that block sits inside the target range.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:366",
+              "detail": "The only shown definition of the escalation categories (PRODUCT_DECISION, DESIGN_FORK, SCOPE_AMENDMENT, ...) and the fields question / options / your_recommendation / evidence.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:263",
+              "detail": "Check #8 relies on SCOPE_AMENDMENT being a defined escalation category, which is defined only in the JSON block at line 366.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:49",
+              "detail": "engine-rules.md only says 'OVERSEER_ESCALATE: <JSON>' and tells the agent to read SKILL.md; it does not give the schema.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:388",
+              "detail": "The 'Classify honestly… when the door is ambiguous, treat it as one-way and park' safeguard (lines 388-390) has no counterpart in engine-rules.md § Verdict routing (lines 59-72).",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/overseer/SKILL.md:384",
+              "detail": "The unattended park protocol (append the block with 'Status: PARKED', add to parked.md) and the one-way-door examples at line 342-343 are more specific than the engine-rules.md summary.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-a463a292",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.046364,
+          "verdict": "disagree",
+          "reason": "The VoI gate in the slice critic is not a pure restatement; it specializes the inherited gate by removing 'argument' from the falsifiability condition (aligning with the slice level's 'no debate' rule) and adding deduplication against the '12-check precursor'.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:206-207",
+              "detail": "Redefines falsifiable to require an artifact-level observable, explicitly excluding opinions/arguments.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/agents/slice-planner-critic.md:210-211",
+              "detail": "Adds a slice-specific deduplication rule against the '12-check precursor'.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-a463a292",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.39651,
+          "verdict": "agree",
+          "reason": "The four-condition BLOCKING test, the downgrade to NON_BLOCKING_NOTE and the appendix/loop rule are all stated in critic-core.md:48-52, which slice-planner-critic.md:45-48 says it inherits (\"the VoI gate\"), so the reference at line 311 still resolves after removal. The slice wording is slightly narrower (artifact-level observable only, dedup against the 12-check precursors), but lines 68-74 already say that at this level checkable claims are settled by running a test rather than by debate, so nothing shown depends on the restated section.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-ad6c8b74",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.063276,
+          "verdict": "agree",
+          "reason": "The planner orchestrates the planning phase and interacts with the critic via the Task tool, which only requires the agent's name, not its file path. The principles mentioned are already part of the agent's core context, and the planner does not need to read the 525-line implementation-audit checklist to perform its planning duties. The removal is also explicitly validated by the owner's review log.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-ad6c8b74",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.43912,
+          "verdict": "disagree",
+          "reason": "The same command later relies on numbered overseer principles that are only defined in the overseer SKILL.md, so dropping the read instruction leaves that reference dangling. The span also removes the pointer to the critic's file, which the claim does not address, and the Constitution text said to duplicate the four principles is not shown.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/plan-slice.md:175",
+              "detail": "The cold-reader audit is justified by \"overseer principle #4/#12\"; the planner can only resolve these numbers if it has read the overseer SKILL.md.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:46",
+              "detail": "The always-loaded rules say to \"read `.claude/skills/overseer/SKILL.md`, apply the 12 checks\" — they point to the numbered checks rather than containing them, so they are not already in the planner's context.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/commands/plan-slice.md:10",
+              "detail": "Lines 10-11 of the target also tell the planner where the critic it spawns lives (`.claude/agents/slice-planner-critic.md`); this is not one of the four principles the claim calls duplicated.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/commands/plan-slice.md:194",
+              "detail": "The artifact structure must match \"the sections the overseer reads\", which again assumes the planner knows the overseer's contract from its SKILL.md.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-656c3729",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.0169,
+          "verdict": "agree",
+          "reason": "The target lines instruct the agent to perform a raw file write to manage the overseer state, which the claim correctly identifies as a violation of engine rules that require using the sanctioned script. Removing or replacing this raw write instruction is safe and aligns with the system's design.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-656c3729",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.22049,
+          "verdict": "unsure",
+          "reason": "The claim depends on engine-rules.md, the sibling commands and overseer_phase.py, none of which are shown, so I cannot confirm the phase guard is expressed elsewhere or that a raw write is forbidden. In the file that is shown, lines 73-74 are the only instruction that puts master-architect into the plan phase, so deleting them outright rather than swapping in the script could drop that guard.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/master-architect.md:73",
+              "detail": "The only place in this command that sets the `plan` phase during architecture work and clears it before feature builds; no overseer_phase.py call appears anywhere else in the file to cover it.",
+              "verified": true
+            },
+            {
+              "ref": "tasks/done/010-simplifier/report.md:20",
+              "detail": "An earlier report describes the problem as the line telling the agent to write state directly although the rules forbid it. That supports replacing the raw write, not necessarily dropping the phase guard.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-b90eb594",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.07657,
+          "verdict": "disagree",
+          "reason": "The orchestrator's stated goal is to act as a trigger dispatcher that speaks cue phrases to activate per-artifact skills. Removing the delegation map would break this core mechanism and leave existing instructions to cue skills unresolved.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:8",
+              "detail": "States the orchestrator's core mechanism is to speak cue phrases so per-artifact skills activate, which requires the delegation map.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:36",
+              "detail": "The state machine explicitly instructs to 'cue plan-mode skill', relying on the delegation map to know the correct phrase.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-b90eb594",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.55734,
+          "verdict": "disagree",
+          "reason": "The skill's stated design outside the target is to activate other skills by cue phrase, and the task-start step relies on that with no trigger file listed as a fallback, so inline fallbacks would not be the only path left. Skills are also registered at ~/.claude/skills outside the repository, so their absence from the repo does not show the delegates are never present; the search shown covered only the name SKILL.md, not the seven skill names.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:8",
+              "detail": "States the skill's purpose outside the target: it does not duplicate the per-artifact skills, 'it speaks their cue phrases so they activate'. Removing the map leaves this design statement with nothing behind it.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:36",
+              "detail": "The task-start step is '→ cue plan-mode skill'. Only the delegation map says which phrase and which skill that means.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:79",
+              "detail": "The dispatch table (rows 81-87) has no trigger file for task start/planning or for codebase navigation, so those two map rows have no inline fallback to fall back on.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/SKILL.md:137",
+              "detail": "The session-dreaming row names an external 'master-architect bundle' as the source of the delegate, with the trigger file as the alternative, so the delegate is expected to come from outside this skill.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/README.md:168",
+              "detail": "Skills are registered at ~/.claude/skills/<name>/SKILL.md or repo-locally, so a delegate can be installed at user scope where a repository search cannot see it.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/README.md:183",
+              "detail": "This skill is one of five vendored copies to be kept in sync manually; cutting the map makes it diverge from its upstream.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-12b10bb6",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.033824,
+          "verdict": "disagree",
+          "reason": "Removing Step 6 would leave the document inconsistent, as Step 7 explicitly requires the agent to report the branch, uncommitted status, and last commit gathered in Step 6. Additionally, the cost section explicitly counts the 5 git calls (2 from Step 5 and 3 from Step 6).",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:102",
+              "detail": "Step 7 requires the agent to summarize the current branch, uncommitted status, and last commit, which are the exact outputs of Step 6.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:136",
+              "detail": "The cost section accounts for '5 git calls', which includes the 3 calls made in Step 6.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-12b10bb6",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.24605,
+          "verdict": "disagree",
+          "reason": "The settings.json hook the claim relies on is not shown, and even if it prints the same three commands, this trigger also fires mid-session, when output from session launch would be stale. The claim also removes step 1, which carries missing-file handling and extraction guidance that auto-loading CLAUDE.md does not replace.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:9",
+              "detail": "The trigger fires after a pause of more than an hour in the same session, when no SessionStart hook runs again, so step 6 is the only fresh git read.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:10",
+              "detail": "It also fires on 'let's continue' / 'resume' / 'pick up' mid-session, where git state printed at launch may be out of date.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:102",
+              "detail": "Step 7 reports current branch, uncommitted state and last commit, which are the values step 6 gathers.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:22",
+              "detail": "Step 1 (outside the target range but included in the claim) handles a missing CLAUDE.md by noting it and suggesting scaffolding; auto-loading does not cover this.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/skills/self-learning-orchestrator/triggers/session-start.md:36",
+              "detail": "Step 2 depends on the stack section that step 1 tells the reader to extract from CLAUDE.md.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-ccc8ade1",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.041646,
+          "verdict": "disagree",
+          "reason": "The target line is a negative constraint in an LLM prompt designed to prevent the agent from hallucinating or generating an unwanted `tasks.yaml` file instead of slice contracts. Removing it would lose this explicit guardrail.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/feature-architect.md:274",
+              "detail": "This line is an explicit instruction protecting the system by forbidding the LLM from creating a specific unwanted artifact.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-ccc8ade1",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.34741,
+          "verdict": "unsure",
+          "reason": "The search covered only the name `feature-architect.md`, not `tasks.yaml`, and the four other mentions the claim wants removed (slice-builder/SKILL.md:8, 72, 231 and overseer/SKILL.md:54) are not shown, so I cannot tell whether any of them is a check or a test-pinned line. For line 274 alone, the same rule survives at line 220, but it is a deliberate prohibition under \"Hard constraints\", and nothing producing the file is what such a guard is meant to achieve, not proof it is dead.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/commands/feature-architect.md:220",
+              "detail": "States the design rule \"no intermediate task list\", which line 274 enforces as a hard constraint; the guard has a stated purpose, though this line also partly duplicates it.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/commands/feature-architect.md:258",
+              "detail": "Line 274 sits under the \"Hard constraints\" heading, so it is an intentional behavioural guard for the agent, not a reference to an artifact that should exist.",
+              "verified": true
+            },
+            {
+              "ref": "tasks/done/010-simplifier/report.md:21",
+              "detail": "Confirms the removal spans five mentions across files; four of them are in files not shown here.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "complete": false,
+      "answers": [
+        {
+          "case": "planted-abstraction",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.011396,
+          "verdict": "agree",
+          "reason": "DiscountPolicy is an abstract base class with only one implementation, and its factory function is only used in one place. The caller can easily be refactored to use the underlying apply_discount function directly, making the abstraction unnecessary.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-abstraction",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.0747,
+          "verdict": "agree",
+          "reason": "The only subclass of DiscountPolicy shown is PercentDiscount, and the only use of the module is policy_for in cli.py, where the abstraction simply forwards to pricing.apply_discount. Inlining that call in cli.py loses no behaviour, since the bounds check and rounding live in apply_discount, and no test or other module references the discounts names.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-dead-code",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.00827,
+          "verdict": "agree",
+          "reason": "The function `_legacy_total_v1` is not imported or called anywhere in the provided codebase. It is safe to remove.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-dead-code",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.0696,
+          "verdict": "agree",
+          "reason": "The whole-word search for _legacy_total_v1 found no occurrence outside its own definition at src/refproj/pricing.py:24; all callers and tests import and use total (or apply_discount), and no goal or slice document refers to the float-based legacy version.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-unused-dependency",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.004864,
+          "verdict": "agree",
+          "reason": "The `requests` dependency is declared in `pyproject.toml` but there are no imports or uses of it anywhere in the repository.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-unused-dependency",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.05623,
+          "verdict": "agree",
+          "reason": "A whole-word search for `requests` across the repository turns up no import or other use outside the declaration at pyproject.toml:6. The comment at pyproject.toml:11 also says `uv sync` is meant to install only the dev tools, so nothing shown needs this runtime dependency.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-impossible-guard",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.00907,
+          "verdict": "agree",
+          "reason": "The preceding check ensures that `percent` is between 0 and 100 inclusive. Therefore, `Decimal(100) - Decimal(percent)` will always be between 0 and 100, making it impossible for `factor` to be negative.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-impossible-guard",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.07836,
+          "verdict": "agree",
+          "reason": "The check at line 11 rejects any percent outside 0..100 (NaN included, since the comparison fails or raises), so (100 - percent) / 100 at line 13 is always in 0..1 and the line 14 guard cannot fire. No shown test or caller expects the RuntimeError; the only rejection tested is the ValueError.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-future-slice",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.005676,
+          "verdict": "agree",
+          "reason": "The currency-rates slice is explicitly marked with no goals in the feature DAG, and the slice description confirms it is a speculative addition for future international sales, which are not part of the current goals.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-future-slice",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.05739,
+          "verdict": "agree",
+          "reason": "The slice's own rationale is speculative (\"once it sells abroad\"), its DAG node S6 lists no goals, is still todo, and no other node depends on it. Nothing in docs/goals.md (G1–G4, R1–R6) asks for currency or conversion, and the file is not referenced anywhere else.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "planted-invented-requirement",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "gemini",
+          "cost_usd": 0.017086,
+          "verdict": "disagree",
+          "reason": "The document explicitly states that everything below the \"Goals\" line was provided by the owner in the kick-off note. Therefore, R6 is a genuine requirement from the owner, not an invented one, and cannot be safely removed.",
+          "counter_evidence": [
+            {
+              "ref": "docs/goals.md:3",
+              "detail": "States that everything below the 'Goals' line was stated by the owner.",
+              "verified": true
+            },
+            {
+              "ref": "docs/goals.md:4",
+              "detail": "Completes the sentence confirming the owner provided these requirements in the kick-off note.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "planted-invented-requirement",
+          "truth": "correct",
+          "kind": "planted",
+          "judge": "claude",
+          "cost_usd": 0.12058,
+          "verdict": "agree",
+          "reason": "The document says each requirement names the goal it serves, and R6 alone carries no goal tag; none of G1-G4 (order total, non-negative stock, receipts, refunds) asks for an audit log, seven-year retention or CSV export. Nothing shown uses or depends on R6, though the search covered only the name goals.md.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "trap-input-validation",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.01884,
+          "verdict": "disagree",
+          "reason": "The parse_order_line function is used in other contexts, such as processing refunds and generating reports, where reserve() is not called. Removing the check would allow invalid quantities in those paths.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/cli.py:40",
+              "detail": "parse_order_line is used to create a refund note without calling reserve().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:22",
+              "detail": "parse_order_line is used to parse lines for a report without calling reserve().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-input-validation",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.12422,
+          "verdict": "disagree",
+          "reason": "The claim relies on reserve() re-checking the quantity, but reserve()'s body is not shown, and parse_order_line() has a caller in report.py that never passes through reserve(). On that path this check is the only shown guard against zero or negative quantities typed by the clerk.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:22",
+              "detail": "The report path parses order lines and passes them to problems() and price lookups; no reserve() call appears in the shown lines, so a reserve() check would not cover this caller.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:10",
+              "detail": "The report module imports parse_order_line, and the shown imports (lines 7-11) include nothing from refproj.inventory.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:24",
+              "detail": "This is the only shown call to reserve(), and it is confined to the charge path in cli.py; its body is not shown, so the claimed duplicate positivity check is unverified.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:34",
+              "detail": "The check raises OrderError with a clerk-facing message at the input boundary, the point where raw command-line text is validated.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-error-handling",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.029026,
+          "verdict": "disagree",
+          "reason": "The wrapping is not only for cli.py, as report.py also catches PriceListError. Furthermore, the wrapping adds valuable context (such as the file path) to the error messages, and a test explicitly expects this custom error and message.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "report.py also catches PriceListError to handle errors gracefully.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:44",
+              "detail": "The wrapping adds the file path and a custom message to the OSError.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:46",
+              "detail": "The wrapping adds the file path and line number to the JSONDecodeError.",
+              "verified": true
+            },
+            {
+              "ref": "tests/test_counter.py:34",
+              "detail": "A test explicitly checks for PriceListError and the custom message 'cannot read'.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-error-handling",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.1165,
+          "verdict": "disagree",
+          "reason": "The wrapped failures are not impossible: the price list is an operator-edited file at the edge of the system, and a test pins the missing-file behaviour. Without the wrapping, OSError (and AttributeError/InvalidOperation) would escape the callers' except clauses as a traceback instead of a clean \"error:\" message.",
+          "counter_evidence": [
+            {
+              "ref": "tests/test_counter.py:34",
+              "detail": "The test requires load_price_list to raise PriceListError matching \"cannot read\" for a missing file; a bare json.loads would raise FileNotFoundError and fail it.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "The CLI catches only (OrderError, PriceListError, ValueError). OSError is not a ValueError, so an unwrapped missing or unreadable file would crash with a traceback instead of returning 1.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "The second caller has the same except clause and relies on PriceListError in the same way.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:44",
+              "detail": "This turns an OSError into an operator-facing message that names the path and the cause, at the file-input boundary.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:50",
+              "detail": "This wraps AttributeError/InvalidOperation from a wrongly shaped price list; neither is a ValueError, so unwrapped they would also escape both callers.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-security-check",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.017734,
+          "verdict": "disagree",
+          "reason": "The order_id is untrusted user input that could contain path traversal characters like '../'. Because resolve() evaluates these components, the check is necessary to prevent writing files outside the intended receipts directory.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/receipts.py:8",
+              "detail": "The docstring explicitly states that the order_id is typed by the clerk, meaning it is untrusted input.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:10",
+              "detail": "The target path is constructed using the untrusted order_id and then resolved, which would process any '..' traversal components.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:11",
+              "detail": "This check is a necessary defense against directory traversal attacks, ensuring the resolved path remains within the base directory.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-security-check",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.07549,
+          "verdict": "disagree",
+          "reason": "The check can fail: order_id is clerk-typed input from the command line, and an id containing \"..\" segments or an absolute path makes the resolved target land outside base. The guard is what enforces the stated requirement that receipts stay under one receipts directory.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/receipts.py:8",
+              "detail": "Docstring states the id is typed by the clerk, i.e. untrusted input, not a value guaranteed to be a plain filename.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:10",
+              "detail": "target is base / f\"{order_id}.txt\" then resolve(); an order_id like \"../../x\" or \"/etc/x\" resolves outside base, so being built from base does not keep it inside base.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:42",
+              "detail": "write_receipt receives args[1] straight from the command line with no prior validation, so traversal ids reach receipt_path.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:43",
+              "detail": "The ValueError raised by the guard is caught here and turned into a clean error message, showing the failure path is an intended part of the flow.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/receipts.py:18",
+              "detail": "Without the guard, mkdir(parents=True) and the write_text on the next line would create directories and write a file at an arbitrary location outside the receipts directory.",
+              "verified": true
+            },
+            {
+              "ref": "docs/goals.md:19",
+              "detail": "R4 requires receipts to be written under one receipts directory; the is_relative_to check is the only thing enforcing it.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-rare-contract-field",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "gemini",
+          "cost_usd": 0.011774,
+          "verdict": "disagree",
+          "reason": "The refund_reference attribute is explicitly read and used in the refund_note function to generate a refund message.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/refunds.py:10",
+              "detail": "Checks if line.refund_reference is None.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/refunds.py:12",
+              "detail": "Uses line.refund_reference in the returned string.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "trap-rare-contract-field",
+          "truth": "false",
+          "kind": "trap",
+          "judge": "claude",
+          "cost_usd": 0.11446,
+          "verdict": "disagree",
+          "reason": "refund_reference is read by refund_note in refunds.py, which is imported by the CLI and the tests, and it is populated by parse_order_line from the third field of the clerk's input. Removing the field would break refunds and the SKU:QUANTITY:REFUND_REFERENCE format.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/refunds.py:10",
+              "detail": "refund_note reads line.refund_reference to decide whether a refund can be issued automatically.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/refunds.py:12",
+              "detail": "refund_note reads line.refund_reference again to build the refund line read to the provider.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:36",
+              "detail": "parse_order_line constructs OrderLine with refund_reference=reference; removing the field would make this call raise TypeError.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/orders.py:25",
+              "detail": "The documented input format includes an optional REFUND_REFERENCE as the third part.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/cli.py:12",
+              "detail": "The CLI imports refund_note, so the code path that reads the field is wired into the application.",
+              "verified": true
+            },
+            {
+              "ref": "tests/test_counter.py:10",
+              "detail": "Tests import refund_note, indicating the refund behaviour is exercised.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-string-dispatch",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.006904,
+          "verdict": "disagree",
+          "reason": "The function export_json is dynamically accessed and called by the export function using globals().get(f\"export_{fmt}\"). Removing it would break JSON exports.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "writer = globals().get(f\"export_{fmt}\")",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-string-dispatch",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.05421,
+          "verdict": "disagree",
+          "reason": "export_json is reached by dynamic dispatch: export() looks up globals()[f\"export_{fmt}\"], so a format of \"json\" calls it without any textual call site. report.py imports export, so removing export_json would make the json format raise ValueError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "writer = globals().get(f\"export_{fmt}\") resolves export_json by name at runtime when fmt == \"json\".",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:44",
+              "detail": "Without export_json, a json format request falls through to ValueError('unknown export format').",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:8",
+              "detail": "report.py imports export, the dynamic dispatcher, so the lookup path is live.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-decorator-registry",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.01028,
+          "verdict": "disagree",
+          "reason": "The function is decorated with @check, which registers it in the CHECKS list. The problems() function then iterates over this list and calls each registered function, meaning no_duplicate_skus is indirectly called and actively used.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/checks.py:17",
+              "detail": "The @check decorator is applied to no_duplicate_skus.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:13",
+              "detail": "The decorator appends the function to the CHECKS list.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:29",
+              "detail": "The problems() function iterates over CHECKS and calls each function in the list.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-decorator-registry",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.05495,
+          "verdict": "disagree",
+          "reason": "no_duplicate_skus is never called by name, but the @check decorator registers it in CHECKS, which problems() iterates and report.py imports. Removing it would silently drop the duplicate-SKU validation from order reports.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/checks.py:17",
+              "detail": "@check decorator is applied to no_duplicate_skus, registering it at import time.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:13",
+              "detail": "check() appends the decorated function to the CHECKS list.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/checks.py:29",
+              "detail": "problems() calls every function in CHECKS, so no_duplicate_skus is invoked indirectly.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:7",
+              "detail": "report.py imports problems from refproj.checks, so the registered checks are live in the reporting path.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-entry-point-in-config",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.009554,
+          "verdict": "disagree",
+          "reason": "The nightly.py module is executed as a script by a cron job, which relies on the __main__ block and main() function to perform its task.",
+          "counter_evidence": [
+            {
+              "ref": "ops/crontab:2",
+              "detail": "This cron job executes refproj.nightly as a module, requiring the __main__ block to function.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-entry-point-in-config",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.07079,
+          "verdict": "disagree",
+          "reason": "The nightly module is run as a script by the operator's crontab via `python -m refproj.nightly`, which executes the `__main__` block and calls main(); removing them would make the nightly job silently do nothing.",
+          "counter_evidence": [
+            {
+              "ref": "ops/crontab:2",
+              "detail": "Cron entry runs `python -m refproj.nightly` every night at 02:15, which enters the `if __name__ == \"__main__\"` block and calls main() to print the emptiest shelf into nightly.log.",
+              "verified": true
+            },
+            {
+              "ref": "ops/crontab:1",
+              "detail": "Comment states the crontab is installed by the operator on the stock room machine, so this is a live entry point outside src and tests.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-protocol-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.008494,
+          "verdict": "disagree",
+          "reason": "The `__lt__` method is implicitly called by the built-in `sorted` function to compare `Shelf` objects when sorting them.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/shelves.py:17",
+              "detail": "The `sorted` function relies on `__lt__` to order the list of `Shelf` objects.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-protocol-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.04781,
+          "verdict": "disagree",
+          "reason": "`sorted(shelves)` in `emptiest` compares Shelf instances with `<` implicitly, and the dataclass is not declared with `order=True`, so `__lt__` is the only ordering available. Removing it would make `emptiest` raise TypeError, and `emptiest` is imported by nightly.py.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/shelves.py:17",
+              "detail": "`sorted(shelves)[-1]` sorts a list of Shelf objects, which calls Shelf.__lt__ implicitly.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/shelves.py:6",
+              "detail": "`@dataclass(frozen=True)` has no `order=True`, so no generated comparison methods would replace the hand-written `__lt__`.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/nightly.py:5",
+              "detail": "`emptiest` is imported alongside Shelf, so the sorting path is reachable from the nightly module.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-reachable-guard",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.012898,
+          "verdict": "disagree",
+          "reason": "Even if there is at least one order line, the list of known prices can be empty if none of the lines' SKUs are in the price list. This would trigger the guard to prevent a ZeroDivisionError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:25",
+              "detail": "The list 'known' is filtered by whether the SKU is in 'prices', meaning it can be empty even if 'lines' is not.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "The 'average_price' function is called with the 'known' list, which could be empty.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-reachable-guard",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.07129,
+          "verdict": "disagree",
+          "reason": "The guard checks the list of known prices, not the list of order lines. Even with at least one order line, `known` is empty when no line's SKU is in the price list, and without the guard the division would raise an uncaught ZeroDivisionError.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:25",
+              "detail": "`known` is filtered by `line.sku in prices`, so it can be empty even when `lines` is non-empty.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "`average_price(known)` is called with this filtered list, not with the order lines.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/rounding.py:21",
+              "detail": "The error message, \"no line has a known price\", names exactly this case rather than an empty order.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/rounding.py:22",
+              "detail": "Without the guard, `len(amounts)` of zero makes this division raise ZeroDivisionError.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:31",
+              "detail": "The handler catches OrderError, PriceListError and ValueError; ZeroDivisionError is none of these, so it would escape as an unhandled crash.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-not-a-duplicate",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.01079,
+          "verdict": "disagree",
+          "reason": "The functions do not duplicate each other: round_cash rounds to the nearest 0.05 (SMALLEST_COIN), while round_card rounds to the nearest 0.01 (CENT). Both are actively used to handle different payment methods.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/rounding.py:16",
+              "detail": "Shows round_cash rounding to SMALLEST_COIN rather than CENT.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "Shows both functions being used conditionally based on whether the payment method is cash or card.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-not-a-duplicate",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.06644,
+          "verdict": "disagree",
+          "reason": "round_cash() is not a duplicate of round_card(): it rounds to the nearest 0.05 (smallest coin) while round_card() rounds to 0.01, and it is called in report.py for cash payments.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/rounding.py:16",
+              "detail": "round_cash divides by SMALLEST_COIN, quantizes to an integer and multiplies back, i.e. rounds to the nearest 0.05, not to the cent.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/rounding.py:8",
+              "detail": "SMALLEST_COIN is Decimal(\"0.05\"), a different rounding step from CENT (0.01) used by round_card at line 12.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/rounding.py:12",
+              "detail": "round_card quantizes to CENT (0.01), so the two functions return different results for e.g. 1.02 (1.02 vs 1.00).",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:28",
+              "detail": "round_cash(due) is called when argv[2] == 'cash', with round_card(due) used otherwise; removing it would break or change the cash amount due.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:11",
+              "detail": "report.py imports round_cash by name; removing the function would make this import fail.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-field-read-through-a-template",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.006366,
+          "verdict": "disagree",
+          "reason": "The field label_note is accessed in a format string template used for reporting.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:13",
+              "detail": "The field label_note is referenced in the SHELF_LABEL format string.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-field-read-through-a-template",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.05805,
+          "verdict": "disagree",
+          "reason": "The field is read through a format-string template that accesses `shelf.label_note`, which a plain search for attribute access in code would miss. Removing it would also break the three-argument constructor call in nightly.py.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/report.py:13",
+              "detail": "SHELF_LABEL = \"{shelf.name}: {shelf.free} free {shelf.label_note}\" reads the label_note attribute when formatted with a Shelf; removing the field would raise AttributeError at format time.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/nightly.py:7",
+              "detail": "Shelf(\"B\", 40, \"fragile only\") passes label_note positionally; removing the field makes this call a TypeError.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-template-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "gemini",
+          "cost_usd": 0.008676,
+          "verdict": "disagree",
+          "reason": "TableExporter inherits the run() method from Exporter, which explicitly calls self.header(). Therefore, when export_table() calls run(), TableExporter.header() is executed.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:12",
+              "detail": "The run() method calls self.header().",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:30",
+              "detail": "export_table() calls TableExporter().run(lines), which triggers the inherited run() method and subsequently TableExporter.header().",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "typical-template-method",
+          "truth": "false",
+          "kind": "typical",
+          "judge": "claude",
+          "cost_usd": 0.05596,
+          "verdict": "disagree",
+          "reason": "TableExporter.header() is called through the template method Exporter.run(), which export_table() invokes; removing the override would fall back to the base header() that raises NotImplementedError, breaking the table export.",
+          "counter_evidence": [
+            {
+              "ref": "src/refproj/exports.py:12",
+              "detail": "run() calls self.header(), which dispatches to TableExporter.header() when run on a TableExporter instance.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:30",
+              "detail": "export_table() calls TableExporter().run(lines), so header() is reached on every table export.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:15",
+              "detail": "Without the override, the base Exporter.header() raises NotImplementedError.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/exports.py:42",
+              "detail": "export() resolves export_<fmt> dynamically via globals(), so export_table is reachable for fmt='table' from the export() entry point.",
+              "verified": true
+            },
+            {
+              "ref": "src/refproj/report.py:8",
+              "detail": "report.py imports export, making the dynamic dispatch path to export_table live in the application.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-3a73ae12",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.018436,
+          "verdict": "agree",
+          "reason": "The second call to `path.parent.mkdir(parents=True, exist_ok=True)` is identical to the first and immediately follows it. Since `exist_ok=True` ensures no error is raised if the directory already exists, the second call is a complete no-op and can be safely removed.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3a73ae12",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.19505,
+          "verdict": "agree",
+          "reason": "In `_write_continue_count` the same `path.parent.mkdir(parents=True, exist_ok=True)` call appears twice in a row inside one try block, so the second is an idempotent no-op and removing it changes nothing. The duplicate is shown at lines 467-468 rather than the cited 473-474, so the removal must target the repeated mkdir, not literal line 474 (the `_stop_or_continue` def).",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-056ef070",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.024802,
+          "verdict": "agree",
+          "reason": "The second `mkdir` call is identical to the first and immediately follows it. Since `mkdir(parents=True, exist_ok=True)` is idempotent, the second call is redundant and can be safely removed.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-056ef070",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.18269,
+          "verdict": "agree",
+          "reason": "_record_audit contains two consecutive identical `sha_file.parent.mkdir(parents=True, exist_ok=True)` calls, and the call is idempotent, so removing the second loses nothing. In the file as shown the pair sits at lines 635-636 rather than 641-642, so the removal should be made by content, not by the claim's line number.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-856a9dcb",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.018916,
+          "verdict": "agree",
+          "reason": "The calls to `mkdir(parents=True, exist_ok=True)` are idempotent, meaning the first call ensures the directory exists and subsequent identical calls have no effect. Removing the duplicates is safe.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-856a9dcb",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.19334,
+          "verdict": "agree",
+          "reason": "Lines 429-431 are three identical, consecutive memo.parent.mkdir(parents=True, exist_ok=True) calls inside the same try block; with exist_ok=True the second and third are idempotent no-ops, so removing them leaves line 429 to create the directory before the write at line 432.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3af152c0",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.028864,
+          "verdict": "agree",
+          "reason": "The `limits` parameter is indeed never referenced within the body of the `report` function, making it safe to remove from the signature and its call site.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-3af152c0",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.3077,
+          "verdict": "agree",
+          "reason": "The whole body of report() (lines 504-528) is shown and never reads `limits`; the text is built only from budget, usage, over, raised and accepted. The one visible call at line 573 passes it positionally, so dropping both together leaves the output unchanged. No other caller appears in the shown lines, though most occurrences of `report` were not shown.",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-58f5a87a",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.031882,
+          "verdict": "disagree",
+          "reason": "The unused parameter is kept consciously to maintain a uniform signature across all collector functions, as explicitly stated in the project documentation.",
+          "counter_evidence": [
+            {
+              "ref": "docs/plan/package-memory-report.md:31",
+              "detail": "States that the unused slice_name parameter in collect_parked is consciously accepted to keep a single signature for collectors.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-58f5a87a",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.072096,
+          "verdict": "disagree",
+          "reason": "The parameter is indeed unused in the body, but the repository records this as a deliberate, accepted choice to keep one signature across the collectors. Removing it would undo a stated design decision, not clear away forgotten dead code.",
+          "counter_evidence": [
+            {
+              "ref": "docs/plan/package-memory-report.md:31",
+              "detail": "States that the unused `slice_name` parameter in `collect_parked` was a critic finding accepted deliberately, for a single shared collector signature.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/lesson_queue.py:248",
+              "detail": "`collect_escalations` has the same (root, slice_name, queue) signature and does use slice_name; this is the uniformity the parameter in `collect_parked` preserves.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/lesson_queue.py:272",
+              "detail": "`collect()` calls all three collectors with the same (root, slice_name) shape, relying on that shared signature.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-43a9cbd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.055422,
+          "verdict": "disagree",
+          "reason": "The target range is incorrect: it misses CONTRACT_RE and SLICE_HEADING_RE, breaks the CONTRACT_CHANGED_REASON string definition, and removes the definition of _contract_changed while leaving its body dangling.",
+          "counter_evidence": [
+            {
+              "ref": ".claude/hooks/overseer_stop.py:658",
+              "detail": "CONTRACT_RE is defined here, outside the target range, so it would not be removed.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/overseer_stop.py:660",
+              "detail": "CONTRACT_CHANGED_REASON starts here; removing from line 664 breaks the string and leaves an unclosed parenthesis.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/hooks/overseer_stop.py:696",
+              "detail": "The body of _contract_changed continues here, which would be left dangling and cause a syntax error if its definition at line 692 is removed.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-43a9cbd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.093794,
+          "verdict": "agree",
+          "reason": "gate.active_slice (gate.py:640-652) reads the same PROGRESS.md with the same block split, IN PROGRESS test and two regexes, and returns the slug. The only shown use of _active_contract, CONTRACT_RE and SLICE_HEADING_RE is _contract_changed, which can rebuild the path from that slug, so the fingerprint guard is kept. The gate import at line 370 and the tail of active_slice are not shown, and the cited range has drifted (the helper now sits at 658-689).",
+          "counter_evidence": [],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-8948ac3f",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.07428,
+          "verdict": "disagree",
+          "reason": "The ref_commit function is actively used as a helper in check_version and check_fast_forward. Removing it would break these callers and require duplicating try/except logic, which would complicate the inline condition at line 1183.",
+          "counter_evidence": [
+            {
+              "ref": "engine.py:1183",
+              "detail": "if on_remote or ref_commit(src, f\"refs/tags/{version}\"):",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:1195",
+              "detail": "commit = ref_commit(src, ref)",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-8948ac3f",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.05535,
+          "verdict": "unsure",
+          "reason": "ref_commit is called by two release safety checks, so the removal is only safe if EngineSource.resolve really runs the same command and raises EngineError only for a missing ref. The body of resolve (claimed at engine.py:412-416) is not shown, so that equivalence cannot be confirmed.",
+          "counter_evidence": [
+            {
+              "ref": "engine.py:1183",
+              "detail": "check_version uses ref_commit's None-or-commit result to refuse a tag that already exists locally; a missing ref must stay falsy, not raise.",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:1195",
+              "detail": "check_fast_forward calls ref_commit for each main/stable ref and relies on None for branches that do not exist.",
+              "verified": true
+            },
+            {
+              "ref": "engine.py:412",
+              "detail": "The cited start of EngineSource.resolve is a blank line in what is shown, and the method body is not visible, so the 'same command, differs only in raising' statement is unverified.",
+              "verified": true
+            }
+          ],
+          "verified": false
+        },
+        {
+          "case": "first-pass-F-2a3cecd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "gemini",
+          "cost_usd": 0.05059,
+          "verdict": "disagree",
+          "reason": "Removing these lines would lose the specific workarounds for the enforced rules, such as using `-F` for commit messages that mention dangerous commands and naming new config files `.sh`, which are not stated in engine-rules.md.",
+          "counter_evidence": [
+            {
+              "ref": "AGENTS.md:56-57",
+              "detail": "This provides the `-F` workaround for commit messages containing dangerous command names, which is not in engine-rules.md.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:60",
+              "detail": "This instructs the agent to name new config files `.sh` since `*.env` is unwritable, a detail missing from engine-rules.md.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        },
+        {
+          "case": "first-pass-F-2a3cecd3",
+          "truth": "correct",
+          "kind": "first-pass",
+          "judge": "claude",
+          "cost_usd": 0.076529,
+          "verdict": "disagree",
+          "reason": "The range 56-65 is not pure restatement: it includes a bullet the claim never addresses (58-59) and operational detail that the shown `.claude/engine-rules.md` does not carry. The hooks said to cover the rest (`protect-paths.sh`, `env-check.sh`) are not shown, and a hook that blocks is not the same as guidance stated up front.",
+          "counter_evidence": [
+            {
+              "ref": "AGENTS.md:58",
+              "detail": "The 'Never edit `.claude/constitution.md` or `.claude/settings.json`; propose in `audit.md` or `docs/tasks/`' bullet sits inside the target range but is not among the bullets the claim justifies removing.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:27",
+              "detail": "The hard-denied edit list names migrations and `.github/workflows/` but neither `constitution.md` nor `settings.json`, so the rule at AGENTS.md:58-59 is not restated here.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:57",
+              "detail": "The note that `block-dangerous.sh` matches the whole command text, so a message mentioning a dangerous command must go through `-F`, has no counterpart in engine-rules.md lines 9-16.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:60",
+              "detail": "The `.claude/project.env` exception and the instruction to name new config files `.sh` would be lost.",
+              "verified": true
+            },
+            {
+              "ref": ".claude/engine-rules.md:26",
+              "detail": "This line only says reading or editing `.env` is hard-denied; it carries neither the `project.env` exception nor the `.sh` naming guidance from AGENTS.md:60.",
+              "verified": true
+            },
+            {
+              "ref": "AGENTS.md:63",
+              "detail": "The warning that with neither `jq` nor `python3` the deny hooks refuse every call is absent from engine-rules.md; the claim leans on `env-check.sh`, which is not shown.",
+              "verified": true
+            }
+          ],
+          "verified": true
+        }
+      ]
+    }
+  ]
+}
