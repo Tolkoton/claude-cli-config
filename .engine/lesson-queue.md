@@ -40,3 +40,5 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | parked | test-simplifier-removes-other-runs-tmp | test-simplifier-removes-other-runs-tmp: tests/test_simplifier.py наприкінці стирає тимчасові теки чужих прогонів #cabe99e0
 - 2026-10-06 | parked | gemini-key-not-in-session-environment | gemini-key-not-in-session-environment: Ключ Gemini видно агентові через середовище сесії #4ad4d459
 - 2026-10-06 | parked | owner-word-roads-056-does-not-see | owner-word-roads-056-does-not-see: Шляхи повз перевірку «відповів саме власник», яких задача 056 не ловить #7d801741
+- 2026-10-06 | parked | hooks-parse-quotes-and-heredoc | hooks-parse-quotes-and-heredoc: Hooks мають розбирати лапки і heredoc: команда, яка лише цитує захищений рядок, не повинна діставати відмову #2a478b98
+- 2026-10-06 | parked | gitattributes-merge-union-append-only-logs | gitattributes-merge-union-append-only-logs: .gitattributes з merge=union для журналів, у які лише дописують #9a4f7303
