@@ -102,10 +102,12 @@ def settings(env: dict[str, str]) -> JsonObj:
             "max_usd": number("SECOND_OPINION_MAX_USD") or 2.0}
 
 
-def may_send(env: dict[str, str], rel: str) -> bool:
+def may_send(root: Path, env: dict[str, str], path: str) -> bool:
+    """Judged by the path as the project sees it, however it was written; never a file outside the project."""
+    rel = simplifier._project_ref(root, path)
     excluded = [p.strip("/") for p in re.split(r"[\s,]+", env.get("SIMPLIFY_EXCLUDE", "")) if p]
-    return not (simplifier.is_protected(env, rel) or any(simplifier.glob_match(p, rel) for p in OWN_RECORDS)
-                or any(rel == p or rel.startswith(p + "/") for p in excluded))
+    return rel is not None and not (simplifier.is_protected(env, rel) or any(simplifier.glob_match(p, rel) for p in OWN_RECORDS)
+                                    or any(rel == p or rel.startswith(p + "/") for p in excluded))
 
 
 def read_lines(root: Path, rel: str) -> list[str]:
@@ -162,7 +164,7 @@ def collect(root: Path, env: dict[str, str], finding: JsonObj, diff: str = "") -
     parts = [f"CLAIM\ntarget: {finding['target']}\ncategory: {finding['category']}\nclaim: {finding['claim']}", "THE TARGET",
              block(rel, lines, 1, WHOLE_FILE_LINES, sent) if whole or line is None else block(rel, lines, line - AROUND_LINES, line + AROUND_LINES, sent)]
     named = [p for p in dict.fromkeys(re.findall(r"[\w./-]+\.\w+", finding["claim"]))
-             if p != rel and (root / p).is_file() and may_send(env, p)][:2]
+             if p != rel and (root / p).is_file() and may_send(root, env, p)][:2]
     if named:
         parts += ["FILES THE CLAIM NAMES", *(block(p, read_lines(root, p), 1, WHOLE_FILE_LINES, sent) for p in named)]
     names = names_of(env, finding, rel, line, lines)
@@ -173,7 +175,7 @@ def collect(root: Path, env: dict[str, str], finding: JsonObj, diff: str = "") -
         hits = []
         for row in budget.git(root, "grep", "-n", "-w", "-F", "-I", "-e", name, "--", ".").splitlines():
             hit = re.match(r"(.+?):(\d+):", row)
-            if hit and may_send(env, hit.group(1)) and (hit.group(1), int(hit.group(2))) not in sent:
+            if hit and may_send(root, env, hit.group(1)) and (hit.group(1), int(hit.group(2))) not in sent:
                 hits.append((hit.group(1), int(hit.group(2))))
         hits.sort(key=lambda h: Path(h[0]).parent != Path(rel).parent)  # the target's own directory first
         room = min(share, MAX_MATCHES - len(shown))
@@ -294,7 +296,7 @@ def review(root: Path, findings: list[JsonObj], diff: str = "", *, timeout: floa
                         "tokens_in": 0, "tokens_out": 0, "cost_usd": 0.0}
         if blocked:
             opinion = no_opinion(blocked)
-        elif not may_send(env, match["path"] if match else finding["target"]):
+        elif not may_send(root, env, match["path"] if match else finding["target"]):
             opinion = no_opinion("not sent: the target is a protected or excluded path")
         elif spent >= config["max_usd"]:
             opinion = no_opinion(f"not asked: the pass limit of ${config['max_usd']:.2f} is spent")

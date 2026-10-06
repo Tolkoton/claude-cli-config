@@ -149,6 +149,20 @@ answer("agree")
 second.review(repo, valid(repo, {"target": "secrets/tool.py:1", "claim": "the import is unused"}))
 check("a finding on a protected path gets no request", not Gemini.seen and log_rows(repo)[-1]["verdict"] == "no_opinion"
       and "protected" in log_rows(repo)[-1]["reason"], log_rows(repo)[-1])
+outside = Path(tempfile.mkdtemp(prefix="second-opinion-outside-")) / "note.py"
+outside.write_text("x = 1  # OUTSIDE-MARK\n", encoding="utf-8")
+for form in (f"{repo}/secrets/tool.py:1", "./secrets/tool.py:1", "src/../secrets/tool.py:1", f"{outside}:1"):
+    answer("agree")
+    second.review(repo, [GOOD | {"id": "F-00000000", "target": form, "claim": "the import is unused"}])  # a file that did not come from the validator
+    check(f"a target written as {form.replace(str(repo), '<root>').replace(str(outside.parent), '<outside>')} gets no request (board 708)",
+          not Gemini.seen and log_rows(repo)[-1]["verdict"] == "no_opinion", [s["body"][:300] for s in Gemini.seen])
+answer("agree")
+second.review(repo, valid(repo, {"claim": f"old_total has no caller, see {repo}/secrets/tool.py and src/../vendor/gen.py and {outside} and {repo}/src/demo/cli.py"}))
+body = Gemini.seen[0]["body"] if Gemini.seen else ""
+check("a file the claim names by an absolute or dotted path is not sent when it is protected, excluded or outside (board 708)",
+      body and not any(part in body for part in ("SECRET-MARK", "VENDOR-MARK", "OUTSIDE-MARK")), body)
+check("negative — an ordinary file the claim names by an absolute path is still shown", "FILES THE CLAIM NAMES" in body and "import sys" in body, body[:1500])
+shutil.rmtree(outside.parent)
 
 print("CHECK-*   the answer is checked like the simplifier's own")
 answer("disagree", ["src/demo/cli.py:3"])

@@ -130,6 +130,37 @@ check("judgement alone: auto_remove becomes confirm",
 check("nothing is ever raised: a protected flag_only stays flag_only",
       one(repo, proposed_action="flag_only", protected=True).get("proposed_action") == "flag_only")
 
+print("PATH-*    the path is judged as the project sees it, however the agent wrote it (board 708)")
+outside = Path(tempfile.mkdtemp(prefix="simplifier-outside-")) / "note.py"
+outside.write_text("x = 1\n", encoding="utf-8")
+(repo / "src/demo/link.py").symlink_to(outside)
+(repo / "src/demo/rules.md").symlink_to(repo / ".claude/constitution.md")
+for form in (f"{repo}/.claude/constitution.md", "./.claude/constitution.md", "src/../.claude/constitution.md",
+             f"{repo}/.claude/constitution.md:1", "src/demo/rules.md"):
+    found = one(repo, target=form)
+    check(f"a protected file written as {form.replace(str(repo), '<root>')} is lowered like the relative path",
+          found.get("protected") is True and found.get("proposed_action") == "confirm"
+          and found.get("target", "").startswith(".claude/constitution.md"), found)
+check("SIMPLIFIER_PROTECTED holds for an absolute path too", one(repo, target=f"{repo}/vendor/keep.py").get("protected") is True)
+for form in (str(outside), f"{outside}:1", f"../{outside.parent.name}/note.py", "src/demo/link.py"):
+    check(f"a target outside the project ({form.replace(str(outside.parent), '<outside>')}) is rejected",
+          "not a file of this repository" in str(one(repo, target=form).get("errors")), one(repo, target=form))
+check("evidence citing a file outside the project is rejected",
+      "does not exist" in str(one(repo, evidence=[{"source": "read", "ref": f"{outside}:1", "detail": "x"}]).get("errors")))
+found = one(repo, target=f"{repo}/src/demo/pricing.py:5-6", evidence=[{"source": "grep", "ref": f"{repo}/src/demo/pricing.py:5", "detail": "x"}])
+check("negative — an absolute path to an ordinary file stays auto_remove, and is recorded relative, line and all",
+      found.get("proposed_action") == "auto_remove" and found.get("target") == "src/demo/pricing.py:5-6"
+      and found["evidence"][0]["ref"] == "src/demo/pricing.py:5" and found["id"] == one(repo, target="src/demo/pricing.py:5-6")["id"], found)
+check("negative — path::symbol keeps its symbol", one(repo, target=f"{repo}/src/demo/pricing.py::old_total").get("target") == "src/demo/pricing.py::old_total")
+(repo / "absolute.json").write_text(json.dumps([GOOD | {"target": f"{repo}/.claude/constitution.md"}, GOOD | {"target": str(outside)}]))
+done = cli(repo, "validate", "absolute.json")
+check("through the command: the absolute protected target is confirm, the outside one rejected",
+      '"proposed_action": "confirm"' in done.stdout and '"proposed_action": "auto_remove"' in done.stdout  # auto_remove: only in the rejected one, as written
+      and "1 valid, 1 rejected, 1 lowered" in done.stderr, done.stdout + done.stderr)
+for name in ("absolute.json", "src/demo/link.py", "src/demo/rules.md"):
+    (repo / name).unlink()
+shutil.rmtree(outside.parent)
+
 print("CLI-*     the answer must be a JSON list, nothing else")
 (repo / "answer.json").write_text(json.dumps([GOOD, GOOD | {"category": "ugly_code"}]))
 done = cli(repo, "validate", "answer.json", "--out", "validated.json")

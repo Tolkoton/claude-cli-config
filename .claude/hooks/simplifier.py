@@ -22,7 +22,9 @@ validate   the agent's answer must be a JSON list of findings, nothing else. Eac
              - code with test_safety none is never above flag_only;
              - auto_remove needs chesterton_checked and a reversal_risk that is not high;
              - every evidence item cites a signal id that exists, a file:line that exists, or
-               says "judgement".
+               says "judgement";
+             - a path is judged as the project sees it: an absolute one, `./`, `..` or a link is
+               rewritten relative to the root first, and one that leads outside is rejected.
 route      confirm and flag_only go to the owner's report (.engine/simplifier/report.md) and to
            the lesson queue; nothing is removed. auto_remove findings are listed for the builder.
            A finding that carries a second opinion (second_opinion.py), and every finding while
@@ -116,8 +118,31 @@ def parse_answer(text: str) -> list[Any]:
     return data
 
 
-def reference_exists(root: Path, ref: str) -> bool:
+def _project_ref(root: Path, ref: str) -> str | None:
+    """`ref` with its path as the project sees it — relative to the root, links and `..` resolved,
+    the way the protected zones are written. None: not a reference, or it leads outside the project."""
     match = REF_RE.match(ref.strip())
+    try:
+        return (root / match["path"]).resolve().relative_to(root.resolve()).as_posix() + ref.strip()[match.end("path"):] if match else None
+    except (OSError, ValueError):
+        return None
+
+
+def _project_paths(root: Path, item: Any) -> Any:
+    """The finding with its target and its read/grep references rewritten by `_project_ref`; one
+    that leads outside stays as written, for `reference_exists` to reject."""
+    if not isinstance(item, dict):
+        return item
+    out = {**item, **({"target": _project_ref(root, item["target"]) or item["target"]} if isinstance(item.get("target"), str) else {})}
+    if isinstance(item.get("evidence"), list):
+        out["evidence"] = [{**e, "ref": _project_ref(root, e["ref"]) or e["ref"]}
+                           if isinstance(e, dict) and e.get("source") in ("read", "grep") and isinstance(e.get("ref"), str) else e
+                           for e in item["evidence"]]
+    return out
+
+
+def reference_exists(root: Path, ref: str) -> bool:
+    match = REF_RE.match(_project_ref(root, ref) or "")
     if not match or not (root / match["path"]).is_file():
         return False
     if not match["line"]:
@@ -229,7 +254,7 @@ def second_log(root: Path, rel: Path = SECOND_LOG_REL) -> list[dict[str, Any]]:
 def validate(root: Path, answer: list[Any], signal_ids: set[str]) -> dict[str, list[Any]]:
     env = budget.project_env(root)
     result: dict[str, list[Any]] = {"findings": [], "rejected": []}
-    for index, item in enumerate(answer):
+    for index, item in enumerate(_project_paths(root, i) for i in answer):
         errors = schema_errors(root, item, signal_ids)
         if errors:
             result["rejected"].append({"index": index, "errors": errors, "finding": item})

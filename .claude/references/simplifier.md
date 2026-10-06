@@ -47,7 +47,10 @@ The agent's answer is a JSON list of findings and nothing else. The validator re
 that breaks the schema and lowers one that claims more than it may: a protected path is never
 `auto_remove`; code no test protects is never above `flag_only`; `auto_remove` needs a checked
 fence, tool evidence and a reversal risk that is not high; every evidence item cites a signal
-that was given, a line that exists, or says `judgement`. Nothing is ever raised.
+that was given, a line that exists, or says `judgement`. Nothing is ever raised. A path is judged as
+the project sees it: an absolute path, `./`, `..` or a link is first rewritten relative to the
+root — so a protected file is protected however it was written — and a target or a cited line
+outside the project is rejected.
 
 ## The second opinion (off unless `SECOND_OPINION="on"`)
 
@@ -62,8 +65,8 @@ python3 .claude/hooks/simplifier.py route reviewed.json --request request.txt --
 `review` sends one request per finding: the claim (target, category, claim), the target's code,
 the files the claim names, and the lines where a name from the target occurs. It does not send
 the simplifier's evidence, action, risk or test-safety — the judge sees the artifact, not the
-author's reasoning — and never a protected path, `SIMPLIFY_EXCLUDE` or the simplifier's own
-records. The answer is `agree`, `disagree` or `unsure`, a reason, and lines cited as `path:line`;
+author's reasoning — and never a protected path, `SIMPLIFY_EXCLUDE`, the simplifier's own
+records or a file outside the project, however the path is written. The answer is `agree`, `disagree` or `unsure`, a reason, and lines cited as `path:line`;
 a cited line that was not sent is marked unverified. Whatever fails — no key, a timeout, a broken
 answer, the pass limit `SECOND_OPINION_MAX_USD` — is `no_opinion`, and the pass goes on.
 
