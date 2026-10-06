@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The planted-bug experiment: does a tester who never saw the code catch what its author misses (board 061)?
+"""The planted-bug experiment: does a tester who never saw the code catch what its author misses (boards 061, 713)?
 
-    python3 evals/run_tester_evals.py [--out FILE] [--scenes boundary …] [--max-usd 10]   # PAID: real sessions
+    python3 evals/run_tester_evals.py [--out FILE] [--scenes boundary …] [--arms c] [--repeat 3] [--max-usd 10]   # PAID: real sessions
     python3 evals/run_tester_evals.py --dry-run DIR                                        # free: the sandboxes and the prompts
     python3 evals/run_tester_evals.py --score FILE --scene boundary                        # free: score a ready test file
 
@@ -12,11 +12,13 @@ skeleton without bodies, an implementation that breaks exactly that line, and a 
     boundary   a bound that is inclusive            rounding   a rounding rule unlike the module's
     empty      an empty input that is an error      order      which check wins when two apply
 
-Two arms; in both the agent only writes tests, to one named file:
+Three arms; every agent writes its tests to one named file:
 
     a  as today    sees the contract and the WRONG implementation (the builder tests its own code)
     b  the tester  sees the contract and the skeleton only; its prompt is the draft of the
                    tester's definition (design of board 060, section 2), kept in the fixture
+    c  the real builder (board 713)  sees the contract and the skeleton and writes BOTH the
+                   implementation and the tests: the misreading, if any, is its own
 
 THE SCRIPT COUNTS, not a model. The file the agent wrote is run against both implementations:
 
@@ -25,6 +27,15 @@ THE SCRIPT COUNTS, not a model. The file the agent wrote is run against both imp
     fails_on_both   fails on both: it proved nothing, and is a line of its own
     mirrors_bug     passes on the wrong one, fails on the right one: the tests copied the bug
     no_tests        the file is not there, or holds no test
+
+In arm C the script also judges the code the agent wrote, with the scene's hidden
+reference_tests.py (the contract's lines; the trap's is the test named in expected.json):
+
+    right     every reference test passes        trapped   only the trap's test fails
+    broken    another reference test fails       none      the module is still the skeleton
+
+and runs the agent's tests on the agent's code. `self_deceived` — trapped code under its own
+green tests — is the case a blind tester exists for.
 
 Nothing is tuned to the result: a scene that did not go as hoped is recorded as it is. Eight
 runs show a coarse difference between the arms, not a fine one.
@@ -59,7 +70,9 @@ ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "tester"
 REFERENCE = HERE / "reference-project"
 SCENES = ("boundary", "rounding", "empty", "order")
-ARMS = {"a": ("wrong", "arm-a-builder.md"), "b": ("skeleton", "arm-b-tester-draft.md")}
+ARMS = {"a": ("wrong", "arm-a-builder.md"), "b": ("skeleton", "arm-b-tester-draft.md"), "c": ("skeleton", "arm-c-builder-real.md")}
+WRITES_CODE = ("c",)
+REFERENCE_TESTS = "tests/test_reference_of_the_scene.py"
 PYTEST = ("uvx", "--with", "pytest", "pytest", "-q", "-p", "no:cacheprovider")
 TOOLS = ("Read", "Grep", "Glob", "Write", "Edit", "Bash")
 RUN_TIMEOUT_S = 900
@@ -103,14 +116,40 @@ def prompt(scene: JsonObj, arm: str) -> str:
 # ------------------------------------------------------------------ scoring (free, deterministic)
 
 
+def pytest_verdict(project: Path, *selection: str) -> JsonObj:
+    proc = subprocess.run([*PYTEST, *selection], cwd=project, capture_output=True, text=True, check=False)
+    lines = proc.stdout.strip().splitlines()
+    return {"passed": proc.returncode == 0, "empty": proc.returncode == 5, "last_line": lines[-1] if lines else proc.stderr.strip()[-200:]}
+
+
 def run_suite(tests: str, name: str, scene: JsonObj, implementation: str, work: Path) -> JsonObj:
     """pytest's verdict on `tests` against one implementation: passed, and whether anything was collected."""
     project = build_sandbox(work / f"{name}-{implementation}", name, scene, implementation)
     (project / test_path(scene)).write_text(tests, encoding="utf-8")
-    proc = subprocess.run([*PYTEST, test_path(scene)], cwd=project, capture_output=True, text=True, check=False)
+    verdict = pytest_verdict(project, test_path(scene))
     shutil.rmtree(project)
-    lines = proc.stdout.strip().splitlines()
-    return {"passed": proc.returncode == 0, "empty": proc.returncode == 5, "last_line": lines[-1] if lines else proc.stderr.strip()[-200:]}
+    return verdict
+
+
+def judge_code(module: str, tests: str | None, name: str, scene: JsonObj, work: Path) -> JsonObj:
+    """Arm C: is the module the agent wrote right, trapped or broken — and do its own tests pass on it?"""
+    if module == fixture(f"scenes/{name}/skeleton.py"):
+        return {"code": "none", "own_tests_green": False, "self_deceived": False, "code_observed": "the module is still the skeleton"}
+    project = build_sandbox(work / f"{name}-written", name, scene, "skeleton")
+    (project / module_path(scene)).write_text(module, encoding="utf-8")
+    (project / REFERENCE_TESTS).write_text(fixture(f"scenes/{name}/reference_tests.py"), encoding="utf-8")
+    around = pytest_verdict(project, REFERENCE_TESTS, "--deselect", f"{REFERENCE_TESTS}::{scene['trap_test']}")
+    trap = pytest_verdict(project, f"{REFERENCE_TESTS}::{scene['trap_test']}")
+    (project / REFERENCE_TESTS).unlink()
+    own = None
+    if tests is not None:
+        (project / test_path(scene)).write_text(tests, encoding="utf-8")
+        own = pytest_verdict(project, test_path(scene))
+    shutil.rmtree(project)
+    code = "broken" if not around["passed"] else "right" if trap["passed"] else "trapped"
+    green = bool(own and own["passed"])
+    return {"code": code, "own_tests_green": green, "self_deceived": code == "trapped" and green,
+            "code_observed": f"reference: {around['last_line']} | trap: {trap['last_line']} | own tests on own code: {own['last_line'] if own else 'no tests'}"}
 
 
 def score(tests: str | None, name: str, scene: JsonObj, work: Path) -> JsonObj:
@@ -122,14 +161,29 @@ def score(tests: str | None, name: str, scene: JsonObj, work: Path) -> JsonObj:
     return {"outcome": outcome, "caught": outcome == "caught", "observed": f"wrong: {wrong['last_line']} | right: {right['last_line']}"}
 
 
-def plan(scenes: list[str]) -> list[tuple[str, str]]:
-    return [(scene, arm) for scene in scenes for arm in ARMS]
+def plan(scenes: list[str], arms: list[str] | None = None, repeat: int = 1) -> list[tuple[str, str]]:
+    return [(scene, arm) for scene in scenes for arm in (arms or list(ARMS)) for _ in range(repeat)]
+
+
+def shown(row: JsonObj) -> str:
+    if "error" in row:
+        return "error"
+    return row["outcome"] + (f"; code {row['code']}" + ("; SELF-DECEIVED" if row["self_deceived"] else "") if "code" in row else "")
 
 
 def summary(runs: list[JsonObj]) -> JsonObj:
-    table = {f"{r['scene']}/{r['arm']}": ("error" if "error" in r else r["outcome"]) for r in runs}
-    caught = {arm: f"{sum(1 for r in runs if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in runs if r['arm'] == arm)}" for arm in ARMS}
-    return {"runs": len(runs), "caught": caught, "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
+    table: JsonObj = {}
+    for r in runs:   # a repeated scene and arm: order/c, order/c#2, …
+        key, again = f"{r['scene']}/{r['arm']}", sum(1 for k in table if k.split("#")[0] == f"{r['scene']}/{r['arm']}")
+        table[f"{key}#{again + 1}" if again else key] = shown(r)
+    arms = [arm for arm in ARMS if any(r["arm"] == arm for r in runs)]
+    caught = {arm: f"{sum(1 for r in runs if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in runs if r['arm'] == arm)}" for arm in arms}
+    result: JsonObj = {"runs": len(runs), "caught": caught, "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
+    written = [r for r in runs if "code" in r]
+    if written:
+        result["code_written"] = {kind: sum(1 for r in written if r["code"] == kind) for kind in ("right", "trapped", "broken", "none")}
+        result["self_deceived"] = f"{sum(1 for r in written if r['self_deceived'])} of {len(written)}"
+    return result
 
 
 # ------------------------------------------------------------------ the paid part
@@ -157,19 +211,28 @@ def run_once(sandbox: Path, text: str, args: argparse.Namespace) -> JsonObj:
 def one_run(name: str, arm: str, scene: JsonObj, work: Path, args: argparse.Namespace) -> JsonObj:
     """One session in its own sandbox, then the file it wrote scored against both implementations."""
     seen = ARMS[arm][0]
-    sandbox = build_sandbox(work / f"{name}-{arm}", name, scene, seen)
+    sandbox = work / f"{name}-{arm}"
+    if sandbox.exists():   # --repeat: the same scene and arm again, in a fresh sandbox
+        shutil.rmtree(sandbox)
+    sandbox = build_sandbox(sandbox, name, scene, seen)
     row = {"scene": name, "arm": arm, "sees": seen} | run_once(sandbox, prompt(scene, arm), args)
     written = sandbox / test_path(scene)
     tests = written.read_text(encoding="utf-8") if written.is_file() else None
     given = (FIXTURE / "scenes" / name / f"{seen}.py").read_text(encoding="utf-8")
-    row |= {"tests": tests, "touched_module": (sandbox / module_path(scene)).read_text(encoding="utf-8") != given}
-    return row if "error" in row else row | score(tests, name, scene, work / "scoring")
+    module = (sandbox / module_path(scene)).read_text(encoding="utf-8")
+    row |= {"tests": tests, "touched_module": module != given}
+    if "error" in row:
+        return row
+    row |= score(tests, name, scene, work / "scoring")
+    return row | {"module": module} | judge_code(module, tests, name, scene, work / "scoring") if arm in WRITES_CODE else row
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--out", type=environment.out_path, help="a recording goes to evals/baseline/@env/")
     parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
+    parser.add_argument("--arms", nargs="+", choices=list(ARMS), default=list(ARMS))
+    parser.add_argument("--repeat", type=int, default=1, help="sessions per scene and arm")
     parser.add_argument("--dry-run", type=Path, help="build every sandbox here, write every prompt beside them and stop; free")
     parser.add_argument("--score", type=Path, help="score this ready test file against --scene and stop; free")
     parser.add_argument("--scene", choices=SCENES, help="the scene --score is for")
@@ -181,7 +244,7 @@ def main() -> int:
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
     args = parser.parse_args()
     expected = json.loads(fixture("expected.json"))
-    todo = plan(args.scenes)
+    todo = plan(args.scenes, args.arms, args.repeat)
 
     if args.score:
         if not args.scene:
@@ -191,10 +254,10 @@ def main() -> int:
         print(f"{args.scene}: {result['outcome']} — {result['observed']}")
         return 0 if result["caught"] else 1
     if args.dry_run:
-        for name, arm in todo:
+        for name, arm in dict.fromkeys(todo):
             build_sandbox(args.dry_run / f"{name}-{arm}", name, expected[name], ARMS[arm][0])
             (args.dry_run / f"prompt-{name}-{arm}.txt").write_text(prompt(expected[name], arm), encoding="utf-8")
-        print(f"{len(todo)} prompts and sandboxes in {args.dry_run}; nothing was run")
+        print(f"{len(dict.fromkeys(todo))} prompts and sandboxes in {args.dry_run}; nothing was run")
         return 0
     refusal = analyst.paid.paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
     if refusal:
@@ -210,12 +273,12 @@ def main() -> int:
                 break
             row = one_run(name, arm, expected[name], Path(tmp), args)
             runs.append(row)
-            shown = row.get("error") or f"{row['outcome']} — {row['observed']}"
-            print(f"{name} {arm}: {shown}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})", flush=True)
+            line = row.get("error") or f"{shown(row)} — {row['observed']}" + (f" | {row['code_observed']}" if "code" in row else "")
+            print(f"{name} {arm}: {line}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})", flush=True)
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-        "limit_usd": limit, "planned": [f"{s}/{a}" for s, a in todo], "arms": {arm: f"sees the contract and the {seen} module" for arm, (seen, _) in ARMS.items()},
+        "limit_usd": limit, "planned": [f"{s}/{a}" for s, a in todo], "arms": {arm: f"sees the contract and the {ARMS[arm][0]} module" + ("; writes the implementation too" if arm in WRITES_CODE else "") for arm in args.arms},
         "scenes": {name: entry["what"] for name, entry in expected.items()}, "summary": summary(runs), "runs": runs,
     }
     print("\n" + json.dumps(report["summary"], indent=2, ensure_ascii=False))
