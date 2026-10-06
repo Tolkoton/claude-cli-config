@@ -21,8 +21,11 @@ TRIGGER — both signals required:
   1. text sentinel: `=== UNIT N COMPLETE ===` on its own line in the message.
   2. tool signal:   in the current turn, an Edit/Write/MultiEdit on a code
                     path (configured via SOURCE_DIRS / CODE_EXTENSIONS in
-                    .claude/project.env) AND a Bash verification command
-                    (configured via CHECK_CMDS, or built-in broad default).
+                    .claude/project.env) — or a code path that differs in the
+                    TREE from what the last audit request saw, whichever tool
+                    wrote it (a shell command, a script) — AND a Bash
+                    verification command (configured via CHECK_CMDS, or
+                    built-in broad default).
 
 RECURSION GUARDS — per-branch, by design:
   - Audit request    — `.claude/state/overseer/.last_audit_sha`, the SHA of the last message whose
@@ -573,6 +576,36 @@ def _lesson_request(project_dir: Path) -> str:
         return ""
 
 
+def _code_changed_in_tree(project_dir: Path, source_dirs: list[str], code_extensions: frozenset[str]) -> bool:
+    """The edit signal read from the tree, whichever tool wrote the file (board 707: a unit written
+    with `cat > file` or by a script left no Edit call and was never audited). True when a code
+    path differs from what the last audit request saw — its content then, or the commit that
+    request stood on; with no request yet, when one is among the files no accepted PASS has covered."""
+    import gate
+    import gate_allows
+    import overseer_verdict as ov
+
+    def changed(rel: str, seen: str) -> bool:
+        path = project_dir / rel
+        return seen != (hashlib.sha256(path.read_bytes()).hexdigest()[:16] if path.is_file() else "absent")
+
+    def is_code(rel: str) -> bool:
+        return _is_code_path(rel, source_dirs, code_extensions)
+
+    try:
+        now = ov.tree_fingerprint(project_dir) or {}
+        last = max((project_dir / ov.REQUESTS_REL).glob("*/request.json"), key=lambda f: f.stat().st_mtime_ns, default=None)
+        before = json.loads(last.read_text(encoding="utf-8")).get("tree") if last else None
+        if not now or not before:
+            return any(is_code(rel) for rel in gate_allows.unit_files(project_dir))
+        old, names = dict(before["files"]), set(before["files"]) | set(now["files"])
+        if before["head"] != now["head"]:
+            names.update(gate.lines_of(gate.git(project_dir, "diff", "--name-only", str(before["head"]), str(now["head"]))))
+        return any(is_code(rel) and changed(rel, str(old.get(rel, "")).partition(":")[2]) for rel in names)
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
 def _claimed_unit(project_dir: Path, envelope: dict[str, object], message: str) -> str | None:
     """The unit number when this message is a NEW completion claim: the sentinel, not yet answered,
     and — since the last overseer audit of this turn — a code edit plus a verification command."""
@@ -586,7 +619,7 @@ def _claimed_unit(project_dir: Path, envelope: dict[str, object], message: str) 
     check_cmd_re = _build_check_cmd_re(cfg)
     events = overseer_verdict.since_last_audit(overseer_verdict.turn_events(_str_field(envelope, "transcript_path")))
     edited = any(e["tool"] in EDIT_TOOLS and _is_code_path(str(e["input"].get("file_path", "")), source_dirs, code_extensions)
-                 for e in events)
+                 for e in events) or _code_changed_in_tree(project_dir, source_dirs, code_extensions)
     checked = any(e["tool"] == "Bash" and check_cmd_re.search(str(e["input"].get("command", ""))) for e in events)
     return found.group(1) if edited and checked else None
 

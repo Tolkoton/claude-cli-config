@@ -38,8 +38,9 @@ the next unblocked item. A `gate-allow` is not a way through: the overseer reads
 
 ## Overseer protocol
 - `overseer_stop.py` injects `OVERSEER_REQUEST <id>` only when a turn claims a unit complete: the
-  sentinel `=== UNIT N COMPLETE ===` alone on its own line AND, in the same turn, an edit under
-  a code path (`.claude/project.env`) plus a verification command. Emit the sentinel only for a
+  sentinel `=== UNIT N COMPLETE ===` alone on its own line AND, in the same turn, a verification
+  command, AND code under a code path (`.claude/project.env`) that changed since the last audit
+  request, written by any tool. Emit the sentinel only for a
   genuine unit — `N` from `.engine/slices/<slug>.md`, else `1` — never on a work-in-progress,
   RED-only or question-answering turn.
 - On `OVERSEER_REQUEST <id>`: launch the agent `overseer` (fresh context, no editing tool) with

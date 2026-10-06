@@ -15,3 +15,5 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | parked | 049-doing-two-sides | 049-doing-two-sides: Після 049: два місця ще вважають, що в doing/ одна задача #077689b3
 - 2026-10-06 | parked | 061-arm-a-real | 061-arm-a-real: Дослід тестувальника: плече «А-справжнє» #f8cdfcad
 - 2026-10-06 | agent | 001-verdict-handback | a test was missing: the SubagentStop envelope was probed only with an agent that called no tool, so the premise 'the reply is in last_assistant_message' was never checked for the shape every real over #34d4ada7
+- 2026-10-06 | parked | 707-protect-paths-shell-write | 707-protect-paths-shell-write: Захищені шляхи можна записати командою оболонки: protect-paths.sh бачить лише Edit/Write #cb4cd4f7
+- 2026-10-06 | overseer | - | BLOCK no.4 masked test gap — the fix's rule is "the baseline is what the LAST audit request saw", and no case in the new section ever compares against a project holding two requests: with `max(` repla #14509695

@@ -90,16 +90,18 @@ class Project:
         return subprocess.run([sys.executable, str(script), *args], input=json.dumps(envelope or {}),
                               capture_output=True, text=True, env=env, check=False)
 
-    def transcript(self, after_audit: bool = False) -> str:
+    def transcript(self, after_audit: bool = False, shell: str = "") -> str:
         """A turn with a code edit and a verification command; with after_audit, an overseer launch
-        comes first, so the edit and the check count as work done since that audit."""
+        comes first, so the edit and the check count as work done since that audit. With `shell`,
+        the turn calls no edit tool at all: that command stands in the Edit's place (board 707)."""
         def use(i: int, name: str, tool_input: dict[str, Any]) -> list[dict[str, Any]]:
             return [{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": f"t{i}", "name": name, "input": tool_input}]}},
                     {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": "6 passed in 0.02s" if name == "Bash" else "ok"}]}}]
         records: list[dict[str, Any]] = [{"type": "user", "message": {"role": "user", "content": "do unit 3"}}]
         if after_audit:
             records += use(0, "Agent", {"subagent_type": "overseer", "prompt": "OVERSEER_REQUEST x"})
-        records += use(1, "Edit", {"file_path": str(self.root / "src/pricing.py")}) + use(2, "Bash", {"command": "pytest -q"})
+        records += use(1, "Bash", {"command": shell}) if shell else use(1, "Edit", {"file_path": str(self.root / "src/pricing.py")})
+        records += use(2, "Bash", {"command": "pytest -q"})
         self.turn += 1
         path = self.root / ".claude" / "state" / f"transcript-{self.turn}.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,9 +112,9 @@ class Project:
         out = self.run(STOP, [], {"hook_event_name": "Stop", "last_assistant_message": message, "transcript_path": transcript, **extra}).stdout
         return json.loads(out)["reason"] if out.strip() else ""
 
-    def claim(self, message: str = CLAIM, after_audit: bool = False) -> tuple[str, str]:
+    def claim(self, message: str = CLAIM, after_audit: bool = False, shell: str = "") -> tuple[str, str]:
         """A unit-completion claim reaches the Stop hook. Returns (what the hook said, request id)."""
-        said = self.stop(message, self.transcript(after_audit))
+        said = self.stop(message, self.transcript(after_audit, shell))
         return said, json.loads(self.read(".claude/state/overseer/pending.json") or "{}").get("id", "")
 
     def launch(self, prompt: str, subagent: str = "overseer", **extra: Any) -> str:
@@ -143,9 +145,9 @@ class Project:
                                             **({} if said is None else {"last_assistant_message": said})}).stdout
         return json.loads(out)["reason"] if out.strip() else ""
 
-    def audit(self, reply: dict[str, Any] | str, message: str = CLAIM, after_audit: bool = False) -> str:
+    def audit(self, reply: dict[str, Any] | str, message: str = CLAIM, after_audit: bool = False, shell: str = "") -> str:
         """Claim, launch, answer; returns the request id."""
-        _, request_id = self.claim(message, after_audit)
+        _, request_id = self.claim(message, after_audit, shell)
         self.launch(f"OVERSEER_REQUEST {request_id}")
         self.answer(reply)
         return request_id
@@ -467,6 +469,63 @@ both.launch(f"OVERSEER_REQUEST {rid}")
 both.handback(fenced, said=json.dumps(BLOCK))
 check("negative — where the envelope carries the message, the message is the answer and the transcript is not read",
       [r["verdict"] for r in both.rows()] == ["BLOCK"], str(both.rows()))
+
+print("\n== code written by a shell command (board 707)")
+SHELL_WRITE = "cat > src/pricing.py <<EOF\ndef with_tax(x):\n    return x * 1.2\nEOF"
+
+
+def shell_project() -> Project:
+    """A project that names its code paths, so a document is told from code."""
+    project = Project()
+    project.write(".claude/project.env", 'SOURCE_DIRS="src tests"\n')
+    return project
+
+
+def commit(project: Project) -> None:
+    project.git("add", "-A")
+    project.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "checkpoint")
+
+
+p = shell_project()
+p.write("src/pricing.py", "def with_tax(x):\n    return x * 1.2\n")
+said, rid = p.claim(shell=SHELL_WRITE)
+check("a unit whose code was written by a shell command gets its audit request (seen live: the turn ended unaudited)",
+      rid != "" and f"OVERSEER_REQUEST {rid}" in said, said)
+p.launch(f"OVERSEER_REQUEST {rid}")
+p.answer(BLOCK)
+p.stop("The overseer agent answered BLOCK.")
+said, again = p.claim(CLAIM + "\nSame code, claimed again.", after_audit=True, shell="git status")
+check("negative — after a BLOCK, a claim over the tree that audit already saw asks for nothing", said == "" and again == "", said)
+p.write("tests/test_pricing.py", "def test_x():\n    assert with_tax(10) == 12\n")
+said, again = p.claim(CLAIM + "\nFixed the test.", after_audit=True, shell="python3 write_test.py")
+check("a fix made by a shell command after a BLOCK is audited again", again not in ("", rid) and f"OVERSEER_REQUEST {again}" in said, said)
+p.launch(f"OVERSEER_REQUEST {again}")
+p.answer(BLOCK)
+p.stop("The overseer agent answered BLOCK again.")
+said, third = p.claim(CLAIM + "\nNothing new since the second audit.", after_audit=True, shell="git status")
+check("negative — the baseline is the LAST request: what the second audit saw is not a new edit", said == "" and third == "", said)
+done = shell_project()
+done.audit(GOOD)
+done.stop("The overseer agent answered PASS.")
+done.write("src/pricing.py", "def with_tax(x):\n    return x * 1.2\n")
+commit(done)
+said, rid = done.claim(CLAIM + "\nNext unit.", shell=SHELL_WRITE + " && git commit -qam checkpoint")
+check("code written by shell and already committed is still a code edit", rid != "" and f"OVERSEER_REQUEST {rid}" in said, said)
+seen = shell_project()
+seen.write("src/pricing.py", "def with_tax(x):\n    return x * 1.2\n")
+seen.audit(GOOD, shell=SHELL_WRITE)
+seen.stop("The overseer agent answered PASS.")
+commit(seen)
+seen.write("README.md", "# pricing\n")
+said, rid = seen.claim(CLAIM + "\nWrote the readme.", shell="echo '# pricing' > README.md")
+check("negative — code an audit saw, committed unchanged since, is not a new edit", said == "" and rid == "", said)
+doc = shell_project()
+doc.write("README.md", "# pricing\n")
+said, rid = doc.claim(shell="echo '# pricing' > README.md")
+check("negative — a document written by shell is not a code edit", said == "" and rid == "", said)
+idle = shell_project()
+said, rid = idle.claim(shell="git status")
+check("negative — a turn that only ran commands and changed nothing asks for nothing", said == "" and rid == "", said)
 
 if failures:
     print(f"\nFAIL ({len(failures)}): " + "; ".join(failures))
