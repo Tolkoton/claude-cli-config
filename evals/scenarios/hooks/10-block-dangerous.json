@@ -464,6 +464,102 @@
         }
       },
       "expect": "allow"
+    },
+    {
+      "id": "bd-shell-write-constitution",
+      "why": "Board 714: the constitution is refused to Edit by protect-paths.sh; a redirection reached it because the Bash hook did not know the protected paths.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "printf x > .claude/constitution.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-shell-tee-settings",
+      "why": "Board 714: tee into the shared settings file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo '{}' | tee .claude/settings.json"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-shell-sed-in-place-workflow",
+      "why": "Board 714: an in-place sed on a workflow file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "sed -i s/a/b/ .github/workflows/ci.yml"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-shell-python-open-w-settings",
+      "why": "Board 714: inline code that opens a protected file for writing.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "python3 -c \"open('.claude/settings.json', 'w').write('{}')\""
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-shell-read-dotenv",
+      "why": "Board 714: a secret is refused to a shell command that only reads it.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cat .env"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-shell-diff-settings-allowed",
+      "why": "Board 714, the negative case: reading a guarded file is ordinary work.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git diff -- .claude/settings.json"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-shell-grep-settings-allowed",
+      "why": "Board 714, the negative case: grep in the settings file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "grep -n hooks .claude/settings.json"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-shell-jq-key-allowed",
+      "why": "Board 714: `.key` matches the list's key-file pattern and is a jq filter, not a file — a word is a secret path only when its form leaves no doubt or the file exists.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "jq -r .key data.json"
+        }
+      },
+      "expect": "allow"
     }
   ]
 }

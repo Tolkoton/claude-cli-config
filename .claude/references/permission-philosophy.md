@@ -53,7 +53,7 @@ Claude Code's deny rules have known holes (see issues `anthropics/claude-code#66
 That's why the engine uses three lines of defense:
 
 1. **settings.json deny/ask/allow**: the documented mechanism. Blocks the obvious shapes.
-2. **`block-dangerous.sh` PreToolUse hook**: catches Bash patterns that slip past settings.json, including all the wildcard-expansion shapes.
+2. **`block-dangerous.sh` PreToolUse hook**: catches Bash patterns that slip past settings.json, including all the wildcard-expansion shapes, and a shell command that writes to a protected path or names a secret one (the same list of paths as the next hook).
 3. **`protect-paths.sh` PreToolUse hook**: catches Edit/Write/MultiEdit on protected paths even if the settings.json glob didn't match.
 
 You can defeat all three by editing the hook scripts. They're yours. But out of the box, three layers means a single bug doesn't expose you.
