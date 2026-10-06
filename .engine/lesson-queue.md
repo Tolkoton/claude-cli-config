@@ -18,3 +18,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | parked | release-counts-zero-verdict-audit | release-counts-zero-verdict-audit: реліз приймає повний аудит без жодного вердикту #d74d85ad
 - 2026-10-06 | parked | 076-maintain-build-unit-1-accept-or-reaudit | 076-maintain-build/unit 1/accept-or-reaudit: Юніт 1 задачі 076 лишився без записаного вердикту: прийняти чи повторити аудит #1ed407e9
 - 2026-10-06 | parked | 045-anomaly-failed-untested | 045/anomaly-failed-untested: Подію anomaly-failed виконавця не тримає жоден тест (045) #93310a0d
+- 2026-10-06 | parked | 717-protected-file-guard-build | 717-protected-file-guard-build: Охоронюваний файл змінився за хід: будівництво за проєктом 717 #b9cfd70d
