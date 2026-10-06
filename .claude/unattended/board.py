@@ -49,8 +49,8 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      something open becomes a task of the board (see AN OPEN ITEM);
                                      prints its path; exit 1: no board, or nothing to ask
     board.py anomaly <task|-> <what happened> <what was done> [--source WHO]
-                                     one entry in tasks/ANOMALIES.md; WHO wrote it: виконавець
-                                     (the default), агент, ворота, hook <name>
+                                     one entry in tasks/ANOMALIES.md; WHO wrote it: runner
+                                     (the default), агент, gates, hook <name>
     board.py summary                 the board in a dozen lines, for the owner
     board.py review [--since <commit|date>] [--offline]
                                      the owner's review: one markdown document about the work
@@ -58,7 +58,7 @@ exception reads only: `review` takes the board from the work branch in origin (b
 
 A GATE QUESTION (board 005) is a task the Stop gate writes itself when it gives up after N
 blocks in a row (`gate_question`, called by .claude/hooks/gate.py): tasks/blocked/9NN-gate-
-escalation-<stamp>.md, with the line `Ескалація воріт: <stamp>` under its title and the question
+escalation-<stamp>.md, with the line `Ескалація gates: <stamp>` under its title and the question
 «Закрити ескалацію?». The owner's answer «так» is acted on by board-runner.sh, which runs
 `gate.py --close-escalation` — never by an agent, so `unblock` leaves such a task where it is.
 Any other answer is an instruction: the task goes back to todo/ like every answered task.
@@ -71,7 +71,7 @@ for the agent and nothing is applied.
 AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do: applying
 the settings proposal, and (board 051) amending the approved goals document from
 `.engine/goals/proposed.md` (`amend-goals`). The agent asks its question and writes under it the
-line `Дія виконавця: apply-settings <sha256 of the proposal>` (`action-line` prints it). The
+line `Дія runner-а: apply-settings <sha256 of the proposal>` (`action-line` prints it). The
 owner's answer «так» is acted on by board-runner.sh through owner_action.py, never by an agent;
 `unblock` leaves such a task where it is until the runner has replaced the offer with the
 outcome, and then the task returns to todo/ for the agent to check and report. The list of what
@@ -82,7 +82,7 @@ A RULE QUESTION (board 040) is how a lesson becomes a rule: never by itself, onl
 word. `rule_question` (called by .claude/hooks/lesson_queue.py when a lesson is filed as a rule
 proposal) writes tasks/blocked/8NN-rule-proposal-<id>.md: the exact text of the rule, the
 overseer's recommendation when there is one, the question «Зробити це правилом?» and the offer
-`Дія виконавця: promote-rule <sha256 of the id and the text>`. «так» is the runner's to act on
+`Дія runner-а: promote-rule <sha256 of the id and the text>`. «так» is the runner's to act on
 (owner_action.py promote-rule → lesson_queue.promote), «ні» too (reject-rule: the proposal is
 closed); either way the runner moves the task to done/ with a short report and no agent is
 started. Any other answer is an instruction for the agent.
@@ -136,7 +136,7 @@ back into todo/, three overseer BLOCKs in a row on one unit (board 031: the Stop
 marker, `--verdicts` writes its verdicts into the task) — `park` moves it to blocked/ itself, with a section `## Чому зупинилась` (one
 dated line per stop, placed before the questions) and a question to the owner with an empty
 `Відповідь:`; any answer returns it to todo/ like every answered task. The same call writes the
-event into THE ANOMALY JOURNAL, tasks/ANOMALIES.md: `## <UTC> — <task or дошка>` with three lines
+event into THE ANOMALY JOURNAL, tasks/ANOMALIES.md: `## <UTC> — <task or task board>` with three lines
 — what happened, what was done, who wrote it. Everything odd goes there instead of stopping the
 work, whoever met it (board 035): the runner, the Stop gate when it escalates, a hook (`note`,
 which gate.py and lesson_queue.py call), the agent (`anomaly … --source агент`). The runner
@@ -183,21 +183,27 @@ TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
 AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
+# The owner's leave for paid runs (board 053): «так» or any wording that is not a refusal; a dollar
+# number in the line is a ceiling, never a required field. The runner's BOARD_MAX_USD guards a loop.
+PAID = re.compile(r"^Платні прогони:[ \t]*(.*)$", re.MULTILINE)
+PAID_NO = re.compile(r"(?:ні|немає|нема|no)\b|[—–-]*[\s.]*$", re.IGNORECASE)
+PAID_CEILING = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.IGNORECASE)
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
 ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILINE)
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-GATE = re.compile(r"^Ескалація воріт:\s*(\S+)", re.MULTILINE)
+# Both markers are read in the wording before board 053 too: a question already asked keeps working.
+GATE = re.compile(r"^Ескалація (?:gates|воріт):\s*(\S+)", re.MULTILINE)
 GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
 CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
-# question (the `Ескалація воріт:` line), the rest by an action line.
+# question (the `Ескалація gates:` line), the rest by an action line.
 OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "update-deps", "close-escalation")
 RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
 RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
 RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_FIRST
-ACTION = re.compile(r"^[\s>*_-]*Дія виконавця:[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
+ACTION = re.compile(r"^[\s>*_-]*Дія (?:runner-а|виконавця):[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
 DEPS_ACTION, DEPS_RESULT = "update-deps", ".engine/maintain/update-result.md"
 ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".engine/goals/proposed.md",
                 DEPS_ACTION: ".engine/maintain/updates.json"}  # the file whose sha256 the offer names
@@ -223,6 +229,8 @@ class Task:
     action_arg: str = ""
     rule: str = ""
     attended: bool = False
+    paid: bool = False
+    paid_ceiling: float | None = None
 
     @property
     def answered(self) -> bool:
@@ -281,6 +289,8 @@ def parse(text: str) -> Task:
         following = HEADING.search(rest)
         questions = rest[: following.start()] if following else rest
     rule = RULE.search(header)
+    paid = next((m.group(1).strip(" \t*_") for m in PAID.finditer(text) if not PAID_NO.match(m.group(1).strip(" \t*_"))), None)
+    ceiling = PAID_CEILING.search(paid) if paid else None
     offers = [m for m in ACTION.finditer(questions) if m.group(1) in OFFERS]
     return Task(
         action=offers[-1].group(1) if offers else "",
@@ -292,6 +302,8 @@ def parse(text: str) -> Task:
         gate=gate.group(1) if gate else "",
         rule=rule.group(1) if rule else "",
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
+        paid=paid is not None,
+        paid_ceiling=float(ceiling.group(1).replace(",", ".")) if ceiling else None,
     )
 
 
@@ -522,36 +534,36 @@ def gate_question(board: Board, stamp: str, blocks: int, slice_name: str, files:
     def shown(lines: list[str], empty: str) -> str:
         return "\n".join(f"  - {line.replace('<!--', '<! --').strip()}" for line in lines) or f"  - {empty}"
 
-    text = f"""# {number} — Ворота зупинили роботу: потрібне ваше рішення
+    text = f"""# {number} — Gates зупинили роботу: потрібне ваше рішення
 
 Залежить від: —
 Аудит потрібен: ні
-Ескалація воріт: {stamp}
+Ескалація gates: {stamp}
 
 ## Що сталося
-Перевірки наприкінці ходу (ворота) не пройшли {blocks} раз(и) поспіль, і агент не зміг цього
-виправити. Хід завершено; зроблене лежить на диску. Поки це питання відкрите, наглядач не
+Перевірки наприкінці ходу (gates) не пройшли {blocks} раз(и) поспіль, і агент не зміг цього
+виправити. Хід завершено; зроблене лежить на диску. Поки це питання відкрите, overseer не
 приймає роботу, яка зачіпає ці файли.
 
-- Зріз: {slice_name}
+- Slice: {slice_name}
 - Файли:
-{shown(files, "(ворота не назвали файлів)")}
+{shown(files, "(gates не назвали файлів)")}
 - На чому зупинилося:
 {shown(reasons, "(причину не записано)")}
 - Повний звіт (на сервері): `{report}`
 
 ## Що зробити
-Це питання поставили ворота, а не агент. Агент на нього не відповідає і сам ескалацію не
-закриває: відповідь «так» виконує виконавець дошки. Якщо власник відповів інакше — це
+Це питання поставили gates, а не агент. Агент на нього не відповідає і сам ескалацію не
+закриває: відповідь «так» виконує runner. Якщо власник відповів інакше — це
 вказівка агентові: виконай її, допиши внизу нове питання «Тепер закрити ескалацію?» з порожнім
 рядком відповіді й поверни задачу в `tasks/blocked/`.
 
 ## Готово, коли
-Власник відповів «так», і виконавець закрив ескалацію.
+Власник відповів «так», і runner закрив ескалацію.
 
 ## Питання до власника
 Варіанти відповіді:
-- `так` — рівно це одне слово: зауваження воріт прийнято або вже виправлено; ескалацію буде закрито,
+- `так` — рівно це одне слово: зауваження gates прийнято або вже виправлено; ескалацію буде закрито,
   роботу з цими файлами можна приймати далі.
 - будь-який інший текст (і «так, але…» теж) — вказівка агентові, що саме виправити; ескалація
   лишається відкритою.
@@ -587,7 +599,7 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
 
 ## Що сталося
 Із роботи над проєктом винесено урок, схожий на постійне правило. Уроки не стають правилами
-самі: це правило з'явиться лише з вашої згоди. Наглядач може радити, але не вирішує.
+самі: це правило з'явиться лише з вашої згоди. Overseer може радити, але не вирішує.
 
 - Текст правила — саме так, слово в слово, він потрапить у `.engine/rules.md`, який читає кожна розмова:
 
@@ -595,16 +607,16 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
 
 - Чому: {shown(why, "(не записано)")}
 - Звідки урок: {shown(origin, "(не записано)")}
-- Рекомендація наглядача: {shown(advice, "немає")}
+- Рекомендація overseer-а: {shown(advice, "немає")}
 
 ## Що зробити
-Це питання до власника, не робота для агента. Відповіді «так» і «ні» виконує виконавець дошки.
+Це питання до власника, не робота для агента. Відповіді «так» і «ні» виконує runner.
 Якщо власник відповів інакше — це вказівка агентові: виконай її (щоб змінити текст правила,
 закрий цю пропозицію — `python3 .claude/hooks/lesson_queue.py reject {ident} --why "<слова власника>"` —
 і подай нову), запиши у звіт і закрий задачу. Сам `promote` не запускай і `Відповідь:` не заповнюй.
 
 ## Готово, коли
-Власник відповів, і виконавець записав правило або закрив пропозицію.
+Власник відповів, і runner записав правило або закрив пропозицію.
 
 ## Питання до власника
 Варіанти відповіді:
@@ -613,7 +625,7 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
 - будь-який інший текст (і «так, але…» теж) — вказівка агентові (наприклад, як переписати правило).
 
 1. Зробити це правилом?
-   Дія виконавця: {RULE_ACTION} {sha}
+   Дія runner-а: {RULE_ACTION} {sha}
    Відповідь:
 """
     target = board.tasks / "blocked" / f"{number}-rule-proposal-{ident}.md"
@@ -700,20 +712,20 @@ def gate_done(board: Board, path: Path, outcome: str) -> Path:
     stamp = read(path).gate
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     if outcome == "closed":
-        changed = (f"Ескалацію воріт {stamp} закрито за вашою відповіддю «так» ({now}, виконавець дошки). "
-                   "Наглядач знову приймає роботу з цими файлами.")
+        changed = (f"Ескалацію gates {stamp} закрито за вашою відповіддю «так» ({now}, runner). "
+                   "Overseer знову приймає роботу з цими файлами.")
     elif outcome == "elsewhere":
-        changed = (f"Ескалацію воріт {stamp} закрито іншим шляхом — командою `gate.py --close-escalation` у терміналі, "
-                   f"а не відповіддю на це питання. Питання більше нічого не питає, тому виконавець сам прибрав його з дошки ({now}).")
+        changed = (f"Ескалацію gates {stamp} закрито іншим шляхом — командою `gate.py --close-escalation` у терміналі, "
+                   f"а не відповіддю на це питання. Питання більше нічого не питає, тому runner сам прибрав його з task board ({now}).")
     else:
-        changed = (f"Ескалація воріт {stamp} на момент вашої відповіді вже не була відкрита (її закрито раніше "
-                   f"або запису про неї немає). Питання прибрано з дошки ({now}, виконавець дошки).")
+        changed = (f"Ескалація gates {stamp} на момент вашої відповіді вже не була відкрита (її закрито раніше "
+                   f"або запису про неї немає). Питання прибрано з task board ({now}, runner).")
     target = board.tasks / "done" / path.stem
     target.mkdir(parents=True, exist_ok=True)
     path.rename(target / "task.md")
     (target / "report.md").write_text(
         f"# Звіт: {path.stem}\n\n## Що змінилось для власника\n- {changed}\n\n"
-        "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було"
+        "Цей звіт написав runner, не агент: жодної роботи тут не було"
         + (".\n" if outcome == "elsewhere" else ", лише ваша відповідь.\n"), encoding="utf-8")
     return target
 
@@ -729,7 +741,7 @@ def owner_actions(board: Board) -> list[str]:
 
 def action_line(root: Path, action: str) -> str:
     """The offer an agent writes under its question: the action and the sha256 of what it applies."""
-    return f"Дія виконавця: {action} {hashlib.sha256((root / ACTION_FILES[action]).read_bytes()).hexdigest()}"
+    return f"Дія runner-а: {action} {hashlib.sha256((root / ACTION_FILES[action]).read_bytes()).hexdigest()}"
 
 
 def action_task(board: Board, name: str) -> Path | None:
@@ -737,30 +749,30 @@ def action_task(board: Board, name: str) -> Path | None:
     return path if path.is_file() and TASK_NAME.match(path.name) and read(path).action else None
 
 
-STALE = ("Дію не виконано ({now}, виконавець дошки): {action} — те, що застосовується, змінилося після запитання "
+STALE = ("Дію не виконано ({now}, runner): {action} — те, що застосовується, змінилося після запитання "
          "(інший sha256) або його немає; власник схвалював не це. Агентові: спитай знову з новим рядком дії.")
 ACTION_OUTCOMES = {
-    "applied": "Дію виконано ({now}, виконавець дошки): {action} — застосовано за відповіддю власника «так», "
+    "applied": "Дію виконано ({now}, runner): {action} — застосовано за відповіддю власника «так», "
                "перевірка після застосування зелена. Агентові: переконайся і закрий задачу звітом.",
-    "failed": "Дію не виконано ({now}, виконавець дошки): {action} — перевірка червона: пропозицію не застосовано, на місці попередній "
+    "failed": "Дію не виконано ({now}, runner): {action} — перевірка червона: пропозицію не застосовано, на місці попередній "
               "файл (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: виправ і спитай знову.",
     "stale": STALE,
 }
 RULE_OUTCOMES = {
-    (DEPS_ACTION, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «так» оновлення пройшли по одному: що оновлено "
+    (DEPS_ACTION, "applied"): "Дію виконано ({now}, runner): {action} — за відповіддю власника «так» оновлення пройшли по одному: що оновлено "
                               f"(кожне окремим commit-ом), а що скасовано і з яким виводом — у `{DEPS_RESULT}`. Агентові: перенеси це у звіт і закрий задачу.",
-    (DEPS_ACTION, "failed"): "Дію не виконано ({now}, виконавець дошки): {action} — жодної залежності не оновлено: немає `DEPS_UPDATE_CMD`, робоче дерево "
+    (DEPS_ACTION, "failed"): "Дію не виконано ({now}, runner): {action} — жодної залежності не оновлено: немає `DEPS_UPDATE_CMD`, робоче дерево "
                              f"було не чисте, перевірки не зелені ще до оновлень або гілка не `unattended/*` (подробиці — `{DEPS_RESULT}` або журнал на "
                              "сервері: .claude/state/board/logs/owner-action.log). Агентові: напиши причину у звіт; оновлювати знову — лише новим питанням.",
-    (RULE_ACTION, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «так» правило додано до `.engine/rules.md`.",
-    (RULE_ACTION, "failed"): "Дію не виконано ({now}, виконавець дошки): {action} — правило не додано: постійний контекст перевищив би "
+    (RULE_ACTION, "applied"): "Дію виконано ({now}, runner): {action} — за відповіддю власника «так» правило додано до `.engine/rules.md`.",
+    (RULE_ACTION, "failed"): "Дію не виконано ({now}, runner): {action} — правило не додано: постійний контекст перевищив би "
                              "200 рядків (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: скороти "
                              "`.engine/rules.md` і спитай знову (`lesson_queue.py ask <id>`).",
-    (RULE_DECLINE, "applied"): "Дію виконано ({now}, виконавець дошки): {action} — за відповіддю власника «ні» пропозицію закрито; правилом вона не стала.",
+    (RULE_DECLINE, "applied"): "Дію виконано ({now}, runner): {action} — за відповіддю власника «ні» пропозицію закрито; правилом вона не стала.",
 }
 RULE_REPORTS = {
-    RULE_ACTION: "Урок став правилом за вашою відповіддю «так»: рядок додано до `.engine/rules.md` ({now}, виконавець дошки).",
-    RULE_DECLINE: "Пропозицію правила закрито за вашою відповіддю «ні»: правилом вона не стала ({now}, виконавець дошки).",
+    RULE_ACTION: "Урок став правилом за вашою відповіддю «так»: рядок додано до `.engine/rules.md` ({now}, runner).",
+    RULE_DECLINE: "Пропозицію правила закрито за вашою відповіддю «ні»: правилом вона не стала ({now}, runner).",
 }
 
 
@@ -782,7 +794,7 @@ def action_done(board: Board, path: Path, outcome: str) -> Path:
     path.rename(target / "task.md")
     (target / "report.md").write_text(
         f"# Звіт: {path.stem}\n\n## Що змінилось для власника\n- {RULE_REPORTS[action].format(now=now)}\n\n"
-        "Цей звіт написав виконавець дошки, не агент: жодної роботи тут не було, лише ваша відповідь.\n",
+        "Цей звіт написав runner, не агент: жодної роботи тут не було, лише ваша відповідь.\n",
         encoding="utf-8")
     return target
 
@@ -823,7 +835,7 @@ def maintain_task(board: Board, root: Path, today: date) -> Path | None:
 Потрібна присутність власника: ні
 Аудит потрібен: ні
 
-Цю задачу поклав виконавець дошки: догляд — раз на {every} днів, якщо попередній уже закрито.
+Цю задачу поклав runner: догляд — раз на {every} днів, якщо попередній уже закрито.
 
 ## Що зробити
 Виконай `/maintain` (`.claude/commands/maintain.md`): звіт `.engine/maintain/{today.isoformat()}.md` — залежності,
@@ -855,15 +867,15 @@ def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
 Потрібна присутність власника: ні
 Аудит потрібен: ні
 
-Цю задачу поклав виконавець дошки: йому не було чого брати, а вільний час іде на боротьбу зі
+Цю задачу поклав runner: йому не було чого брати, а вільний час іде на боротьбу зі
 складністю — не частіше ніж {often}.
 
 ## Що зробити
 1. Запусти `python3 {CLEANUP_SCRIPT} nightly` і збережи його вивід для звіту.
-2. Якщо у виводі є `SIMPLIFIER CALL:` — зроби один прохід спрощувача, як написано в
+2. Якщо у виводі є `SIMPLIFIER CALL:` — зроби один прохід simplifier-а, як написано в
    `.claude/references/simplifier.md` («One run»): запит `request --lens code`, агент `simplifier`,
    `validate`, друга думка (якщо ввімкнена), `route --title "code, nightly {today.isoformat()}"`.
-   Якщо там `no sharp growth` — спрощувача не запускай: на сьогодні це все.
+   Якщо там `no sharp growth` — simplifier-а не запускай: на сьогодні це все.
 3. Безпечне застосуй: знахідку `auto_remove` прибирай лише за всіх трьох умов із того самого
    документа («What happens to a finding») — по одній на commit, із рядком `Simplifier-Finding: <id>`.
    Бракує хоч однієї умови — не прибирай: це питання для власника.
@@ -892,8 +904,8 @@ def gate_reject(path: Path, word: str = CONSENT) -> None:
     last = max(i for i, line in enumerate(lines) if ANSWER.match(line))
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines[last] = lines[last][: lines[last].index("Відповідь:")] + "Відповідь:"
-    lines.insert(last, f"Примітка виконавця ({now}): відповідь «{word}» з'явилася на сервері, а не прийшла "
-                       "через гілку чи теку вхідних задач, тому її не прийнято. Дайте відповідь ще раз.")
+    lines.insert(last, f"Примітка runner-а ({now}): відповідь «{word}» з'явилася на сервері, а не прийшла "
+                       "через гілку чи inbox, тому її не прийнято. Дайте відповідь ще раз.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -905,16 +917,33 @@ def audit_refusal(tasks: Path) -> str | None:
         return f"no task of this session is in {tasks}/doing/"
     if len(doing) > 1:
         return f"{tasks}/doing/ holds more than one task: " + ", ".join(p.name for p in doing)
-    if not read(doing[0]).audit:
-        return f"the task in doing/, {doing[0].name}, does not say «Аудит потрібен: так»"
+    if not (read(doing[0]).audit or read(doing[0]).paid):
+        return f"the task in doing/, {doing[0].name}, says neither «Аудит потрібен: так» nor «Платні прогони: так»"
     return None
 
 
+def paid_refusal(tasks: Path) -> str | None:
+    """Why paid sessions other than the audit may NOT start for the work in hand; None when this
+    session's one task in doing/ carries the owner's «Платні прогони: так»."""
+    doing = own(tasks)
+    if len(doing) != 1:
+        return f"{tasks}/doing/ holds {len(doing)} tasks of this session, not one"
+    if not read(doing[0]).paid:
+        return f"the task in doing/, {doing[0].name}, has no «Платні прогони: так» line"
+    return None
+
+
+def paid_ceiling(tasks: Path) -> float | None:
+    """The dollar ceiling the owner wrote in that line, if any; None is no ceiling."""
+    doing = own(tasks)
+    return read(doing[0]).paid_ceiling if len(doing) == 1 else None
+
+
 ANOMALIES = "ANOMALIES.md"
-ANOMALIES_HEAD = ("# Журнал аномалій дошки\n\nУсе дивне, що сталося під час роботи виконавця: воно записується сюди, а не зупиняє дошку. "
-                  "Пишуть виконавець, ворота, hook-и й агент — у кожному записі сказано, хто; найновіший запис унизу. "
+ANOMALIES_HEAD = ("# Журнал аномалій task board\n\nУсе дивне, що сталося під час роботи runner-а: воно записується сюди, а не зупиняє task board. "
+                  "Пишуть runner, gates, hook-и й агент — у кожному записі сказано, хто; найновіший запис унизу. "
                   "Огляд (`board.py review`) показує нові записи окремим розділом.\n")
-RUNNER = "виконавець"  # who writes the journal unless told otherwise
+RUNNER = "runner"  # who writes the journal unless told otherwise
 WHY = "## Чому зупинилась"
 # reason → (what happened, the question). {n} is the runner's number: attempts, hours, dollars.
 PARK_REASONS = {
@@ -924,11 +953,12 @@ PARK_REASONS = {
     "deadline": ("задача відкрита довше за {n} год",
                  ("Задача тривала довше дозволеного. Що робити далі? Будь-яка відповідь поверне задачу в чергу з новим відліком часу; "
                  "вказівку агентові (наприклад, як її розбити) напишіть тут же.")),
-    "budget": ("задача витратила свій бюджет: {n} USD",
-               ("Задача вичерпала свій бюджет. Продовжити? Будь-яка відповідь поверне задачу в чергу й дасть їй ще один такий самий "
-               "бюджет; якщо продовжувати не треба — не відповідайте або приберіть задачу.")),
-    "three-blocks": ("наглядач тричі поспіль відхилив один юніт ({n})",
-                     ("Три наглядачі поспіль відхилили юніт цієї задачі; їхні вердикти — у розділі «Чому зупинилась». Що робити далі? "
+    "budget": ("спрацював запобіжник runner-а від зациклення (`BOARD_MAX_USD`): задача витратила {n} USD",
+               ("Задача дійшла до запобіжника від зациклення (`BOARD_MAX_USD`). Це не межа ціни: роботу не обрізано, її зупинено з "
+               "питанням. Продовжити? Будь-яка відповідь поверне задачу в чергу й дасть їй ще стільки ж; якщо продовжувати не треба — "
+               "не відповідайте або приберіть задачу.")),
+    "three-blocks": ("overseer тричі поспіль відхилив один юніт ({n})",
+                     ("Три overseer-и поспіль відхилили юніт цієї задачі; їхні вердикти — у розділі «Чому зупинилась». Що робити далі? "
                      "Будь-яка відповідь поверне задачу в чергу, і юніт отримає три нові спроби; вказівку агентові напишіть тут же.")),
     "returned": ("агент повернув задачу з `doing/` у `todo/`, не закінчивши її і нічого не спитавши",
                  ("Агент не закінчив задачу й не поставив питання. Що робити далі? Будь-яка відповідь поверне задачу в чергу; "
@@ -945,7 +975,7 @@ def anomaly(board: Board, task: str, what: str, done: str, source: str = RUNNER)
     path = board.tasks / ANOMALIES
     text = path.read_text(encoding="utf-8") if path.is_file() else ANOMALIES_HEAD
     what, done, source = (" ".join(part.split()) for part in (what, done, source or RUNNER))
-    entry = (f"\n## {utc_now()} — {task if task and task != '-' else 'дошка'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
+    entry = (f"\n## {utc_now()} — {task if task and task != '-' else 'task board'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
              f"- Хто записав: {source}\n")
     path.write_text(text.rstrip("\n") + "\n" + entry, encoding="utf-8")
     return path
@@ -983,10 +1013,10 @@ def saved_work(stash: str, wip: str, remote: str) -> str:
     if wip and remote:
         parts.append(f"у гілці `{wip}` в {remote} (повернути в робоче дерево: `git fetch {remote} {wip} && git cherry-pick -n FETCH_HEAD`)")
     elif wip:
-        parts.append(f"у гілці `{wip}` — лише на сервері виконавця, надіслати її не вдалося (надіслати: `git push origin {wip}`)")
+        parts.append(f"у гілці `{wip}` — лише на сервері runner-а, надіслати її не вдалося (надіслати: `git push origin {wip}`)")
     if stash:
-        parts.append(f"у сховку git на сервері виконавця (`git stash apply {stash}`)")
-    return " Незакомічену роботу агента виконавець зберіг " + " і ".join(parts) + "."
+        parts.append(f"у сховку git на сервері runner-а (`git stash apply {stash}`)")
+    return " Незакомічену роботу агента runner зберіг " + " і ".join(parts) + "."
 
 
 def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts: Path | None = None,
@@ -1001,7 +1031,7 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
     unit, refused = blocks_of(verdicts)
     what, question = (part.format(n=unit or detail) for part in PARK_REASONS[reason])
     saved = saved_work(stash, wip, remote)
-    line = "\n".join([f"- {utc_now()} — {what}; виконавець переніс задачу в `blocked/` і взяв наступну.{saved}", *refused])
+    line = "\n".join([f"- {utc_now()} — {what}; runner переніс задачу в `blocked/` і взяв наступну.{saved}", *refused])
     text = source.read_text(encoding="utf-8").rstrip("\n") + "\n"
     if not QUESTIONS.search(text):
         text += "\n## Питання до власника\n"
@@ -1019,7 +1049,7 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
     target.write_text(head + tail, encoding="utf-8")
     source.unlink()
     anomaly(board, stem, what + ".", "задачу перенесено в `blocked/` з розділом «Чому зупинилась» і питанням до власника; "
-            "виконавець узяв наступну задачу." + saved)
+            "runner узяв наступну задачу." + saved)
     return target
 
 
@@ -1109,7 +1139,7 @@ def main() -> int:
     anomaly_parser.add_argument("task")
     anomaly_parser.add_argument("what")
     anomaly_parser.add_argument("done")
-    anomaly_parser.add_argument("--source", default=RUNNER, help="who writes: виконавець (default), агент, ворота, hook <name>")
+    anomaly_parser.add_argument("--source", default=RUNNER, help="who writes: runner (default), агент, gates, hook <name>")
     item_parser = commands.add_parser("open-item")
     item_parser.add_argument("--to", choices=("blocked", "todo", "done"), required=True, help="blocked: the owner must answer; todo: work for an agent; done: settled already")
     item_parser.add_argument("--title", required=True)
@@ -1117,7 +1147,7 @@ def main() -> int:
     item_parser.add_argument("--question", default="", help="the one question to the owner (required with --to blocked)")
     item_parser.add_argument("--do", default="", help="todo: what to do; done: why it is settled (the report)")
     item_parser.add_argument("--key", default="", help="the item's own name: a second call with it returns the task still open")
-    item_parser.add_argument("--source", default="агент", help="who writes: агент (default), hook <name>, наглядач")
+    item_parser.add_argument("--source", default="агент", help="who writes: агент (default), hook <name>, overseer")
     commands.add_parser("summary")
     review_parser = commands.add_parser("review")
     review_parser.add_argument("--since", default=None, help="a commit or a date; default: the newest version tag")

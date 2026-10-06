@@ -532,7 +532,7 @@ stamp = str(state["open"][-1]["stamp"])
 asked = sorted((r / "tasks/blocked").glob("*.md"))
 question = asked[0].read_text(encoding="utf-8") if asked else ""
 check("a board in the project: the escalation is a task in tasks/blocked/",
-      len(asked) == 1 and asked[0].name.startswith("900-gate-escalation-") and f"Ескалація воріт: {stamp}" in question, asked)
+      len(asked) == 1 and asked[0].name.startswith("900-gate-escalation-") and f"Ескалація gates: {stamp}" in question, asked)
 check("...it names the file the gate blocked on and asks «Закрити ескалацію?» and offers «так» with an empty answer line",
       "mod.py" in question and "`так`" in question and "1. Закрити ескалацію?" in question and question.rstrip().endswith("Відповідь:"), question)
 check("...the escalation state names the task", state["open"][-1].get("task") == f"tasks/blocked/{asked[0].name}" if asked else False, state)

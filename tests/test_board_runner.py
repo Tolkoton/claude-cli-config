@@ -111,7 +111,7 @@ elif step == "work":
     git("add", f"work-{n}.txt"); git("commit", "-q", "-m", f"work {n}")
 elif step == "gateq":
     Path("tasks/blocked/900-gate-escalation-20261003T101500Z.md").write_text(
-        "# 900\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація воріт: 2026-10-03T10:15:00Z\n\n"
+        "# 900\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація gates: 2026-10-03T10:15:00Z\n\n"
         "## Питання до власника\n1. Закрити?\n   Відповідь:\n")
 elif step == "dirty":
     Path(f"half-{n}.txt").write_text("half done\n")
@@ -407,7 +407,7 @@ first, second = w.argv(0), w.argv(1)
 check("the first call may spend the whole cap", first[first.index("--max-budget-usd") + 1] == "3.00", first)
 check("the second call gets what is left", second[second.index("--max-budget-usd") + 1] == "1.00", second)
 check("with the cap spent the task is parked (reason budget): exit 0, no third call", r.returncode == 0 and len(w.calls()) == 2
-      and w.has("tasks/blocked/001-first.md") and "бюджет: 3 USD" in (w.repo / "tasks/blocked/001-first.md").read_text(encoding="utf-8")
+      and w.has("tasks/blocked/001-first.md") and "`BOARD_MAX_USD`): задача витратила 3 USD" in (w.repo / "tasks/blocked/001-first.md").read_text(encoding="utf-8")
       and " task-parked 001-first budget" in (w.state / "events.log").read_text(), w.status() + r.stdout + r.stderr)
 parked = w.repo / "tasks/blocked/001-first.md"
 parked.write_text(parked.read_text(encoding="utf-8").replace("Відповідь:", "Відповідь: так, продовжити"), encoding="utf-8")
@@ -532,7 +532,7 @@ check("the rebase was aborted: nothing of the work moved, no rebase in progress"
       and not (w.repo / ".git/rebase-apply").exists(), w.log()[:3])
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
 check("the one commit on top is the journal entry: the conflict, and that the whole board stopped", w.log()[0].startswith("board: anomaly — the board:")
-      and "конфлікт під час pull" in journal and "дошку зупинено (причина `pull-conflict`)" in journal
+      and "конфлікт під час pull" in journal and "task board зупинено (причина `pull-conflict`)" in journal
       and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal)
 
 # --- one runner at a time; the mode file -------------------------------------------------------------------------------
@@ -597,7 +597,7 @@ check("TERM: the session goes down with the runner", child > 0 and not alive(chi
 check("…the mode file is restored, the lock released, the status says so", not w.has(".claude/state/overseer/mode") and not (w.state / "lock").exists()
       and "state=error" in w.status() and "reason=killed" in w.status(), w.status())
 killed = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
-check("…and the stop is in the anomaly journal, under the task (board 035: every stop with state=error)", "— 001-first\n- Що сталося: виконавця вбито сигналом" in killed
+check("…and the stop is in the anomaly journal, under the task (board 035: every stop with state=error)", "— 001-first\n- Що сталося: runner-а вбито сигналом" in killed
       and "причина killed" in killed, killed)
 r = w.run()
 check("…which the next start commits before anything else and pushes", "board: anomaly journal — entries written by a hook, the gate or the agent" in w.log()
@@ -699,7 +699,7 @@ for how in ("uncommitted", "committed"):
     check(f"«так» written in the checkout ({how}): the escalation stays open", len(escalations(w)["open"]) == 1
           and not w.has(f"tasks/done/{name.removesuffix('.md')}"), events(w))
     check("…the answer is wiped, the reason written under the question, and that is pushed",
-          "Відповідь: так" not in text and "Примітка виконавця" in text and w.origin_head() == w.head()
+          "Відповідь: так" not in text and "Примітка runner-а" in text and w.origin_head() == w.head()
           and "escalation-answer-rejected" in events(w) and "state=waiting-owner" in w.status(), text)
 owner_answers(w, name)
 w.run()
@@ -810,7 +810,7 @@ check("…applied by the runner, before any agent was started", "action-applied 
       and events(w).index("action-applied") < events(w).index(" attempt 008-wiring 1"), events(w))
 check("…committed by itself: the settings file and nothing else", "settings: the proposal docs/tasks/settings.json applied on the owner's answer (008-wiring)" in w.log()
       and sh(w.repo, "git", "show", "--stat", "--format=", "HEAD~" + str(w.log().index("settings: the proposal docs/tasks/settings.json applied on the owner's answer (008-wiring)"))).stdout.count("|") == 1, w.log()[:6])
-check("…the offer is replaced by the outcome; the answer stays", "Дію виконано" in done and "Дія виконавця:" not in done and "Відповідь: так" in done, done)
+check("…the offer is replaced by the outcome; the answer stays", "Дію виконано" in done and "Дія runner-а:" not in done and "Відповідь: так" in done, done)
 check("…then the task went back to todo/ and the agent closed it with a report", len(w.calls()) == 1 and "tasks/doing/008-wiring.md" in w.argv(0)[1]
       and w.has("tasks/done/008-wiring/report.md"), events(w))
 check("…everything pushed, the tree clean, idle", w.origin_head() == w.head() and "state=idle" in w.status()
@@ -829,7 +829,7 @@ for how in ("uncommitted", "committed"):
     check(f"«так» written in the checkout ({how}): the live file is untouched, no agent starts", live_settings(w) == OLD_SETTINGS and w.calls() == []
           and "action-applied" not in events(w), events(w))
     check("…the answer is wiped, the reason written under the question, the offer kept, and that is pushed",
-          "Відповідь: так" not in blocked_text(w) and "Примітка виконавця" in blocked_text(w) and offer in blocked_text(w)
+          "Відповідь: так" not in blocked_text(w) and "Примітка runner-а" in blocked_text(w) and offer in blocked_text(w)
           and "action-answer-rejected apply-settings 008-wiring.md" in events(w) and w.origin_head() == w.head(), blocked_text(w))
 owner_answers(w, "008-wiring.md", "Так.")
 w.run()
@@ -911,7 +911,7 @@ w.run()
 check("«ні …»: nothing applied, the task goes to an agent", live_settings(w) == OLD_SETTINGS and len(w.calls()) == 1 and "action-" not in events(w), events(w))
 w = World("done")
 (w.repo / "pwned.sh").write_text("touch PWNED\n")
-w.put("blocked", "009-other.md", task(questions="1. Запустити?\n   Дія виконавця: run-script pwned.sh\n   Відповідь:\n"))
+w.put("blocked", "009-other.md", task(questions="1. Запустити?\n   Дія runner-а: run-script pwned.sh\n   Відповідь:\n"))
 sh(w.repo, "git", "add", "pwned.sh")
 sh(w.repo, "git", "commit", "-q", "-m", "a script")
 sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
@@ -969,8 +969,8 @@ w, ident, name = rule_world()
 stem = name.removesuffix(".md")
 asked = (w.repo / "tasks/blocked" / name).read_text(encoding="utf-8")
 check("the lesson filed as a rule is a question to the owner with the exact text and the overseer's recommendation",
-      "Зробити це правилом?" in asked and f"  > {RULE_TEXT}\n" in asked and "Рекомендація наглядача: так: двічі зловлено" in asked
-      and "Дія виконавця: promote-rule " in asked, asked)
+      "Зробити це правилом?" in asked and f"  > {RULE_TEXT}\n" in asked and "Рекомендація overseer-а: так: двічі зловлено" in asked
+      and "Дія runner-а: promote-rule " in asked, asked)
 check("nothing is a rule yet", rules_file(w) == RULES_SEED and f"## RP-{ident} —" in proposals_file(w) and "— PROPOSED" in proposals_file(w))
 refused = agent_lq(w, "promote", ident)
 check("the agent's own promote is refused: the owner has not answered", refused.returncode == 1 and "owner" in refused.stderr and rules_file(w) == RULES_SEED, refused.stderr)
@@ -987,7 +987,7 @@ shown = sh(w.repo, "git", "show", "--stat", "--format=", "HEAD~" + str(w.log().i
 check("…committed by itself: the rules and the proposals, nothing else", ".engine/rules.md" in shown and ".engine/rule-proposals.md" in shown and shown.count("|") == 2, w.log()[:5])
 closed = (w.repo / "tasks/done" / stem / "task.md").read_text(encoding="utf-8") if w.has(f"tasks/done/{stem}/task.md") else ""
 check("…the question is in done/ with the answer, the outcome and the runner's report", "Відповідь: так" in closed and "правило додано" in closed
-      and "Дія виконавця:" not in closed and "став правилом" in (w.repo / "tasks/done" / stem / "report.md").read_text(encoding="utf-8"), closed)
+      and "Дія runner-а:" not in closed and "став правилом" in (w.repo / "tasks/done" / stem / "report.md").read_text(encoding="utf-8"), closed)
 check("…everything pushed, the tree clean, idle", w.origin_head() == w.head() and "state=idle" in w.status()
       and sh(w.repo, "git", "status", "--porcelain").stdout == "", w.status())
 before = rules_file(w)
@@ -1007,7 +1007,7 @@ for how in ("uncommitted", "committed"):
     w.run()
     left = (w.repo / "tasks/blocked" / name).read_text(encoding="utf-8")
     check("…and the runner wipes that answer, says why, keeps the offer and promotes nothing", rules_file(w) == RULES_SEED and "Відповідь: так" not in left
-          and "Примітка виконавця" in left and "Дія виконавця: promote-rule" in left and f"action-answer-rejected promote-rule {name}" in events(w)
+          and "Примітка runner-а" in left and "Дія runner-а: promote-rule" in left and f"action-answer-rejected promote-rule {name}" in events(w)
           and w.calls() == [] and w.origin_head() == w.head(), left)
 owner_answers(w, name, "Так.")
 w.run()
@@ -1210,7 +1210,7 @@ check("the task file says why it stopped, in a section of its own before the que
 check("…and asks the owner, with an empty answer line", "1. Задача застрягла" in asked and asked.rstrip().endswith("Відповідь:"), asked)
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
 entry = journal.split("\n## ")[-1]
-check("the anomaly journal has the entry: UTC time, the task, what happened, what was done", journal.startswith("# Журнал аномалій дошки")
+check("the anomaly journal has the entry: UTC time, the task, what happened, what was done", journal.startswith("# Журнал аномалій task board")
       and entry.split(" — ")[0].endswith("Z") and "T" in entry.split(" — ")[0] and entry.splitlines()[0].endswith("— 001-stuck")
       and "- Що сталося: 3 спроб(и)" in entry and "- Що зроблено: задачу перенесено в `blocked/`" in entry, journal)
 subjects = w.log(f"{base}..HEAD")
@@ -1261,7 +1261,7 @@ w.put("todo", "002-next.md")
 r = w.run()
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
 check("a task that vanished from the board: written into the journal, the next task is done, exit 0", r.returncode == 0 and len(w.calls()) == 2
-      and "— 001-gone" in journal and "задача зникла з дошки" in journal and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status()
+      and "— 001-gone" in journal and "задача зникла з task board" in journal and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status()
       and sh(w.repo, "git", "status", "--porcelain").stdout == "" and w.origin_head() == w.head(), w.status() + journal + r.stderr)
 
 # --- a task closes with a clean tree only (board 029) ----------------------------------------------------------------------
@@ -1357,7 +1357,7 @@ journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("
 check("claude is logged out: the whole board stops — exit 1, state=error reason=logged-out, one call, the next task not started", r.returncode == 1
       and len(w.calls()) == 1 and "state=error task=001-first" in w.status() and "reason=logged-out" in w.status() and w.has("tasks/todo/002-second.md"), w.status() + r.stdout)
 check("…the task stays in doing/ (it is not its fault), the journal says so and is pushed", w.has("tasks/doing/001-first.md")
-      and "claude розлогінився" in journal and "дошку зупинено (причина `logged-out`)" in journal and w.origin_head() == w.head()
+      and "claude розлогінився" in journal and "task board зупинено (причина `logged-out`)" in journal and w.origin_head() == w.head()
       and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal)
 r = w.run()
 check("after the login the next start goes on: the logged-out call was no attempt, both tasks are done", r.returncode == 0 and len(w.calls()) == 3
@@ -1412,11 +1412,11 @@ text = (w.repo / "tasks/blocked/001-refused.md").read_text(encoding="utf-8") if 
 why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
 check("the runner moved the task to blocked/ after ONE session — the fake never touched the task file", r.returncode == 0
       and bool(text) and not w.has("tasks/doing/001-refused.md") and " attempt 001-refused 2" not in events(w), r.stdout + r.stderr + events(w))
-check("«Чому зупинилась» carries the unit and the three overseers' verdicts", "наглядач тричі поспіль відхилив один юніт (-|001-refused|unit 1)" in why
+check("«Чому зупинилась» carries the unit and the three overseers' verdicts", "overseer тричі поспіль відхилив один юніт (-|001-refused|unit 1)" in why
       and all(f"BLOCK {k} (" in why and f"перевірка #4): ПРИЧИНА-{k}:" in why for k in (1, 2, 3)), text)
-check("…and one question to the owner, unanswered", "1. Три наглядачі поспіль" in text and text.rstrip().endswith("Відповідь:"), text)
+check("…and one question to the owner, unanswered", "1. Три overseer-и поспіль" in text and text.rstrip().endswith("Відповідь:"), text)
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
-check("the event is in the anomaly journal", "— 001-refused\n- Що сталося: наглядач тричі поспіль відхилив один юніт" in journal, journal)
+check("the event is in the anomaly journal", "— 001-refused\n- Що сталося: overseer тричі поспіль відхилив один юніт" in journal, journal)
 check("the runner took the next task: it is done by the second call", len(w.calls()) == 2 and w.has("tasks/done/002-next/report.md")
       and "state=waiting-owner" in w.status(), w.status() + r.stdout)
 check("one commit holds the move and the journal; the event is logged; the marker is gone",
@@ -1425,7 +1425,7 @@ check("one commit holds the move and the journal; the event is logged; the marke
 check("the ledger the audits wrote is kept in the stash the task names, and the tree is clean", "git stash apply " in why
       and sh(w.repo, "git", "status", "--porcelain").stdout == "", why)
 review = sh(w.repo, "python3", str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "review", "--since", "main", ok=False)
-check("the review shows it among the anomalies", "наглядач тричі поспіль" in review.stdout.split("Аномалії")[-1], review.stdout[-1500:] + review.stderr)
+check("the review shows it among the anomalies", "overseer тричі поспіль" in review.stdout.split("Аномалії")[-1], review.stdout[-1500:] + review.stderr)
 parked = w.repo / "tasks/blocked/001-refused.md"
 parked.write_text(text.replace("Відповідь:", "Відповідь: спробуй інакше"), encoding="utf-8")
 sh(w.repo, "git", "commit", "-q", "-am", "owner: answer")
@@ -1452,7 +1452,7 @@ check("a marker left by a runner that died before parking: the next runner parks
       and w.has("tasks/done/002-next/report.md") and not list(w.state.glob("three-blocks-*")), text + r.stdout + r.stderr)
 check("the runner's head and both manuals say who parks a task after three BLOCKs",
       "THREE BLOCKS PARK THE TASK" in runner_text.split("set -uo pipefail")[0]
-      and all("три вердикти наглядача" in " ".join((ROOT / m).read_text(encoding="utf-8").split()) for m in ("tasks/README.md", "templates/project/tasks/README.md")))
+      and all("три вердикти overseer-а" in " ".join((ROOT / m).read_text(encoding="utf-8").split()) for m in ("tasks/README.md", "templates/project/tasks/README.md")))
 
 head_text = runner_text.split("set -uo pipefail")[0]
 check("the runner's head no longer lists stalled or deadline among its states and names what stops the board",
@@ -1461,9 +1461,9 @@ check("the runner's head no longer lists stalled or deadline among its states an
 for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
     words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
     check(f"{manual} tells the owner where a stuck task goes, where the journal is and what stops the whole board",
-          "tasks/ANOMALIES.md" in words and "Чому зупинилась" in words and "Одна задача не зупиняє дошку" in words and "розлогінився" in words)
+          "tasks/ANOMALIES.md" in words and "Чому зупинилась" in words and "Одна задача не зупиняє task board" in words and "розлогінився" in words)
     check(f"{manual} tells the operator to stop the runner this way only, and not to kill it",
-          "як зупинити виконавця" in words and "Лише так" in words and "board-runner.sh --stop-after-task" in words
+          "як зупинити runner-а" in words and "Лише так" in words and "board-runner.sh --stop-after-task" in words
           and "не вбивайте" in words and ".claude/state/board/stop-after-task" in words)
     check(f"{manual} tells the owner that a task closes with a clean tree: one turn back, then the journal, nothing deleted",
           "Задача закривається з чистим робочим деревом" in words and "один раз отримує хід назад" in words and "нічого не видаляє" in words)
@@ -1573,7 +1573,7 @@ r = w.run("--no-push")
 text = (w.repo / "tasks/blocked/001-stuck.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-stuck.md") else ""
 local = wip_refs(w.repo)
 check("the negative case, a branch that could not be sent (--no-push): it is kept here, and nothing says it is in origin", wip_refs(w.origin) == []
-      and len(local) == 1 and f"у гілці `{local[0]}` — лише на сервері виконавця" in text and "в origin (" not in text
+      and len(local) == 1 and f"у гілці `{local[0]}` — лише на сервері runner-а" in text and "в origin (" not in text
       and f" wip-local {local[0]} " in events(w), text + events(w))
 w = World("idle idle idle done")
 w.put("todo", "001-stuck.md")
@@ -1600,7 +1600,7 @@ w = World("")
 stamp, name = escalate(w)
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
 check("the gate's escalation is in the journal, written by the gate: the stamp, the reason, the question it asked", journal.count("\n## ") == 1
-      and f"ескалація {stamp}" in journal and f"`tasks/blocked/{name}`" in journal and "- Хто записав: ворота (gate.py)" in journal, journal)
+      and f"ескалація {stamp}" in journal and f"`tasks/blocked/{name}`" in journal and "- Хто записав: gates (gate.py)" in journal, journal)
 r = w.run()
 check("…and the runner commits it, apart from the question", OTHERS in w.log() and "tasks/" not in porcelain(w) and w.origin_head() == w.head()
       and sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split() == ["tasks/ANOMALIES.md"], str(w.log()) + porcelain(w))
@@ -1611,8 +1611,8 @@ w.put("doing", "002-two.md")
 r = w.run()
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
 check("a stop with state=error (two tasks in doing/) is in the journal: the state, the reason word, what to do", r.returncode == 1
-      and "state=error" in w.status() and "reason=board" in w.status() and journal.count("\n## ") == 1 and "— дошка\n" in journal
-      and "зі станом `error` (причина `board`)" in journal and "- Хто записав: виконавець" in journal and len(w.calls()) == 0, w.status() + journal)
+      and "state=error" in w.status() and "reason=board" in w.status() and journal.count("\n## ") == 1 and "— task board\n" in journal
+      and "зі станом `error` (причина `board`)" in journal and "- Хто записав: runner" in journal and len(w.calls()) == 0, w.status() + journal)
 check("…committed and pushed, so the owner sees it in the branch", porcelain(w) == "" and w.origin_head() == w.head()
       and any(line.startswith("board: anomaly — the board:") for line in w.log("-1")), w.log("-2"))
 w = World("done", branch="main")
@@ -1636,7 +1636,7 @@ journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
 report = (w.repo / f"tasks/done/{stem}/report.md").read_text(encoding="utf-8") if w.has(f"tasks/done/{stem}/report.md") else ""
 check("the owner closed the escalation in a terminal: the question leaves blocked/ for done/ with a report that says why", closed.returncode == 0
       and not w.has(f"tasks/blocked/{name}") and w.has(f"tasks/done/{stem}/task.md") and "закрито іншим шляхом" in report and stamp in report, closed.stderr + report)
-check("…with an entry in the journal that names the question and the escalation", f"— {stem}\n- Що сталося: питання воріт лежало в `blocked/` без відповіді" in journal
+check("…with an entry in the journal that names the question and the escalation", f"— {stem}\n- Що сталося: питання gates лежало в `blocked/` без відповіді" in journal
       and stamp in journal.split(f"— {stem}\n")[-1] and "сам прибрав питання" in journal, journal)
 check("…in one commit with the journal, pushed; no agent was started; nothing waits any more",
       w.log("-1") == [f"board: {stem} → done — gate escalation {stamp} was closed another way; the question is removed"]

@@ -108,13 +108,32 @@ check("--owner-approved in the owner's terminal: allowed", runner.paid_run_refus
 (board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: лише евалуація, не більше 30 доларів.\n")
 check("the task's «Платні прогони» line with a dollar limit: allowed", runner.paid_run_refusal(board, False, True) is None)
 (board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні.\n")
-check("the line without a dollar limit: refused", runner.paid_run_refusal(board, False, True) is not None)
+check("negative — the line says «ні»: refused", runner.paid_run_refusal(board, False, True) is not None)
+check("…and the refusal asks for «Платні прогони: так», not for a dollar number",
+      "«Платні прогони: так»" in str(runner.paid_run_refusal(board, False, True)) and "no dollar number is needed" in str(runner.paid_run_refusal(board, False, True)),
+      runner.paid_run_refusal(board, False, True))
+check("the old line's number is a ceiling: the smaller of it and --max-usd", (board / "doing" / "010-x.md").write_text(
+    "# 010\n\nПлатні прогони: лише евалуація, не більше 30 доларів.\n") and runner.dollar_limit(board, None) == 30.0
+    and runner.dollar_limit(board, 50.0) == 30.0 and runner.dollar_limit(board, 4.0) == 4.0)
+(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так\n")
+check("board 053 — «Платні прогони: так» without a number: allowed", runner.paid_run_refusal(board, False, True) is None, runner.paid_run_refusal(board, False, True))
+check("…and there is no ceiling: nothing stops the runs but the runner's own guard", runner.dollar_limit(board, None) is None)
+check("…a ceiling only when --max-usd names one", runner.dollar_limit(board, 4.0) == 4.0)
+check("no ceiling never stops a run; a ceiling stops the run that could pass it, not the one that fits",
+      runner.over_limit(1000.0, 5.0, None) is None and runner.over_limit(5.0, 5.0, 10.0) is None
+      and "the limit is $10.00" in str(runner.over_limit(5.01, 5.0, 10.0)))
 shim = work / "claude"
 shim.write_text("#!/bin/sh\necho started >> \"$(dirname \"$0\")/started\"\n")
 shim.chmod(0o755)
 done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
                       capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
-check("the runner itself refuses with exit 2 and starts nothing",
+check("with «так» and no number the runner itself goes past the guard and the limit: the session is started",
+      "refusing to start paid sessions" not in done.stderr and "cost limit" not in done.stdout and (work / "started").exists(), done.stdout + done.stderr)
+(work / "started").unlink(missing_ok=True)
+(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні\n")
+done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
+check("negative — with «ні» the runner itself refuses with exit 2 and starts nothing",
       done.returncode == 2 and "refusing to start paid sessions" in done.stderr and not (work / "started").exists(), done.stderr)
 
 shutil.rmtree(work, ignore_errors=True)

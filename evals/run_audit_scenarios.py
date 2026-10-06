@@ -684,7 +684,7 @@ def board_module() -> Any:
 
 def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) -> str | None:
     """Why this run may not start a paid session, or None. Owner's rule (tasks/README.md): the
-    audit runs when the one task in tasks/doing/ says «Аудит потрібен: так», or when the owner
+    audit runs when the one task in tasks/doing/ says «Аудит потрібен: так» or «Платні прогони: так», or when the owner
     starts it by hand with --owner-approved. The flag is the owner's: inside a Claude Code
     session (CLAUDECODE is set in every shell the agent's tools start) it does not count."""
     reason = board_module().audit_refusal(tasks_dir.resolve())
@@ -693,7 +693,7 @@ def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) ->
     flag = (" --owner-approved was given, but inside a Claude Code session (CLAUDECODE is set) it does not "
             "count: it is the owner's flag, for the owner's own terminal." if owner_approved else "")
     return (f"refusing to start paid sessions: {reason}.{flag}\n"
-            "Two ways through, both the owner's: write «Аудит потрібен: так» in the task (tasks/README.md, "
+            "Two ways through, both the owner's: write «Аудит потрібен: так» or «Платні прогони: так» in the task (tasks/README.md, "
             "«Платні прогони»), or run this by hand with --owner-approved.")
 
 

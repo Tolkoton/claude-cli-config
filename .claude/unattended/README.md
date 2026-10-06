@@ -36,22 +36,22 @@ answered tasks from `tasks/blocked/`. A question the Stop gate put there after g
 (`9NN-gate-escalation-*.md`) it commits and pushes at once; when the owner's answer `так`
 arrives by the pull or the inbox, the runner itself runs `gate.py --close-escalation` and moves
 that task to `done/` — no agent is started for it (`.claude/references/gate.md`). An action the
-owner approved with `так` under a question that offers it (`Дія виконавця: apply-settings <sha256>`)
+owner approved with `так` under a question that offers it (`Дія runner-а: apply-settings <sha256>`)
 the runner takes itself, through `owner_action.py`, whose list is short: the settings
 proposal is checked by `settings_check.py` (it ships with the engine, so this works in every
 project), copied over `.claude/settings.json`, the project's own `tests/test_settings_proposal.py`
 run when it keeps one, the file committed, and the task returned to `todo/` with the outcome in
 place of the offer. `engine.py` gives a project its `docs/tasks/settings.json` as a copy of its
 own live settings. An approved goals document is amended the same way (board 051): the offer
-`Дія виконавця: amend-goals <sha256 of .engine/goals/proposed.md>`; on `так` the runner has `goals.py` check
+`Дія runner-а: amend-goals <sha256 of .engine/goals/proposed.md>`; on `так` the runner has `goals.py` check
 that the proposal is a lawful amendment, put it in place of `.engine/goals.md`, seal it and list what cited a
 changed line; the agent, when the task returns to it, commits the document. A lesson
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
-`Дія виконавця: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
+`Дія runner-а: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the
 question to `done/` with a short report — no agent is started. Dependencies are updated the
 same way and no other (board 076): the question that ends a `/maintain` task carries the offer
-`Дія виконавця: update-deps <sha256 of .engine/maintain/updates.json>`; on `так` `owner_action.py` checks
+`Дія runner-а: update-deps <sha256 of .engine/maintain/updates.json>`; on `так` `owner_action.py` checks
 that the list is the one the owner saw, that the tree is clean and the full gate green, then runs the
 project's `DEPS_UPDATE_CMD` — the patches as one group, every minor version alone, never a major one
 — each followed by `gate.py --layer ci` and a commit of its own, or rolled back and written with its

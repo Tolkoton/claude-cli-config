@@ -796,10 +796,10 @@ def park_slice(root: Path, slug: str) -> str:
     if board.is_file() and (root / "tasks").is_dir():
         subprocess.run(
             [sys.executable, str(board), "open-item", "--to", "blocked", "--key", f"testing-parked-{slug}", "--source", "hook testing.py",
-             "--title", f"зріз {slug}: третя суперечка про контрактні тести",
-             "--what", (f"Два кола суперечки між будівельником і тестувальником не розв'язали зріз {slug}: " + " | ".join(earlier)
-                        + ". Третє коло не проводиться: зріз відкладено, робота йде далі з наступним. Обидва кола стоять у .engine/testing/ledger.md."),
-             "--question", f"Хто правий у суперечці про тести зрізу {slug} — тест, код чи контракт слід уточнити?"],
+             "--title", f"slice {slug}: третя суперечка про contract tests",
+             "--what", (f"Два кола суперечки між builder-ом і tester-ом не розв'язали slice {slug}: " + " | ".join(earlier)
+                        + ". Третє коло не проводиться: slice відкладено, робота йде далі з наступним. Обидва кола стоять у .engine/testing/ledger.md."),
+             "--question", f"Хто правий у суперечці про тести slice-а {slug} — тест, код чи slice contract слід уточнити?"],
             cwd=root, capture_output=True, text=True, check=False)
     return f"PARKED: {slug} had {MAX_ROUNDS} rounds of dispute already; the third parks the slice. Go on with the next unblocked slice."
 
@@ -1070,9 +1070,9 @@ def review_task(root: Path) -> None:
     if board.is_file() and (root / "tasks").is_dir():
         subprocess.run(
             [sys.executable, str(board), "open-item", "--to", "todo", "--key", "testing-review", "--source", "hook testing.py",
-             "--title", "розбір тестування після десяти зрізів",
-             "--what", f"У журналі тестування .engine/testing/ledger.md набралося {len(done)} зрізів із рішенням менеджера тестування.",
-             "--do", ("Розбір, а не вирок: що впіймали незалежні тести, чого не впіймано понад наглядача, де менеджер помилився (скільки разів "
+             "--title", "розбір тестування після десяти slice-ів",
+             "--what", f"У журналі тестування .engine/testing/ledger.md набралося {len(done)} slice-ів із рішенням test manager-а.",
+             "--do", ("Розбір, а не вирок: що впіймали незалежні тести, чого не впіймано понад overseer-а, де test manager помилився (скільки разів "
                       "«не перемикатися» довелося наздоганяти). Результат — пропозиції змін до визначень test-manager і slice-tester; затверджує власник.")],
             cwd=root, capture_output=True, text=True, check=False)
     append_row(root, {"type": "review_task", "slices": sorted(done)}, "review after ten slices", [f"{len(done)} slices have a decision; the review task is on the board"])

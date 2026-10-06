@@ -2,7 +2,8 @@
 """A paid audit starts only when the owner said so (package board, item 4).
 
 evals/run_audit_scenarios.py refuses, before anything else and before any session, unless
-  - the one task in tasks/doing/ says «Аудит потрібен: так», or
+  - the one task in tasks/doing/ says «Аудит потрібен: так» or «Платні прогони: так» (board 053:
+    the owner's leave for any paid run, no dollar number), or
   - the owner runs it by hand with --owner-approved — in their own terminal: inside a Claude
     Code session (CLAUDECODE set) the flag is refused, like gate.py --close-escalation.
 
@@ -82,6 +83,12 @@ r = run("--tasks-dir", str(board(("001-a.md", "так"))), in_session=True)
 check("…inside a Claude Code session too: that is how a board task runs its audit", passed(r), r.stderr)
 r = run("--tasks-dir", str(board(("001-a.md", "так"), ("002-b.md", "так"))))
 check("two tasks in doing/: refused", refused(r), r.stderr)
+paid = board(("001-a.md", "ні\nПлатні прогони: так"))
+check("board 053 — «Аудит потрібен: ні» with «Платні прогони: так»: the runner goes on", passed(run("--tasks-dir", str(paid))))
+paid = board(("001-a.md", "ні\nПлатні прогони: два повні audit-и — скільки потрібно"))
+check("…the owner's own wording without «так» and without a number is leave too", passed(run("--tasks-dir", str(paid))))
+r = run("--tasks-dir", str(board(("001-a.md", "ні\nПлатні прогони: ні"))))
+check("negative — «Платні прогони: ні»: refused, and both lines are named", refused(r) and "«Платні прогони: так»" in r.stderr and "Аудит потрібен: так" in r.stderr, r.stderr)
 yes_in_todo = board()
 (yes_in_todo / "todo" / "001-a.md").write_text("# x\n\nАудит потрібен: так\n", encoding="utf-8")
 check("«так» in todo/ allows nothing", refused(run("--tasks-dir", str(yes_in_todo))))
@@ -125,7 +132,11 @@ check("the claude executable was never called, in any case above", not (work / "
 r = run()
 real_tasks = ROOT / "tasks"
 real_doing = sorted(p.name for p in (real_tasks / "doing").glob("[0-9]*.md"))
-wants = len(real_doing) == 1 and "Аудит потрібен: так" in (real_tasks / "doing" / real_doing[0]).read_text(encoding="utf-8").split("## ")[0]
+sys.path.insert(0, str(ROOT / ".claude/unattended"))
+import board as engine_board  # noqa: E402
+
+in_hand = engine_board.parse((real_tasks / "doing" / real_doing[0]).read_text(encoding="utf-8")) if len(real_doing) == 1 else None
+wants = in_hand is not None and (in_hand.audit or in_hand.paid)
 check("without --tasks-dir the board is this repository's tasks/", passed(r) if wants else refused(r), (real_doing, r.stderr))
 fixture = ROOT / "tests/fixtures/board-audit-yes"
 check("the fixture board the other audit suites use says «так»", passed(run("--tasks-dir", str(fixture))))

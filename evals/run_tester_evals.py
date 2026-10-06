@@ -40,10 +40,10 @@ green tests — is the case a blind tester exists for.
 Nothing is tuned to the result: a scene that did not go as hoped is recorded as it is. Eight
 runs show a coarse difference between the arms, not a fine one.
 
-PAID RUNS. As in run_analyst_evals.py: sessions start only when the task in tasks/doing/ has a
-«Платні прогони:» line with a dollar limit, or the owner runs this by hand with
---owner-approved (which does not count inside a Claude Code session). The limit is the smaller
-of --max-usd and the number in that line; the runs stop before it is passed.
+PAID RUNS. As in run_analyst_evals.py: sessions start only when the task in tasks/doing/ has the
+owner's «Платні прогони: так» line, or the owner runs this by hand with --owner-approved (which
+does not count inside a Claude Code session). No dollar number is required; one in that line, or
+--max-usd, is a ceiling (the smaller of the two) the runs stop before.
 
 Standard library only, Python 3.12+; the scoring runs pytest through `uvx`.
 """
@@ -238,7 +238,7 @@ def main() -> int:
     parser.add_argument("--scene", choices=SCENES, help="the scene --score is for")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
-    parser.add_argument("--max-usd", type=float, default=10.0, help="stop before the runs together cost more")
+    parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before the runs together cost more (default: none)")
     parser.add_argument("--max-usd-per-run", type=float, default=1.0)
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
@@ -267,9 +267,9 @@ def main() -> int:
     runs: list[JsonObj] = []
     with tempfile.TemporaryDirectory(prefix="engine-tester-eval-") as tmp:
         for name, arm in todo:
-            spent = sum(r["cost_usd"] for r in runs)
-            if spent + args.max_usd_per_run > limit:
-                print(f"cost limit: ${spent:.2f} spent, a run may cost ${args.max_usd_per_run:.2f}, the limit is ${limit:.2f} — stopping")
+            stop = analyst.paid.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            if stop:
+                print(stop)
                 break
             row = one_run(name, arm, expected[name], Path(tmp), args)
             runs.append(row)

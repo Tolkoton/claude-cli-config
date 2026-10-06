@@ -682,10 +682,10 @@ def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | N
         import board
 
         task = board.open_item(
-            board.Board(root / "tasks"), "blocked", f"Наглядач відклав юніт: {item}",
+            board.Board(root / "tasks"), "blocked", f"Overseer відклав юніт: {item}",
             f"Юніт `{item}` відкладено до рішення власника: {one_line(blocked_on)}. Докази: `{one_line(evidence)}`; вердикти — у `{LEDGER_REL.as_posix()}`.",
-            "Що робити з цим юнітом далі? Будь-яка відповідь — вказівка агентові (наприклад: повторити аудит, прийняти як є, переробити).",
-            key=item, source="hook наглядача (overseer_stop.py)")
+            "Що робити з цим юнітом далі? Будь-яка відповідь — вказівка агентові (наприклад: повторити audit, прийняти як є, переробити).",
+            key=item, source="hook overseer-а (overseer_stop.py)")
         return task.relative_to(root).as_posix() if task else None
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
         return None

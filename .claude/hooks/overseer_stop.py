@@ -279,7 +279,7 @@ FRESH_THREE_BLOCKS_REASON = (
 # To the person at the terminal (attended; under the board runner the owner reads tasks/blocked/
 # instead), in the owner's language like everything the board says to the owner.
 THREE_BLOCKS_HUMAN = (
-    "Наглядач тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
+    "Overseer тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
     "відкладено до вашого рішення (запис — {parked}, вердикти — у "
     ".engine/overseer/ledger.md).\n{reasons}"
 )
@@ -334,7 +334,7 @@ NOT_WIRED_REASON = (
 # To the person at the terminal (attended; unattended the builder asks on the board, as the reason
 # above says), in the owner's language like everything the board says to the owner.
 NOT_WIRED_HUMAN = (
-    "Наглядач не підключений у .claude/settings.json цього проєкту, тому юніт ніхто не перевірив. "
+    "Overseer не підключений у .claude/settings.json цього проєкту, тому юніт ніхто не перевірив. "
     "Запустіть `engine.py update <проєкт>` — він додасть два обробники overseer_verdict.py (guard і record) — "
     "і перезапустіть Claude Code."
 )

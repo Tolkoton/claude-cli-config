@@ -902,9 +902,9 @@ def board_question(root: Path, stamp: str, report: Report, evidence: str, blocks
         task = board.gate_question(board.Board(root / "tasks"), stamp, blocks, active_slice(root) or NO_SLICE, files[:20], reasons, evidence)
         asked = task.relative_to(root).as_posix() if task else None
         # Everything odd is in one journal (board 035); the board runner commits the entry.
-        board.note(root, "ворота (gate.py)", f"ворота наприкінці ходу не пройшли {blocks} раз(и) поспіль і здалися (ескалація {stamp}): "
+        board.note(root, "gates (gate.py)", f"gates наприкінці ходу не пройшли {blocks} раз(и) поспіль і здалися (ескалація {stamp}): "
                    + (reasons[0] if reasons else "причину не записано"),
-                   "хід дозволено закінчити; " + (f"власника спитано в `{asked}`; " if asked else "") + "поки ескалацію не закрито, наглядач не приймає роботу з цими файлами")
+                   "хід дозволено закінчити; " + (f"власника спитано в `{asked}`; " if asked else "") + "поки ескалацію не закрито, overseer не приймає роботу з цими файлами")
         return asked
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         print(f"gate: the escalation was not put on the task board: {exc}", file=sys.stderr)

@@ -162,7 +162,7 @@ def gate_check(root: Path) -> tuple[bool, str]:
         steps = json.loads((root / ".claude/state/gate/last-report.json").read_text(encoding="utf-8"))["timings_ms"]["steps"]
     except (OSError, ValueError, KeyError):
         steps = {}
-    return (True, "") if "tests" in steps else (False, "ворота не запускали тестів: у проєкті немає команди тестів, тож оновлення нічим перевірити")
+    return (True, "") if "tests" in steps else (False, "gates не запускали тестів: у проєкті немає команди тестів, тож оновлення нічим перевірити")
 
 
 def untracked(root: Path) -> set[str]:
@@ -198,7 +198,7 @@ def update_group(root: Path, env: dict[str, str], group: list[dict[str, str]], k
         ok, out, why = False, "", f"команда оновлення не відповіла за {UPDATE_TIMEOUT_S} с"
     if ok:
         ok, out = gate_check(root)
-        why = "після оновлення ворота «не гірше» червоні"
+        why = "після оновлення gates «не гірше» червоні"
     if not ok:
         restored = roll_back(root, before, env.get("DEPS_RESTORE_CMD", "").strip())
         if len(group) > 1:
@@ -242,7 +242,7 @@ def update_deps(root: Path, approved: str) -> int:
 
     def result(code: int, summary: str) -> int:
         target = root / UPDATE_RESULT
-        head = f"Перелік: `{UPDATES}` ({approved}). Написав `owner_action.py update-deps` — виконавець дошки за відповіддю власника «так»."
+        head = f"Перелік: `{UPDATES}` ({approved}). Написав `owner_action.py update-deps` — runner за відповіддю власника «так»."
         target.write_text("\n".join(["# Оновлення залежностей: що вийшло", "", head, "", summary, "", *log, ""]), encoding="utf-8")
         git(root, "add", "--", UPDATE_RESULT)
         git(root, "commit", "-q", "-m", "maintain: the result of update-deps on the owner's answer", "--", UPDATE_RESULT)

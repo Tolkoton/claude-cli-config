@@ -23,10 +23,10 @@ A scene that fails is work on the analyst's definition or on the critics' lens �
 check, never a verdict on the role (the owner's answer 6, board 050): nothing here may be used
 to remove the analyst. Nothing is tuned to the result; a failed scene is reported as it is.
 
-PAID RUNS. Sessions start only when the task in tasks/doing/ has a «Платні прогони:» line with
-a dollar limit, or the owner runs this by hand with --owner-approved (which does not count
-inside a Claude Code session). The limit is the smaller of --max-usd and the number in that
-line; the runs stop before it is passed.
+PAID RUNS. Sessions start only when the task in tasks/doing/ has the owner's «Платні прогони: так»
+line, or the owner runs this by hand with --owner-approved (which does not count inside a Claude
+Code session). No dollar number is required; one in that line, or --max-usd, is a ceiling (the
+smaller of the two) the runs stop before.
 
 Standard library only, Python 3.12+.
 """
@@ -57,7 +57,6 @@ BEFORE_REF = "cebc005"  # the commit board 051 started from: no goals document, 
 SCENES = ("a", "b", "c", "d")
 SHIPPED = (".claude/agents", ".claude/references", ".claude/constitution.md")
 RUN_TIMEOUT_S = 900
-LIMIT_RE = re.compile(r"^Платні прогони:.*?(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.MULTILINE | re.IGNORECASE)
 VERDICT_RE = re.compile(r"^\W*((?:MASTER|FEATURE)_CRITIC_[A-Z_]+)", re.MULTILINE)
 CHOICE_RE = re.compile(r"^\W*(D\d)\W+(ASK|DECIDE)\b", re.MULTILINE)
 RECONCILIATION_RE = re.compile(r"^## Звірка з цілями\n.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
@@ -91,11 +90,7 @@ def at_ref(ref: str, rel: str) -> str:
     return subprocess.run(["git", "-C", str(ROOT), "show", f"{ref}:{rel}"], capture_output=True, text=True, check=True).stdout
 
 
-def dollar_limit(tasks_dir: Path, asked: float) -> float:
-    """The smaller of what was asked and what the task in doing/ allows."""
-    task = paid.task_in_hand(tasks_dir)
-    found = LIMIT_RE.search(task.read_text(encoding="utf-8")) if task else None
-    return min(asked, float(found.group(1).replace(",", "."))) if found else asked
+dollar_limit = paid.dollar_limit
 
 
 # ------------------------------------------------------------------ sandboxes and prompts
@@ -252,7 +247,7 @@ def main() -> int:
     parser.add_argument("--dry-run", type=Path, help="build both sandboxes here, write every prompt beside them and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
-    parser.add_argument("--max-usd", type=float, default=10.0, help="stop before the runs together cost more")
+    parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before the runs together cost more (default: none)")
     parser.add_argument("--max-usd-per-run", type=float, default=1.0)
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
@@ -278,9 +273,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="engine-analyst-eval-") as tmp:
         sandboxes = {variant: build_sandbox(Path(tmp) / variant, variant, args.before_ref) for variant in ("before", "after")}
         for scene, variant in todo:
-            spent = sum(r["cost_usd"] for r in runs)
-            if spent + args.max_usd_per_run > limit:
-                print(f"cost limit: ${spent:.2f} spent, a run may cost ${args.max_usd_per_run:.2f}, the limit is ${limit:.2f} — stopping")
+            stop = paid.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            if stop:
+                print(stop)
                 break
             text, agent = prompt(scene, variant, expected, args.before_ref)
             row = {"scene": scene, "variant": variant, "agent": agent} | run_once(sandboxes[variant], text, agent, args)

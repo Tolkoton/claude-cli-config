@@ -59,7 +59,7 @@ AMENDED = DOCUMENT.replace("Версія: 1", "Версія: 2").replace(
     "- P1. Швидкість відповіді понад свіжість даних. Приклад: залишок на складі показуємо з кешу на хвилину.\n- P2. Простота понад гнучкість. Приклад: один спосіб оплати.",
 ).replace("- v1 — перша версія.", "- v1 — перша версія.\n- v2 — P1 перевернуто, додано P2 (запит 001).")
 GOOD = "# ADR 1\n\n## Звірка з цілями\n- служить: G1\n- вибір розв'язав: P1\n- не-цілі й обмеження: N1 не зачеплено\n\n## Далі\nG9 тут не рахується.\n"
-REQUEST = "# Запит 001\nFrom: feature-architect\nReason: 1\nDoor: two-way\n\n## Рішення\nКеш чи ні.\n\n## Відповідь аналітика\nANALYST_ANSWER: QUOTE\nLine: {line}\nQuote: {quote}\n"
+REQUEST = "# Запит 001\nFrom: feature-architect\nReason: 1\nDoor: two-way\n\n## Рішення\nКеш чи ні.\n\n## Відповідь business analyst-а\nANALYST_ANSWER: QUOTE\nLine: {line}\nQuote: {quote}\n"
 P1_TEXT = "Свіжість даних понад швидкість відповіді. Приклад: залишок на складі читаємо без кешу."
 
 
@@ -149,7 +149,7 @@ with tempfile.TemporaryDirectory() as tmp:
     request.write_text(REQUEST.format(line="P1", quote=f"«{P1_TEXT}»"), encoding="utf-8")
     r = run(GOALS, root, "quote", ".engine/goals/requests/001.md")
     check("accepted: the verbatim line", r.returncode == 0 and "the quote stands" in r.stdout, out(r))
-    (root / ".engine/goals/requests/002.md").write_text("# Запит 002\nReason: 2\n\n## Відповідь аналітика\nANALYST_ANSWER: OWNER_DECISION\nПитання: що понад що?\n", encoding="utf-8")
+    (root / ".engine/goals/requests/002.md").write_text("# Запит 002\nReason: 2\n\n## Відповідь business analyst-а\nANALYST_ANSWER: OWNER_DECISION\nПитання: що понад що?\n", encoding="utf-8")
     (root / ".engine/goals/requests/003.md").write_text("# Запит 003\nReason: 3\n", encoding="utf-8")
     r = run(GOALS, root, "requests")
     rows = [line.split("\t") for line in r.stdout.splitlines()]
@@ -192,7 +192,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("proposal accepted: P1 changed, the decision that cites it named", r.returncode == 0 and "changed or struck: P1" in r.stdout
           and "docs/adr/0001-cache.md (cites P1)" in r.stdout and sha in r.stdout, out(r))
     r = run(BOARD, root, "--root", str(root), "action-line", "amend-goals")
-    check("the board offers the action with the proposal's sha256", r.stdout.strip() == f"Дія виконавця: amend-goals {sha}", out(r))
+    check("the board offers the action with the proposal's sha256", r.stdout.strip() == f"Дія runner-а: amend-goals {sha}", out(r))
     r = run(OWNER_ACTION, root, "--root", str(root), "amend-goals", sha, session=True)
     check("amend is refused inside a session", r.returncode == 2 and (root / ".engine/goals.md").read_text(encoding="utf-8") == DOCUMENT, out(r))
     r = run(GOALS, root, "amend", sha, session=True)

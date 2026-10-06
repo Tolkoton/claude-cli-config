@@ -90,7 +90,10 @@ work runs through the task board only (below); detail: `.claude/references/unatt
 Work arrives as files in `tasks/` (`tasks/README.md`): take the first `todo/` task with its
 dependencies in `done/`, move it to `doing/` in its own commit, end in `done/NNN-name/` with
 `report.md` — or in `blocked/` with a question for the owner. A paid run (audit included) only when
-the task says so: `Аудит потрібен: так` or a dollar limit. Full tests once, at its end.
+the task says so: `Аудит потрібен: так` or `Платні прогони: так`. Full tests once, at its end.
+Quality over price: a task carries no dollar limit — paid runs take what an honest result needs;
+only the runner's `BOARD_MAX_USD` guards a loop (it parks the task with a question). Wherever the
+owner reads, technical terms stay English (overseer, slice, gates, runner…): `unattended.md`.
 
 ## Constitution
 Every agent reads and obeys `.claude/constitution.md`. It overrides any conflicting

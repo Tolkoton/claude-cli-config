@@ -263,7 +263,7 @@ def runner_alive(state: Path) -> bool | None:
 
 
 def task_line(name: str, entry: dict[str, Any] | None, now: datetime) -> str:
-    line = f"- Задача у виконавця: `{name}`"
+    line = f"- Задача у runner-а: `{name}`"
     if entry:
         begun = as_utc(str(entry.get("started_utc", "")))
         line += f", триває {elapsed(begun, now)}" if begun and "outcome" not in entry else ""
@@ -293,11 +293,11 @@ def attempt_line(state: Path, name: str, entry: dict[str, Any] | None, now: date
 def runner_lines(src: Source, state: Path, status: re.Match[str], now: datetime) -> list[str]:
     word, name, started, reason = status.group(1), status.group(2), as_utc(status.group(3)), status.group(4)
     working = word in ("running", "waiting-limit")
-    lines = [f"За файлами стану виконавця (`{os.path.relpath(state / 'board', src.root)}/`, ця машина):",
-             f"- Виконавець: **{STATES.get(word, word)}** (`{word}`), у цьому стані від {stamp(started)}"
+    lines = [f"За файлами стану runner-а (`{os.path.relpath(state / 'board', src.root)}/`, ця машина):",
+             f"- Runner: **{STATES.get(word, word)}** (`{word}`), у цьому стані від {stamp(started)}"
              + (f" — {elapsed(started, now)}" if started else "") + (f"; причина: `{reason}`" if reason else "") + "."]
     if working and runner_alive(state) is False:
-        lines.append("- Увага: процесу виконавця з файла `lock` на цій машині немає — запис стану міг застаріти.")
+        lines.append("- Увага: процесу runner-а з файла `lock` на цій машині немає — запис стану міг застаріти.")
     if name != "-":
         entry = task_costs(state).get(name)
         lines.append(task_line(name, entry, now))
@@ -317,20 +317,20 @@ def now_section(src: Source, state: Path, now: datetime) -> list[str]:
     if status:
         lines = runner_lines(src, state, status, now)
     else:
-        lines = [("Файлів стану виконавця тут немає (вони лише на його машині), тож стан — із git; "
-                  "витрат і того, чи виконавець зараз працює або чекає ліміту, з git не видно.")]
+        lines = [("Файлів стану runner-а тут немає (вони лише на його машині), тож стан — із git; "
+                  "витрат і того, чи runner зараз працює або чекає ліміту, з git не видно.")]
     doing = src.column("doing")
     for path in doing:
         moved = as_utc(src.log("-1", "--diff-filter=AR", "--format=%cI", src.sha, "--", path))
         text = src.show(path)
-        with_owner = " (**у роботі з власником** — виконавець її не чіпає і бере наступні)" if board.parse(text).attended else ""
+        with_owner = " (**у роботі з власником** — runner її не чіпає і бере наступні)" if board.parse(text).attended else ""
         lines.append(f"- У гілці в `doing/`: `{posixpath.basename(path)}` — {title_of(text, 'без назви')}{with_owner}; "
                      f"узято в роботу {stamp(moved)}" + (f", {elapsed(moved, now)} тому" if moved else "") + ".")
     if not doing:
         unpushed = status is not None and status.group(2) != "-"
         lines.append("- У гілці в `doing/` зараз порожньо" + (" (commit, яким задачу взято в роботу, ще не надіслано)." if unpushed else "."))
     counts = "   ".join(f"{c}: {len(src.done() if c == 'done' else src.column(c))}" for c in board.COLUMNS)
-    lines.append(f"- Дошка: {counts}")
+    lines.append(f"- Task board: {counts}")
     return lines + debt_line(src, now)
 
 
@@ -380,7 +380,7 @@ def done_section(src: Source, stems: list[str], costs: dict[str, dict[str, Any]]
         if len(closed) == 3:
             lines.append(f"Закрито {stamp(as_utc(closed[1]))}, commit `{closed[0]}` — {closed[2]}")
         if stem in costs:
-            lines.append(f"За записами виконавця: ${float(costs[stem].get('cost_usd', 0.0)):.2f}, спроб: {len(costs[stem].get('attempts') or [])}.")
+            lines.append(f"За записами runner-а: ${float(costs[stem].get('cost_usd', 0.0)):.2f}, спроб: {len(costs[stem].get('attempts') or [])}.")
         lines.append("")
         found = sections(report)
         if not report:
@@ -427,9 +427,9 @@ def question_lines(src: Source, asked: list[Asked]) -> list[str]:
         if draft in src.files:
             lines.append(f"Що зроблено і чому питання — у чернетці звіту `{draft}`.")
         if task.gate:
-            lines.append(f"Це питання поставили ворота (ескалація `{task.gate}`): відповідь `так` (рівно це слово) закриє її, інший текст — вказівка агентові.")
+            lines.append(f"Це питання поставили gates (ескалація `{task.gate}`): відповідь `так` (рівно це слово) закриє її, інший текст — вказівка агентові.")
         if task.action:
-            lines.append(f"Тут є дія виконавця `{task.action}`: відповідь `так` (рівно це слово) під тим питанням виконає її; інший текст — вказівка агентові.")
+            lines.append(f"Тут є дія runner-а `{task.action}`: відповідь `так` (рівно це слово) під тим питанням виконає її; інший текст — вказівка агентові.")
         for block in blocks:
             lines += ["", *(f"> {line}".rstrip() for line in block.splitlines()), "> **Відповідь:** _порожньо_"]
         lines.append("")
@@ -437,7 +437,7 @@ def question_lines(src: Source, asked: list[Asked]) -> list[str]:
 
 
 def settings_lines(src: Source, asked: list[Asked]) -> list[str]:
-    lines = [f"- `{posixpath.basename(path)}` чекає «так»: дію `{task.action}` виконає виконавець, не агент."
+    lines = [f"- `{posixpath.basename(path)}` чекає «так»: дію `{task.action}` виконає runner, не агент."
              for path, _, task in asked if task.action and not task.answered]
     proposal = src.show("docs/tasks/settings.json")
     if proposal and proposal != src.show(".claude/settings.json"):
@@ -446,8 +446,8 @@ def settings_lines(src: Source, asked: list[Asked]) -> list[str]:
 
 
 def escalation_lines(src: Source, state: Path, asked: list[Asked]) -> list[str]:
-    lines = [f"- Ворота, на дошці: `{posixpath.basename(path)}` (ескалація `{task.gate}`)." for path, _, task in asked if task.gate]
-    lines += [f"- Ворота, на цій машині: `{entry.get('stamp')}` — зріз {entry.get('slice') or 'не названо'}."
+    lines = [f"- Gates, на task board: `{posixpath.basename(path)}` (ескалація `{task.gate}`)." for path, _, task in asked if task.gate]
+    lines += [f"- Gates, на цій машині: `{entry.get('stamp')}` — slice {entry.get('slice') or 'не названо'}."
               for entry in load_json(state / "gate/escalations.json").get("open") or [] if isinstance(entry, dict)]
     return lines or ["- Немає."]
 
@@ -473,10 +473,10 @@ def attended_lines(src: Source) -> list[str]:
             text = src.show(path)
             if board.parse(text).attended:
                 name = posixpath.basename(path)
-                lines.append(f"- `{name}` — {title_of(text, name)}" + (" — зараз у роботі з власником (у `doing/`); виконавця вона не зупиняє" if column == "doing" else ""))
+                lines.append(f"- `{name}` — {title_of(text, name)}" + (" — зараз у роботі з власником (у `doing/`); runner-а вона не зупиняє" if column == "doing" else ""))
     if not lines:
         return ["- Немає."]
-    return [("Виконавець їх не бере ніколи; кожна робиться в інтерактивній сесії Claude Code разом із вами (`tasks/README.md`, "
+    return [("Runner їх не бере ніколи; кожна робиться в інтерактивній сесії Claude Code разом із вами (`tasks/README.md`, "
              "«Задачі з присутнім власником»)."), "", *lines]
 
 
@@ -484,7 +484,7 @@ def waiting_section(src: Source, state: Path) -> list[str]:
     asked: list[Asked] = [(path, text, board.parse(text)) for path in src.column("blocked") for text in [src.show(path)]]
     total = sum(task.answers.count("") for _, _, task in asked)
     return [(f"Незаповнених відповідей: {total}, у задачах: {sum(1 for _, _, task in asked if '' in task.answers)} (тека `tasks/blocked/`). Відповідь пишеться в "
-             "рядок «Відповідь:» файла задачі — у гілці або копією файла в теку вхідних задач; задача повертається в роботу, коли заповнено всі."), "",
+             "рядок «Відповідь:» файла задачі — у гілці або копією файла в inbox; задача повертається в роботу, коли заповнено всі."), "",
             *question_lines(src, asked),
             "### Задачі, що потребують вашої присутності", "", *attended_lines(src), "",
             "### Пропозиції налаштувань", "", *settings_lines(src, asked), "",
@@ -495,7 +495,7 @@ def waiting_section(src: Source, state: Path) -> list[str]:
 # ------------------------------------------------------------------ the goals document (board 051)
 
 REQUEST_ENDS = {"quote-valid": "закрито цитатою документа, вас не турбували", "quote-invalid": "цитата НЕ збігається з документом — запит іде до вас",
-                "owner": "потрібне ваше рішення", "unanswered": "аналітик ще не відповів"}
+                "owner": "потрібне ваше рішення", "unanswered": "business analyst ще не відповів"}
 
 
 def goals_section(src: Source) -> list[str]:
@@ -518,7 +518,7 @@ def goals_section(src: Source) -> list[str]:
     loose = goals.unreconciled(src.show, src.files)
     lines += ["", "### Не звірені рішення", "",
               *([f"- `{path}` — {why}" for path, why in loose] or ["- Немає."])]
-    lines += ["", "### Запити до аналітика", "",
+    lines += ["", "### Запити до business analyst-а", "",
               *([f"- `{posixpath.basename(r.path)}` (привід {r.reason}): {REQUEST_ENDS[r.outcome]}" + (f" — {r.detail}" if r.detail else "") for r in asked] or ["- Немає."])]
     marked = goals.to_review(src.show)
     lines += ["", "### Поправки до документа", "",
@@ -526,15 +526,15 @@ def goals_section(src: Source) -> list[str]:
               *([f"- Чекає перегляду архітектором після поправки: {entry}" for entry in marked])]
     if src.show(goals.PROPOSED_REL):
         lines.append(f"- Запропонована поправка `{goals.PROPOSED_REL}` чекає вашого «так» (питання — в `tasks/blocked/`).")
-    lines += ["", "### Уроки аналітика, що чекають розбору", "", *([f"- {line[2:]}" for line in lessons] or ["- Немає."])]
+    lines += ["", "### Уроки business analyst-а, що чекають розбору", "", *([f"- {line[2:]}" for line in lessons] or ["- Немає."])]
     return lines
 
 
 # ------------------------------------------------------------------ testing
 
 VERDICT_WORDS = {"test_right": "ПРАВИЙ ТЕСТ — знайдено справжню помилку в коді", "test_wrong": "тест був хибний, виправлено",
-                 "contract_ambiguous": "контракт двозначний — питання пішло планувальникові"}
-KIND_WORDS = {"catch_up": "наздогнати контрактні тести", "integration": "інтеграційні тести", "mutation": "мутаційний прогін"}
+                 "contract_ambiguous": "slice contract двозначний — питання пішло planner-у"}
+KIND_WORDS = {"catch_up": "наздогнати contract tests", "integration": "інтеграційні тести", "mutation": "mutation testing"}
 
 
 def testing_section(src: Source, period: Since) -> list[str]:
@@ -543,14 +543,14 @@ def testing_section(src: Source, period: Since) -> list[str]:
     text = src.show(testing.LEDGER_REL.as_posix())
     every = testing.ledger_rows(text)
     if not every:
-        return ["- Журналу тестування (`.engine/testing/ledger.md`) ще немає: жоден зріз із запечатаним контрактом не проходив через менеджера тестування."]
+        return ["- Журналу тестування (`.engine/testing/ledger.md`) ще немає: жоден slice із запечатаним slice contract не проходив через test manager-а."]
     fresh = [r for r in every if period.utc is None or ((when := as_utc(str(r.get("utc", "")).replace("Z", "+00:00"))) is not None and when >= period.utc)]
 
     def of(kind: str, pool: list[dict[str, Any]] = fresh) -> list[dict[str, Any]]:
         return [r for r in pool if r.get("type") == kind]
 
     decisions = of("decision")
-    lines = [(f"- Зрізів із рішенням менеджера за період: {len({r.get('slice') for r in decisions})}; питань до контракту, знайдених до коду: "
+    lines = [(f"- Slice-ів із рішенням test manager-а за період: {len({r.get('slice') for r in decisions})}; питань до slice contract, знайдених до коду: "
               f"{sum(len(r.get('questions', [])) for r in of('handin') if r.get('accepted'))}. Це показники для читання, не цілі для агента.")]
     lines += ["", "### Суперечки про тести", ""]
     rounds = of("round")
@@ -558,7 +558,7 @@ def testing_section(src: Source, period: Since) -> list[str]:
         lines += [f"- `{row.get('slice')}`, коло {row.get('round')} із {testing.MAX_ROUNDS}: {item.get('test')} — "
                   f"{VERDICT_WORDS.get(str(item.get('verdict')), item.get('verdict'))} ({testing.one_line(item.get('reason'), 200)})" for item in row.get("items", [])]
     lines += [] if rounds else ["- Немає."]
-    lines += ["", "### Відкладені зрізи", "",
+    lines += ["", "### Відкладені slice-и", "",
               *([f"- `{r.get('slice')}` — третє коло суперечки не проводилось; обидва кола стоять у журналі тестування." for r in of("parked", every)] or ["- Немає."])]
     lines += ["", "### Рішення «не перемикатися»", "",
               *([f"- `{r.get('slice')}`: {testing.one_line(r.get('reason'), 200)} (малий: {testing.one_line(r.get('small'), 120)}; однорідний: {testing.one_line(r.get('uniform'), 120)})"
@@ -566,17 +566,17 @@ def testing_section(src: Source, period: Since) -> list[str]:
     fired = [(r, case, why) for r in decisions for case, why in (r.get("mandatory") or {}).items()]
     lines += ["", "### Спрацювання обов'язкових випадків", "",
               *([f"- {case.partition(':')[0]} на `{r.get('slice')}`, точка ({r.get('point')}): {testing.one_line(why, 200)}"
-                 + (" — МЕНЕДЖЕР САМ ДО ЦЬОГО НЕ ДІЙШОВ, рішення записав скрипт" if r.get("by_script") else "") for r, case, why in fired] or ["- Немає."])]
+                 + (" — TEST MANAGER САМ ДО ЦЬОГО НЕ ДІЙШОВ, рішення записав скрипт" if r.get("by_script") else "") for r, case, why in fired] or ["- Немає."])]
     debts = testing.debts_of(every)
     lines += ["", "### Борги тестування", "",
-              *([f"- {KIND_WORDS.get(d['kind'], d['kind'])} зрізу `{d['slice']}` — відкладено до події `{d['until']}`: {testing.one_line(d.get('reason'), 200)}" for d in debts] or ["- Немає."])]
+              *([f"- {KIND_WORDS.get(d['kind'], d['kind'])} slice-а `{d['slice']}` — відкладено до події `{d['until']}`: {testing.one_line(d.get('reason'), 200)}" for d in debts] or ["- Немає."])]
     results = {r.get("block"): r for r in of("mutation_result", every)}
     runs = [f"- блок `{r.get('block')}`: {r.get('seconds')} с, вихід {r.get('exit')}"
             + (f"; уціліло {results[r.get('block')].get('survived')}, розібрано {results[r.get('block')].get('handled')}" if r.get("block") in results else "; уцілілих ще не розібрано")
             for r in of("mutation")]
-    runs += [f"- великий блок `{r.get('block')}` закрито БЕЗ мутаційної перевірки: команду `MUTATION_CMD` не задано" for r in decisions
+    runs += [f"- великий блок `{r.get('block')}` закрито БЕЗ mutation testing: команду `MUTATION_CMD` не задано" for r in decisions
              if r.get("block_large") and r.get("point") == "b" and (r.get("checks") or {}).get("mutation", {}).get("when") != "now"]
-    lines += ["", "### Мутаційні прогони", "", *(runs or ["- Немає."])]
+    lines += ["", "### Mutation testing", "", *(runs or ["- Немає."])]
     return lines
 
 
@@ -595,13 +595,13 @@ def journal_lines(src: Source, period: Since) -> list[str]:
     path = f"tasks/{board.ANOMALIES}"
     entries = [(match, body) for heading, body in sections(src.show(path)) if (match := ANOMALY.match(heading))]
     if not entries:
-        return ["Журнал аномалій (`tasks/ANOMALIES.md`) порожній: виконавець не зустрів нічого дивного."]
+        return ["Журнал аномалій (`tasks/ANOMALIES.md`) порожній: runner не зустрів нічого дивного."]
     if period.commit:
         fresh = entries[sum(1 for heading, _ in sections(git(src.root, "show", f"{period.commit}:{path}").stdout) if ANOMALY.match(heading)):]
     else:
         fresh = [(match, body) for match, body in entries
                  if period.utc is None or ((when := as_utc(match.group(1).replace("Z", "+00:00"))) is not None and when >= period.utc)]
-    lines = [(f"Нових записів за період: {len(fresh)}; усього в журналі `tasks/ANOMALIES.md`: {len(entries)}. Це те, що виконавець, ворота, hook чи агент вважали дивним, "
+    lines = [(f"Нових записів за період: {len(fresh)}; усього в журналі `tasks/ANOMALIES.md`: {len(entries)}. Це те, що runner, gates, hook чи агент вважали дивним, "
               "записали і пішли далі; задачі, які він сам переніс у `blocked/`, стоять також у «Чекає на власника»."), ""]
     for match, body in fresh:
         lines += [f"- **{stamp(as_utc(match.group(1).replace('Z', '+00:00')))} — `{match.group(2)}`**",
@@ -630,7 +630,7 @@ def plan_section(src: Source) -> list[str]:
         line = f"{index}. `{posixpath.basename(path)}` — {title_of(text, 'без назви')}"
         line += "; **першою — власник відповів**" if posixpath.basename(path) in first else ""
         if task.attended:
-            line += "; **лише з присутнім власником** — виконавець не бере"
+            line += "; **лише з присутнім власником** — runner не бере"
             line += ("; чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)) if unmet else ""
         elif unmet:
             line += "; **стоїть**, чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)
@@ -650,11 +650,11 @@ def old_failures(src: Source) -> list[str]:
         tests = [str(name) for name in data.get("tests", [])]
         counts = [sum(n for rules in data.get(part, {}).values() for n in rules.values()) for part in ("lint", "types")]
     except (ValueError, AttributeError, TypeError):
-        return ["### Старі падіння зі знімка «як було» (`.engine/baseline.json`)", "", "Знімок не читається: файл зіпсовано. Ворота, поки так, вимагають чистоти.", ""]
+        return ["### Старі падіння зі знімка «як було» (`.engine/baseline.json`)", "", "Знімок не читається: файл зіпсовано. Gates, поки так, вимагають чистоти.", ""]
     if not tests and not any(counts):
         return []
     lines = ["### Старі падіння зі знімка «як було» (`.engine/baseline.json`)", "",
-             (f"Тестів, що падали ще на день знімка: {len(tests)}. Ворота їх не блокують; кожен — кандидат у задачу, "
+             (f"Тестів, що падали ще на день знімка: {len(tests)}. Gates їх не блокують; кожен — кандидат у задачу, "
               "задачею стане, коли її поставите ви. Полагоджене зі знімка прибирає `baseline.py tighten`."), ""]
     lines += [f"- `{name}`" for name in tests]
     return [*lines, *([""] if tests else []), f"Старих зауважень лінтера у знімку: {counts[0]}; помилок типів: {counts[1]}.", ""]
@@ -678,9 +678,9 @@ def candidates_section(src: Source, stems: list[str], period: Since) -> list[str
         passes += [f"**{heading}** — знахідок: {len(findings)}", ""]
         passes += [f"- {f if len(f) <= FINDING_MAX else f[:FINDING_MAX].rstrip() + '…'}" for f in findings] + [""]
     if passes:
-        lines += ["### Знахідки спрощувача для розбору (`.engine/simplifier/report.md`)", "", *passes]
+        lines += ["### Знахідки simplifier-а для розбору (`.engine/simplifier/report.md`)", "", *passes]
     lines += old_failures(src)
-    return lines or ["За цей період кандидатів немає: у нових звітах немає розділів «Відкладене» чи «Чого мені бракувало», знахідок спрощувача немає."]
+    return lines or ["За цей період кандидатів немає: у нових звітах немає розділів «Відкладене» чи «Чого мені бракувало», знахідок simplifier-а немає."]
 
 
 def context_lines(src: Source) -> tuple[int, int] | None:
@@ -729,7 +729,7 @@ def machine_record(state: Path, name: str) -> tuple[dict[str, Any], str]:
 def test_run_lines(state: Path) -> list[str]:
     lines = []
     for name, title, command in (("tests-full.json", "Останній повний прогін тестів", "bash tests/run_all.sh"),
-                                 ("tests-fast.json", "Останній швидкий прогін (набір воріт)", "bash tests/run_all.sh --fast")):
+                                 ("tests-fast.json", "Останній швидкий прогін (набір gates)", "bash tests/run_all.sh --fast")):
         record, where = machine_record(state, name)
         if not record:
             if name == "tests-full.json":
@@ -749,7 +749,7 @@ def golden_line(src: Source, state: Path) -> str:
     if record:
         compared = record.get("compare")
         differences = record.get("differences")
-        return (f"- Золотий набір, за машинним записом ({where}): {record.get('green')} із {record.get('scenarios')} сценаріїв відповідають очікуванням"
+        return (f"- Golden set, за машинним записом ({where}): {record.get('green')} із {record.get('scenarios')} сценаріїв відповідають очікуванням"
                 + (f"; порівняно з `{compared}` — відмінностей: {differences}" if compared and differences is not None else "") + ".")
     newest: tuple[str, str, list[Any]] | None = None
     for path in sorted(p for p in src.files if GOLDEN.match(p)):
@@ -762,9 +762,9 @@ def golden_line(src: Source, state: Path) -> str:
         if isinstance(results, list) and (newest is None or recorded > newest[0]):
             newest = (recorded, path, results)
     if newest is None:
-        return "- Золотий набір: ні машинного запису (`.claude/state/health/golden.json`), ні записаних результатів (`evals/baseline/*/results-*.json`) немає."
+        return "- Golden set: ні машинного запису (`.claude/state/health/golden.json`), ні записаних результатів (`evals/baseline/*/results-*.json`) немає."
     met = sum(1 for r in newest[2] if isinstance(r, dict) and r.get("pass"))
-    return (f"- Золотий набір: машинного запису прогону тут немає; найновіший файл результатів у репозиторії — `{newest[1]}` "
+    return (f"- Golden set: машинного запису прогону тут немає; найновіший файл результатів у репозиторії — `{newest[1]}` "
             f"({newest[0] or 'час не записано'}): {met} із {len(newest[2])} сценаріїв відповідають очікуванням.")
 
 
@@ -775,10 +775,10 @@ def health_section(src: Source, state: Path, costs: dict[str, dict[str, Any]], p
         lines.append(f"- Постійний контекст (CLAUDE.md і все, що він імпортує): {context[0]} із {CONTEXT_BUDGET} рядків, файлів: {context[1]}.")
     if costs:
         spent = period_costs(costs, period)
-        lines.append(f"- Витрати за період, за записами виконавця: ${sum(c for _, c in spent):.2f}"
+        lines.append(f"- Витрати за період, за записами runner-а: ${sum(c for _, c in spent):.2f}"
                      + (" — " + ", ".join(f"{name} ${cost:.2f}" for name, cost in spent) if spent else "") + ".")
     else:
-        lines.append("- Витрати за період: записів виконавця (`costs.json`) тут немає; суми по задачах — у розділах «Витрати» їхніх звітів.")
+        lines.append("- Витрати за період: записів runner-а (`costs.json`) тут немає; суми по задачах — у розділах «Витрати» їхніх звітів.")
     return lines
 
 
@@ -791,7 +791,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
     costs = task_costs(state)
     stems = new_done(src, period)
     head = src.log("-1", "--format=%cI%x09%s", src.sha).split("\t")
-    lines = [f"# Огляд дошки — {stamp(now)}", "",
+    lines = [f"# Огляд task board — {stamp(now)}", "",
              f"Джерело: гілка `{src.name}`, commit `{src.sha[:7]}`" + (f" від {stamp(as_utc(head[0]))} — {head[1]}" if len(head) == 2 else "") + ".",
              *([f"Увага: {src.note}."] if src.note else []),
              f"Період для «Зроблено», кандидатів і витрат: {period.shown}. Огляд нічого не змінює.", ""]

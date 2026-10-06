@@ -258,7 +258,7 @@ try:
     question = w.asked()
     check("the question names the count, lists what the owner approves, and offers the sha256 of the list",
           "Оновити ці 3 залежностей?" in question and all(f"`{n}`" in question for n in ("left-pad", "requests", "attrs"))
-          and f"Дія виконавця: update-deps {w.sha()}" in question and question.rstrip().endswith("Відповідь:") and "django" not in question, question)
+          and f"Дія runner-а: update-deps {w.sha()}" in question and question.rstrip().endswith("Відповідь:") and "django" not in question, question)
 
     bare = World(env='SOURCE_DIRS="app"\nTEST_CMD="python3 tests/check.py"\n').reported()
     none = bare.py(MAINTAIN, "question")
@@ -367,7 +367,7 @@ try:
           and [s.split(" — ")[0] for s in w.subjects() if s.startswith("deps:")] == ["deps: attrs 23.1.0 → 23.2.0", "deps: requests 2.31.0 → 2.31.4"], w.subjects())
     check("the result says two of three; the offer is replaced by the outcome and the agent closes the task",
           "Оновлено 2 з 3" in result and "action-applied update-deps" in w.text(".claude/state/board/events.log")
-          and "Дію виконано" in w.text("tasks/done/020-maintain-2026-10-04/task.md") and "Дія виконавця:" not in w.text("tasks/done/020-maintain-2026-10-04/task.md"), out(r))
+          and "Дію виконано" in w.text("tasks/done/020-maintain-2026-10-04/task.md") and "Дія runner-а:" not in w.text("tasks/done/020-maintain-2026-10-04/task.md"), out(r))
     check("everything is pushed and the tree is clean", not w.dirty() and sh(w.repo, "git", "rev-parse", "HEAD").stdout == sh(w.origin, "git", "rev-parse", "unattended/work").stdout, w.dirty())
     before = len(w.calls())
     r = w.runner()

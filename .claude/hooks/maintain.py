@@ -190,7 +190,7 @@ def question(root: Path) -> str | None:
     import board
 
     asks = (f"Оновити ці {len(ready)} залежностей? Латки — однією групою, малі версії — по одній; після кожного оновлення — "
-            "повний прогін тестів і ворота «не гірше»; що зламало — скасовується і йде у звіт. Великі версії сюди не входять.")
+            "повний прогін тестів і gates «не гірше»; що зламало — скасовується і йде у звіт. Великі версії сюди не входять.")
     return "\n".join([asks, *("   " + dep_line(d) for d in ready), "   " + board.action_line(root, "update-deps"), "   Відповідь:"])
 
 
@@ -228,7 +228,7 @@ def complexity(root: Path, env: dict[str, str], before: dict[str, Any]) -> tuple
     was: dict[str, Any] = before["totals"] if isinstance(before.get("totals"), dict) else {}
     lines = [f"- {words}: {delta(totals[key], was.get(key))}" for key, words in TOTAL_WORDS]
     calls = [s["message"] for s in signals if s["kind"] == "trend"]
-    lines.append("- різке зростання: " + ("; ".join(calls) + " — це сигнал покликати спрощувача (`simplifier.py request --lens code`)" if calls else "немає"))
+    lines.append("- різке зростання: " + ("; ".join(calls) + " — це сигнал покликати simplifier-а (`simplifier.py request --lens code`)" if calls else "немає"))
     return lines, totals, calls
 
 
@@ -250,7 +250,7 @@ def hot_places(root: Path, env: dict[str, str]) -> list[tuple[str, int, int]]:
 def snapshot(root: Path, before: dict[str, Any]) -> tuple[list[str], list[int] | None]:
     current, problem = baseline.load(root)
     if current is None:
-        return [f"Знімка «як було» немає{f' ({problem})' if problem else ''}: ворота вимагають чистого."], None
+        return [f"Знімка «як було» немає{f' ({problem})' if problem else ''}: gates вимагають чистого."], None
     left = list(baseline.remaining(current))
     was = before.get("baseline")
     words = ("старих падінь тестів", "зауважень лінтера", "зауважень типів")
@@ -285,7 +285,7 @@ def proposals(deps: list[Dep], hot: list[tuple[str, int, int]], calls: list[str]
            for d in deps if d["kind"] not in UPDATABLE]
     out += [f"Спростити `{rel}`: змінювався {n} разів за {HOT_DAYS} днів, найскладніша функція — {worst}." for rel, n, worst in hot[:HOT_SHOWN]]
     if calls:
-        out.append("Покликати спрощувача на різке зростання: " + "; ".join(calls) + ".")
+        out.append("Покликати simplifier-а на різке зростання: " + "; ".join(calls) + ".")
     if left and left[0]:
         out.append(f"Полагодити старі падіння тестів зі знімка «як було» ({left[0]}): `python3 .claude/hooks/baseline.py show`.")
     out += [f"Закрити прострочений борг термінового виправлення `{d.name}` (строк {d.due}): {d.followup}." for d in late]

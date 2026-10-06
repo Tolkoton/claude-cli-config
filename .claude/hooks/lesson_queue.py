@@ -37,7 +37,7 @@ A resolved candidate leaves the queue.
 NEVER INTO THE PERSISTENT CONTEXT AUTOMATICALLY — A LESSON BECOMES A RULE ONLY ON THE OWNER'S WORD
 (board 040). Nothing here writes CLAUDE.md or `.claude/`. A rule proposal is put to the owner as a
 task in `tasks/blocked/` (board.py `rule_question`): the question «Зробити це правилом?», the exact
-text of the rule, and the offer `Дія виконавця: promote-rule <sha256 of the id and that text>`.
+text of the rule, and the offer `Дія runner-а: promote-rule <sha256 of the id and that text>`.
 The overseer may add a recommendation (`--recommend`); it decides nothing, and no ledger entry
 opens the way. `promote` needs the owner's «так» under that very offer, refuses inside a Claude
 Code session (the board runner takes the action, through owner_action.py, after it has checked
@@ -485,7 +485,7 @@ def promote(root: Path, ident: str, owner_flag: bool = False, in_session: bool =
         return False, "the rule text contains an @path, which CLAUDE.md would load as an import"
     if not owner_flag and not owner_said_yes(root, ident, rule):
         return False, (f"the owner has not said «{OWNER_YES}» to RP-{ident}: no task in tasks/blocked/ offers "
-                       f"`Дія виконавця: {RULE_ACTION} {proposal_sha(ident, rule)}` with that answer. A lesson becomes a rule "
+                       f"`Дія runner-а: {RULE_ACTION} {proposal_sha(ident, rule)}` with that answer. A lesson becomes a rule "
                        f"only with the owner's consent (`lesson_queue.py ask {ident}` writes the question; the overseer's "
                        "opinion opens nothing)")
     if in_session:

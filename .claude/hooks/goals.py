@@ -22,7 +22,7 @@ the line it names exists, still stands, and says today what it said when it was 
     conversation with the analyst and is refused in an unattended session. A changed document
     is not in force until it is sealed again, and that is the owner's act: `--owner-approved`
     in the owner's own terminal, or `amend` — the board runner's action on the owner's «так»
-    under a question that offers `Дія виконавця: amend-goals <sha256 of .engine/goals/proposed.md>`.
+    under a question that offers `Дія runner-а: amend-goals <sha256 of .engine/goals/proposed.md>`.
     Inside a Claude Code session neither works: an agent can type both;
   * numbers are permanent: a line that no longer holds stays, struck through (`- ~~G2. …~~`).
     `proposal` and `amend` refuse an amendment that drops or revives a number or does not raise
@@ -71,7 +71,7 @@ FIELD = r"^{name}:[ \t]*(.*)$"
 REVIEW_HEADER = ("# Рішення, які треба переглянути\n\nКожен рядок дописав `goals.py` після поправки до документа цілей: рішення "
                  "посилалося на рядок, який змінився. Архітектор перечитує рішення і ставить `[x]`.\n\n")
 IN_SESSION = ("refused inside a Claude Code session (CLAUDECODE is set): re-approving the goals document is the owner's "
-              "act — their own terminal, or «так» under a question that offers `Дія виконавця: amend-goals <sha256>`")
+              "act — their own terminal, or «так» under a question that offers `Дія runner-а: amend-goals <sha256>`")
 
 Show = Callable[[str], str]
 

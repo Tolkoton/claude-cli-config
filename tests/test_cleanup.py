@@ -226,14 +226,14 @@ try:
           w.said("nightly") == ["nightly"] and "no sharp growth" in w.text(f"tasks/done/{name}/report.md"), w.said("nightly"))
     journal = w.text("tasks/ANOMALIES.md")
     check("the event is in the anomaly journal: under the task, what happened, what was done, by the runner",
-          journal.count(f"— {name}\n") == 1 and "дошка вільна" in journal and f"`tasks/todo/{name}.md`" in journal and "Хто записав: виконавець" in journal, journal)
+          journal.count(f"— {name}\n") == 1 and "task board вільна" in journal and f"`tasks/todo/{name}.md`" in journal and "Хто записав: runner" in journal, journal)
     check("placed in one commit — the task and its journal entry together — and nothing is left uncommitted",
           sum(PLACED in s for s in w.subjects()) == 1 and w.dirty() == ""
           and sorted(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~2").stdout.split()) == ["tasks/ANOMALIES.md", f"tasks/todo/{name}.md"], str(w.subjects()) + w.dirty())
     check("origin has it all", sh(w.repo, "git", "rev-parse", "HEAD").stdout == sh(w.repo, "git", "rev-parse", "origin/unattended/work").stdout)
     doc = w.board("review", "--offline", "--state-dir", str(w.repo / ".claude/state"))
     odd = doc.stdout.split("\n## Аномалії")[1].split("\n## ")[0] if "\n## Аномалії" in doc.stdout else ""
-    check("the review shows it in «Аномалії»", name in odd and "дошка вільна" in odd, out(doc)[:900])
+    check("the review shows it in «Аномалії»", name in odd and "task board вільна" in odd, out(doc)[:900])
 
     r = w.runner("2026-10-05")
     check("NEGATIVE: the same day's next run places nothing and starts no agent", r.returncode == 0 and len(w.said("calls")) == 2 and sum(PLACED in s for s in w.subjects()) == 1 and "state=idle" in w.status(), out(r))

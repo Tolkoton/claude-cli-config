@@ -484,7 +484,8 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   on twelve hand-written ones (four traps, eight typical mistakes), each of which carries the
   refuting line in the request. Real false findings may be harder.
 - **The eval's paid-run gate is the same seat belt as the audit's** (below): the task's
-  «Платні прогони» line or `--owner-approved` outside a session.
+  «Платні прогони: так» line (no dollar number; one written there is a ceiling) or `--owner-approved`
+  outside a session. What stands against a loop is the runner's `BOARD_MAX_USD`, not the line.
 - **The nightly cleanup runs in the board runner's free time, not on a clock** (board 045). The
   runner places the cleanup task only when it has nothing else to take, and not more than once a
   day; a board that is never idle, or a runner that is not started, runs no `simplifier.py nightly`,

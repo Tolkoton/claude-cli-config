@@ -23,10 +23,10 @@ false findings. Nothing is tuned to the result.
 The fixture cases are judged on evals/reference-project + scenarios/simplifier/project + scenarios/
 second-opinion/project; the engine cases on this repository as it was at `engine_commit`.
 
-PAID RUNS. As run_simplifier_evals.py: only on a «Платні прогони:» line with a dollar limit in the
-task in tasks/doing/, or the owner's --owner-approved outside a session. Without the key
+PAID RUNS. As run_simplifier_evals.py: only on the owner's «Платні прогони: так» line in the task
+in tasks/doing/ (no dollar number needed), or the owner's --owner-approved outside a session. Without the key
 (GEMINI_API_KEY_SIMPLIFIER) nothing starts at all: half a measurement is not a measurement.
---max-usd stops before the limit is passed; a run that was cut short is not in the summary.
+A number in that line, or --max-usd, is a ceiling the runs stop before; a run that was cut short is not in the summary.
 
 Standard library only, Python 3.12+.
 """
@@ -169,7 +169,7 @@ def main() -> int:
     parser.add_argument("--only", default="", help="only the cases whose id contains this")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--claude-model", default="fable", help="the control's model: the one the simplifier agent itself runs on")
-    parser.add_argument("--max-usd", type=float, default=15.0, help="stop before both judges together cost more")
+    parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before both judges together cost more (default: none)")
     parser.add_argument("--max-usd-per-call", type=float, default=1.0)
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
@@ -196,6 +196,7 @@ def main() -> int:
             return 2
         empty = Path(tmp) / "empty"
         empty.mkdir()
+        limit = fixture.dollar_limit(args.tasks_dir, args.max_usd)
         runs: list[JsonObj] = []
         spent = 0.0
         for number in range(1, args.runs + 1):
@@ -203,7 +204,7 @@ def main() -> int:
             runs.append(run)
             for row in requests:
                 for judge in JUDGES:
-                    if spent + CALL_RESERVE_USD > args.max_usd:
+                    if fixture.over_limit(spent, CALL_RESERVE_USD, limit):
                         run["complete"] = False
                         break
                     answer, cost, error = ask_gemini(row["prompt"], config, key) if judge == "gemini" else ask_claude(row["prompt"], args, empty)
@@ -219,7 +220,7 @@ def main() -> int:
                   + "; ".join(f"{j} caught {s['caught']}, false alarms {s['false_alarms']}, no opinion {s['no_opinion']}" for j, s in shown.items())
                   + f"  (${spent:.2f} so far)")
             if not run["complete"]:
-                print(f"cost limit: ${spent:.2f} spent, the limit is ${args.max_usd:.2f} — stopping")
+                print(f"cost limit: ${spent:.2f} spent, the limit is ${limit:.2f} — stopping")
                 break
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),

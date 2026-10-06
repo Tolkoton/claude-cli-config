@@ -97,7 +97,7 @@
 # nothing.
 #
 # AN OWNER ACTION (board 008) is what the owner approved with «так» under a question that offers
-# it (`Дія виконавця: <action> <sha256>`, see board.py). The runner takes it, never the agent,
+# it (`Дія runner-а: <action> <sha256>`, see board.py). The runner takes it, never the agent,
 # and only from the short list: `apply-settings` (owner_action.py: the settings proposal is
 # copied over .claude/settings.json and its test run), `promote-rule` / `reject-rule` (board 040:
 # the owner's «так» or «ні» under a rule question — a lesson becomes a rule in .engine/rules.md,
@@ -243,7 +243,7 @@ cleanup() {
 }
 trap cleanup EXIT
 # Killed: the entry is written, not committed — the next start commits it before its first pull.
-trap 'event "killed"; board anomaly "${TASK_NAME:--}" "виконавця вбито сигналом (TERM або INT) посеред роботи; стан error, причина killed" "сесію агента зупинено разом із виконавцем; незакомічена робота лишилась у робочому дереві, задача — там, де була. Виконавця треба запустити знову; зупиняти його слід лише через --stop-after-task або --stop-after-attempt." > /dev/null 2>&1; status error "${TASK_NAME:--}" killed; exit 143' TERM INT
+trap 'event "killed"; board anomaly "${TASK_NAME:--}" "runner-а вбито сигналом (TERM або INT) посеред роботи; стан error, причина killed" "сесію агента зупинено разом із runner-ом; незакомічена робота лишилась у робочому дереві, задача — там, де була. Runner-а треба запустити знову; зупиняти його слід лише через --stop-after-task або --stop-after-attempt." > /dev/null 2>&1; status error "${TASK_NAME:--}" killed; exit 143' TERM INT
 
 # finish <state> <task|-> <reason-word> <one sentence>: the summary, the status line, the exit code.
 finish() {
@@ -253,19 +253,19 @@ finish() {
   # that is not on the work branch.
   if [ "$state" = error ] && [ "$JOURNALED" -eq 0 ] && [ "$reason" != branch ]; then
     JOURNALED=1
-    note_anomaly "$task" "виконавець зупинився зі станом \`error\` (причина \`$reason\`): $sentence" \
-      "дошку зупинено; після усунення причини виконавця треба запустити знову. Подробиці на сервері: \`.claude/state/board/summary.md\`, \`events.log\`, \`logs/\`."
+    note_anomaly "$task" "runner зупинився зі станом \`error\` (причина \`$reason\`): $sentence" \
+      "task board зупинено; після усунення причини runner-а треба запустити знову. Подробиці на сервері: \`.claude/state/board/summary.md\`, \`events.log\`, \`logs/\`."
     push_branch quiet
   fi
   {
-    echo "# Дошка: підсумок запуску"
+    echo "# Task board: підсумок запуску"
     echo
     echo "- Час (UTC): $(now)"
     echo "- Стан: \`$state\` — $sentence"
     [ "$task" = "-" ] || echo "- Задача: \`$task\`"
     echo "- Гілка: \`$BRANCH\` на \`$(git rev-parse --short HEAD 2>/dev/null)\`"
     echo
-    echo "## Дошка"
+    echo "## Task board"
     echo
     board summary 2>&1 | sed 's/^/- /'
     echo
@@ -335,7 +335,7 @@ note_anomaly() {
 # that stop the whole board. The journal entry is committed and pushed first when that is possible.
 critical() {
   JOURNALED=1
-  note_anomaly "$1" "$4" "дошку зупинено (причина \`$2\`): це одна з небагатьох речей, які зупиняють усю дошку. Після усунення причини виконавця треба запустити знову."
+  note_anomaly "$1" "$4" "task board зупинено (причина \`$2\`): це одна з небагатьох речей, які зупиняють усю task board. Після усунення причини runner-а треба запустити знову."
   [ "$2" = pull-conflict ] || push_branch quiet
   finish error "$1" "$2" "$3"
 }
@@ -357,7 +357,7 @@ sync_branch() {
   if ! git pull -q --rebase --autostash "$REMOTE" "$BRANCH" >> "$STATE/logs/git.log" 2>&1; then
     git rebase --abort >> "$STATE/logs/git.log" 2>&1
     critical "${TASK_NAME:--}" pull-conflict "pull --rebase of $BRANCH from $REMOTE did not apply cleanly; the rebase was aborted, nothing is lost. Resolve it by hand, then start the runner again" \
-      "конфлікт під час pull --rebase гілки $BRANCH з $REMOTE; виконавець його не розв'язав, rebase скасовано, нічого не втрачено"
+      "конфлікт під час pull --rebase гілки $BRANCH з $REMOTE; runner його не розв'язав, rebase скасовано, нічого не втрачено"
   fi
 }
 
@@ -477,8 +477,8 @@ sweep_closed_questions() {
   while IFS=$'\t' read -r name stamp; do
     [ -n "$name" ] || continue
     board gate-done "$name" elsewhere > /dev/null || finish error - gate "board.py gate-done $name failed"
-    board anomaly "${name%.md}" "питання воріт лежало в \`blocked/\` без відповіді, а його ескалацію $stamp уже закрито іншим шляхом (командою \`gate.py --close-escalation\` у терміналі)" \
-      "виконавець сам прибрав питання з \`blocked/\` у \`done/${name%.md}/\` зі звітом; відповідати на нього вже не треба." > /dev/null
+    board anomaly "${name%.md}" "питання gates лежало в \`blocked/\` без відповіді, а його ескалацію $stamp уже закрито іншим шляхом (командою \`gate.py --close-escalation\` у терміналі)" \
+      "runner сам прибрав питання з \`blocked/\` у \`done/${name%.md}/\` зі звітом; відповідати на нього вже не треба." > /dev/null
     event "gate-question-swept $stamp $name"
     say "${name%.md}: its escalation $stamp was closed another way; the question is removed from blocked/"
     board_commit "board: ${name%.md} → done — gate escalation $stamp was closed another way; the question is removed" \
@@ -635,7 +635,7 @@ Commit what belongs to this task (through .claude/unattended/commit_checkpoint.s
   count=$(wc -l <<< "$left" | tr -d ' ')
   event "dirty-tree-left $stem $count file(s)"
   note_anomaly "$stem" "задачу закрито (\`$OUTCOME/\`), але в робочому дереві лишилися її незакомічені файли: $count" \
-    "$turn. Виконавець нічого не видаляв і не комітив і взяв наступну задачу. Файли: $(sed 's/.*/`&`/' <<< "$left" | paste -sd, - | sed 's/,/, /g')."
+    "$turn. Runner нічого не видаляв і не комітив і взяв наступну задачу. Файли: $(sed 's/.*/`&`/' <<< "$left" | paste -sd, - | sed 's/,/, /g')."
 }
 
 # run_task <tasks/doing/NAME.md>: attempts until the task left doing/ — moved by the agent to
@@ -651,7 +651,7 @@ run_task() {
       done|blocked) OUTCOME="$place"; CLOSED_BY=agent; return 0 ;;
       doing) stop_after_attempt "$stem" ;;
       todo) park_task "$stem" returned ""; return 0 ;;
-      *) note_anomaly "$stem" "задача зникла з дошки: її немає ні в doing/, ні в done/, ні в blocked/, ні в todo/" "виконавець узяв наступну задачу; файл задачі можна повернути з історії git"
+      *) note_anomaly "$stem" "задача зникла з task board: її немає ні в doing/, ні в done/, ні в blocked/, ні в todo/" "runner узяв наступну задачу; файл задачі можна повернути з історії git"
          OUTCOME=missing; return 0 ;;
     esac
     if [ -f "$(blocks_marker "$stem")" ]; then
@@ -697,8 +697,8 @@ while :; do
       PLACED=$(board cleanup-task) || finish error - cleanup "board.py cleanup-task failed"
       if [ -n "$PLACED" ]; then
         event "cleanup-task $PLACED"
-        board anomaly "$(basename "$PLACED" .md)" "дошка вільна: виконавцеві нема чого брати (\`todo/\` порожня, або все, що лишилося, чекає власника чи його присутності)" \
-          "виконавець сам поклав задачу прибирання \`$PLACED\` і взяв її: нічний режим спрощувача, безпечне застосовується, решта — у звіт для власника. Наступна така — не раніше ніж за добу (\`CLEANUP_EVERY_DAYS\`)." > /dev/null \
+        board anomaly "$(basename "$PLACED" .md)" "task board вільна: runner-у нема чого брати (\`todo/\` порожня, або все, що лишилося, чекає власника чи його присутності)" \
+          "runner сам поклав задачу прибирання \`$PLACED\` і взяв її: нічний режим simplifier-а, безпечне застосовується, решта — у звіт для власника. Наступна така — не раніше ніж за добу (\`CLEANUP_EVERY_DAYS\`)." > /dev/null \
           || event "anomaly-failed cleanup-task $PLACED"   # the journal never stops the board; the task is placed all the same
         board_commit "board: nothing to take — the cleanup task $PLACED" || finish error - commit "cannot commit the cleanup task"
         continue

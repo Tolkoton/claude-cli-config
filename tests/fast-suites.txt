@@ -84,3 +84,4 @@ test_goals.py
 test_analyst_evals.py
 test_onboard.py
 test_manager_evals.py
+test_owner_terms.py

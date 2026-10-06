@@ -55,7 +55,7 @@ python3 .claude/hooks/maintain.py question
 ```
 
 It prints the question «Оновити ці N залежностей?» with the list, the action line
-`Дія виконавця: update-deps <sha256 of updates.json>` and an empty `Відповідь:`. Exit 3 and
+`Дія runner-а: update-deps <sha256 of updates.json>` and an empty `Відповідь:`. Exit 3 and
 nothing printed — there is nothing to update, and no question.
 
 - **On the board:** write the printed text into the task under «Питання до власника» exactly as

@@ -23,9 +23,10 @@ through `simplifier.py`'s validator, as in real use, and is scored:
 
 Nothing is tuned to the result: a touched trap is reported as it is.
 
-PAID RUNS. Sessions start only when the task in tasks/doing/ has a «Платні прогони:» line with
-a dollar limit, or the owner runs this by hand with --owner-approved (which does not count inside
-a Claude Code session). --max-usd stops before the limit is passed.
+PAID RUNS. Sessions start only when the task in tasks/doing/ has the owner's «Платні прогони: так»
+line, or the owner runs this by hand with --owner-approved (which does not count inside a Claude
+Code session). No dollar number is required: the runner's BOARD_MAX_USD guards a loop. A number in
+that line, or --max-usd, is a ceiling: the runs stop before it is passed.
 
 Standard library only, Python 3.12+.
 """
@@ -53,7 +54,6 @@ ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "simplifier"
 LENSES = ("code", "requirements", "architecture")
 RUN_TIMEOUT_S = 1200
-PAID_LINE_RE = re.compile(r"^Платні прогони:.*\d+\s*(?:долар|\$|USD)", re.MULTILINE | re.IGNORECASE)
 SANDBOX_ENV = 'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\nCOMPLEXITY_GATE="warn"\n'
 
 JsonObj = dict[str, Any]
@@ -72,29 +72,42 @@ def simplifier_module() -> Any:
     return module
 
 
-def task_in_hand(tasks_dir: Path) -> Path | None:
-    """This session's one task in doing/ (board.py own); None when it has none, or more than one.
-    The other side's task beside it — the owner's session's, or the runner's — is not counted."""
+def board_module() -> Any:
+    """.claude/unattended/board.py — the board's one reader: it decides what the owner's
+    «Платні прогони:» line says, for this session's own task in doing/ only."""
     spec = importlib.util.spec_from_file_location("engine_board", ROOT / ".claude" / "unattended" / "board.py")
     if spec is None or spec.loader is None:
         raise RuntimeError("cannot load .claude/unattended/board.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules["engine_board"] = module
     spec.loader.exec_module(module)
-    doing = module.own(tasks_dir.resolve())
-    return doing[0] if len(doing) == 1 else None
+    return module
 
 
 def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) -> str | None:
     """Why paid sessions may not start, or None (tasks/README.md, «Платні прогони»)."""
     if owner_approved and not in_session:
         return None
-    task = task_in_hand(tasks_dir)
-    if task and PAID_LINE_RE.search(task.read_text(encoding="utf-8")):
+    reason = board_module().paid_refusal(tasks_dir.resolve())
+    if reason is None:
         return None
     flag = " --owner-approved does not count inside a Claude Code session." if owner_approved else ""
-    return ("refusing to start paid sessions: the task in tasks/doing/ has no «Платні прогони:» line with a "
-            f"dollar limit.{flag} The owner writes that line in the task, or runs this by hand with --owner-approved.")
+    return (f"refusing to start paid sessions: {reason}.{flag} The owner writes «Платні прогони: так» in the task — "
+            "no dollar number is needed — or runs this by hand with --owner-approved.")
+
+
+def dollar_limit(tasks_dir: Path, asked: float | None) -> float | None:
+    """The ceiling of this run: the smaller of --max-usd and the number in the task's line, when
+    either is there; None is no ceiling — the owner's «так» is the consent, not a budget."""
+    given = [limit for limit in (asked, board_module().paid_ceiling(tasks_dir.resolve())) if limit is not None]
+    return min(given) if given else None
+
+
+def over_limit(spent: float, next_cost: float, limit: float | None) -> str | None:
+    """The line to print instead of starting a session that could pass the ceiling, or None."""
+    if limit is None or spent + next_cost <= limit:
+        return None
+    return f"cost limit: ${spent:.2f} spent, a run may cost ${next_cost:.2f}, the limit is ${limit:.2f} — stopping"
 
 
 def build_sandbox(target: Path) -> Path:
@@ -211,7 +224,7 @@ def main() -> int:
     parser.add_argument("--sandbox", type=Path, help="build the project here, print the request and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the model of the agent's definition")
-    parser.add_argument("--max-usd", type=float, default=15.0, help="stop before the runs together cost more")
+    parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before the runs together cost more (default: none)")
     parser.add_argument("--max-usd-per-run", type=float, default=5.0)
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
@@ -235,11 +248,12 @@ def main() -> int:
         if refusal:
             print(refusal, file=sys.stderr)
             return 2
+        limit = dollar_limit(args.tasks_dir, args.max_usd)
         runs: list[JsonObj] = []
         for number in range(1, args.runs + 1):
-            spent = sum(r["cost_usd"] for r in runs)
-            if spent + args.max_usd_per_run > args.max_usd:
-                print(f"cost limit: ${spent:.2f} spent, a run may cost ${args.max_usd_per_run:.2f}, the limit is ${args.max_usd:.2f} — stopping")
+            stop = over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            if stop:
+                print(stop)
                 break
             row = run_once(sandbox, request, args, simplifier, expected)
             runs.append(row)

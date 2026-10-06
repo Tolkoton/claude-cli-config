@@ -132,13 +132,13 @@ QUESTIONS = f"""<!-- Приклад:
 4. ПИТАННЯ-ЧОТИРИ — жирним?
    **Відповідь:**
 5. ПИТАННЯ-П'ЯТЬ — застосувати пропозицію налаштувань?
-   Дія виконавця: apply-settings {SHA}
+   Дія runner-а: apply-settings {SHA}
    Відповідь:
 """
-GATE = ("# 900 — Ворота зупинили роботу\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація воріт: 20260101T000000Z\n\n"
-        "## Питання до власника\n1. ПИТАННЯ-ВОРІТ — закрити ескалацію?\n   Відповідь:\n")
+GATE = ("# 900 — Gates зупинили роботу\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація gates: 20260101T000000Z\n\n"
+        "## Питання до власника\n1. ПИТАННЯ-Gates — закрити ескалацію?\n   Відповідь:\n")
 RULE_QUESTION = ("# 800 — Зробити урок правилом? Пропозиція RP-ab12\n\nЗалежить від: —\nАудит потрібен: ні\nПропозиція правила: RP-ab12\n\n"
-                 f"## Питання до власника\n1. Зробити це правилом?\n   Дія виконавця: promote-rule {SHA}\n   Відповідь:\n")
+                 f"## Питання до власника\n1. Зробити це правилом?\n   Дія runner-а: promote-rule {SHA}\n   Відповідь:\n")
 
 
 def build() -> tuple[Path, Path, Path, dict[str, str]]:
@@ -188,10 +188,10 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
                                               "## 2026-01-02T00:00:00Z — ВІДКЛАДЕНЕ-ПОВЕРНУТЕ — PARKED\n- Blocked on: щось\n\n"
                                               "## 2026-01-03T00:00:00Z — ВІДКЛАДЕНЕ-ПОВЕРНУТЕ — RESUMED\n- Blocked on: —\n")
     write(work, ".engine/overseer/ledger.md", "# ledger\n\n## 2026-01-02T00:00:00Z — task — BUILT\n- Evidence: `bash tests/run_all.sh` 12 suites green; ПРОГІН-ТЕСТІВ\n")
-    write(work, ".engine/simplifier/report.md", "# Simplifier\n\n## 2026-02-01T00:00:00Z — pass\n\n### confirm (1)\n- `F-11111111` **a.py:1** — dead_code: ЗНАХІДКА-СПРОЩУВАЧА\n  - evidence: read\n")
-    write(work, "tasks/ANOMALIES.md", "# Журнал аномалій дошки\n\nПише виконавець.\n\n"
+    write(work, ".engine/simplifier/report.md", "# Simplifier\n\n## 2026-02-01T00:00:00Z — pass\n\n### confirm (1)\n- `F-11111111` **a.py:1** — dead_code: ЗНАХІДКА-Simplifier-а\n  - evidence: read\n")
+    write(work, "tasks/ANOMALIES.md", "# Журнал аномалій task board\n\nПише runner.\n\n"
                                       "## 2026-01-01T00:00:00Z — 001-first\n- Що сталося: АНОМАЛІЯ-СТАРА\n- Що зроблено: ЗРОБЛЕНО-СТАРЕ\n\n"
-                                      "## 2026-02-01T00:00:00Z — дошка\n- Що сталося: АНОМАЛІЯ-НОВА\n- Що зроблено: ЗРОБЛЕНО-НОВЕ\n")
+                                      "## 2026-02-01T00:00:00Z — task board\n- Що сталося: АНОМАЛІЯ-НОВА\n- Що зроблено: ЗРОБЛЕНО-НОВЕ\n")
     write(work, "evals/baseline/box/results-a.json", json.dumps({"recorded_utc": "2026-01-01T00:00:00Z", "results": [{"pass": True}]}))
     write(work, "evals/baseline/box/results-b.json", json.dumps({"recorded_utc": "2026-02-01T00:00:00Z", "results": [{"pass": True}, {"pass": True}, {"pass": False}]}))
     git(work, "add", "-A")
@@ -221,7 +221,7 @@ def state_files(top: Path, status: str) -> Path:
     write(state, "health/golden.json", json.dumps({"what": "evals/run_hook_scenarios.py", "recorded_utc": "2026-02-05T00:00:00Z",
           "commit": "fedcba9876543210", "dirty": False, "engine_ref": "HEAD", "scenarios": 138, "green": 137, "red": ["x"],
           "compare": "results-task-033.json", "differences": 1}))
-    write(state, "gate/escalations.json", json.dumps({"open": [{"stamp": "ШТАМП-ВОРІТ", "slice": "зріз"}], "closed": []}))
+    write(state, "gate/escalations.json", json.dumps({"open": [{"stamp": "ШТАМП-Gates", "slice": "slice"}], "closed": []}))
     return state
 
 
@@ -266,7 +266,7 @@ check("--since an earlier date: both", "ЗМІНА-001-first" in both and "ЗМ�
 candidates = section(cli(clone, "--since", commits["first"]).stdout, "Кандидати в нові задачі")
 check("the candidates follow --since too", "ВІДКЛАДЕНЕ-002-second" in candidates and "ВІДКЛАДЕНЕ-001-first" not in candidates, candidates)
 late = section(cli(clone, "--since", "2026-02-15").stdout, "Кандидати в нові задачі")
-check("…and so do the simplifier's passes: an older pass is not shown again", "ЗНАХІДКА-СПРОЩУВАЧА" in candidates and "ЗНАХІДКА-СПРОЩУВАЧА" not in late
+check("…and so do the simplifier's passes: an older pass is not shown again", "ЗНАХІДКА-Simplifier-а" in candidates and "ЗНАХІДКА-Simplifier-а" not in late
       and "кандидатів немає" in late, late)
 r = cli(clone, "--since", "не-commit-і-не-дата")
 check("--since that is neither a commit nor a date: exit 2 and no document", r.returncode == 2 and r.stdout == "" and "--since" in r.stderr, r)
@@ -287,7 +287,7 @@ check("one block per unfilled answer, whichever way the line is written", len(bl
       and [n for n in ("ОДИН", "ДВА", "ТРИ", "ЧОТИРИ", "П'ЯТЬ") if any(f"ПИТАННЯ-{n}" in b for b in blocks)] == ["ОДИН", "ТРИ", "ЧОТИРИ", "П'ЯТЬ"], blocks)
 check("the context above the first question comes with it", "ВАРІАНТ-А або ВАРІАНТ-Б" in blocks[0], blocks[0])
 waiting = section(doc, "Чекає на власника")
-check("the document has every unfilled one, and the gate's", all(f"ПИТАННЯ-{n}" in waiting for n in ("ОДИН", "ТРИ", "ЧОТИРИ", "П'ЯТЬ", "ВОРІТ")), waiting)
+check("the document has every unfilled one, and the gate's", all(f"ПИТАННЯ-{n}" in waiting for n in ("ОДИН", "ТРИ", "ЧОТИРИ", "П'ЯТЬ", "Gates")), waiting)
 check("a filled answer and the template's hint are not asked again", "ПИТАННЯ-ДВА" not in waiting and "Питання-з-коментаря" not in waiting, waiting)
 check("the count is said: six unfilled answers in three tasks", any("відповідей: 6, у задачах: 3" in line for line in waiting.splitlines()[:4]) and "008-asks.md" in waiting and "900-gate-escalation" in waiting, waiting.splitlines()[:4])
 check("the draft report of a blocked task is pointed at", "tasks/blocked/report-008-asks.md" in waiting, waiting)
@@ -306,7 +306,7 @@ check("…a proposal nobody asked the owner about says so, and borrows no other 
       "ПРАВИЛО-БЕЗ-ПИТАННЯ" in rules.get("RP-ef56", "") and "питання про неї в `tasks/blocked/` немає" in rules.get("RP-ef56", "")
       and "800-rule-proposal" not in rules.get("RP-ef56", ""), rules)
 with_state = cli(clone, state=state).stdout
-check("with the state files: the gate's open escalation of this machine", "ШТАМП-ВОРІТ" in section(with_state, "Чекає на власника"))
+check("with the state files: the gate's open escalation of this machine", "ШТАМП-Gates" in section(with_state, "Чекає на власника"))
 check("--since does not hide what waits", waits == waiting, waits)
 attended_part = waiting.split("### Задачі, що потребують вашої присутності", 1)[-1].split("\n### ", 1)[0]
 check("a task that needs the owner present is under «Чекає на власника», by name and title (board 016)", "040-attended.md" in attended_part
@@ -318,7 +318,7 @@ check("…its unanswered-question count is not disturbed by it", "040-attended.m
 print("anomalies")
 odd = section(doc, "Аномалії")
 check("the journal's entries are a section of their own: time, task, what happened, what was done", all(word in odd for word in
-      ("2026-01-01 00:00 UTC — `001-first`", "АНОМАЛІЯ-СТАРА", "ЗРОБЛЕНО-СТАРЕ", "`дошка`", "АНОМАЛІЯ-НОВА", "ЗРОБЛЕНО-НОВЕ"))
+      ("2026-01-01 00:00 UTC — `001-first`", "АНОМАЛІЯ-СТАРА", "ЗРОБЛЕНО-СТАРЕ", "`task board`", "АНОМАЛІЯ-НОВА", "ЗРОБЛЕНО-НОВЕ"))
       and "Нових записів за період: 2; усього в журналі `tasks/ANOMALIES.md`: 2" in odd and odd.find("АНОМАЛІЯ-СТАРА") < odd.find("АНОМАЛІЯ-НОВА"), odd)
 odd = section(cli(clone, "--since", "2026-01-15").stdout, "Аномалії")
 check("--since shows the new entries only, and says how many the journal holds", "АНОМАЛІЯ-НОВА" in odd and "АНОМАЛІЯ-СТАРА" not in odd
@@ -345,7 +345,7 @@ check("board 049: a task the owner answered heads the plan, whatever its number,
 candidates = section(doc, "Кандидати в нові задачі")
 check("candidates: «Відкладене» and «Чого мені бракувало» of the finished reports", "ВІДКЛАДЕНЕ-001-first" in candidates
       and "ВІДКЛАДЕНЕ-002-second" in candidates and "БРАКУВАЛО-002-second" in candidates, candidates)
-check("candidates: the simplifier's findings", "ЗНАХІДКА-СПРОЩУВАЧА" in candidates and "F-11111111" in candidates, candidates)
+check("candidates: the simplifier's findings", "ЗНАХІДКА-Simplifier-а" in candidates and "F-11111111" in candidates, candidates)
 health = section(doc, "Здоров'я")
 check("health (board 035): what the ledger says about a test run is not a fact — without the machine record the review says there is none",
       "ПРОГІН-ТЕСТІВ" not in health and "12 suites" not in health and "tests-full.json" in health and "немає" in health, health)
@@ -514,11 +514,11 @@ check("a dispute stands with its end; «the test was right» is its own line", "
       and "тест був хибний" in part and "коло 1 із 2" in part, part)
 check("a parked slice", "`rounding` — третє коло" in part, part)
 check("a decision «not switching» with its reason and both conditions", "`exporter-4`: ПРИЧИНА-СЕРІЯ (малий: МАЛИЙ; однорідний: ОДНОРІДНИЙ)" in part, part)
-check("a mandatory case that fired, and that the manager did not arrive there itself", "O3 на `discount`, точка (a)" in part and "МЕНЕДЖЕР САМ ДО ЦЬОГО НЕ ДІЙШОВ" in part, part)
-check("an open testing debt with its event", "інтеграційні тести зрізу `discount` — відкладено до події `block-closed:prices`: БОРГ-ПРИЧИНА" in part, part)
+check("a mandatory case that fired, and that the manager did not arrive there itself", "O3 на `discount`, точка (a)" in part and "TEST MANAGER САМ ДО ЦЬОГО НЕ ДІЙШОВ" in part, part)
+check("an open testing debt with its event", "інтеграційні тести slice-а `discount` — відкладено до події `block-closed:prices`: БОРГ-ПРИЧИНА" in part, part)
 check("a mutation run with its duration and the survivors handled", "блок `stock`: 412 с, вихід 0; уціліло 7, розібрано 3" in part, part)
-check("a large block closed without a mutation check is shown", "великий блок `prices` закрито БЕЗ мутаційної перевірки" in part, part)
-check("questions to the contract are counted", "питань до контракту, знайдених до коду: 2" in part, part)
+check("a large block closed without a mutation check is shown", "великий блок `prices` закрито БЕЗ mutation testing" in part, part)
+check("questions to the contract are counted", "питань до slice contract, знайдених до коду: 2" in part, part)
 testing.append_row(t, {"type": "decision", "point": "b", "slice": "rounding2", "events_due": ["block-closed:prices"], "mandatory": {"O6:integration": "due"},
                        "checks": NONE | {"integration": {"when": "now", "reason": "r"}}}, "t", [])
 publish("debt closed")

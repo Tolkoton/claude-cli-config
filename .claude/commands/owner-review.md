@@ -54,7 +54,7 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
 
 Never answer for the owner and never guess an answer from an earlier remark. Consent has one
 form: the answer that is exactly the one word `так` (case and punctuation do not count). It acts
-by itself — under a question with the line «Дія виконавця: …» the runner applies the settings
+by itself — under a question with the line «Дія runner-а: …» the runner applies the settings
 proposal or makes the lesson a rule, on a question of the gate («Закрити ескалацію?») it closes
 the escalation — so read it back and get an explicit yes before writing it. Anything else,
 «так, але…» included, is an instruction for the agent and applies nothing: write `так` alone
@@ -70,7 +70,7 @@ give the owner the files to deliver instead of pretending they arrived.
 
 - take the text exactly as origin has it: `git show <commit>:tasks/blocked/<name>.md`;
 - write the owner's words after `Відповідь:` on that same line, verbatim, and change nothing else
-  in the file — the line «Дія виконавця: …» least of all;
+  in the file — the line «Дія runner-а: …» least of all;
 - save it under the same name in the inbox, and only when **every** answer in that file is
   filled: the board does not accept a copy that leaves a question open. If the owner answered
   only some, write nothing for that task and tell them which questions remain.
@@ -81,8 +81,9 @@ give the owner the files to deliver instead of pretending they arrived.
   the inbox, below 800 (800 and up are rule questions and the gate's). A number that is already in `todo/` **replaces**
   that task — use it only when the owner wants that task rewritten;
 - fill `Залежить від:` and `## Що зробити` / `## Готово, коли` from what the owner said;
-  `Аудит потрібен: ні` unless the owner asked for the paid audit; a paid run needs its own line
-  with a dollar limit; «спершу проєкт» when the owner wants a design first;
+  `Аудит потрібен: ні` unless the owner asked for the paid audit; a paid run needs the line
+  `Платні прогони: так` — no dollar limit, the owner's «так» is the leave; «спершу проєкт» when
+  the owner wants a design first; technical terms in English (`.claude/references/unattended.md`);
 - show the owner the text and write it once they agree.
 
 ## 4. Close the session

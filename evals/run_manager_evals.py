@@ -24,10 +24,10 @@ script with testing.py's own validator:
 A scene passes when it is matched and names the fact. A scene that does not pass is recorded
 as it is — it is work on the manager's definition, not something to rerun until green.
 
-PAID RUNS. Refused unless the board task in tasks/doing/ carries the owner's «Платні прогони:»
-line with a dollar limit, or the owner runs this by hand with --owner-approved (which does not
-count inside a Claude Code session). The limit is the smaller of --max-usd and the task's
-number; the run stops BEFORE a session that could pass it.
+PAID RUNS. Refused unless the board task in tasks/doing/ carries the owner's «Платні прогони: так»
+line, or the owner runs this by hand with --owner-approved (which does not count inside a Claude
+Code session). No dollar number is required; one in that line, or --max-usd, is a ceiling (the
+smaller of the two), and the run stops BEFORE a session that could pass it.
 
 Standard library only, Python 3.12+.
 """
@@ -208,7 +208,7 @@ def main() -> int:
     parser.add_argument("--scene", choices=names, help="the scene --score is for")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
-    parser.add_argument("--max-usd", type=float, default=5.0, help="stop before the runs together cost more")
+    parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before the runs together cost more (default: none)")
     parser.add_argument("--max-usd-per-run", type=float, default=0.6)
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
@@ -234,9 +234,9 @@ def main() -> int:
     runs: list[JsonObj] = []
     with tempfile.TemporaryDirectory(prefix="engine-manager-eval-") as tmp:
         for name in args.scenes:
-            spent = sum(r["cost_usd"] for r in runs)
-            if spent + args.max_usd_per_run > limit:
-                print(f"cost limit: ${spent:.2f} spent, a run may cost ${args.max_usd_per_run:.2f}, the limit is ${limit:.2f} — stopping")
+            stop = analyst.paid.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            if stop:
+                print(stop)
                 break
             row = {"scene": name, "point": data["scenes"][name]["point"], "expected": data["scenes"][name]["expected"]} | run_once(build_sandbox(Path(tmp) / name, data, name), args)
             if "error" not in row:
