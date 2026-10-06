@@ -94,7 +94,7 @@ for each of three checks: `now`, `defer` (with `until`: `block-closed:<block>` o
 | The check | `now`, when | Otherwise |
 |---|---|---|
 | `catch_up` — the tester writes contract tests after the code | point (a) said `builder` and the slice surprised: self-added behaviours, an overseer block on #4, a size well over the expected one; or the slice changed code no test touches | `none` |
-| `integration` — tests on the connections between blocks | this slice closed its block and the block is connected to a block already built (`connected_ready_blocks`); or the last block of the feature is closed — then the acceptance criteria too | the slice has connections but its block is not closed → `defer` until `block-closed:<block>`; no connections → `none` |
+| `integration` — tests on the connections between blocks | this slice closed its block and the block is connected to a block already built (`connected_ready_blocks`); or the last block of the feature is closed — then the acceptance criteria too | the block has connections (`connected_blocks`) but is not closed → `defer` until `block-closed:<block>`; no connections → `none` |
 | `mutation` — a mutation run over the block | a LARGE block is closed, `mutation_cmd_set` is true, and the block had no run yet | not closed, or not large → `none`; `mutation_cmd_set` false → `none` |
 
 **Mandatory at point (b) — the script refuses anything else:**
@@ -111,8 +111,8 @@ for each of three checks: `now`, `defer` (with `until`: `block-closed:<block>` o
 not invent them. **A large block** is your judgement, and there is no number: a block is large
 when it added much decision logic of its own — several slices with branching, the owner's
 thresholds, seams the planner called hard, tests written after the code. A block of wrappers
-and wiring is not large, however many slices it has. The script's numbers (`changed`) are
-facts, not a limit. When this slice closes a block, say what you judged: `"block_large": true`
+and wiring is not large, however many slices it has. The script's numbers (`block_numbers`,
+`changed`) are facts, not a limit. When this slice closes a block, say what you judged: `"block_large": true`
 or `false` — a large block without a mutation tool is shown to the owner as such.
 
 | What is finished | The facts | The decision |

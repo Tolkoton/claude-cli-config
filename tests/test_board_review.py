@@ -476,7 +476,7 @@ check("a branch origin does not have: exit 2", r.returncode == 2 and "unattended
 # --- the testing section (board 062) ------------------------------------------------------------
 print("the testing section")
 sys.path.insert(0, str(ROOT / ".claude" / "hooks"))
-import testing  # noqa: E402
+import testing
 
 t = top / "testing"
 write(t, "tasks/todo/.gitkeep", "")

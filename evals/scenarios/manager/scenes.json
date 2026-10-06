@@ -1,0 +1,715 @@
+{
+ "_about": "Thirteen decision scenes of the testing manager — the examples of section 3 of the design of board 060. Each scene: the fields of a slice contract, the facts testing.py would put into the request (laid over `base`), the decision the design expects and a pattern its reason must match. Read by evals/run_manager_evals.py; checked offline by tests/test_manager_evals.py.",
+ "base": {
+  "a": {
+   "hardest_seams": [],
+   "ratified_thresholds": [],
+   "feature": "shop",
+   "slice_id": "S2",
+   "tracer_bullet": false,
+   "consumers": [],
+   "public_contract": false,
+   "block": "shop",
+   "blocks_of_feature": [
+    "shop"
+   ],
+   "block_slices": [
+    "S1",
+    "S2"
+   ],
+   "block_built": [
+    "S1"
+   ],
+   "closes_block": false,
+   "closes_feature": false,
+   "connected_blocks": [],
+   "connected_ready_blocks": [],
+   "earlier_in_block": [],
+   "acceptance_criteria": "- A1: an order can be priced, paid and exported",
+   "expected_size": "the contract has no «Complexity budget»",
+   "existing_code_the_slice_changes": "unknown: the «Seam» names no existing file; decided at point (b) by the diff"
+  },
+  "b": {
+   "base": "0f3c9a1d2b4e",
+   "decision_at_point_a": "tester",
+   "self_added_behaviours": 0,
+   "decision_a": "tester",
+   "hardest_seams": 0,
+   "ratified_thresholds": 0,
+   "questions_to_contract": 0,
+   "dispute_outcomes": [],
+   "code_was_wrong": false,
+   "contract_ambiguous": false,
+   "overseer_blocks_check_4": 0,
+   "parked": false,
+   "feature": "shop",
+   "slice_id": "S2",
+   "tracer_bullet": false,
+   "consumers": [],
+   "public_contract": false,
+   "closes_block": false,
+   "closes_feature": false,
+   "connected_blocks": [],
+   "connected_ready_blocks": [],
+   "earlier_in_block": [],
+   "acceptance_criteria": "- A1: an order can be priced, paid and exported",
+   "events_due": [],
+   "debts": [],
+   "mutation_cmd_set": false,
+   "last_mutation_run_of_block": null,
+   "changed_code_and_tests": [],
+   "block_numbers": {
+    "slices": 3,
+    "code_lines": 60,
+    "branching_functions": 3,
+    "hardest_seams": 0,
+    "ratified_thresholds": 0,
+    "slices_tested_after_the_code": 0
+   }
+  }
+ },
+ "scenes": {
+  "discount-threshold": {
+   "point": "a",
+   "what": "O3: the owner ratified 50 %; «over» — inclusive or not?",
+   "contract": {
+    "goal": "Apply a discount to a price.",
+    "seam": [
+     "Signature: `apply_discount(price: int, percent: int) -> int` in `src/shop/pricing.py` (new module)",
+     "Returns: the discounted price in cents",
+     "Errors: ValueError"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "A discount over 50 percent is refused with ValueError (threshold owner-ratified)",
+     "A discount of 0 returns the price unchanged"
+    ]
+   },
+   "facts": {
+    "ratified_thresholds": [
+     "A discount over 50 percent is refused with ValueError (threshold owner-ratified)"
+    ],
+    "expected_size": "one function, about 15 lines"
+   },
+   "expected": {
+    "decision": "tester"
+   },
+   "names": "ratif|threshold|O3|50"
+  },
+  "tracer-three-consumers": {
+   "point": "a",
+   "what": "O2: a thin tracer bullet whose result three slices read",
+   "contract": {
+    "goal": "Load the order as a typed record — the thinnest path through the feature.",
+    "seam": [
+     "Signature: `load_order(order_id: str) -> Order` in `src/shop/orders.py` (new module)",
+     "Returns: Order(id, lines, total_cents)",
+     "Errors: KeyError for an unknown id"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "`load_order('o1')` returns the Order of the fixture",
+     "An unknown id raises KeyError"
+    ]
+   },
+   "facts": {
+    "tracer_bullet": true,
+    "consumers": [
+     "S2",
+     "S3",
+     "S4"
+    ],
+    "expected_size": "one function, about 10 lines"
+   },
+   "expected": {
+    "decision": "tester"
+   },
+   "names": "consum|O2|S2|three|read"
+  },
+  "fourth-exporter": {
+   "point": "a",
+   "what": "the fourth of five exporters of one shape; nothing found on the earlier ones; no consumers",
+   "contract": {
+    "goal": "Export the order list as TSV — the fourth exporter of the series.",
+    "seam": [
+     "Signature: `export_tsv(orders: list[Order]) -> str` in `src/shop/export_tsv.py` (new module)",
+     "Returns: one line per order, fields separated by a tab",
+     "Errors: none"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "An empty list gives an empty string",
+     "Two orders give two lines, fields in the order id, total",
+     "A tab inside a field is replaced by a space"
+    ]
+   },
+   "facts": {
+    "block": "exporters",
+    "block_slices": [
+     "S1",
+     "S2",
+     "S3",
+     "S4",
+     "S5"
+    ],
+    "block_built": [
+     "S1",
+     "S2",
+     "S3"
+    ],
+    "earlier_in_block": [
+     {
+      "slice": "export-csv",
+      "decision_a": "tester",
+      "hardest_seams": 0,
+      "ratified_thresholds": 0,
+      "questions_to_contract": 0,
+      "dispute_outcomes": [],
+      "code_was_wrong": false,
+      "contract_ambiguous": false,
+      "overseer_blocks_check_4": 0,
+      "parked": false
+     },
+     {
+      "slice": "export-json",
+      "decision_a": "tester",
+      "hardest_seams": 0,
+      "ratified_thresholds": 0,
+      "questions_to_contract": 0,
+      "dispute_outcomes": [],
+      "code_was_wrong": false,
+      "contract_ambiguous": false,
+      "overseer_blocks_check_4": 0,
+      "parked": false
+     },
+     {
+      "slice": "export-xml",
+      "decision_a": "builder",
+      "hardest_seams": 0,
+      "ratified_thresholds": 0,
+      "questions_to_contract": 0,
+      "dispute_outcomes": [],
+      "code_was_wrong": false,
+      "contract_ambiguous": false,
+      "overseer_blocks_check_4": 0,
+      "parked": false
+     }
+    ],
+    "expected_size": "one function, about 12 lines"
+   },
+   "expected": {
+    "decision": "builder"
+   },
+   "names": "series|uniform|same shape|earlier|exporter"
+  },
+  "rename-settings-key": {
+   "point": "a",
+   "what": "a settings key renamed and carried through two calls: no branching, no seams",
+   "contract": {
+    "goal": "Rename the settings key `timeout` to `timeout_s` and pass it through the two calls that read it.",
+    "seam": [
+     "Signature: `Settings.timeout_s: int` in `src/shop/settings.py`; read in `src/shop/client.py` and `src/shop/retry.py`",
+     "Returns: n/a — wiring",
+     "Errors: none"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "`Settings(timeout_s=5).timeout_s == 5`",
+     "The client and the retry helper receive the value of `timeout_s`"
+    ]
+   },
+   "facts": {
+    "existing_code_the_slice_changes": [
+     {
+      "file": "src/shop/client.py",
+      "touched": true,
+      "why": "the module has its test file tests/test_client.py",
+      "how": "coarse"
+     },
+     {
+      "file": "src/shop/retry.py",
+      "touched": true,
+      "why": "the module has its test file tests/test_retry.py",
+      "how": "coarse"
+     },
+     {
+      "file": "src/shop/settings.py",
+      "touched": true,
+      "why": "the module has its test file tests/test_settings.py",
+      "how": "coarse"
+     }
+    ],
+    "expected_size": "three files, about 8 lines changed, no new function"
+   },
+   "expected": {
+    "decision": "builder"
+   },
+   "names": "no (branching|logic)|wiring|carr|renam|configuration"
+  },
+  "date-format-after-dispute": {
+   "point": "a",
+   "what": "O4: a small formatter, but the previous slice of the block ended «the code was wrong»",
+   "contract": {
+    "goal": "Format a date for the invoice header.",
+    "seam": [
+     "Signature: `format_date(day: date) -> str` in `src/shop/invoice_dates.py` (new module)",
+     "Returns: `DD.MM.YYYY`",
+     "Errors: none"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "`format_date(date(2026, 3, 7)) == '07.03.2026'`"
+    ]
+   },
+   "facts": {
+    "block": "invoice",
+    "block_slices": [
+     "S1",
+     "S2"
+    ],
+    "block_built": [
+     "S1"
+    ],
+    "earlier_in_block": [
+     {
+      "slice": "invoice-total",
+      "decision_a": "tester",
+      "hardest_seams": 0,
+      "ratified_thresholds": 0,
+      "questions_to_contract": 1,
+      "dispute_outcomes": [
+       "test_right"
+      ],
+      "code_was_wrong": true,
+      "contract_ambiguous": false,
+      "overseer_blocks_check_4": 0,
+      "parked": false
+     }
+    ],
+    "expected_size": "one function, 3 lines"
+   },
+   "expected": {
+    "decision": "tester"
+   },
+   "names": "dispute|previous|O4|code was wrong|invoice-total"
+  },
+  "api-wrapper-retries": {
+   "point": "a",
+   "what": "nothing mandatory; branching; the first of its kind — the conditions of «do not switch» are not met",
+   "contract": {
+    "goal": "Wrap the payment API call with retries.",
+    "seam": [
+     "Signature: `charge(client: PaymentClient, order: Order) -> ChargeResult` in `src/shop/payments.py` (new module)",
+     "Returns: ChargeResult(ok, attempts, error)",
+     "Errors: a timeout is retried up to three times with a growing pause; a 4xx answer is not retried; nothing is raised"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "A success on the first attempt gives `ok=True, attempts=1`",
+     "Two timeouts then a success give `ok=True, attempts=3`",
+     "Three timeouts give `ok=False, attempts=3`",
+     "A 402 gives `ok=False, attempts=1`"
+    ]
+   },
+   "facts": {
+    "expected_size": "one flow function and two helpers, about 45 lines"
+   },
+   "expected": {
+    "decision": "tester"
+   },
+   "names": "branch|retr|not (small|uniform)|first|logic|interpret"
+  },
+  "legacy-parameter": {
+   "point": "a",
+   "what": "O8: one parameter added to a file no test touches",
+   "contract": {
+    "goal": "Add the parameter `delimiter` to the legacy CSV export.",
+    "seam": [
+     "Signature: `export_csv(rows, delimiter=',')` in `legacy/export.py`",
+     "Returns: the lines joined by the delimiter",
+     "Errors: none"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "With no argument the output is as before",
+     "`delimiter=';'` joins the fields with a semicolon"
+    ]
+   },
+   "facts": {
+    "existing_code_the_slice_changes": [
+     {
+      "file": "legacy/export.py",
+      "touched": false,
+      "why": "no test touches it",
+      "how": "coarse"
+     }
+    ],
+    "expected_size": "one line changed"
+   },
+   "expected": {
+    "decision": "tester"
+   },
+   "names": "legacy/export|no test|O8|untested|not touch|untouched"
+  },
+  "second-of-five": {
+   "point": "b",
+   "what": "the second slice of five in the block «prices», no surprises: nothing now, integration deferred to the close of the block",
+   "contract": {
+    "goal": "Round a price to cents.",
+    "seam": [
+     "Signature: see the module"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "The tests of the slice pass."
+    ]
+   },
+   "facts": {
+    "block": "prices",
+    "blocks_of_feature": [
+     "stock",
+     "prices"
+    ],
+    "block_slices": [
+     "S3",
+     "S4",
+     "S5",
+     "S6",
+     "S7"
+    ],
+    "block_built": [
+     "S3"
+    ],
+    "connected_blocks": [
+     "stock"
+    ],
+    "connected_ready_blocks": [
+     "stock"
+    ],
+    "changed": {
+     "code_lines": 14,
+     "test_lines": 30,
+     "code_files": 1,
+     "test_files": 1,
+     "branching_functions": 1
+    }
+   },
+   "expected": {
+    "checks": {
+     "catch_up": "none",
+     "integration": "defer",
+     "mutation": "none"
+    },
+    "until": {
+     "integration": "block-closed:prices"
+    }
+   },
+   "names": "not closed|block|close"
+  },
+  "block-closed-connected": {
+   "point": "b",
+   "what": "the last slice of «prices»; «stock» is built and «prices» reads it; a large block; MUTATION_CMD set",
+   "contract": {
+    "goal": "Apply the seasonal discount — the last slice of the block «prices».",
+    "seam": [
+     "Signature: see the module"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "The tests of the slice pass."
+    ]
+   },
+   "facts": {
+    "block": "prices",
+    "blocks_of_feature": [
+     "stock",
+     "prices",
+     "output"
+    ],
+    "block_slices": [
+     "S3",
+     "S4",
+     "S5",
+     "S6",
+     "S7"
+    ],
+    "block_built": [
+     "S3",
+     "S4",
+     "S5",
+     "S6"
+    ],
+    "closes_block": true,
+    "connected_blocks": [
+     "output",
+     "stock"
+    ],
+    "connected_ready_blocks": [
+     "stock"
+    ],
+    "events_due": [
+     "block-closed:prices"
+    ],
+    "mutation_cmd_set": true,
+    "debts": [
+     {
+      "kind": "integration",
+      "until": "block-closed:prices",
+      "slice": "price-rounding",
+      "since": "2026-10-01T10:00:00Z",
+      "reason": "the block is not closed",
+      "due": true
+     }
+    ],
+    "block_numbers": {
+     "slices": 5,
+     "code_lines": 410,
+     "branching_functions": 17,
+     "hardest_seams": 4,
+     "ratified_thresholds": 3,
+     "slices_tested_after_the_code": 1
+    },
+    "changed": {
+     "code_lines": 80,
+     "test_lines": 120,
+     "code_files": 2,
+     "test_files": 2,
+     "branching_functions": 4
+    }
+   },
+   "expected": {
+    "checks": {
+     "catch_up": "none",
+     "integration": "now",
+     "mutation": "now"
+    },
+    "block_large": true
+   },
+   "names": "stock|connect|closed|debt"
+  },
+  "feature-of-two-wrappers": {
+   "point": "b",
+   "what": "O5: the last slice of a feature of one block of two wrappers; not large",
+   "contract": {
+    "goal": "Wrap the clock for the report header — the second and last slice of the feature.",
+    "seam": [
+     "Signature: see the module"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "The tests of the slice pass."
+    ]
+   },
+   "facts": {
+    "block": "report-wiring",
+    "blocks_of_feature": [
+     "report-wiring"
+    ],
+    "block_slices": [
+     "S1",
+     "S2"
+    ],
+    "block_built": [
+     "S1"
+    ],
+    "closes_block": true,
+    "closes_feature": true,
+    "events_due": [
+     "block-closed:report-wiring",
+     "feature-closed"
+    ],
+    "mutation_cmd_set": true,
+    "block_numbers": {
+     "slices": 2,
+     "code_lines": 22,
+     "branching_functions": 0,
+     "hardest_seams": 0,
+     "ratified_thresholds": 0,
+     "slices_tested_after_the_code": 2
+    },
+    "changed": {
+     "code_lines": 9,
+     "test_lines": 14,
+     "code_files": 1,
+     "test_files": 1,
+     "branching_functions": 0
+    },
+    "decision_at_point_a": "builder",
+    "decision_a": "builder"
+   },
+   "expected": {
+    "checks": {
+     "catch_up": "none",
+     "integration": "now",
+     "mutation": "none"
+    },
+    "block_large": false
+   },
+   "names": "feature|acceptance|O5|last"
+  },
+  "not-switched-then-surprised": {
+   "point": "b",
+   "what": "O7: point (a) said «the builder», and the builder added two self-added behaviours",
+   "contract": {
+    "goal": "Format the order number for the receipt.",
+    "seam": [
+     "Signature: see the module"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "The tests of the slice pass."
+    ]
+   },
+   "facts": {
+    "decision_at_point_a": "builder",
+    "decision_a": "builder",
+    "self_added_behaviours": 2,
+    "block": "receipt",
+    "blocks_of_feature": [
+     "receipt"
+    ],
+    "block_slices": [
+     "S1",
+     "S2",
+     "S3"
+    ],
+    "block_built": [],
+    "changed": {
+     "code_lines": 31,
+     "test_lines": 40,
+     "code_files": 1,
+     "test_files": 1,
+     "branching_functions": 3
+    }
+   },
+   "expected": {
+    "checks": {
+     "catch_up": "now",
+     "mutation": "none"
+    }
+   },
+   "names": "self-added|O7|did not hold|surpris|added"
+  },
+  "large-block-no-mutation-tool": {
+   "point": "b",
+   "what": "a large block closed, MUTATION_CMD empty: no run, and the owner sees a large block without one",
+   "contract": {
+    "goal": "Reserve stock for an order — the last slice of the block «stock».",
+    "seam": [
+     "Signature: see the module"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "The tests of the slice pass."
+    ]
+   },
+   "facts": {
+    "block": "stock",
+    "blocks_of_feature": [
+     "stock",
+     "prices",
+     "output"
+    ],
+    "block_slices": [
+     "S1",
+     "S2",
+     "S3",
+     "S4"
+    ],
+    "block_built": [
+     "S1",
+     "S2",
+     "S3"
+    ],
+    "closes_block": true,
+    "events_due": [
+     "block-closed:stock"
+    ],
+    "mutation_cmd_set": false,
+    "connected_blocks": [
+     "prices"
+    ],
+    "connected_ready_blocks": [],
+    "block_numbers": {
+     "slices": 4,
+     "code_lines": 520,
+     "branching_functions": 23,
+     "hardest_seams": 5,
+     "ratified_thresholds": 2,
+     "slices_tested_after_the_code": 2
+    },
+    "changed": {
+     "code_lines": 140,
+     "test_lines": 160,
+     "code_files": 2,
+     "test_files": 2,
+     "branching_functions": 6
+    }
+   },
+   "expected": {
+    "checks": {
+     "catch_up": "none",
+     "mutation": "none"
+    },
+    "block_large": true
+   },
+   "names": "MUTATION_CMD|mutation_cmd|no tool|not set|no command|empty"
+  },
+  "neighbour-helper-untested": {
+   "point": "b",
+   "what": "O8 by the diff: the builder also fixed a helper in a neighbouring module no test runs",
+   "contract": {
+    "goal": "Add the tax line to the receipt.",
+    "seam": [
+     "Signature: see the module"
+    ],
+    "hardest_seams": [],
+    "exit": [
+     "The tests of the slice pass."
+    ]
+   },
+   "facts": {
+    "block": "receipt",
+    "blocks_of_feature": [
+     "receipt"
+    ],
+    "block_slices": [
+     "S1",
+     "S2",
+     "S3"
+    ],
+    "block_built": [
+     "S1"
+    ],
+    "changed": {
+     "code_lines": 37,
+     "test_lines": 52,
+     "code_files": 2,
+     "test_files": 1,
+     "branching_functions": 2
+    },
+    "changed_code_and_tests": [
+     {
+      "file": "src/shop/receipt.py",
+      "touched": true,
+      "why": "the module has its test file tests/test_receipt.py",
+      "how": "coarse"
+     },
+     {
+      "file": "src/shop/money_helpers.py",
+      "touched": false,
+      "why": "no test touches it",
+      "how": "coarse"
+     }
+    ]
+   },
+   "expected": {
+    "checks": {
+     "catch_up": "now",
+     "mutation": "none"
+    }
+   },
+   "names": "money_helpers|no test|O8|untested|not touch"
+  }
+ }
+}

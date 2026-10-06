@@ -424,8 +424,14 @@ def history(root: Path, slug: str) -> JsonObj:
     handins = [r for r in rows(root, slug, "handin") if r.get("accepted")]
     rounds = rows(root, slug, "round")
     outcomes = [str(item.get("verdict")) for r in rounds for item in r.get("items", [])]
+    try:
+        text = contract_path(root, slug).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
     return {
         "slice": slug, "decision_a": decision.get("decision") if decision else None,
+        "hardest_seams": len(re.findall(r"^\s*[-*]\s*\*\*(.+?)\*\*", section(text, "Hardest seams"), re.MULTILINE)),
+        "ratified_thresholds": sum(1 for line in section(text, "Exit criterion").splitlines() if RATIFIED_RE.search(line)),
         "questions_to_contract": sum(len(r.get("questions", [])) for r in handins),
         "dispute_outcomes": outcomes, "code_was_wrong": "test_right" in outcomes,
         "contract_ambiguous": "contract_ambiguous" in outcomes,
@@ -455,6 +461,7 @@ def block_facts(root: Path, slug: str) -> JsonObj:
         "block_slices": [s.id for s in block], "block_built": [s.id for s in block if s.id in done_ids],
         "closes_block": all(s.id in done_ids for s in block if s.id != item.id),
         "closes_feature": all(s.id in done_ids for s in others),
+        "connected_blocks": sorted({s.block for s in feature.slices if s.id in neighbours}),
         "connected_ready_blocks": ready_blocks,
         "earlier_in_block": [history(root, s) for s in earlier if s],
         "acceptance_criteria": feature.acceptance,
@@ -530,6 +537,29 @@ def events_due(block: JsonObj) -> list[str]:
     return due
 
 
+def block_slugs(root: Path, slug: str) -> list[str]:
+    found = feature_of(root, slug)
+    if found is None:
+        return [slug]
+    return [s for s in (slug_of(root, found[0], item) for item in found[0].block_of(found[1])) if s]
+
+
+def block_base(root: Path, slug: str) -> str:
+    """The code before the first slice of the block: the base its changed files are counted from."""
+    bases = [str(r["base"]) for s in block_slugs(root, slug) for r in rows(root, s, "opened")]
+    return bases[0] if bases else "HEAD"
+
+
+def block_numbers(root: Path, env: dict[str, str], slug: str) -> JsonObj:
+    """Numbers about the whole block — facts for the manager's judgement «is it large», never a limit."""
+    code, counts = changed_code(root, env, block_base(root, slug))
+    slugs = block_slugs(root, slug)
+    return {"slices": len(slugs), "code_lines": counts["code_lines"], "branching_functions": branching_functions(root, sorted(code)),
+            "hardest_seams": sum(history(root, s)["hardest_seams"] for s in slugs),
+            "ratified_thresholds": sum(history(root, s)["ratified_thresholds"] for s in slugs),
+            "slices_tested_after_the_code": sum(1 for s in slugs if history(root, s)["decision_a"] == "builder")}
+
+
 def facts_b(root: Path, env: dict[str, str], slug: str) -> JsonObj:
     opened = last(root, slug, "opened")
     base = str(opened["base"]) if opened else "HEAD"
@@ -542,6 +572,7 @@ def facts_b(root: Path, env: dict[str, str], slug: str) -> JsonObj:
         "point": "b", "slice": slug, "contract": contract_path(root, slug).relative_to(root).as_posix(), "base": base,
         "decision_at_point_a": decision.get("decision") if decision else None,
         "changed": counts | {"branching_functions": branching_functions(root, sorted(code))},
+        "block_numbers": block_numbers(root, env, slug),
         "self_added_behaviours": self_added(root, slug), **history(root, slug), **block,
         "events_due": due, "debts": [d | {"due": d["until"] in due} for d in open_debts(root)],
         "mutation_cmd_set": bool(env.get("MUTATION_CMD", "").strip()),
@@ -1232,9 +1263,7 @@ def mutation(root: Path, env: dict[str, str], slug: str, timeout: int) -> tuple[
     if not command:
         return 1, "REFUSED: MUTATION_CMD is empty in .claude/project.env. The engine installs no tool: the project's owner chooses one."
     found = feature_of(root, slug)
-    slugs = [s for s in (slug_of(root, found[0], item) for item in found[0].block_of(found[1]))] if found else [slug]
-    bases = [str(r["base"]) for s in slugs if s for r in rows(root, s, "opened")]
-    files = sorted(changed_code(root, env, bases[0] if bases else "HEAD")[0])
+    files = sorted(changed_code(root, env, block_base(root, slug))[0])
     started = time.monotonic()
     try:
         done = subprocess.run(["bash", "-c", command], cwd=root, env=os.environ | {"MUTATION_FILES": " ".join(files)}, stdout=subprocess.PIPE,

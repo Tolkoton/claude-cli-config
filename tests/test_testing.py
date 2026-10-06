@@ -31,8 +31,8 @@ HOOKS = ROOT / ".claude" / "hooks"
 SCRIPT = HOOKS / "testing.py"
 sys.path.insert(0, str(HOOKS))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import testing  # noqa: E402  # gate-allow: the module lives beside the hooks, not on the path
-from hook_env import hook_env  # noqa: E402
+import testing
+from hook_env import hook_env
 
 PASS = FAIL = 0
 CONTRACT = """# Slice discount — planning artifact
