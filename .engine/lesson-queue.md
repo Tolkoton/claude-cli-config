@@ -14,3 +14,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-05 | parked | --045-cleanup-when-board-idle-unit-1 | -/045-cleanup-when-board-idle/unit 1: Наглядач відклав юніт: -/045-cleanup-when-board-idle/unit 1 #aeb3ea2a
 - 2026-10-06 | parked | 049-doing-two-sides | 049-doing-two-sides: Після 049: два місця ще вважають, що в doing/ одна задача #077689b3
 - 2026-10-06 | parked | 061-arm-a-real | 061-arm-a-real: Дослід тестувальника: плече «А-справжнє» #f8cdfcad
+- 2026-10-06 | agent | 001-verdict-handback | a test was missing: the SubagentStop envelope was probed only with an agent that called no tool, so the premise 'the reply is in last_assistant_message' was never checked for the shape every real over #34d4ada7

@@ -578,6 +578,26 @@ def schema_reason(errors: list[str]) -> str:
             "INVALID and the audit is repeated by another overseer.")
 
 
+def _handed_back(transcript_path: object) -> str:
+    """The reply of an agent whose envelope carries none. An agent that used a tool hands its answer
+    back through the tool call `SubagentHandback` (seen live, Claude Code 2.1.289, board 705 / 706): the
+    reply is then the `message` of the last such call in the agent's own transcript."""
+    try:
+        lines = Path(str(transcript_path)).read_text(encoding="utf-8").splitlines() if transcript_path else []
+    except OSError:
+        return ""
+    found = ""
+    for line in lines:
+        try:
+            content = json.loads(line)["message"]["content"]
+        except (ValueError, KeyError, TypeError):
+            continue
+        for block in content if isinstance(content, list) else []:
+            if isinstance(block, dict) and block.get("name") == "SubagentHandback" and isinstance(block.get("input"), dict):
+                found = str(block["input"].get("message") or "")
+    return found
+
+
 def record(root: Path, envelope: JsonObj) -> JsonObj | None:
     if envelope.get("agent_type") != AGENT or envelope.get("hook_event_name") not in (None, "SubagentStop"):
         return None
@@ -599,7 +619,7 @@ def record(root: Path, envelope: JsonObj) -> JsonObj | None:
         append_row(root, row)
         settle(root, row)
 
-    obj, problem = parse_reply(str(envelope.get("last_assistant_message") or ""))
+    obj, problem = parse_reply(str(envelope.get("last_assistant_message") or _handed_back(envelope.get("agent_transcript_path"))))
     errors = [problem] if obj is None else schema_errors(root, obj, request)
     if errors:
         if int(waiting.get("schema_errors", 0)) == 0:

@@ -126,6 +126,23 @@ class Project:
                                             "last_assistant_message": text}).stdout
         return json.loads(out)["reason"] if out.strip() else ""
 
+    def handback(self, *messages: str, envelope: bool = True, said: str | None = None) -> str:
+        """The answer as Claude Code 2.1.289 delivers it from an agent that used a tool (seen live, board
+        705 / 706): no `last_assistant_message` in the envelope; the reply is the `message` of the
+        agent's `SubagentHandback` call, in the transcript `agent_transcript_path` names."""
+        records: list[dict[str, Any]] = [{"type": "user", "message": {"role": "user", "content": "OVERSEER_REQUEST x"}},
+                                         {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "r1", "name": "Read", "input": {"file_path": "turn.md"}}]}}]
+        records += [{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": f"h{i}", "name": "SubagentHandback", "input": {"message": m}}]}}
+                    for i, m in enumerate(messages)]
+        records.append({"type": "attachment", "attachment": {"type": "hook_blocking_error"}})
+        path = self.root / ".claude" / "state" / "agent-transcript.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+        out = self.run(VERDICT, ["record"], {"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": "a1",
+                                            **({"agent_transcript_path": str(path)} if envelope else {}),
+                                            **({} if said is None else {"last_assistant_message": said})}).stdout
+        return json.loads(out)["reason"] if out.strip() else ""
+
     def audit(self, reply: dict[str, Any] | str, message: str = CLAIM, after_audit: bool = False) -> str:
         """Claim, launch, answer; returns the request id."""
         _, request_id = self.claim(message, after_audit)
@@ -422,6 +439,34 @@ other = Project()
 _, rid = other.claim()
 out = other.run(VERDICT, ["record"], {"hook_event_name": "SubagentStop", "agent_type": "simplifier", "last_assistant_message": json.dumps(GOOD)}).stdout
 check("another agent's answer is not a verdict", out == "" and not other.rows())
+
+print("\n== the answer handed back through SubagentHandback (board 705 / 706)")
+fenced = "```json\n" + json.dumps(GOOD) + "\n```"
+back = Project()
+_, rid = back.claim()
+back.launch(f"OVERSEER_REQUEST {rid}")
+said = back.handback(fenced)
+check("a verdict handed back by SubagentHandback is recorded (seen live: three valid answers, no verdict, the unit parked)",
+      said == "" and [r["verdict"] for r in back.rows()] == ["PASS"] and "OVERSEER_PASS" in back.first_entry(), said or str(back.rows()))
+later = Project()
+_, rid = later.claim()
+later.launch(f"OVERSEER_REQUEST {rid}")
+later.handback("I am still reading.", json.dumps(BLOCK))
+check("the LAST handback is the answer", [r["verdict"] for r in later.rows()] == ["BLOCK"], str(later.rows()))
+prose = Project()
+_, rid = prose.claim()
+prose.launch(f"OVERSEER_REQUEST {rid}")
+check("negative — a handback that holds no JSON object is refused as before", "VERDICT REFUSED" in prose.handback("Looks fine to me.") and not prose.rows())
+lost = Project()
+_, rid = lost.claim()
+lost.launch(f"OVERSEER_REQUEST {rid}")
+check("negative — no message and no transcript: refused, nothing recorded", "VERDICT REFUSED" in lost.handback(fenced, envelope=False) and not lost.rows())
+both = Project()
+_, rid = both.claim()
+both.launch(f"OVERSEER_REQUEST {rid}")
+both.handback(fenced, said=json.dumps(BLOCK))
+check("negative — where the envelope carries the message, the message is the answer and the transcript is not read",
+      [r["verdict"] for r in both.rows()] == ["BLOCK"], str(both.rows()))
 
 if failures:
     print(f"\nFAIL ({len(failures)}): " + "; ".join(failures))
