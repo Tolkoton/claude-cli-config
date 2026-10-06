@@ -132,7 +132,7 @@ class Project:
                                             "last_assistant_message": text}).stdout
         return json.loads(out)["reason"] if out.strip() else ""
 
-    def handback(self, *messages: str, envelope: bool = True, said: str | None = None) -> str:
+    def handback(self, *messages: str, envelope: bool = True, said: str | None = None, other: str | None = None) -> str:
         """The answer as Claude Code 2.1.289 delivers it from an agent that used a tool (seen live, board
         705 / 706): no `last_assistant_message` in the envelope; the reply is the `message` of the
         agent's `SubagentHandback` call, in the transcript `agent_transcript_path` names."""
@@ -140,6 +140,8 @@ class Project:
                                          {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "r1", "name": "Read", "input": {"file_path": "turn.md"}}]}}]
         records += [{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": f"h{i}", "name": "SubagentHandback", "input": {"message": m}}]}}
                     for i, m in enumerate(messages)]
+        if other is not None:   # another tool's call that also carries a `message`, after the handback
+            records.append({"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "o1", "name": "SendMessage", "input": {"message": other}}]}})
         records.append({"type": "attachment", "attachment": {"type": "hook_blocking_error"}})
         path = self.root / ".claude" / "state" / "agent-transcript.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -512,6 +514,12 @@ both.launch(f"OVERSEER_REQUEST {rid}")
 both.handback(fenced, said=json.dumps(BLOCK))
 check("negative — where the envelope carries the message, the message is the answer and the transcript is not read",
       [r["verdict"] for r in both.rows()] == ["BLOCK"], str(both.rows()))
+named = Project()
+_, rid = named.claim()
+named.launch(f"OVERSEER_REQUEST {rid}")
+named.handback(fenced, other=json.dumps(BLOCK))
+check("negative — another tool's `message` is not the answer: only SubagentHandback is read",
+      [r["verdict"] for r in named.rows()] == ["PASS"], str(named.rows()))
 
 print("\n== code written by a shell command (board 707)")
 SHELL_WRITE = "cat > src/pricing.py <<EOF\ndef with_tax(x):\n    return x * 1.2\nEOF"
