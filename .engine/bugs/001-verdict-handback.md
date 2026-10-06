@@ -1,7 +1,7 @@
 # Bug 001-verdict-handback
 
 type: bugfix
-status: reproduced
+status: fixed
 <!-- status: recorded → reproduced → fixed; or parked (not reproduced in three attempts);
      or question for the owner (the expected behaviour is written nowhere); or became a slice.
      This file is the contract of the fix and its report at once: the overseer audits against it.
@@ -113,8 +113,8 @@ PROVED: tests/test_overseer_fresh.py fails on 5b4156d and passes on the working 
 ````
 
 ## 7. Gate and overseer
-- Gate: <the result of the turn-end checks — no worse than it was>
-- Overseer: <the verdict and its ledger entry>
+- Gate: all 70 suites `tests/test_*.py` exit 0 (2026-10-06, each run as `python3 tests/test_….py` in two loops of 35: the one-command `bash tests/run_all.sh` was twice cut off with the session — `tests/test_board_runner.py` alone took 847 s here; so no machine record `tests-full.json` from this run).
+- Overseer: PASS — request 20261006T024303Z-69c5aa, the entry of 2026-10-06T02:46:36Z in `.engine/overseer/ledger.md`. This is also the live check of the fix: that overseer called twelve tools and handed its answer back through `SubagentHandback`, and `record` wrote the verdict at the first request. It reproduced the proof and read all six live transcripts of 076 and 045 through `_handed_back` (PASS, PASS, BLOCK, PASS, PASS, BLOCK). Its devil's advocate, kept: the fixture's other tool call carries no `message` key, so a helper that ignored the tool name would pass the suite (the helper does check the name).
 - The regression test stays in the suite: `tests/test_overseer_fresh.py`, section «the answer handed back through SubagentHandback (board 705 / 706)» (run by `bash tests/run_all.sh`; not in the fast subset — board 018 keeps this 13-second suite out of it).
 
 ## 8. Lesson
