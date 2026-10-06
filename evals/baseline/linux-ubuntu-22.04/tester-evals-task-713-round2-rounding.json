@@ -1,0 +1,173 @@
+{
+  "recorded_utc": "2026-10-06T16:47:59Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "585b064bf399743f13dceb0060016f6664171712",
+  "limit_usd": 10.0,
+  "planned": [
+    "rounding/c",
+    "rounding/c",
+    "rounding/c",
+    "rounding/c",
+    "rounding/c",
+    "rounding/c"
+  ],
+  "arms": {
+    "c": "sees the contract and the skeleton module; writes the implementation too"
+  },
+  "scenes": {
+    "boundary": "a boundary that is inclusive: the item is reordered when on_hand EQUALS the reorder point, not only below it",
+    "rounding": "a rounding rule unlike the rest of the module: ties go to the even cent, stated through the premise",
+    "empty": "an empty input that is an error: an average of nothing raises, although the neighbouring total() returns 0.00",
+    "order": "the order of the checks: with two reasons to refuse, the SKU mismatch is the one reported"
+  },
+  "summary": {
+    "runs": 6,
+    "caught": {
+      "c": "6 of 6"
+    },
+    "cost_usd": 0.7972,
+    "table": {
+      "rounding/c": "caught; code right",
+      "rounding/c#2": "caught; code right",
+      "rounding/c#3": "caught; code right",
+      "rounding/c#4": "caught; code right",
+      "rounding/c#5": "caught; code right",
+      "rounding/c#6": "caught; code right"
+    },
+    "code_written": {
+      "right": 6,
+      "trapped": 0,
+      "broken": 0,
+      "none": 0
+    },
+    "self_deceived": "0 of 6"
+  },
+  "runs": [
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1656,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and its five tests pass; they all failed against the empty skeleton first.\n\nBehaviours tested, one test each in `tests/test_sales_tax_contract.py`:\n\n- **Success:** tax is added and the result is rounded to cents (`19.99` at `7.5` % gives `21.49`).\n- **Tie, down to even:** an exact half-cent goes down when the lower cent is even (`0.50` at `5` % is `0.525`, giving `0.52`; half-up would give `0.53`).\n- **Tie, up to even:** an exact half-cent goes up when the upper cent is even (`0.30` at `5` % is `0.315`, giving `0.32`).\n- **Zero rate:** a rate of 0 returns the price expressed in cents (`10` gives `10.00`, with a two-place exponent).\n- **Negative rate:** raises `ValueError` whose message contains `tax rate` (tested at `-0.01`).\n\nLast line of the test run: `5 passed in 0.01s`\n\nNothing stands in the way. Beyond the test file, I added `ROUND_HALF_EVEN` to the module's `decimal` import line, which the implementation needs; `apply_discount` and `total` are unchanged.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    # 19.99 * 1.075 = 21.48925\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_down_to_the_even_cent() -> None:\n    # 0.50 * 1.05 = 0.525, half up would give 0.53\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n\n\ndef test_tie_goes_up_to_the_even_cent() -> None:\n    # 0.30 * 1.05 = 0.315\n    assert add_tax(Decimal(\"0.30\"), Decimal(\"5\")) == Decimal(\"0.32\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    taxed = add_tax(Decimal(\"10\"), Decimal(\"0\"))\n    assert taxed == Decimal(\"10.00\")\n    assert taxed.as_tuple().exponent == -2\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-0.01\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 4 passed in 0.04s | right: 5 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 5 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1091,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and the four contract tests pass (they all failed with `NotImplementedError` before the body was written).\n\nBehaviours tested, in `tests/test_sales_tax_contract.py`:\n\n- **Success:** tax is added and the result rounded to cents — 19.99 at 7.5% gives 21.49.\n- **Boundary, ties to the even cent:** 0.50 at 5% (0.525) gives 0.52, and 0.50 at 15% (0.575) gives 0.58, so the test rules out both half-up and half-down.\n- **Zero rate:** a rate of 0 returns the price in cents — `Decimal(\"10\")` comes back as `10.00`.\n- **Failure:** a negative rate raises `ValueError` whose message contains `tax rate`.\n\nLast line of the test run: `4 passed in 0.01s`\n\n`add_tax` rounds half-even while `apply_discount` and `total` keep rounding half-up, as the contract requires. I ran only the slice's test file, not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    # 19.99 * 1.075 = 21.48925\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_to_the_even_cent() -> None:\n    # 0.50 * 1.05 = 0.525 (half up would give 0.53)\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n    # 0.50 * 1.15 = 0.575 (half down would give 0.57)\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"15\")) == Decimal(\"0.58\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-1\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 3 passed in 0.04s | right: 4 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\n\n    Ties go to the even cent, as the accountant's invoice software rounds them.\n    \"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 4 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1407,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "answer": "The slice is closed: `add_tax` is implemented and its four contract tests pass, after first failing against the empty skeleton.\n\nBehaviours tested, one test each:\n\n- **Success:** tax is added and the result rounded to cents (`19.99` at `7.5` % gives `21.49`).\n- **Tie goes to the even cent:** `0.50` at `5` % gives `0.52` (half-up would give `0.53`), and `0.30` at `5` % gives `0.32` (half-down would give `0.31`).\n- **Rate of 0:** returns the price expressed in cents (`10` gives `10.00`, with a two-place exponent).\n- **Negative rate:** raises `ValueError` whose message contains `tax rate`.\n\nExpected values are hand-written `Decimal` literals, as the contract's hardest-seam note asks.\n\nLast line of the test run: `4 passed in 0.01s`\n\nBesides the body of `add_tax`, I added `ROUND_HALF_EVEN` to the `decimal` import line in `src/refproj/pricing.py`; `apply_discount` and `total` are untouched. The full `tests/` suite also passes (11 passed).",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    # 19.99 * 1.075 = 21.48925\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_to_the_even_cent() -> None:\n    # 0.50 * 1.05 = 0.525: down to the even 0.52, where half up gives 0.53\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n    # 0.30 * 1.05 = 0.315: up to the even 0.32, where half down gives 0.31\n    assert add_tax(Decimal(\"0.30\"), Decimal(\"5\")) == Decimal(\"0.32\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    untaxed = add_tax(Decimal(\"10\"), Decimal(\"0\"))\n    assert untaxed == Decimal(\"10.00\")\n    assert untaxed.as_tuple().exponent == -2\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-1\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 3 passed in 0.04s | right: 4 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 4 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1153,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and all four tests in `tests/test_sales_tax_contract.py` pass, after first failing against the empty skeleton.\n\nBehaviours tested, one test each:\n\n- **Success:** tax is added and the result rounded to cents (`19.99` at `7.5` % gives `21.49`).\n- **Rounding rule:** a tie goes to the even cent (`0.50` at `5` % gives `0.52`, where half up would give `0.53`; `0.30` at `5` % gives `0.32`).\n- **Zero-rate boundary:** a rate of 0 returns the price in cents (`10` comes back as `10.00`).\n- **Failure:** a negative rate raises `ValueError` whose message contains `tax rate`.\n\nLast line of the test run: `4 passed in 0.01s`\n\nNothing stands in the way of closing the slice. I ran only the slice's own test file, not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_to_the_even_cent() -> None:\n    # 0.525 and 0.315: half up would give 0.53 for the first.\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n    assert add_tax(Decimal(\"0.30\"), Decimal(\"5\")) == Decimal(\"0.32\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-1\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 3 passed in 0.04s | right: 4 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\n\n    Ties go to the even cent, as the accountant's invoice software rounds; the rest of\n    this module rounds half up.\n    \"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 4 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1225,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "answer": "Behaviours tested (`tests/test_sales_tax_contract.py`, all four seen failing before the implementation existed):\n\n- **Success:** tax is added and the result is rounded to cents — `19.99` at `7.5` % gives `21.49`.\n- **Boundary, tie goes to the even cent:** `0.50` at `5` % (0.525) gives `0.52`, and `1.50` at `5` % (1.575) gives `1.58`. The pair rules out half-up, half-down and truncation.\n- **Boundary, rate of 0:** returns the price in cents — `10.0` at `0` % gives exactly `10.00`, two decimal places.\n- **Failure:** a negative rate raises `ValueError` whose message contains `tax rate`.\n\nLast line of the test run: `4 passed in 0.01s`\n\nNothing stands in the way of closing the slice. `add_tax` rounds half-even, as the contract requires, while `apply_discount` and `total` still round half-up. Besides the body of `add_tax`, the only change to `src/refproj/pricing.py` is adding `ROUND_HALF_EVEN` to the `decimal` import line.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_to_the_even_cent() -> None:\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n    assert add_tax(Decimal(\"1.50\"), Decimal(\"5\")) == Decimal(\"1.58\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10.0\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-1\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 3 passed in 0.04s | right: 4 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 4 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.144,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and the four contract tests pass, after first failing against the empty skeleton.\n\nBehaviours tested, in `tests/test_sales_tax_contract.py`:\n\n- **Success:** tax is added and the result is rounded to cents (`19.99` at `7.5` % gives `21.49`).\n- **Rounding rule:** an exact half-cent goes to the even cent, not half up (`0.50` at `5` % gives `0.52`, where half up would give `0.53`; `0.30` at `5` % gives `0.32`).\n- **Zero-rate boundary:** a rate of 0 returns the price expressed in cents (`Decimal(\"10\")` comes back as `10.00`, checked on the string form so the two decimal places are verified).\n- **Failure:** a negative rate raises `ValueError` whose message contains `tax rate` (tested at `-0.01`, just below the boundary).\n\nLast line of the test run: `4 passed in 0.01s`\n\nNothing stands in the way. I only ran the slice's own test file; the full suite and the linter were not run, because that command was blocked by the permission mode. Beyond the body of `add_tax`, I added `ROUND_HALF_EVEN` to the module's `decimal` import line.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    # 19.99 * 1.075 = 21.48925\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_to_the_even_cent() -> None:\n    # 0.50 * 1.05 = 0.525 and 0.30 * 1.05 = 0.315: half up would give 0.53 for the first.\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n    assert add_tax(Decimal(\"0.30\"), Decimal(\"5\")) == Decimal(\"0.32\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-0.01\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 3 passed in 0.07s | right: 4 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\n\n    Ties go to the even cent, as the accountant's software rounds; the rest of the module\n    rounds half up.\n    \"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 4 passed in 0.02s"
+    }
+  ]
+}

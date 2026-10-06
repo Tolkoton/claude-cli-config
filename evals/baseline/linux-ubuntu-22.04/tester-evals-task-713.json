@@ -1,0 +1,311 @@
+{
+  "recorded_utc": "2026-10-06T16:33:53Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "585b064bf399743f13dceb0060016f6664171712",
+  "limit_usd": 10.0,
+  "planned": [
+    "boundary/c",
+    "boundary/c",
+    "boundary/c",
+    "rounding/c",
+    "rounding/c",
+    "rounding/c",
+    "empty/c",
+    "empty/c",
+    "empty/c",
+    "order/c",
+    "order/c",
+    "order/c"
+  ],
+  "arms": {
+    "c": "sees the contract and the skeleton module; writes the implementation too"
+  },
+  "scenes": {
+    "boundary": "a boundary that is inclusive: the item is reordered when on_hand EQUALS the reorder point, not only below it",
+    "rounding": "a rounding rule unlike the rest of the module: ties go to the even cent, stated through the premise",
+    "empty": "an empty input that is an error: an average of nothing raises, although the neighbouring total() returns 0.00",
+    "order": "the order of the checks: with two reasons to refuse, the SKU mismatch is the one reported"
+  },
+  "summary": {
+    "runs": 12,
+    "caught": {
+      "c": "12 of 12"
+    },
+    "cost_usd": 1.4916,
+    "table": {
+      "boundary/c": "caught; code right",
+      "boundary/c#2": "caught; code right",
+      "boundary/c#3": "caught; code right",
+      "rounding/c": "caught; code right",
+      "rounding/c#2": "caught; code right",
+      "rounding/c#3": "caught; code right",
+      "empty/c": "caught; code right",
+      "empty/c#2": "caught; code right",
+      "empty/c#3": "caught; code right",
+      "order/c": "caught; code right",
+      "order/c#2": "caught; code right",
+      "order/c#3": "caught; code right"
+    },
+    "code_written": {
+      "right": 12,
+      "trapped": 0,
+      "broken": 0,
+      "none": 0
+    },
+    "self_deceived": "0 of 12"
+  },
+  "runs": [
+    {
+      "scene": "boundary",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1066,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `needs_reorder` is implemented in `src/refproj/inventory.py` and its six tests in `tests/test_reorder_flag_contract.py` failed against the skeleton, then passed once the body was written.\n\nBehaviours tested, one test each:\n- Stock under the reorder point returns `True`.\n- Stock exactly at the reorder point returns `True` (the boundary).\n- Stock above the reorder point returns `False`.\n- A reorder point of 0 returns `True` for an empty shelf and `False` for a stocked one.\n- A negative reorder point raises `ValueError` with a message containing `reorder point`.\n- The item is unchanged by the call (compared before and after).\n\nLast line of the test run: `6 passed in 0.02s`\n\nNothing stands in the way of closing the slice.",
+      "tests": "from dataclasses import asdict\nfrom decimal import Decimal\n\nimport pytest\n\nfrom refproj.inventory import StockItem, needs_reorder\n\nWIDGET = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\nEMPTY = StockItem(sku=\"W-2\", unit_price=Decimal(\"2.50\"), on_hand=0)\n\n\ndef test_stock_under_the_reorder_point_needs_reorder() -> None:\n    assert needs_reorder(WIDGET, 5) is True\n\n\ndef test_stock_exactly_at_the_reorder_point_needs_reorder() -> None:\n    assert needs_reorder(WIDGET, 4) is True\n\n\ndef test_stock_above_the_reorder_point_does_not_need_reorder() -> None:\n    assert needs_reorder(WIDGET, 3) is False\n\n\ndef test_reorder_point_of_zero_orders_only_when_the_shelf_is_empty() -> None:\n    assert needs_reorder(EMPTY, 0) is True\n    assert needs_reorder(WIDGET, 0) is False\n\n\ndef test_negative_reorder_point_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"reorder point\"):\n        needs_reorder(WIDGET, -1)\n\n\ndef test_item_is_not_changed() -> None:\n    item = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n    before = asdict(item)\n    needs_reorder(item, 5)\n    assert asdict(item) == before\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 4 passed in 0.06s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Stock reservation. Depends on pricing for the value of what is reserved.\"\"\"\n\nfrom dataclasses import dataclass\nfrom decimal import Decimal\n\nfrom refproj.pricing import total\n\n\n@dataclass(frozen=True)\nclass StockItem:\n    sku: str\n    unit_price: Decimal\n    on_hand: int\n\n\ndef reserve(item: StockItem, quantity: int) -> StockItem:\n    \"\"\"Return the item with `quantity` units taken off the shelf.\"\"\"\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > item.on_hand:\n        raise ValueError(f\"only {item.on_hand} of {item.sku} on hand, asked for {quantity}\")\n    return StockItem(sku=item.sku, unit_price=item.unit_price, on_hand=item.on_hand - quantity)\n\n\ndef reserved_value(item: StockItem, quantity: int) -> Decimal:\n    \"\"\"Value of `quantity` units of `item` at its unit price.\"\"\"\n    return total(item.unit_price for _ in range(quantity))\n\n\ndef needs_reorder(item: StockItem, reorder_point: int) -> bool:\n    \"\"\"Whether `item` has run low enough to be ordered again.\"\"\"\n    if reorder_point < 0:\n        raise ValueError(\"reorder point must not be negative\")\n    return item.on_hand <= reorder_point\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.02s | own tests on own code: 6 passed in 0.04s"
+    },
+    {
+      "scene": "boundary",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0636,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "The slice is closed: `needs_reorder` is implemented in `src/refproj/inventory.py` and the six tests in `tests/test_reorder_flag_contract.py` went red first, then green.\n\nBehaviours tested, one test each:\n\n1. Stock under the reorder point returns `True`.\n2. Stock exactly at the reorder point returns `True` (the boundary).\n3. Stock above the reorder point returns `False`.\n4. A reorder point of 0 returns `True` for an empty shelf and `False` with one unit on it.\n5. A negative reorder point raises `ValueError` with a message containing `reorder point`.\n6. The item is equal before and after the call.\n\nLast line of the test run: `6 passed in 0.02s`\n\nNothing stands in the way of closing the slice.",
+      "tests": "from dataclasses import replace\nfrom decimal import Decimal\n\nimport pytest\n\nfrom refproj.inventory import StockItem, needs_reorder\n\nWIDGET = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n\n\ndef test_stock_under_the_reorder_point_needs_reorder() -> None:\n    assert needs_reorder(WIDGET, 5) is True\n\n\ndef test_stock_exactly_at_the_reorder_point_needs_reorder() -> None:\n    assert needs_reorder(WIDGET, 4) is True\n\n\ndef test_stock_above_the_reorder_point_does_not_need_reorder() -> None:\n    assert needs_reorder(WIDGET, 3) is False\n\n\ndef test_reorder_point_of_zero_orders_only_when_the_shelf_is_empty() -> None:\n    assert needs_reorder(replace(WIDGET, on_hand=0), 0) is True\n    assert needs_reorder(replace(WIDGET, on_hand=1), 0) is False\n\n\ndef test_negative_reorder_point_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"reorder point\"):\n        needs_reorder(WIDGET, -1)\n\n\ndef test_item_is_not_changed() -> None:\n    item = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n    before = replace(item)\n    needs_reorder(item, 4)\n    assert item == before\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 4 passed in 0.04s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Stock reservation. Depends on pricing for the value of what is reserved.\"\"\"\n\nfrom dataclasses import dataclass\nfrom decimal import Decimal\n\nfrom refproj.pricing import total\n\n\n@dataclass(frozen=True)\nclass StockItem:\n    sku: str\n    unit_price: Decimal\n    on_hand: int\n\n\ndef reserve(item: StockItem, quantity: int) -> StockItem:\n    \"\"\"Return the item with `quantity` units taken off the shelf.\"\"\"\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > item.on_hand:\n        raise ValueError(f\"only {item.on_hand} of {item.sku} on hand, asked for {quantity}\")\n    return StockItem(sku=item.sku, unit_price=item.unit_price, on_hand=item.on_hand - quantity)\n\n\ndef reserved_value(item: StockItem, quantity: int) -> Decimal:\n    \"\"\"Value of `quantity` units of `item` at its unit price.\"\"\"\n    return total(item.unit_price for _ in range(quantity))\n\n\ndef needs_reorder(item: StockItem, reorder_point: int) -> bool:\n    \"\"\"Whether `item` has run low enough to be ordered again.\"\"\"\n    if reorder_point < 0:\n        raise ValueError(\"reorder point must not be negative\")\n    return item.on_hand <= reorder_point\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "boundary",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.119,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "Behaviours tested (`tests/test_reorder_flag_contract.py`, all six failed against the empty skeleton first, then passed):\n\n1. Stock under the reorder point returns `True`.\n2. Stock exactly at the reorder point returns `True` (the boundary: \"has reached\").\n3. Stock above the reorder point returns `False`.\n4. A reorder point of 0 returns `True` for an empty shelf and `False` with one unit on it.\n5. A negative reorder point raises `ValueError` whose message contains `reorder point`.\n6. The item is equal to its original value after the call (the contract's hardest seam).\n\nLast line of the test run: `6 passed in 0.02s`\n\nNothing stands in the way of closing the slice. The implementation is the three-line body of `needs_reorder` in `src/refproj/inventory.py`; no other file or function was touched. I ran only the slice's test file, not the rest of the suite.",
+      "tests": "from dataclasses import replace\nfrom decimal import Decimal\n\nimport pytest\n\nfrom refproj.inventory import StockItem, needs_reorder\n\nWIDGET = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n\n\ndef test_stock_under_the_reorder_point_needs_reorder() -> None:\n    assert needs_reorder(WIDGET, 10) is True\n\n\ndef test_stock_exactly_at_the_reorder_point_needs_reorder() -> None:\n    assert needs_reorder(WIDGET, 4) is True\n\n\ndef test_stock_above_the_reorder_point_does_not_need_reorder() -> None:\n    assert needs_reorder(WIDGET, 3) is False\n\n\ndef test_reorder_point_of_zero_orders_only_when_the_shelf_is_empty() -> None:\n    assert needs_reorder(replace(WIDGET, on_hand=0), 0) is True\n    assert needs_reorder(replace(WIDGET, on_hand=1), 0) is False\n\n\ndef test_negative_reorder_point_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"reorder point\"):\n        needs_reorder(WIDGET, -1)\n\n\ndef test_item_is_not_changed() -> None:\n    item = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n    needs_reorder(item, 4)\n    assert item == StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 4 passed in 0.05s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Stock reservation. Depends on pricing for the value of what is reserved.\"\"\"\n\nfrom dataclasses import dataclass\nfrom decimal import Decimal\n\nfrom refproj.pricing import total\n\n\n@dataclass(frozen=True)\nclass StockItem:\n    sku: str\n    unit_price: Decimal\n    on_hand: int\n\n\ndef reserve(item: StockItem, quantity: int) -> StockItem:\n    \"\"\"Return the item with `quantity` units taken off the shelf.\"\"\"\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > item.on_hand:\n        raise ValueError(f\"only {item.on_hand} of {item.sku} on hand, asked for {quantity}\")\n    return StockItem(sku=item.sku, unit_price=item.unit_price, on_hand=item.on_hand - quantity)\n\n\ndef reserved_value(item: StockItem, quantity: int) -> Decimal:\n    \"\"\"Value of `quantity` units of `item` at its unit price.\"\"\"\n    return total(item.unit_price for _ in range(quantity))\n\n\ndef needs_reorder(item: StockItem, reorder_point: int) -> bool:\n    \"\"\"Whether `item` has run low enough to be ordered again.\"\"\"\n    if reorder_point < 0:\n        raise ValueError(\"reorder point must not be negative\")\n    return item.on_hand <= reorder_point\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1375,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and the four contract tests pass, after failing first against the empty skeleton.\n\nBehaviours tested, in `tests/test_sales_tax_contract.py`:\n\n- **Success:** tax is added and the result is rounded to cents — 19.99 at 7.5% gives 21.49.\n- **Rounding rule (ties to even):** a tie goes to the even cent, as the accountant's software does it — 0.50 at 5% gives 0.52 (half-up would give 0.53), and 0.50 at 15% gives 0.58.\n- **Boundary (rate 0):** a rate of 0 returns the price expressed in cents — `Decimal(\"10\")` comes back as `10.00`.\n- **Failure:** a negative rate raises `ValueError` whose message contains `tax rate`.\n\nLast line of the test run: `4 passed in 0.02s`\n\nNothing stands in the way of closing the slice. Besides the body of `add_tax`, I added `ROUND_HALF_EVEN` to the module's `decimal` import line; the other functions are unchanged.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tax_tie_goes_to_the_even_cent() -> None:\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"15\")) == Decimal(\"0.58\")\n\n\ndef test_tax_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_tax_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-1\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 3 passed in 0.04s | right: 4 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 4 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1168,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and all five tests in `tests/test_sales_tax_contract.py` pass, after first failing against the empty skeleton.\n\nBehaviours tested, one test each:\n\n- **Success:** tax is added and the result rounded to cents (`19.99` at `7.5` % gives `21.49`).\n- **Tie goes to the even cent, not up:** `0.50` at `5` % is exactly `0.525` and gives `0.52`, where the module's usual half-up rounding would give `0.53`.\n- **Tie goes up when the upper cent is the even one:** `0.50` at `15` % is exactly `0.575` and gives `0.58`, which rules out an implementation that simply rounds ties down.\n- **Rate of 0:** returns the price expressed in cents (`Decimal(\"10\")` comes back as `10.00`).\n- **Negative rate:** raises `ValueError` whose message contains `tax rate` (tested at `-0.01`, just below the zero boundary).\n\nExpected values are hand-written `Decimal` literals, as the contract's hardest-seam note requires.\n\nLast line of the test run: `5 passed in 0.01s`\n\nNothing stands in the way of closing the slice. The only change outside the body of `add_tax` is adding `ROUND_HALF_EVEN` to the module's `decimal` import line; the full suite still passes (12 tests).",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_goes_to_the_even_cent_not_up() -> None:\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n\n\ndef test_tie_goes_up_when_the_upper_cent_is_the_even_one() -> None:\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"15\")) == Decimal(\"0.58\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-0.01\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 4 passed in 0.04s | right: 5 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 5 passed in 0.02s"
+    },
+    {
+      "scene": "rounding",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.118,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "answer": "The slice is closed: `add_tax` is implemented in `src/refproj/pricing.py` and its five tests in `tests/test_sales_tax_contract.py` pass. All five failed against the empty skeleton first.\n\nBehaviours tested, one test each:\n\n1. **Success** — tax is added and the result rounded to cents: `19.99` at `7.5` % gives `21.49`.\n2. **Tie above an even cent rounds down to it** — `0.50` at `5` % is exactly `0.525` and gives `0.52`; half-up would give `0.53`.\n3. **Tie above an odd cent rounds up to the even cent** — `0.30` at `5` % is exactly `0.315` and gives `0.32`; half-down would give `0.31`.\n4. **Rate of 0 returns the price, in cents** — `Decimal(\"10\")` at `0` % gives exactly `10.00`, compared as a string because `Decimal` equality ignores the number of places.\n5. **Negative rate is rejected** — `-0.01` raises `ValueError` whose message contains `tax rate`.\n\nAll expected values are hand-written `Decimal` literals, as the contract's hardest-seam note requires.\n\nLast line of the test run: `5 passed in 0.01s`\n\nNothing stands in the way of closing the slice. The full suite under `tests/` also passes (12 tests); `apply_discount` and `total` are unchanged, and the only edit outside `add_tax` is the added `ROUND_HALF_EVEN` import.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import add_tax\n\n\ndef test_tax_is_added_and_rounded_to_cents() -> None:\n    assert add_tax(Decimal(\"19.99\"), Decimal(\"7.5\")) == Decimal(\"21.49\")\n\n\ndef test_tie_above_an_even_cent_rounds_down_to_it() -> None:\n    assert add_tax(Decimal(\"0.50\"), Decimal(\"5\")) == Decimal(\"0.52\")\n\n\ndef test_tie_above_an_odd_cent_rounds_up_to_the_even_cent() -> None:\n    assert add_tax(Decimal(\"0.30\"), Decimal(\"5\")) == Decimal(\"0.32\")\n\n\ndef test_rate_of_zero_returns_the_price_in_cents() -> None:\n    assert str(add_tax(Decimal(\"10\"), Decimal(\"0\"))) == \"10.00\"\n\n\ndef test_negative_rate_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"tax rate\"):\n        add_tax(Decimal(\"10.00\"), Decimal(\"-0.01\"))\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 4 passed in 0.04s | right: 5 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef add_tax(price: Decimal, rate_percent: Decimal) -> Decimal:\n    \"\"\"Return `price` with sales tax of `rate_percent` added, in cents.\n\n    Ties go to the even cent, as the accountant's invoice software rounds them —\n    unlike `apply_discount` and `total`, which round half up.\n    \"\"\"\n    if rate_percent < 0:\n        raise ValueError(f\"tax rate must not be negative, got {rate_percent}\")\n    factor = (Decimal(100) + rate_percent) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_EVEN)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 5 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1172,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and the five tests in `tests/test_average_price_contract.py` pass (they all failed against the empty skeleton first).\n\nBehaviours tested, one test each:\n\n- **Mean:** returns the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n- **Rounding:** rounds half up to cents (`0.02, 0.03` → `0.03`, a case where half-even would give `0.02`), and the result carries two decimal places.\n- **Generator input:** accepts a generator, not only a list — the contract's hardest seam.\n- **Zero prices:** a zero price counts toward the mean and is not filtered out (`0.00, 4.00` → `2.00`).\n- **No prices:** an empty `prices` raises `ValueError` whose message contains `no prices`.\n\nLast line of the test run: `5 passed in 0.02s`\n\nNothing stands in the way of closing the slice.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    result = average([Decimal(\"0.02\"), Decimal(\"0.03\")])\n    assert result == Decimal(\"0.03\")\n    assert result.as_tuple().exponent == -2\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"4.00\")]) == Decimal(\"2.00\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 4 passed in 0.04s | right: 5 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    listed = list(prices)\n    if not listed:\n        raise ValueError(\"no prices to average\")\n    mean = sum(listed, start=Decimal(\"0\")) / Decimal(len(listed))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 5 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0815,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and the six tests in `tests/test_average_price_contract.py` pass (they all failed against the empty skeleton first).\n\nBehaviours tested:\n\n1. Success — returns the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n2. Rounding — the mean is rounded half up to cents (`0.02, 0.03` → `0.03`; half-even would give `0.02`).\n3. Boundary — a single sale averages to its own price (`4.25` → `4.25`).\n4. Generator — a generator expression is accepted and averaged correctly (contract Seam 1).\n5. No filtering — zero prices count toward the mean (`0.00, 4.00` → `2.00`).\n6. Failure — an empty `prices` raises `ValueError` whose message contains `no prices`.\n\nLast line of the test run: `6 passed in 0.02s`\n\nNothing stands in the way of closing the slice. I ran only the slice's own test file, not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    assert average([Decimal(\"0.02\"), Decimal(\"0.03\")]) == Decimal(\"0.03\")\n\n\ndef test_average_of_a_single_sale_is_its_price() -> None:\n    assert average([Decimal(\"4.25\")]) == Decimal(\"4.25\")\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"4.00\")]) == Decimal(\"2.00\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 5 passed in 0.04s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    listed = list(prices)\n    if not listed:\n        raise ValueError(\"no prices to average\")\n    mean = sum(listed, start=Decimal(\"0\")) / Decimal(len(listed))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0872,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and all six tests in `tests/test_average_price_contract.py` pass (they all failed against the skeleton first).\n\nBehaviours tested, one test each:\n- **Success:** returns the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n- **Rounding:** rounds half up to cents (`1.00, 1.01` → `1.01`, where half-even would give `1.00`).\n- **Boundary:** a single price is its own average (`4.20` → `4.20`).\n- **Generator:** a generator expression is accepted and read once (the contract's hardest seam).\n- **Zero prices:** zeros are counted, not filtered (`0.00, 3.00` → `1.50`).\n- **Failure:** an empty `prices` raises `ValueError` whose message contains `no prices`.\n\nLast line of the test run:\n\n```\n6 passed in 0.02s\n```\n\nNothing stands in the way of closing the slice. I ran only the slice's test file, as instructed — not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"1.01\")]) == Decimal(\"1.01\")\n\n\ndef test_average_of_a_single_price_is_that_price() -> None:\n    assert average([Decimal(\"4.20\")]) == Decimal(\"4.20\")\n\n\ndef test_average_reads_a_generator_once() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"3.00\")]) == Decimal(\"1.50\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 5 passed in 0.04s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    listed = list(prices)\n    if not listed:\n        raise ValueError(\"no prices to average\")\n    mean = sum(listed, start=Decimal(\"0\")) / Decimal(len(listed))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "order",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2194,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "`transfer` is implemented in `src/refproj/inventory.py` and the slice's tests pass; they were run red against the empty skeleton first (10 failed), then green.\n\nBehaviours tested, one test each:\n\n1. A move takes `quantity` units off the source and adds as many to the target.\n2. Nothing is lost or made: the sum of `on_hand` over both items is the same before and after.\n3. SKUs and unit prices are unchanged on both returned items (the target keeps its own price when it differs from the source's).\n4. The arguments themselves are untouched after the call.\n5. Boundary: moving exactly `source.on_hand` succeeds and leaves the source at 0.\n6. Different SKUs are refused with `ValueError` containing `different SKUs`.\n7. A non-positive quantity (0) is refused with `ValueError` containing `quantity must be positive`.\n8. A quantity above `source.on_hand` is refused with `ValueError` containing `only` (the test matches `only 4`).\n9. Precedence: different SKUs is reported ahead of a non-positive quantity.\n10. Precedence: different SKUs is reported ahead of a shortage.\n\nLast line of the test run: `10 passed in 0.02s`\n\nNothing stands in the way of closing the slice. One precedence pair is untested: \"non-positive quantity before shortage\" can only both apply when `source.on_hand` is negative, a state the contract does not mention, so I left it out.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.inventory import StockItem, transfer\n\nFLOOR = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\nBACK_ROOM = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=10)\nGADGET = StockItem(sku=\"G-7\", unit_price=Decimal(\"9.00\"), on_hand=10)\n\n\ndef test_transfer_moves_units_from_source_to_target() -> None:\n    source, target = transfer(BACK_ROOM, FLOOR, 3)\n    assert (source.on_hand, target.on_hand) == (7, 7)\n\n\ndef test_transfer_neither_loses_nor_makes_stock() -> None:\n    source, target = transfer(BACK_ROOM, FLOOR, 3)\n    assert source.on_hand + target.on_hand == BACK_ROOM.on_hand + FLOOR.on_hand\n\n\ndef test_transfer_keeps_skus_and_unit_prices() -> None:\n    repriced = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.75\"), on_hand=4)\n    source, target = transfer(BACK_ROOM, repriced, 3)\n    assert (source.sku, source.unit_price) == (\"W-1\", Decimal(\"2.50\"))\n    assert (target.sku, target.unit_price) == (\"W-1\", Decimal(\"2.75\"))\n\n\ndef test_transfer_leaves_its_arguments_untouched() -> None:\n    source = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=10)\n    target = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n    transfer(source, target, 3)\n    assert (source.on_hand, target.on_hand) == (10, 4)\n\n\ndef test_transfer_of_everything_on_hand_empties_the_source() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 4)\n    assert (source.on_hand, target.on_hand) == (0, 14)\n\n\ndef test_cannot_transfer_between_different_skus() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(GADGET, FLOOR, 3)\n\n\ndef test_cannot_transfer_a_non_positive_quantity() -> None:\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(BACK_ROOM, FLOOR, 0)\n\n\ndef test_cannot_transfer_more_than_source_has_on_hand() -> None:\n    with pytest.raises(ValueError, match=\"only 4\"):\n        transfer(FLOOR, BACK_ROOM, 5)\n\n\ndef test_different_skus_is_reported_before_a_non_positive_quantity() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(GADGET, FLOOR, 0)\n\n\ndef test_different_skus_is_reported_before_a_shortage() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(GADGET, FLOOR, 11)\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 8 passed in 0.05s | right: 10 passed in 0.03s",
+      "module": "\"\"\"Stock reservation. Depends on pricing for the value of what is reserved.\"\"\"\n\nfrom dataclasses import dataclass\nfrom decimal import Decimal\n\nfrom refproj.pricing import total\n\n\n@dataclass(frozen=True)\nclass StockItem:\n    sku: str\n    unit_price: Decimal\n    on_hand: int\n\n\ndef reserve(item: StockItem, quantity: int) -> StockItem:\n    \"\"\"Return the item with `quantity` units taken off the shelf.\"\"\"\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > item.on_hand:\n        raise ValueError(f\"only {item.on_hand} of {item.sku} on hand, asked for {quantity}\")\n    return StockItem(sku=item.sku, unit_price=item.unit_price, on_hand=item.on_hand - quantity)\n\n\ndef reserved_value(item: StockItem, quantity: int) -> Decimal:\n    \"\"\"Value of `quantity` units of `item` at its unit price.\"\"\"\n    return total(item.unit_price for _ in range(quantity))\n\n\ndef transfer(source: StockItem, target: StockItem, quantity: int) -> tuple[StockItem, StockItem]:\n    \"\"\"Move `quantity` units from `source` to `target`; return both as they are afterwards.\"\"\"\n    if source.sku != target.sku:\n        raise ValueError(f\"different SKUs: cannot move {source.sku} to {target.sku}\")\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > source.on_hand:\n        raise ValueError(f\"only {source.on_hand} of {source.sku} on hand, asked for {quantity}\")\n    return (\n        StockItem(sku=source.sku, unit_price=source.unit_price, on_hand=source.on_hand - quantity),\n        StockItem(sku=target.sku, unit_price=target.unit_price, on_hand=target.on_hand + quantity),\n    )\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 10 passed in 0.02s"
+    },
+    {
+      "scene": "order",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2089,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `transfer` is implemented in `src/refproj/inventory.py` and all 12 tests in `tests/test_stock_transfer_contract.py` pass (they all failed against the empty skeleton first).\n\nBehaviours tested, one test each:\n\n1. A move takes `quantity` units off the source and adds as many to the target.\n2. Nothing is lost or made: the sum of `on_hand` over both items is the same before and after.\n3. SKUs and unit prices are unchanged, with each item keeping its own price.\n4. The arguments themselves are untouched after the call.\n5. Boundary: moving exactly `source.on_hand` succeeds and leaves the source at 0.\n6. Different SKUs are refused with a `ValueError` containing `different SKUs`.\n7. A quantity of 0 is refused with `quantity must be positive`.\n8. A negative quantity is refused with `quantity must be positive`.\n9. A quantity above `source.on_hand` is refused with a message containing `only`.\n10. Different SKUs is reported ahead of a non-positive quantity.\n11. Different SKUs is reported ahead of a shortage.\n12. A non-positive quantity is reported ahead of a shortage.\n\nTest 12 needs a source with negative `on_hand` (-1, quantity 0), since that is the only way errors 2 and 3 can both apply. `StockItem` allows it, but it is an artificial state.\n\nLast line of the test run: `12 passed in 0.03s`",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.inventory import StockItem, transfer\n\nFLOOR = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\nBACK_ROOM = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=10)\nOTHER = StockItem(sku=\"G-7\", unit_price=Decimal(\"9.00\"), on_hand=10)\n\n\ndef test_transfer_moves_units_from_source_to_target() -> None:\n    source, target = transfer(BACK_ROOM, FLOOR, 3)\n    assert (source.on_hand, target.on_hand) == (7, 7)\n\n\ndef test_transfer_neither_loses_nor_makes_stock() -> None:\n    source, target = transfer(BACK_ROOM, FLOOR, 3)\n    assert source.on_hand + target.on_hand == BACK_ROOM.on_hand + FLOOR.on_hand\n\n\ndef test_transfer_keeps_skus_and_unit_prices() -> None:\n    cheaper = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.00\"), on_hand=4)\n    source, target = transfer(BACK_ROOM, cheaper, 3)\n    assert (source.sku, source.unit_price) == (\"W-1\", Decimal(\"2.50\"))\n    assert (target.sku, target.unit_price) == (\"W-1\", Decimal(\"2.00\"))\n\n\ndef test_transfer_leaves_its_arguments_untouched() -> None:\n    source = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=10)\n    target = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n    transfer(source, target, 3)\n    assert (source.on_hand, target.on_hand) == (10, 4)\n\n\ndef test_transfer_of_everything_on_hand_empties_the_source() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 4)\n    assert (source.on_hand, target.on_hand) == (0, 14)\n\n\ndef test_cannot_transfer_between_different_skus() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(OTHER, FLOOR, 3)\n\n\ndef test_cannot_transfer_zero_units() -> None:\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(BACK_ROOM, FLOOR, 0)\n\n\ndef test_cannot_transfer_a_negative_quantity() -> None:\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(BACK_ROOM, FLOOR, -1)\n\n\ndef test_cannot_transfer_more_than_source_has_on_hand() -> None:\n    with pytest.raises(ValueError, match=\"only\"):\n        transfer(FLOOR, BACK_ROOM, 5)\n\n\ndef test_different_skus_is_reported_before_non_positive_quantity() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(OTHER, FLOOR, 0)\n\n\ndef test_different_skus_is_reported_before_shortage() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(OTHER, FLOOR, 11)\n\n\ndef test_non_positive_quantity_is_reported_before_shortage() -> None:\n    overdrawn = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=-1)\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(overdrawn, FLOOR, 0)\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 10 passed in 0.05s | right: 12 passed in 0.03s",
+      "module": "\"\"\"Stock reservation. Depends on pricing for the value of what is reserved.\"\"\"\n\nfrom dataclasses import dataclass\nfrom decimal import Decimal\n\nfrom refproj.pricing import total\n\n\n@dataclass(frozen=True)\nclass StockItem:\n    sku: str\n    unit_price: Decimal\n    on_hand: int\n\n\ndef reserve(item: StockItem, quantity: int) -> StockItem:\n    \"\"\"Return the item with `quantity` units taken off the shelf.\"\"\"\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > item.on_hand:\n        raise ValueError(f\"only {item.on_hand} of {item.sku} on hand, asked for {quantity}\")\n    return StockItem(sku=item.sku, unit_price=item.unit_price, on_hand=item.on_hand - quantity)\n\n\ndef reserved_value(item: StockItem, quantity: int) -> Decimal:\n    \"\"\"Value of `quantity` units of `item` at its unit price.\"\"\"\n    return total(item.unit_price for _ in range(quantity))\n\n\ndef transfer(source: StockItem, target: StockItem, quantity: int) -> tuple[StockItem, StockItem]:\n    \"\"\"Move `quantity` units from `source` to `target`; return both as they are afterwards.\"\"\"\n    if source.sku != target.sku:\n        raise ValueError(f\"different SKUs: cannot move {source.sku} to {target.sku}\")\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > source.on_hand:\n        raise ValueError(f\"only {source.on_hand} of {source.sku} on hand, asked for {quantity}\")\n    return (\n        StockItem(sku=source.sku, unit_price=source.unit_price, on_hand=source.on_hand - quantity),\n        StockItem(sku=target.sku, unit_price=target.unit_price, on_hand=target.on_hand + quantity),\n    )\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 12 passed in 0.03s"
+    },
+    {
+      "scene": "order",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1159,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `transfer` is implemented in `src/refproj/inventory.py` and all 12 tests in `tests/test_stock_transfer_contract.py` pass (they all failed against the empty skeleton first).\n\nBehaviours tested, one test each:\n\n1. A move takes `quantity` units off the source and adds as many to the target.\n2. Nothing is lost or made: the sum of `on_hand` over both items is the same before and after.\n3. Each returned item keeps its own SKU and unit price.\n4. The arguments are untouched, and the returned items are new values.\n5. Boundary: moving exactly everything on hand succeeds and leaves the source at 0.\n6. Different SKUs are refused with `ValueError` containing `different SKUs`.\n7. A negative quantity is refused with `quantity must be positive`.\n8. Boundary: a quantity of zero is refused with `quantity must be positive`.\n9. A quantity above the source's `on_hand` is refused with `only 4`.\n10. Precedence: different SKUs is reported before a non-positive quantity.\n11. Precedence: different SKUs is reported before a shortage.\n12. Precedence: a non-positive quantity is reported before a shortage.\n\nTest 12 needs a source with negative `on_hand`, because that is the only way errors 2 and 3 can both apply.\n\nThe implementation checks the SKUs itself and delegates the quantity and shortage checks to the existing `reserve`, so those messages are the ones `reserve` already produces.\n\nLast line of the test run: `12 passed in 0.02s`",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.inventory import StockItem, transfer\n\nFLOOR = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\nBACK_ROOM = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.40\"), on_hand=10)\nGADGET = StockItem(sku=\"G-7\", unit_price=Decimal(\"9.00\"), on_hand=6)\n\n\ndef test_transfer_moves_units_from_source_to_target() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 3)\n    assert (source.on_hand, target.on_hand) == (1, 13)\n\n\ndef test_transfer_neither_loses_nor_makes_stock() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 3)\n    assert source.on_hand + target.on_hand == FLOOR.on_hand + BACK_ROOM.on_hand\n\n\ndef test_transfer_keeps_sku_and_unit_price_of_each_item() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 3)\n    assert (source.sku, source.unit_price) == (\"W-1\", Decimal(\"2.50\"))\n    assert (target.sku, target.unit_price) == (\"W-1\", Decimal(\"2.40\"))\n\n\ndef test_transfer_leaves_the_arguments_untouched() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 3)\n    assert source is not FLOOR and target is not BACK_ROOM\n    assert FLOOR == StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=4)\n    assert BACK_ROOM == StockItem(sku=\"W-1\", unit_price=Decimal(\"2.40\"), on_hand=10)\n\n\ndef test_transfer_of_everything_on_hand_empties_the_source() -> None:\n    source, target = transfer(FLOOR, BACK_ROOM, 4)\n    assert (source.on_hand, target.on_hand) == (0, 14)\n\n\ndef test_cannot_transfer_between_different_skus() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(FLOOR, GADGET, 3)\n\n\ndef test_cannot_transfer_a_negative_quantity() -> None:\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(FLOOR, BACK_ROOM, -1)\n\n\ndef test_cannot_transfer_a_quantity_of_zero() -> None:\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(FLOOR, BACK_ROOM, 0)\n\n\ndef test_cannot_transfer_more_than_source_has_on_hand() -> None:\n    with pytest.raises(ValueError, match=\"only 4\"):\n        transfer(FLOOR, BACK_ROOM, 5)\n\n\ndef test_different_skus_is_reported_before_a_non_positive_quantity() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(FLOOR, GADGET, 0)\n\n\ndef test_different_skus_is_reported_before_a_shortage() -> None:\n    with pytest.raises(ValueError, match=\"different SKUs\"):\n        transfer(FLOOR, GADGET, 5)\n\n\ndef test_non_positive_quantity_is_reported_before_a_shortage() -> None:\n    overdrawn = StockItem(sku=\"W-1\", unit_price=Decimal(\"2.50\"), on_hand=-2)\n    with pytest.raises(ValueError, match=\"quantity must be positive\"):\n        transfer(overdrawn, BACK_ROOM, -1)\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 10 passed in 0.06s | right: 12 passed in 0.04s",
+      "module": "\"\"\"Stock reservation. Depends on pricing for the value of what is reserved.\"\"\"\n\nfrom dataclasses import dataclass\nfrom decimal import Decimal\n\nfrom refproj.pricing import total\n\n\n@dataclass(frozen=True)\nclass StockItem:\n    sku: str\n    unit_price: Decimal\n    on_hand: int\n\n\ndef reserve(item: StockItem, quantity: int) -> StockItem:\n    \"\"\"Return the item with `quantity` units taken off the shelf.\"\"\"\n    if quantity <= 0:\n        raise ValueError(\"quantity must be positive\")\n    if quantity > item.on_hand:\n        raise ValueError(f\"only {item.on_hand} of {item.sku} on hand, asked for {quantity}\")\n    return StockItem(sku=item.sku, unit_price=item.unit_price, on_hand=item.on_hand - quantity)\n\n\ndef reserved_value(item: StockItem, quantity: int) -> Decimal:\n    \"\"\"Value of `quantity` units of `item` at its unit price.\"\"\"\n    return total(item.unit_price for _ in range(quantity))\n\n\ndef transfer(source: StockItem, target: StockItem, quantity: int) -> tuple[StockItem, StockItem]:\n    \"\"\"Move `quantity` units from `source` to `target`; return both as they are afterwards.\"\"\"\n    if source.sku != target.sku:\n        raise ValueError(f\"different SKUs: cannot move {source.sku} to {target.sku}\")\n    taken = reserve(source, quantity)\n    return taken, StockItem(\n        sku=target.sku, unit_price=target.unit_price, on_hand=target.on_hand + quantity\n    )\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 3 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 12 passed in 0.03s"
+    }
+  ]
+}

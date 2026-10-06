@@ -1,0 +1,173 @@
+{
+  "recorded_utc": "2026-10-06T16:41:21Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "585b064bf399743f13dceb0060016f6664171712",
+  "limit_usd": 10.0,
+  "planned": [
+    "empty/c",
+    "empty/c",
+    "empty/c",
+    "empty/c",
+    "empty/c",
+    "empty/c"
+  ],
+  "arms": {
+    "c": "sees the contract and the skeleton module; writes the implementation too"
+  },
+  "scenes": {
+    "boundary": "a boundary that is inclusive: the item is reordered when on_hand EQUALS the reorder point, not only below it",
+    "rounding": "a rounding rule unlike the rest of the module: ties go to the even cent, stated through the premise",
+    "empty": "an empty input that is an error: an average of nothing raises, although the neighbouring total() returns 0.00",
+    "order": "the order of the checks: with two reasons to refuse, the SKU mismatch is the one reported"
+  },
+  "summary": {
+    "runs": 6,
+    "caught": {
+      "c": "6 of 6"
+    },
+    "cost_usd": 0.5396,
+    "table": {
+      "empty/c": "caught; code right",
+      "empty/c#2": "caught; code right",
+      "empty/c#3": "caught; code right",
+      "empty/c#4": "caught; code right",
+      "empty/c#5": "caught; code right",
+      "empty/c#6": "caught; code right"
+    },
+    "code_written": {
+      "right": 6,
+      "trapped": 0,
+      "broken": 0,
+      "none": 0
+    },
+    "self_deceived": "0 of 6"
+  },
+  "runs": [
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1157,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and all six tests in `tests/test_average_price_contract.py` pass (all six failed against the empty skeleton first).\n\nBehaviours tested, one test each:\n\n1. **Mean** — returns the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n2. **Rounding** — rounds half up to cents (`0.02, 0.03` → `0.03`; half-even would give `0.02`).\n3. **Generator** — accepts a generator, read in a single pass (the contract's hardest seam).\n4. **Empty input** — nothing in `prices` raises `ValueError` whose message contains `no prices`.\n5. **Single price** — one price is its own average (the boundary next to the empty case).\n6. **Zero prices** — a `0.00` price is counted, not filtered out (`0.00, 3.00` → `1.50`).\n\nLast line of the test run: `6 passed in 0.01s`\n\nNothing stands in the way of closing the slice. I ran only the slice's own test file, not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    assert average([Decimal(\"0.02\"), Decimal(\"0.03\")]) == Decimal(\"0.03\")\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n\n\ndef test_average_of_a_single_price_is_that_price() -> None:\n    assert average([Decimal(\"4.25\")]) == Decimal(\"4.25\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"3.00\")]) == Decimal(\"1.50\")\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 5 passed in 0.04s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    listed = list(prices)\n    if not listed:\n        raise ValueError(\"no prices to average\")\n    mean = sum(listed, start=Decimal(\"0\")) / Decimal(len(listed))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.02s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0884,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and all six tests in `tests/test_average_price_contract.py` pass, after first failing against the empty skeleton.\n\nBehaviours tested:\n- **Success:** the result is the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n- **Rounding:** the mean is rounded half up to cents (`0.02, 0.03` → `0.03`, which half-even would give as `0.02`) and carries two decimal places.\n- **Generator input:** a generator expression is averaged correctly, which rules out iterating twice.\n- **Boundary:** a single price averages to itself.\n- **Zero prices:** a `0.00` price is counted, not filtered out (`0.00, 3.00` → `1.50`).\n- **Failure:** an empty `prices` raises `ValueError` with a message containing `no prices`.\n\nLast line of the test run: `6 passed in 0.01s`\n\nNothing stands in the way of closing the slice. I ran only the slice's own test file, not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    result = average([Decimal(\"0.02\"), Decimal(\"0.03\")])\n    assert result == Decimal(\"0.03\")\n    assert result.as_tuple().exponent == -2\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_of_a_single_price_is_that_price() -> None:\n    assert average([Decimal(\"4.25\")]) == Decimal(\"4.25\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"3.00\")]) == Decimal(\"1.50\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 5 passed in 0.04s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    listed = list(prices)\n    if not listed:\n        raise ValueError(\"no prices to average\")\n    mean = sum(listed, start=Decimal(\"0\")) / Decimal(len(listed))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0814,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and the six tests in `tests/test_average_price_contract.py` failed against the skeleton, then passed against the implementation.\n\nBehaviours tested:\n\n- **Mean:** returns the arithmetic mean of the prices (1.00, 2.00, 6.00 → 3.00).\n- **Rounding:** rounds half up to cents (0.01, 0.02 → 0.015 → 0.02, with a two-decimal exponent).\n- **Generator:** accepts a generator, read once (contract's hardest seam).\n- **Single sale:** a single sale averages to its own price (the \"at least one sale\" boundary).\n- **Zero prices:** zero prices are counted, not filtered (0.00, 3.00 → 1.50).\n- **No prices:** an empty `prices` raises `ValueError` whose message contains `no prices`.\n\nLast line of the test run: `6 passed in 0.01s`\n\nNothing stands in the way of closing the slice. I ran only the slice's own test file, not the rest of the suite, ruff or mypy.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    result = average([Decimal(\"0.01\"), Decimal(\"0.02\")])\n    assert result == Decimal(\"0.02\")\n    assert result.as_tuple().exponent == -2\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_of_a_single_sale_is_that_price() -> None:\n    assert average([Decimal(\"4.25\")]) == Decimal(\"4.25\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"3.00\")]) == Decimal(\"1.50\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 5 passed in 0.04s | right: 6 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    sales = list(prices)\n    if not sales:\n        raise ValueError(\"no prices to average\")\n    mean = sum(sales, start=Decimal(\"0\")) / Decimal(len(sales))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 6 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.085,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and the seven tests in `tests/test_average_price_contract.py` pass (they all failed against the empty skeleton first).\n\nBehaviours tested, one test each:\n\n1. Returns the arithmetic mean of several prices (10, 20, 60 → 30.00).\n2. Rounds half up to cents (0.00 and 0.01 → 0.01, which half-even rounding would give as 0.00).\n3. Boundary: a single price is its own average (19.99 → 19.99).\n4. Accepts a generator, read once (the contract's hardest seam).\n5. Zero prices count towards the mean and are not filtered (0, 0, 9 → 3.00).\n6. An empty list raises `ValueError` whose message contains `no prices`.\n7. An empty generator raises the same error.\n\nTest 7 covers the same failure mode as test 6 through a different input shape. I kept it because a truthiness check on the argument itself would pass test 6 and miss an empty generator; drop it if you want strictly one test per failure mode.\n\nLast line of the test run: `7 passed in 0.02s`\n\nNothing stands in the way of closing the slice.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"10.00\"), Decimal(\"20.00\"), Decimal(\"60.00\")]) == Decimal(\"30.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"0.01\")]) == Decimal(\"0.01\")\n\n\ndef test_average_of_a_single_price_is_that_price() -> None:\n    assert average([Decimal(\"19.99\")]) == Decimal(\"19.99\")\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 6)) == Decimal(\"3.00\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"0.00\"), Decimal(\"9.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n\n\ndef test_average_of_an_empty_generator_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average(p for p in ())\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 5 passed in 0.04s | right: 7 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    items = list(prices)\n    if not items:\n        raise ValueError(\"no prices to average\")\n    mean = sum(items, start=Decimal(\"0\")) / Decimal(len(items))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 7 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.088,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and the five tests in `tests/test_average_price_contract.py` failed against the skeleton, then passed against the implementation.\n\nBehaviours tested, one test each:\n\n- **Success:** returns the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n- **Rounding:** rounds half up to cents (`0.02, 0.03` → `0.03`; half-even rounding would give `0.02`).\n- **Generator input:** a generator is accepted and read in a single pass (the contract's Seam 1).\n- **Zero prices:** zero prices count towards the mean and are not filtered out (`0.00, 4.00` → `2.00`).\n- **Failure mode:** an empty `prices` raises `ValueError` whose message contains `no prices`.\n\nLast line of the test run: `5 passed in 0.01s`\n\nNothing stands in the way of closing the slice.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    assert average([Decimal(\"0.02\"), Decimal(\"0.03\")]) == Decimal(\"0.03\")\n\n\ndef test_average_reads_a_generator_once() -> None:\n    assert average(Decimal(n) for n in (1, 2, 6)) == Decimal(\"3.00\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"4.00\")]) == Decimal(\"2.00\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 4 passed in 0.03s | right: 5 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents. Nothing sold has no average.\"\"\"\n    sold = list(prices)\n    if not sold:\n        raise ValueError(\"no prices to average\")\n    mean = sum(sold, start=Decimal(\"0\")) / Decimal(len(sold))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 5 passed in 0.02s"
+    },
+    {
+      "scene": "empty",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0811,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "The slice is closed: `average` is implemented in `src/refproj/pricing.py` and the five tests in `tests/test_average_price_contract.py` pass (all five failed against the empty skeleton first).\n\nBehaviours tested:\n- **Mean:** returns the arithmetic mean of the prices (`1.00, 2.00, 6.00` → `3.00`).\n- **Rounding:** rounds half up to cents (`0.02, 0.03` → `0.03`, where banker's rounding would give `0.02`).\n- **Generator:** accepts a generator, read once (`Decimal(n) for n in (1, 2, 3)` → `2.00`).\n- **Zero prices:** zero prices are counted, not filtered (`0.00, 4.00` → `2.00`).\n- **No prices:** an empty input raises `ValueError` whose message contains `no prices`.\n\nLast line of the test run: `5 passed in 0.01s`\n\nNothing stands in the way of closing the slice.",
+      "tests": "from decimal import Decimal\n\nimport pytest\n\nfrom refproj.pricing import average\n\n\ndef test_average_is_the_arithmetic_mean() -> None:\n    assert average([Decimal(\"1.00\"), Decimal(\"2.00\"), Decimal(\"6.00\")]) == Decimal(\"3.00\")\n\n\ndef test_average_rounds_half_up_to_cents() -> None:\n    assert average([Decimal(\"0.02\"), Decimal(\"0.03\")]) == Decimal(\"0.03\")\n\n\ndef test_average_accepts_a_generator() -> None:\n    assert average(Decimal(n) for n in (1, 2, 3)) == Decimal(\"2.00\")\n\n\ndef test_average_counts_zero_prices() -> None:\n    assert average([Decimal(\"0.00\"), Decimal(\"4.00\")]) == Decimal(\"2.00\")\n\n\ndef test_average_of_no_prices_is_rejected() -> None:\n    with pytest.raises(ValueError, match=\"no prices\"):\n        average([])\n",
+      "touched_module": true,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 4 passed in 0.04s | right: 5 passed in 0.02s",
+      "module": "\"\"\"Price arithmetic. Pure functions, exact decimals.\"\"\"\n\nfrom collections.abc import Iterable\nfrom decimal import ROUND_HALF_UP, Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef apply_discount(price: Decimal, percent: int) -> Decimal:\n    \"\"\"Return `price` reduced by `percent` (0-100), rounded to cents.\"\"\"\n    if not 0 <= percent <= 100:\n        raise ValueError(f\"percent must be within 0..100, got {percent}\")\n    factor = (Decimal(100) - Decimal(percent)) / Decimal(100)\n    return (price * factor).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef total(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"Sum prices, rounded to cents. An empty basket costs nothing.\"\"\"\n    return sum(prices, start=Decimal(\"0\")).quantize(CENT, rounding=ROUND_HALF_UP)\n\n\ndef average(prices: Iterable[Decimal]) -> Decimal:\n    \"\"\"The mean of `prices`, rounded to cents.\"\"\"\n    items = list(prices)\n    if not items:\n        raise ValueError(\"no prices to average\")\n    mean = sum(items, start=Decimal(\"0\")) / Decimal(len(items))\n    return mean.quantize(CENT, rounding=ROUND_HALF_UP)\n",
+      "code": "right",
+      "own_tests_green": true,
+      "self_deceived": false,
+      "code_observed": "reference: 2 passed, 1 deselected in 0.01s | trap: 1 passed in 0.01s | own tests on own code: 5 passed in 0.02s"
+    }
+  ]
+}
