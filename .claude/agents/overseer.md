@@ -123,7 +123,12 @@ missing**.
   CAN fail, not that the developer watched it fail. The chronological order of
   RED and GREEN cannot be reconstructed after the fact — identical mtimes and
   an uncommitted tree are not evidence of fabrication; a quoted RED that
-  reproduces is accepted without them.
+  reproduces is accepted without them. **A RED the script ran is evidence too:**
+  for contract tests written by the independent tester, `.engine/testing/ledger.md`
+  holds the hand-in entry "RED run by the script" — `testing.py` ran every test
+  against the skeleton before it sealed the file, and the seal (`python3
+  .claude/hooks/testing.py check <slug>`) shows the file is still that one. That
+  entry covers those tests; the builder's own unit tests still need their RED.
 - **If missing, or the reproduction passes where RED was quoted:**
   `BLOCK #2 fabricated RED — show the failing test output that
   preceded the fix`.
@@ -145,6 +150,12 @@ missing**.
 - **If missing:** `BLOCK #4 masked test gap — describe a wrong
   implementation this test would NOT catch. If none exists, the test is
   redundant`.
+- **Contract tests of the tester.** When the slice has them, every line of the
+  contract's «Exit criterion» has a contract test behind it (the hand-in in the
+  testing ledger names the contract line of each test); a criterion line with
+  none is `BLOCK #4`. Tests written after the code — catch-up and integration
+  tests — carry no RED: each names the breakage it catches, and you judge that
+  claim here like any other assertion.
 - **A silenced check is a masked gap too — every `gate-allow` is judged
   here.** The Stop gate lets a new `# type: ignore`, `# noqa`, skip / xfail or
   a loosened lint / type configuration through when `gate-allow: <reason>`

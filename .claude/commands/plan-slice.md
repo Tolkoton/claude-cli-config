@@ -162,6 +162,9 @@ if phase == 4 and the exit criterion contains a threshold value or a qualitative
 term (number/%/latency/error-rate/"reasonable"/"acceptable"/"fast"/...):
     AskUserQuestion(category=PRODUCT_DECISION, "Confirm the exit threshold",
     options) BEFORE advancing. The planner may draft it; only the owner ratifies it.
+    In the artifact the line that carries the threshold ends with `(threshold owner-ratified)`
+    — or with `PROVISIONAL — owner ratification pending` when the ratification is parked.
+    The mark is read by a script: `testing.py` calls the independent tester for such a slice.
 ```
 
 ---
@@ -246,6 +249,22 @@ already sealed, that refusal is the owner's gate — do not delete the fingerpri
 tell the owner the contract changed after approval and let them delete it or choose a new
 slug. From now on the overseer compares the contract against this fingerprint before every
 audit and escalates instead of auditing when it has changed.
+
+**The testing manager decides next.** Before any code of this slice, the builder asks
+`python3 .claude/hooks/testing.py request $ARGUMENTS --point a` and starts the agent
+`test-manager` with the line it prints: the independent tester or the builder writes the
+contract tests. That decision is not the planner's and not the builder's.
+
+**Questions from the tester.** When the tester was called, its questions to the contract come
+back here in one package — they stand first in its entry in `.engine/testing/ledger.md`, each
+with the reading its test took. Answer every one from the sealed contract and the goals
+document, without changing the contract:
+`python3 .claude/hooks/testing.py answer $ARGUMENTS <Q> --reading taken|other --text "<the answer and the line it rests on>"`,
+then `python3 .claude/hooks/testing.py seal $ARGUMENTS`. `taken` seals the disputed test as
+written; `other` sends it back to a fresh tester. A question the contract and the goals cannot
+answer is a product decision: attended — ask the owner; unattended — park it on the board, the
+disputed test stays unsealed. An answer that needs the contract changed is a re-plan, and
+re-approving a sealed contract is the owner's act.
 
 1. `Edit` a ledger entry into `.engine/overseer/ledger.md` (top of entries):
    ```

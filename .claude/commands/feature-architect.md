@@ -215,8 +215,15 @@ slice-builder), before committing the rest of the DAG.
 
 ## Slices (the DAG)
 - **S1 [name]** — delivers: [behavior] · contract out: [type/shape consumers get] · depends on: [—] · **TRACER BULLET (build first)**
-- **S2 [name]** — delivers: [...] · contract out: [...] · depends on: [S1]
-- (...one per slice; mark the tracer bullet...)
+- **S2 [name]** — delivers: [...] · contract out: [...] · depends on: [S1] · block: [block name]
+- (...one per slice; mark the tracer bullet; `[name]` is the slug the slice is planned under...)
+
+**Blocks.** Label every slice `· block: <name>`: the slices that together give ONE capability
+other slices depend on are one block. A small feature is one block (no labels — the whole
+feature is one); a large one has several. The testing manager reads these labels — it does not
+invent blocks: integration tests are written when a block that connects to a built one
+closes, a mutation run when a large block closes. Write `public` in `contract out` when the
+shape is a published contract.
 
 ## Inter-slice contracts
 - S1 → S2: [the exact type/shape S1 produces that S2 consumes]
@@ -249,6 +256,10 @@ for slice in dag_order_after_tracer:
             — its gates route to THIS orchestrator's interrupt filter, not to the human
     python3 .claude/hooks/overseer_phase.py clear
     build = slice-builder implements <slice> under TDD; overseer audits each unit
+            — the testing manager decides at point (a), before the code, who writes the
+              contract tests, and at point (b), when the slice is finished, what else is
+              checked now or deferred (slice-builder, Steps 2a and 7). `testing.py request`
+              refuses to open the next slice while the previous one has no decision of (b)
             — a recorded PASS → continue; BLOCK → fix and claim again (three in a row → interrupt
               filter); any OVERSEER_* halt marker → interrupt filter
     on slice done (smoke green): append to .engine/PROGRESS.md; continue to next slice
@@ -277,6 +288,10 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
 
 ## When the feature is built
 
+0. `python3 .claude/hooks/testing.py feature-close $ARGUMENTS` must exit 0: every slice has its
+   decision of point (b), and no testing debt whose event has come is left unrun. On a refusal
+   do what it lists (the manager's point (b), the deferred check) — a feature is not reported
+   built over it.
 1. `Edit` a ledger entry into `.engine/overseer/ledger.md`:
    ```
    ## <ISO timestamp UTC> — feature:$ARGUMENTS — FEATURE_COMPLETE

@@ -160,6 +160,10 @@ is a signal it is not a slice → fire `CRITIC_WRONG_SCOPE` (see "Scope & routin
   term ("reasonable", "acceptable", "good enough", "fast", "small", "rare").
   Procedure: this is product policy, not yours → fire `CRITIC_ESCALATE`
   (PRODUCT_DECISION). Do NOT invent the value.
+- **THE RATIFICATION MARK** — every line of the criterion that carries a threshold ends with
+  `(threshold owner-ratified)` or `PROVISIONAL — owner ratification pending`. A threshold
+  line without the mark is a BLOCK: `testing.py` reads the mark to call the independent
+  tester (mandatory case O3), and an unmarked threshold would be tested by its own author.
 
 ### Phase 5 — Deliberately deferred
 - **Opportunity-cost** — Procedure: each deferral states what THIS slice gains by

@@ -122,6 +122,24 @@ Run `pytest --collect-only` (or equivalent) — import must succeed. If it does 
 
 Continue straight to Step 3. No gate here.
 
+### Step 2a — The testing manager, point (a) — only for a slice with a sealed contract
+
+A slice planned by `/plan-slice` has a sealed contract, and then who writes its contract tests is not your decision. Before Step 3:
+
+```
+python3 .claude/hooks/testing.py request <slug> --point a     # prints TESTING_REQUEST <id>
+```
+
+Start the agent `test-manager` with exactly that line as its prompt. Its answer is recorded by the script (while the hooks are not wired in `settings.json`: save the agent's answer to a file and run `python3 .claude/hooks/testing.py record --answer <file>`). `python3 .claude/hooks/testing.py status <slug>` shows the decision. Without it the Stop hook requests no audit for this slice.
+
+- **`builder`** ("do not switch") — Steps 3–6 as written below.
+- **`tester`** — Step 3 is the tester's, not yours: `python3 .claude/hooks/testing.py request <slug> --tester contract`, start the agent `slice-tester` with the line it prints. It hands in its questions to the contract, the list of behaviours and the contract tests; the script itself runs them against your skeleton (each must fail) and seals the test files. There is no critic pass over that list — its author is already fresh and blind. Then:
+  - **Questions to the contract** go to the slice planner in one package (`/plan-slice`, "Questions from the tester"); a test that waits for an answer is not sealed, and no audit is requested until it is.
+  - **Step 4** starts with RED already there: take the sealed tests one at a time to green, refactor after each. **You do not edit a sealed test file** — a changed one blocks the audit. Unit tests of your helpers go into a file of your own, test first, as always.
+  - **You think a sealed test is wrong** — do not weaken it. Write ONE package with every disputed test (which test, which line of the contract, why) and run `python3 .claude/hooks/testing.py request <slug> --tester objection --package <file>`; a fresh `slice-tester` rules on each item: the test was wrong (it corrects it), the test was right (you correct the code), or the contract is ambiguous (the planner answers). Two rounds a slice; the script parks the slice on the third — go on with the next unblocked one.
+
+A slice without a sealed contract (the builder started directly) skips this step.
+
 ### Step 3 — Enumerate behaviors
 
 Before writing any test, list the distinct externally observable behaviors the slice must guarantee. Use the heuristics from rule 6 to scope the list. For a flow method, list behaviors at the flow level — helpers will get their own tests if they're exposed, but typically helpers are tested THROUGH the flow.
@@ -152,7 +170,7 @@ Once the behavior list is approved, run **every** behavior on it to completion i
 
 **The ordering constraint survives; the turn boundary does not.** Do NOT advance to Bn+1 until Bn is green AND refactored. That is a constraint on *your* sequencing within the approved list — never write the next test over a red or unrefactored predecessor — not a checkpoint that needs a human to have seen anything. The RED output in the ledger is what proves the cycle ran in order, and it is better evidence than a human skimming chat, because the overseer can audit it later (check #2).
 
-**Missing behavior discovered mid-cycle.** Do not stop and do not ask. Append it to the behavior list in the slice artifact marked `self-added`, record in the artifact's decision log what you observed that forced it and why it was not visible at Step 3, then continue the pass including the new behavior. This is a reversible local addition inside an approved list, not a contract amendment — the artifact diff is the review surface. It becomes a contract amendment, and therefore a park, only if the new behavior contradicts the seam or the "Out of scope" section.
+**Missing behavior discovered mid-cycle.** Do not stop and do not ask. Append it to the behavior list in the slice artifact marked `self-added` (for a sealed contract the list lives beside it, in `.engine/slices/<slug>.behaviors.md` — the sealed file itself is never edited; the script counts the `self-added` marks at point (b)), record in the artifact's decision log what you observed that forced it and why it was not visible at Step 3, then continue the pass including the new behavior. This is a reversible local addition inside an approved list, not a contract amendment — the artifact diff is the review surface. It becomes a contract amendment, and therefore a park, only if the new behavior contradicts the seam or the "Out of scope" section.
 
 ### Step 5 — Smoke script
 
@@ -182,6 +200,17 @@ Append to `.engine/PROGRESS.md` at repo root (create if missing) as soon as the 
 - Surprises: <1-2 lines or "none">
 - Open for next slice: <questions / tech debt / "none">
 ```
+
+### Step 7 — The testing manager, point (b) — only for a slice with a sealed contract
+
+When the slice is finished (every step, the smoke recorded): `python3 .claude/hooks/testing.py request <slug> --point b`, start `test-manager` with the line it prints. It decides, for each of three checks, `now`, deferred until a named event, or not needed — and the script refuses a decision that drops a mandatory one:
+
+- **catch-up contract tests now** — `python3 .claude/hooks/testing.py request <slug> --tester contract`: the tester writes the tests the slice lacks (the code exists; it works from the contract). A test that fails is a finding for you, one package.
+- **integration tests now** — `… request <slug> --tester block`: one test per connection between blocks and, at the close of the feature, per acceptance criterion. Failing tests come to you as one package.
+- **a mutation run now** — `python3 .claude/hooks/testing.py mutation <slug>` runs the project's `MUTATION_CMD` over the files of the block (the engine installs no tool). The survivors are sorted by the manager's order: code under an owner's threshold, code of a hardest seam, code on a connection between blocks — those are handled (a fresh tester adds the test when the behaviour is in the contract; code nobody asked for is a finding for the simplifier; an equivalent mutant is closed with one line), the rest goes to the report as a list. Record the count: `… mutation-result <slug> --survived N --handled N`.
+- **deferred** — the debt stands in `.engine/testing/ledger.md` and in the owner's review; the manager cannot defer it twice.
+
+The next slice does not start without this decision (`testing.py request` refuses), and a feature does not close.
 
 Stage the slice's files with `git add`, print a one-line summary and a suggested conventional-commit message, and continue to the next unblocked item. Do NOT commit on the user's behalf: staging is a review checkpoint, not a stopping condition. Staged work accumulates for the human to review whenever they return; it does not gate the next slice.
 
