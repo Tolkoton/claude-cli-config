@@ -33,3 +33,8 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | parked | 059-scorer-residuals | 059-scorer-residuals: run_simplifier_evals: три залишки з PASS overseer-а задачі 059 #39a5bbd4
 - 2026-10-06 | parked | board-start-attended-separate-clone | board-start-attended-separate-clone: Attended-сесія в окремому клоні блокується задачею runner-а в doing/ #6949d5bd
 - 2026-10-06 | parked | rules-file-shorten-remove-by-owner-yes | rules-file-shorten-remove-by-owner-yes: Скорочення чи видалення правила в .engine/rules.md — тим самим шляхом, що й promote #b5634bbc
+- 2026-10-06 | gate | - | tests: TESTS FAILED: FAIL: 2 of 32 suites red #6e7c6f04
+- 2026-10-06 | parked | settings-055-notebookedit-and-guard-matcher | settings-055-notebookedit-and-guard-matcher: Застосувати пропозицію налаштувань задачі 055: NotebookEdit у matcher protect-paths, guard лише перед Agent #4dd28b15
+- 2026-10-06 | parked | overseer-readonly-smoke-audit | overseer-readonly-smoke-audit: Smoke audit після задачі 055: чи не дістає overseer зайвих відмов від read-only межі #dda0a176
+- 2026-10-06 | parked | critics-simplifier-tools-readonly | critics-simplifier-tools-readonly: Які інструменти мають critics і simplifier: якщо є Bash — та сама read-only межа, що й для overseer #cb366319
+- 2026-10-06 | parked | test-simplifier-removes-other-runs-tmp | test-simplifier-removes-other-runs-tmp: tests/test_simplifier.py наприкінці стирає тимчасові теки чужих прогонів #cabe99e0
