@@ -72,6 +72,10 @@ GUARDED_PATTERNS=(
   '\.claude/constitution\.md$'
   '\.claude/settings\.json$'
   '\.claude/settings\.local\.json$'
+  # The rules approved from lessons (board 054): CLAUDE.md imports the file, so every line of it
+  # steers every conversation. A line lands there one way only — `lesson_queue.py promote`, run
+  # outside a session on the owner's «так»; an agent's own edit or shell write is refused.
+  '(^|/)\.engine/rules\.md$'
   '(^|/)\.git/'
   '(^|/)migrations/.*\.py$'
   '(^|/)alembic/versions/.*\.py$'

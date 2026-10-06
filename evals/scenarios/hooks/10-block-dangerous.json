@@ -1078,6 +1078,114 @@
         }
       },
       "expect": "allow"
+    },
+    {
+      "id": "bd-rules-append",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. A shell append.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo '- a rule of my own' >> .engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rules-sed-in-place",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. An in-place sed.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "sed -i s/never/always/ .engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rules-tee",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. tee -a.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo x | tee -a .engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rules-python-write",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. Inline Python.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "python3 -c 'from pathlib import Path; Path(\".engine/rules.md\").write_text(\"x\")'"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rules-rm",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. Removing it.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm .engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-rules-read-allowed",
+      "why": "Board 054, negative: reading the rules file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cat .engine/rules.md"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-rules-diff-allowed",
+      "why": "Board 054, negative: git diff of the rules file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git diff -- .engine/rules.md"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-rules-grep-allowed",
+      "why": "Board 054, negative: grep in the rules file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "grep -n RP- .engine/rules.md"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-rules-lesson-queue-write-allowed",
+      "why": "Board 054, negative: the lesson queue beside it is the agent's to write.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo '- a lesson' >> .engine/lesson-queue.md"
+        }
+      },
+      "expect": "allow"
     }
   ]
 }

@@ -61,6 +61,12 @@ constitution and `cat` of an env file reached the shell). What is refused, and w
   `git restore <file>`: putting the committed text back is the remedy, not the breach. With
   another revision or a `--source` named it is a write and is refused. One file under `.git/`
   may be removed: a stale `index.lock`.
+- **The rules approved from lessons are guarded the same way** (board 054): `.engine/rules.md`
+  goes into every conversation through CLAUDE.md, so neither an edit tool nor a shell command
+  writes it; reading it passes. A line lands there only through `lesson_queue.py promote`,
+  which the board runner starts outside a session on the owner's «так». Shortening or removing
+  a rule has no such way yet: until the board task about it is built, that too is refused to
+  the agent.
 - **Any mention of a secret path**, reading included. A word is taken for a path when its form
   leaves no doubt (a dotfile named `.env` or `.env.<x>`, `secrets/`, `~/.ssh/`,
   `credentials.json`) or when a file of that name exists; `jq .key` and `process.env` match the

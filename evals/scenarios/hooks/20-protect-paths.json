@@ -87,6 +87,66 @@
       "expect": "block"
     },
     {
+      "id": "pp-rules-edit",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. Edit.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-rules-write",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. Write.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-rules-relative",
+      "why": "Board 054: CLAUDE.md imports the rules file; a line lands there only through lesson_queue.py promote on the owner's answer. A relative path.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": ".engine/rules.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-lesson-queue-allowed",
+      "why": "Board 054, negative: the lesson queue beside the rules file stays writable.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.engine/lesson-queue.md"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "pp-engine-rules-near-miss",
+      "why": "Board 054, negative: .claude/engine-rules.md is another file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.claude/engine-rules.md"
+        }
+      },
+      "expect": "allow"
+    },
+    {
       "id": "pp-ci-workflow",
       "why": "CI definitions are the owner's.",
       "input": {
