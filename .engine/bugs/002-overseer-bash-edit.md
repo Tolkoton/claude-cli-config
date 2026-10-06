@@ -1,8 +1,7 @@
 # Bug 002-overseer-bash-edit
 
 type: bugfix
-status: reproduced
-<!-- sections 5–6 filled; 7–8 after the gate and the overseer -->
+status: fixed
 <!-- status: recorded → reproduced → fixed; or parked (not reproduced in three attempts);
      or question for the owner (the expected behaviour is written nowhere); or became a slice.
      This file is the contract of the fix and its report at once: the overseer audits against it.
@@ -122,11 +121,11 @@ PROVED: tests/test_overseer_fresh.py fails on 22daba6 and passes on the working 
 ````
 
 ## 7. Gate and overseer
-- Gate: <the result of the turn-end checks — no worse than it was>
-- Overseer: <the verdict and its ledger entry>
-- The regression test stays in the suite: <path::name>
+- Gate: `bash tests/run_all.sh --fast` — 32 suites green, after the last change of code. The full set: all 72 suites `tests/test_*.py` exit 0 (2026-10-06), in two parts because the session was cut during the one-command run — the first 17 by `bash tests/run_all.sh` (through `test_claude_md_update`, `test_board_runner` 269/0 among them; started before the BLOCK's fix), the other 55 one by one as `python3 tests/<suite>` on the final tree, `test_overseer_fresh` among them. So there is no machine record `tests-full.json` from this run. `ruff` is not installed on this server.
+- Overseer: PASS — request 20261006T031918Z-43b979 (attempt 2), after BLOCK #4 on request 20261006T025745Z-f12eee (attempt 1: no case told the newest request from the oldest — resolved, see section 5); both entries are in `.engine/overseer/ledger.md`. Both requests are also the live check of the fix: every file of this work was written by shell commands (no Edit or Write call in either turn's evidence), the second one over code already committed (`941c993`), and the fixed hook raised both. The second overseer killed six mutants of the helper in a temporary copy and left two notes, kept: choosing the newest request by modification time rather than by name has no test of its own (a tie-break for two ids of one second); and `edited and checked` → `edited` survives the suite — a gap that predates this fix (`tasks/todo/` task, see the report).
+- The regression test stays in the suite: `tests/test_overseer_fresh.py`, section «code written by a shell command (board 707)» (run by `bash tests/run_all.sh`; not in the fast subset — board 018).
 
 ## 8. Lesson
 Why was this not caught earlier — one of: a test was missing | the contract was wrong | a rule was missing | external.
-- Answer: <which, and one sentence>
-- Queued: <the line `lesson_queue.py add` printed>
+- Answer: a test was missing — every case of the Stop hook's trigger wrote its code with an edit tool, so the assumption "a file is written only by Edit/Write" was never put against a file written by a shell command.
+- Queued: `#cec0d28f added`
