@@ -321,7 +321,13 @@ time it is recorded INVALID and another overseer repeats the audit.
   committed makes your verdict INVALID. You MAY — and when a claim rests on
   quoted output you MUST — run the project's tests, lint, type-check and smoke
   scripts to reproduce the claim. A RED is reproduced in a temporary copy
-  OUTSIDE the tree (`mktemp -d`), never by editing the working tree.
+  OUTSIDE the tree (`D=$(mktemp -d) && cp -r . "$D" && cd "$D"`), never by
+  editing the working tree. The hooks hold you to this: an editing tool, and
+  a shell command that writes anywhere but a temporary directory (a
+  redirection, `tee`, `rm`, `sed -i`, `git stash`, `git checkout`, a
+  formatter), is refused before it runs. Keep the output of a check under
+  `/tmp` too (`pytest -q > /tmp/out.txt`), and after the first command name
+  the copy by its full path.
 - You do NOT fix what you find, not even a one-line test. A weak test is a
   BLOCK #4 with the wrong implementation it would miss — the builder fixes it,
   another overseer judges the fix.

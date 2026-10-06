@@ -1186,6 +1186,208 @@
         }
       },
       "expect": "allow"
+    },
+    {
+      "id": "bd-overseer-redirect-into-the-tree",
+      "why": "Board 055: the overseer agent is read-only. A redirection into a source file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo x > src/refproj/pricing.py"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-test-output-into-the-tree",
+      "why": "Board 055: the overseer agent is read-only. Even the output of a check may not land in the tree.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "uv run pytest -q > report.txt 2>&1"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-sed-in-place",
+      "why": "Board 055: the overseer agent is read-only. An in-place sed.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "sed -i s/0.2/0.3/ src/refproj/pricing.py"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-inline-python-write",
+      "why": "Board 055: the overseer agent is read-only. Inline Python that writes a test.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "python3 -c 'from pathlib import Path; Path(\"tests/test_extra.py\").write_text(\"x\")'"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-git-stash",
+      "why": "Board 055: the overseer agent is read-only. git stash changes the working tree.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git stash"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-git-checkout-file",
+      "why": "Board 055: the overseer agent is read-only. Putting a file back is a change too: the builder's work is what is judged.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git checkout -- src/refproj/pricing.py"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-formatter",
+      "why": "Board 055: the overseer agent is read-only. A formatter rewrites the files it is given.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "ruff format src/"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-rm",
+      "why": "Board 055: the overseer agent is read-only. Removing a file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf tests/__snapshots__"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "bd-overseer-runs-tests-allowed",
+      "why": "Board 055, negative: the agent runs the project's checks.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "uv run pytest -q 2>&1 | tail -20"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-overseer-reads-git-allowed",
+      "why": "Board 055, negative: reading git.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git diff HEAD~1 -- src/ && git stash list && git log --oneline -5"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-overseer-output-under-tmp-allowed",
+      "why": "Board 055, negative: output kept under /tmp.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "uv run pytest -q > /tmp/audit-report.txt 2>&1"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-overseer-copy-under-tmp-allowed",
+      "why": "Board 055, negative: a RED is reproduced in a copy under /tmp, where everything is allowed.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cp -r . /tmp/audit-copy && cd /tmp/audit-copy && git stash && sed -i s/0.2/0.3/ src/refproj/pricing.py && uv run pytest -q"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-overseer-quoted-arrow-allowed",
+      "why": "Board 055, negative: `>` inside a quoted string is text, not a redirection.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "grep -rn 'a > b' src/ ; python3 -c 'print(1 > 0)'"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-builder-same-write-allowed",
+      "why": "Board 055, negative: the same write by a builder (no agent_type) is not this rule's business.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo x > notes.txt"
+        }
+      },
+      "expect": "allow"
     }
   ]
 }

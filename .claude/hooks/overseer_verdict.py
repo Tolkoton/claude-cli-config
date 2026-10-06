@@ -6,7 +6,7 @@ Every audit is done by a separate agent in a fresh context (`.claude/agents/over
 Grep, Glob, Bash — no editing tool). The builder never judges its own work and never writes a
 verdict: a line `OVERSEER_PASS` in the builder's message means nothing.
 
-    python3 .claude/hooks/overseer_verdict.py guard     # hook, PreToolUse on Agent and the edit tools
+    python3 .claude/hooks/overseer_verdict.py guard     # hook, PreToolUse on Agent
     python3 .claude/hooks/overseer_verdict.py record    # hook, SubagentStop of the agent `overseer`
     python3 .claude/hooks/overseer_verdict.py request --turn-file FILE [--unit N]   # an audit by hand
     python3 .claude/hooks/overseer_verdict.py status    # the pending (or just answered) request and the last verdicts
@@ -23,7 +23,9 @@ the prompt `OVERSEER_REQUEST <id>` and nothing else.
 
 GUARD. The agent `overseer` starts only for the pending request and only with exactly that prompt:
 the builder can neither hint at a conclusion nor aim the audit elsewhere. At that moment the tree
-is fingerprinted. Inside the agent every editing tool and the Agent tool are refused.
+is fingerprinted. Inside the agent the Agent tool is refused; that it edits nothing and writes
+nothing by shell outside a temporary directory is the perimeter hooks' (protect-paths.sh,
+block-dangerous.sh with shell_readonly.py: board 055).
 
 RECORD. The agent answers with one JSON object. This script — never a model — checks it against
 the schema (the first failure goes back to the agent, the second is recorded INVALID), compares
@@ -423,9 +425,11 @@ def guard(root: Path, envelope: JsonObj) -> JsonObj | None:
     raw_input = envelope.get("tool_input")
     tool_input: JsonObj = raw_input if isinstance(raw_input, dict) else {}
     if envelope.get("agent_type") == AGENT:
-        if tool in EDIT_TOOLS or tool in AGENT_TOOLS:
-            return deny(f"The overseer agent is read-only: {tool} is refused. Judge what is there; a temporary copy "
-                        "outside the tree is the place to reproduce a RED. Changing the tree makes the verdict INVALID.")
+        # Its edits and shell writes are refused by the perimeter hooks (protect-paths.sh,
+        # block-dangerous.sh: board 055); what is left here is that it starts no agent.
+        if tool in AGENT_TOOLS:
+            return deny(f"The overseer agent is read-only: {tool} is refused. Judge what is there yourself; "
+                        "an auditor that starts another agent is no longer the one fresh reader of the request.")
         return None
     if tool not in AGENT_TOOLS or tool_input.get("subagent_type") != AGENT:
         return None

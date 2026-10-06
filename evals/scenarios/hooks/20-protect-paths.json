@@ -217,6 +217,82 @@
         }
       },
       "expect": "allow"
+    },
+    {
+      "id": "pp-overseer-edit",
+      "why": "Board 055: the overseer agent is read-only. An Edit of a test inside the agent (it was overseer_verdict.py's guard that refused this).",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/tests/test_pricing.py",
+          "old_string": "a",
+          "new_string": "b"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "pp-overseer-write-new-file",
+      "why": "Board 055: the overseer agent is read-only. A Write of a new file.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/extra.py"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "pp-overseer-write-under-tmp",
+      "why": "Board 055: the overseer agent is read-only. An editing tool is refused whatever the path; a copy under /tmp is made with a shell command.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "/tmp/audit-copy/a.py"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "pp-overseer-notebook",
+      "why": "Board 055: the overseer agent is read-only. NotebookEdit names its file in notebook_path.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "NotebookEdit",
+        "tool_input": {
+          "notebook_path": "{{SANDBOX}}/analysis.ipynb"
+        },
+        "agent_type": "overseer",
+        "agent_id": "a1"
+      },
+      "expect": "block",
+      "expect_detail_contains": "read-only"
+    },
+    {
+      "id": "pp-another-agent-edit-allowed",
+      "why": "Board 055, negative: another agent's edit of a source file is judged as a builder's.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/pricing.py"
+        },
+        "agent_type": "slice-builder",
+        "agent_id": "b1"
+      },
+      "expect": "allow"
     }
   ]
 }

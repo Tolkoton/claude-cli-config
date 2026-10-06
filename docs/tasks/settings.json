@@ -155,7 +155,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -174,13 +174,18 @@
         ]
       },
       {
-        "matcher": "Agent|Task|Edit|Write|MultiEdit|NotebookEdit",
+        "matcher": "Agent|Task",
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\" guard",
             "timeout": 15
-          },
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py\" guard",

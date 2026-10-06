@@ -207,7 +207,9 @@ check("negative — the exact line starts the agent", p.launch(f"OVERSEER_REQUES
 check("negative — another agent type is not this guard's business", p.launch("anything", subagent="simplifier") == "")
 inside = {"agent_type": "overseer", "hook_event_name": "PreToolUse"}
 edit = p.run(VERDICT, ["guard"], inside | {"tool_name": "Edit", "tool_input": {"file_path": "src/pricing.py"}}).stdout
-check("inside the overseer agent an Edit is refused", '"deny"' in edit and "read-only" in edit, edit)
+check("inside the overseer agent an Edit is the perimeter's to refuse, not this guard's (board 055: tests/test_overseer_readonly.py)", edit == "", edit)
+agent = p.run(VERDICT, ["guard"], inside | {"tool_name": "Agent", "tool_input": {"subagent_type": "general-purpose", "prompt": "fix it"}}).stdout
+check("inside the overseer agent the Agent tool is refused", '"deny"' in agent and "read-only" in agent, agent)
 check("negative — inside the agent Bash is allowed (tests have to run)", p.run(VERDICT, ["guard"], inside | {"tool_name": "Bash", "tool_input": {"command": "pytest -q"}}).stdout == "")
 check("negative — the builder's own Edit is not this guard's business", p.run(VERDICT, ["guard"], {"tool_name": "Edit", "tool_input": {"file_path": "src/pricing.py"}}).stdout == "")
 

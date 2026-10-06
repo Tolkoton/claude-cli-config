@@ -47,15 +47,25 @@ STUCK_COMMAND = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/lesson_queue.py" stu
 # PostToolUseFailure, a finished one as PostToolUse. The owner's decision of 2026-10-03.
 STUCK_HANDLERS = {f"{event}|Bash|command|{STUCK_COMMAND}" for event in ("PostToolUse", "PostToolUseFailure")}
 # The overseer as a separate agent (board 015 / 018, the owner's answers of 2026-10-03): the guard
-# before the Agent tool and the edit tools, and the verdict writer on the agent's SubagentStop.
+# before the Agent tool, and the verdict writer on the agent's SubagentStop.
 OVERSEER_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py"'
-OVERSEER_GUARD_MATCHER = "Agent|Task|Edit|Write|MultiEdit|NotebookEdit"
+# Board 055 (owner, 2026-10-06): that the overseer edits nothing is the perimeter's now —
+# protect-paths.sh refuses every editing tool inside the agent. So the guard stands before the
+# Agent tool alone, and protect-paths.sh gains NotebookEdit, the one editing tool it did not see.
+OVERSEER_GUARD_MATCHER = "Agent|Task"
+OLD_GUARD_HANDLER = f"PreToolUse|Agent|Task|Edit|Write|MultiEdit|NotebookEdit|command|{OVERSEER_SCRIPT} guard"
+PROTECT_COMMAND = 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-paths.sh"'
+PROTECT_HANDLER = f"PreToolUse|Edit|Write|MultiEdit|NotebookEdit|command|{PROTECT_COMMAND}"
+OLD_PROTECT_HANDLER = f"PreToolUse|Edit|Write|MultiEdit|command|{PROTECT_COMMAND}"
 OVERSEER_HANDLERS = {f"PreToolUse|{OVERSEER_GUARD_MATCHER}|command|{OVERSEER_SCRIPT} guard",
                      f"SubagentStop|overseer|command|{OVERSEER_SCRIPT} record"}
 # The testing manager and the slice tester (board 060, answer 7; built by board 062): both agents are started
 # with the script's line only, and their answers are recorded by the script when they stop.
 TESTING_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py"'
-TESTING_HANDLERS = {f"PreToolUse|{OVERSEER_GUARD_MATCHER}|command|{TESTING_SCRIPT} guard",
+# Its guard keeps the edit tools in its matcher (it refuses the manager's edits and the tester's
+# outside the tests), so since board 055 it stands in a group of its own, not in the overseer's.
+TESTING_GUARD_MATCHER = "Agent|Task|Edit|Write|MultiEdit|NotebookEdit"
+TESTING_HANDLERS = {f"PreToolUse|{TESTING_GUARD_MATCHER}|command|{TESTING_SCRIPT} guard",
                     f"SubagentStop|test-manager|slice-tester|command|{TESTING_SCRIPT} record"}
 
 # Differences against the frozen "before" that are intended. Path -> why.
@@ -80,7 +90,8 @@ INTENDED: dict[str, str] = {
         "command that fails three times in a row goes unnoticed. Board 018 (owner, 2026-10-03): the overseer is "
         "a separate agent — `overseer_verdict.py guard` before the Agent tool and the edit tools, "
         "`overseer_verdict.py record` on the SubagentStop of the agent `overseer`. Exactly these four handlers, "
-        "nothing else"
+        "nothing else. Board 055 (owner, 2026-10-06): the guard keeps the Agent tool only, and protect-paths.sh, "
+        "which now refuses every edit inside the overseer agent, is wired before NotebookEdit too"
     ),
     "env.CLAUDE_CODE_SUBAGENT_MODEL": "F4 (owner): removed — the variable is not documented at code.claude.com/docs/en/env-vars",
 }
@@ -135,8 +146,10 @@ def main() -> int:
     gone = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
     t.check(
         "proposal: the only hooks added against the live file are the two stuck-counter handlers, the two "
-        "overseer handlers and the two testing handlers, and the only removal is approve-project-data on PermissionRequest",
-        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS and gone <= {APPROVE_HANDLER},
+        "overseer handlers, the two testing handlers and protect-paths with NotebookEdit; the only removals are "
+        "approve-project-data on PermissionRequest and the two matchers of board 055 as they were",
+        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | {PROTECT_HANDLER}
+        and gone <= {APPROVE_HANDLER, OLD_GUARD_HANDLER, OLD_PROTECT_HANDLER},
         json.dumps({"extra": sorted(extra), "gone": sorted(gone)}),
     )
     t.check("proposal: the retired hook is not wired anywhere", "approve-project-data" not in json.dumps(proposal["hooks"]))
@@ -168,6 +181,12 @@ def main() -> int:
             wired == TESTING_HANDLERS and json.dumps(proposal["hooks"]).count("testing.py") == 2, str(sorted(wired)))
     testing_help = subprocess.run([sys.executable, str(ROOT / ".claude/hooks/testing.py"), "--help"], capture_output=True, text=True, check=False)
     t.check("...and the command names a script that exists with both sub-commands", "guard" in testing_help.stdout and "record" in testing_help.stdout)
+    wired_all = set(parity.hook_handlers(proposal["hooks"]))
+    t.check("proposal (board 055): protect-paths.sh stands before every editing tool, NotebookEdit included, and is wired once",
+            PROTECT_HANDLER in wired_all and OLD_PROTECT_HANDLER not in wired_all and json.dumps(proposal["hooks"]).count("protect-paths.sh") == 1)
+    t.check("proposal (board 055): the overseer's guard stands before the Agent tool alone — the edit ban is not wired twice",
+            OLD_GUARD_HANDLER not in wired_all and not any("overseer_verdict.py" in h and "guard" in h and "Edit" in h for h in wired_all),
+            str(sorted(h for h in wired_all if "guard" in h)))
     t.check(
         "the old second way to apply is gone: no merge script, no fragment",
         not (ROOT / "docs/tasks/apply-lesson-hooks.py").exists() and not (ROOT / "docs/tasks/lesson-hooks.json").exists(),
@@ -202,8 +221,10 @@ def main() -> int:
         json.dumps({"unexpected": unexpected, "intended but absent": missing}, ensure_ascii=False),
     )
     t.check(
-        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer and the two testing handlers",
-        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS and not set(frozen["hooks"]) - set(after["hooks"]),
+        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer and the two testing "
+        "handlers, with protect-paths moved to the matcher that names NotebookEdit",
+        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | {PROTECT_HANDLER}
+        and set(frozen["hooks"]) - set(after["hooks"]) == {OLD_PROTECT_HANDLER},
         json.dumps(sorted(set(after["hooks"]) ^ set(frozen["hooks"]))),
     )
     for d in diffs:

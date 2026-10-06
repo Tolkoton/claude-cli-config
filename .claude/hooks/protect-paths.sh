@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Edit|Write|MultiEdit. The same paths are refused to a shell command by
+# PreToolUse hook for Edit|Write|MultiEdit (and NotebookEdit, where the settings wire it). The same paths are refused to a shell command by
 # block-dangerous.sh; both read protected-path-list.sh.
 # Defense-in-depth for paths that should never be written to from a Claude session.
 # Emits JSON with permissionDecision: "deny" so Claude sees the reason.
@@ -40,11 +40,23 @@ for path in sys.argv[1:]:
   fi
 }
 
-if ! FILE_PATH=$(read_field tool_input.file_path tool_input.path 2>/dev/null); then
+if ! FILE_PATH=$(read_field tool_input.file_path tool_input.path tool_input.notebook_path 2>/dev/null); then
   echo "BLOCKED by protect-paths.sh: the tool call could not be read." >&2
   echo "Neither jq nor python3 parsed the hook input, so the target path cannot be checked." >&2
   echo "Install jq (or python3) and retry." >&2
   exit 2
+fi
+
+# The overseer agent is read-only (board 055): whatever the path, no editing tool works inside
+# it. Until then this lived in overseer_verdict.py's guard, outside the perimeter.
+if [ "$(read_field agent_type 2>/dev/null || true)" = "overseer" ]; then
+  REASON="The overseer agent is read-only: an editing tool is refused, whatever the path (${FILE_PATH:-no path}). Judge what is there; a temporary copy under /tmp, made with a shell command, is the place to reproduce a RED. Enforced by .claude/hooks/protect-paths.sh."
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "$REASON" >&2
+    exit 2
+  fi
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
+  exit 0
 fi
 
 if [ -z "$FILE_PATH" ]; then

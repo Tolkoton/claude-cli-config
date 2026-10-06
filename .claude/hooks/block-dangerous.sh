@@ -305,6 +305,25 @@ if [ -n "$NAMED" ]; then
   fi
 fi
 
+# The overseer agent is read-only (board 055). It has Bash — the tests have to run — and until
+# now nothing judged what that Bash wrote: only the tree's fingerprint, after the fact. Inside
+# the agent a command may write under a temporary directory and nowhere else (shell_readonly.py).
+if [ "$(read_field agent_type 2>/dev/null || true)" = "overseer" ]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "BLOCKED by the engine safety hook (block-dangerous.sh): the overseer agent is read-only, and" >&2
+    echo "there is no python3 to tell a read from a write, so its shell commands are refused." >&2
+    exit 2
+  fi
+  HOOK_CWD=$(read_field cwd 2>/dev/null || true)
+  if ! REASON=$(printf '%s' "$CMD" | python3 "$HOOK_DIR/shell_readonly.py" "${HOOK_CWD:-$PWD}" "${CLAUDE_PROJECT_DIR:-}" 2>&1); then
+    echo "${REASON:-BLOCKED by the engine safety hook (block-dangerous.sh): shell_readonly.py failed.}" >&2
+    echo "Command: $CMD" >&2
+    echo "" >&2
+    echo "Judge what is there. To reproduce a RED, work in a copy: cp -r . /tmp/audit-copy && cd /tmp/audit-copy" >&2
+    exit 2
+  fi
+fi
+
 # Block a direct git commit on a protected branch (defense-in-depth). An ordinary push is not
 # blocked here: the `ask` rule in settings.json decides it (owner decision 2026-10-01); its
 # dangerous forms were refused above (board 017).

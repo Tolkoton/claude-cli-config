@@ -114,6 +114,30 @@ spaces or tabs, after a separator, with the flag anywhere before the next separa
 push (a commit message, a board item) is refused too — put the text in a file. A branch that
 merely carries the name elsewhere (`feat/main`, `main:feat/copy` with main as the source) passes.
 
+### The overseer agent is read-only
+
+Inside the agent `overseer` (`agent_type` in the hook envelope — the same field whichever way
+the agent was started) the two deny hooks refuse every change (board 055; until then
+`overseer_verdict.py` refused the editing tools and nothing judged the agent's Bash):
+
+- `protect-paths.sh` refuses Edit, Write and MultiEdit whatever the path, and NotebookEdit once
+  the settings wire the hook before it (the proposal `docs/tasks/settings.json`);
+- `block-dangerous.sh` hands the command to `shell_readonly.py`: a write anywhere but a
+  temporary directory (`/tmp`, `/var/tmp`, `$TMPDIR`, `/dev/null`) is refused — the write forms
+  of the section above asked of every path, a git command that changes the working tree, the
+  index or the refs, a formatter or a linter told to rewrite. `cd` is followed, so a RED is
+  reproduced as before: `cp -r . /tmp/copy && cd /tmp/copy && git stash && pytest`. The audited
+  project is never a temporary place, even when it lives under `/tmp` itself.
+
+**Not seen**: a write made by a test or a script the command only starts; a path in a variable
+as an argument (as the target of a write it is refused as unknown); a `cd` inside a subshell
+that ends before the write; `>` inside the text of `python3 -c "…"` is read as text. For all of
+that the old backstop stays: `overseer_verdict.py record` compares the tree with its
+fingerprint from the audit's start and records the verdict INVALID. **Refused though
+harmless**: a relative write when the shell's directory is not shown by the text (`cd -`,
+`cd "$DIR"`) — name the path under `/tmp` in full. Only the agent `overseer` is covered; the
+critics and the simplifier are not (a board task asks which of them have Bash).
+
 ## One hook, one run per event
 
 Claude Code runs an identical hook handler defined in two settings files once. The same
