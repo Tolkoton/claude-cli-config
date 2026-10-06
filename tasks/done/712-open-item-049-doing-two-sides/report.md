@@ -13,7 +13,7 @@
 ## Демонстрація на хвилину
 ```bash
 python3 tests/test_paid_run_gate.py | sed -n '/^two sides/,/^the owner/p'   # 7 перевірок, усі ok
-python3 tests/test_overseer_fresh.py | grep "owner's session"               # 4 перевірки: позначка — на задачі виконавця
+python3 tests/test_overseer_fresh.py | grep "owner's session"               # 3 рядки, усі ok: позначка — на задачі виконавця
 python3 tests/test_board.py | grep "two sides\|owner's session"             # запис у журналі — під своєю задачею
 ```
 
