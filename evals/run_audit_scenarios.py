@@ -697,6 +697,13 @@ def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) ->
             "«Платні прогони»), or run this by hand with --owner-approved.")
 
 
+def cost_ceiling(tasks_dir: Path, asked: float | None) -> float | None:
+    """The ceiling of this run: the smaller of --max-cost and the dollar sum the owner wrote in the
+    task's «Платні прогони:» line, when either is there; None is no ceiling (board 053)."""
+    given = [limit for limit in (asked, board_module().paid_ceiling(tasks_dir.resolve())) if limit is not None]
+    return min(given) if given else None
+
+
 def main() -> int:
     global SCENARIOS, PROGRESS_FIXTURE
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
@@ -742,6 +749,10 @@ def main() -> int:
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
+    ceiling = cost_ceiling(args.tasks_dir, args.max_cost)
+    if ceiling != args.max_cost:
+        print(f"cost ceiling ${ceiling:.2f}: the sum the owner wrote in the task's «Платні прогони:» line", file=sys.stderr)
+    args.max_cost = ceiling
     if args.runs is None:
         args.runs = TIERS[args.tier or DEFAULT_TIER]
     if args.runs < 1:
