@@ -33,32 +33,34 @@ from __future__ import annotations
 
 import argparse
 import ast
-import hashlib
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_touch import (  # the shared answer to "does a test touch this code"
+    COVERAGE_FILE,
+    COVERAGE_KEY,
+    TestIndex,
+    coarse_reason,
+    git,
+    is_test_path,
+    read_old,
+    run_coverage,
+)
+
 DEFAULT_LINES = 20
 KEY = "DELETE_GUARD_LINES"
-COVERAGE_KEY = "COVERAGE_CMD"
-COVERAGE_FILE = "coverage.json"
-COVERAGE_TIMEOUT_S = 900
 CONFIRMED_REL = Path(".claude/state/delete-guard/confirmed.json")
-CACHE_REL = Path(".claude/state/delete-guard/coverage")
 # Used only when the project left CODE_EXTENSIONS empty ("everything is code" would guard prose).
 CODE_EXTS = ("py", "sh", "js", "jsx", "ts", "tsx", "go", "rs", "java", "kt", "rb", "php", "c", "h", "cc", "cpp",
              "cs", "swift")
-TEST_DIRS = {"tests", "test", "testing", "__tests__", "spec", "specs"}
-TEST_STEM_RE = re.compile(r"^(?:test_(?P<a>.+)|(?P<b>.+)_test|(?P<c>.+)\.test|(?P<d>.+)\.spec)$")
 HUNK_RE = re.compile(r"^@@ -(?P<old>\d+)(?:,(?P<n_old>\d+))? \+\d+(?:,(?P<n_new>\d+))? @@")
 TARGET_RE = re.compile(r"^(?P<path>[^:]+?)(?::(?P<line>\d+)(?:-(?P<end>\d+))?)?(?:::(?P<symbol>[\w.]+))?$")
 HINT = ("three ways through: (1) a test that pins what this code does today and passes on the code before the "
@@ -107,20 +109,10 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", "-c", "core.quotepath=false", *args], cwd=root, capture_output=True,
-                          text=True, errors="replace", check=False)
-
-
 def threshold(env: dict[str, str]) -> int:
     """DELETE_GUARD_LINES; unset, empty or not a whole number means the default."""
     raw = env.get(KEY, "").strip()
     return int(raw) if raw.isdigit() else DEFAULT_LINES
-
-
-def is_test_path(rel: str) -> bool:
-    path = Path(rel)
-    return any(p in TEST_DIRS for p in path.parts[:-1]) or path.stem == "conftest" or bool(TEST_STEM_RE.match(path.stem))
 
 
 def is_working_code(env: dict[str, str], rel: str) -> bool:
@@ -192,11 +184,6 @@ def collect_change(root: Path, layer: str, diff_ref: str | None) -> dict[str, Fi
                 continue
             changes[rel] = FileChange(added=text.splitlines(), created=True)
     return changes
-
-
-def read_old(root: Path, ref: str, rel: str) -> str | None:
-    out = git(root, "show", f"{ref}:{rel}")
-    return out.stdout if out.returncode == 0 else None
 
 
 def read_new(root: Path, layer: str, rel: str) -> str | None:
@@ -351,49 +338,9 @@ def find_units(root: Path, layer: str, diff_ref: str | None, env: dict[str, str]
 # ------------------------------------------------------------------ was there a test: coarse
 
 
-class TestIndex:
-    """The test files of the base and of the change together: a test deleted with its code still
-    says the code was tested, and a test written for the deletion counts before it is committed."""
-
-    def __init__(self, root: Path, layer: str, ref: str, changes: dict[str, FileChange]) -> None:
-        self.root, self.layer, self.ref, self.changes = root, layer, ref, changes
-        now = git(root, "ls-files", "-co", "--exclude-standard").stdout.splitlines()
-        before = git(root, "ls-tree", "-r", "--name-only", ref).stdout.splitlines()
-        self.files = sorted({rel for rel in [*now, *before] if is_test_path(rel)})
-        self._text: str | None = None
-
-    def text(self) -> str:
-        if self._text is None:
-            parts = []
-            for rel in self.files:
-                if rel in self.changes and not self.changes[rel].created:
-                    parts.append(read_old(self.root, self.ref, rel) or "")
-                try:
-                    parts.append((self.root / rel).read_text(encoding="utf-8", errors="replace"))
-                except OSError:
-                    pass
-            self._text = "\n".join(parts)
-        return self._text
-
-    def module_test(self, rel: str) -> str | None:
-        stem = Path(rel).stem
-        for test in self.files:
-            match = TEST_STEM_RE.match(Path(test).stem)
-            if match and stem in match.groups():
-                return test
-        return None
-
-    def mentions(self, name: str) -> bool:
-        return re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", self.text()) is not None
-
-
 def coarse_test(unit: Unit, tests: TestIndex) -> str:
     """Why the unit counts as tested without coverage, or ''."""
-    mapped = tests.module_test(unit.file)
-    if mapped:
-        return f"the module has its test file {mapped}"
-    name = bare(unit.name) if unit.name else Path(unit.file).stem
-    return f"a test file mentions {name}" if tests.mentions(name) else ""
+    return coarse_reason(tests, unit.file, bare(unit.name) if unit.name else None)
 
 
 # ------------------------------------------------------------------ was there a test: coverage
@@ -408,63 +355,6 @@ def overlay(root: Path, layer: str, changes: dict[str, FileChange]) -> dict[str,
             if text is not None:
                 files[rel] = text
     return files
-
-
-def read_report(checkout: Path) -> dict[str, dict[str, list[int]]] | None:
-    try:
-        report = json.loads((checkout / COVERAGE_FILE).read_text(encoding="utf-8"))["files"]
-        data = {}
-        for name, entry in report.items():
-            path = Path(name)
-            inside = path.is_absolute() and path.is_relative_to(checkout)
-            data[(path.relative_to(checkout) if inside else path).as_posix()] = {
-                "executed": sorted(int(n) for n in entry.get("executed_lines", [])),
-                "missing": sorted(int(n) for n in entry.get("missing_lines", []))}
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        return None
-    return data
-
-
-def measure(root: Path, sha: str, command: str, files: dict[str, str]) -> dict[str, dict[str, list[int]]] | None:
-    """Check out `sha` into a temporary directory, lay `files` over it, run the command, read its report."""
-    tmp = Path(tempfile.mkdtemp(prefix="delete-guard-"))
-    try:
-        archive = subprocess.run(["git", "archive", "--format=tar", sha], cwd=root, capture_output=True, check=False)
-        if archive.returncode != 0 or subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive.stdout,
-                                                     check=False).returncode != 0:
-            return None
-        for rel, text in files.items():
-            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
-            (tmp / rel).write_text(text, encoding="utf-8")
-        subprocess.run(["bash", "-c", command], cwd=tmp, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                       timeout=COVERAGE_TIMEOUT_S, check=False)
-        return read_report(tmp)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def run_coverage(root: Path, ref: str, command: str, files: dict[str, str]) -> dict[str, dict[str, set[int]]] | None:
-    """Run COVERAGE_CMD on the code of `ref` with `files` laid over it. {file: {executed, missing}}
-    or None when no readable coverage.json came out. Cached per (commit, tests, command)."""
-    sha = git(root, "rev-parse", "--verify", "-q", ref).stdout.strip()
-    if not sha:
-        return None
-    key = hashlib.sha256(json.dumps([sha, command, sorted(files.items())]).encode()).hexdigest()[:24]
-    cache = root / CACHE_REL / f"{key}.json"
-    try:
-        data = json.loads(cache.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = measure(root, sha, command, files)
-        if data is None:
-            return None
-        try:
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(json.dumps(data), encoding="utf-8")
-        except OSError:
-            pass
-    return {rel: {"executed": set(e["executed"]), "missing": set(e["missing"])} for rel, e in data.items()}
 
 
 Coverage = dict[str, dict[str, set[int]]]
