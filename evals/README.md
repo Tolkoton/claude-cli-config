@@ -136,8 +136,20 @@ the reported cost past the limit (exit 4, the file `partial`, `--resume` with a 
 continues it). The estimate is the dearest run so far, so the overshoot is at most one run; under
 a limit the runs go round-robin (run 1 of every scenario, then run 2, …), so a cut-off costs
 every scenario one run instead of costing the last scenarios all of theirs. The cost of a run
-dropped on `--resume` (account usage limit) stays counted (`dropped_cost_usd`).
+dropped on `--resume` (account usage limit, a failed session) stays counted (`dropped_cost_usd`).
 `tests/test_audit_tiers.py`, `tests/test_needs_audit.py`.
+
+**A session that ran no audit is not a verdict.** A session the API refused (`is_error` in its
+result — «Failed to authenticate. API Error: 401 Invalid bearer token») is recorded as an error
+`session failed — …`, its scenario stays `pending`, and `--resume` performs it again; a refused
+login (401, 403) also stops the runner with exit 3, naming any of `ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN` the shell sets — one of them overrides
+`claude login`. A file where every run is there and none holds a verdict gets the status
+`no-verdicts` (exit 1), never `complete`. `compare_audits.py` reads older files the same way: a
+scenario with no valid session on one side is `NOT MEASURED`, not `WORSE`, and the result line
+says the instrument failed. The record that taught this is
+`baseline/linux-ubuntu-22.04/audit-v0.12.0-release.json` (36 sessions, 36 refused logins, $0.0 —
+true, since no session reached the model). `tests/test_audit_no_session.py`.
 
 **Do not commit while an audit against `HEAD` is running.** The file records the commit the ref
 resolved to at the start, but every run's sandbox is built from the ref as given; a commit made

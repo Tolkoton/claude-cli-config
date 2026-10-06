@@ -63,7 +63,16 @@ if kill_at and b_calls == kill_at:
     record("kill"); os.kill(os.getppid(), signal.SIGKILL); sys.exit(1)
 limit_at = int(os.environ.get("SHIM_LIMIT_AT_B", "0"))
 text = ("You've hit your session limit · resets 7pm (Europe/Berlin)" if limit_at and b_calls == limit_at
+        else "I looked at the turn and could not decide." if os.environ.get("SHIM_NO_VERDICT")
         else "Audit of the last turn.\nAll twelve checks hold.\nOVERSEER_PASS")
+if int(os.environ.get("SHIM_AUTH_AT_B", "0")) == b_calls:
+    # What Claude Code 2.1.289 prints when the login is refused (seen 2026-10-06, board 014).
+    text = "Failed to authenticate. API Error: 401 Invalid bearer token"
+    print(json.dumps({"type": "assistant", "message": {"model": "<synthetic>", "content": [{"type": "text", "text": text}]}}))
+    print(json.dumps({"type": "result", "subtype": "success", "is_error": True, "terminal_reason": "api_error",
+                      "api_error_status": 401, "result": text, "total_cost_usd": 0, "duration_ms": 532,
+                      "num_turns": 1, "permission_denials": []}))
+    sys.exit(0)
 print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}))
 print(json.dumps({"type": "result", "subtype": "success", "session_id": "shim-%d" % b_calls,
                   "total_cost_usd": @COST_B@, "duration_ms": 20, "num_turns": 3, "permission_denials": []}))
@@ -189,7 +198,7 @@ def main() -> int:
         lost = rows[IDS[1]]["runs"]
         check("run 2 is recorded as a usage-limit error, not as a verdict",
               len(lost) == 1 and str(lost[0].get("error", "")).startswith("account usage limit") and "marker" not in lost[0], str(lost))
-        check("the file is partial with the third scenario pending", res["status"] == "partial" and res["pending"] == [IDS[2]], str(res.get("pending")))
+        check("the file is partial; the lost run's scenario and the third are pending", res["status"] == "partial" and res["pending"] == IDS[1:], str(res.get("pending")))
         r = h.run("--resume")
         check("--resume performs the lost run again and the missing one (2 sessions)", r.returncode == 0 and h.calls("prompt-b") == 2, f"rc={r.returncode} {h.log.read_text()}")
         res = h.results()

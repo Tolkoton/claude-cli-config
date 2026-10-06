@@ -54,6 +54,10 @@ verdict the script refused is `INVALID` (the tree changed during the audit, the 
 the schema): it is shown as such and matches nothing. The agent's own tool calls are kept apart
 (`auditor_tools`); «дії після вердикту» counts what the SESSION did after the agent was launched.
 
+A SESSION THAT RAN NO AUDIT IS NOT A VERDICT (board 014). The usage-limit notice and a session
+the API refused are errors, performed again by `--resume`; a file whose runs are all there and
+hold no verdict at all has the status `no-verdicts`, never `complete`.
+
 It records; it does not judge. Exit code 0 unless the tooling itself failed. It never
 passes --dangerously-skip-permissions and never runs a session inside this repository.
 
@@ -144,6 +148,15 @@ CALL_TIMEOUT_S = 1200
 # same), and `--resume` performs it again later.
 USAGE_LIMIT_RE = re.compile(r"hit your (?:session|usage|weekly|daily|monthly|\w+) limit|usage limit (?:reached|exceeded)", re.IGNORECASE)
 USAGE_LIMIT_PREFIX = "account usage limit"
+# A session the API refused before the model said a word (board 014: 36 sessions of a full audit
+# answered «Failed to authenticate. API Error: 401 Invalid bearer token» in two seconds each, and
+# were recorded as 36 runs with the verdict 'none', $0.0, status complete). Such a run is an error
+# of the instrument, performed again by `--resume`; a refused login also stops the runner.
+SESSION_FAILED_PREFIX = "session failed"
+LOGIN_STATUSES = (401, 403)
+LOGIN_VARIABLES = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN")
+# What a result file says when every run is there and none holds a verdict: not a measurement.
+STATUS_NO_VERDICTS = "no-verdicts"
 # What a run records under `echo`: its developer turn was a recorded fixture (see RECORDED TURNS).
 ECHO_FIXTURE = "fixture"
 TURN_HEADING = "Builder turn"
@@ -448,6 +461,30 @@ def is_usage_limit_run(run: JsonObj) -> bool:
     return str(run.get("error", "")).startswith(USAGE_LIMIT_PREFIX)
 
 
+def session_failure_message(payload: JsonObj | None) -> str | None:
+    """Why the session ended in an error of the API or the CLI instead of an audit, if it did.
+    A session cut at --max-turns is not that: it worked, and what it left is read as usual."""
+    if not payload or not payload.get("is_error") or "max" in str(payload.get("subtype", "")):
+        return None
+    said = str(payload.get("result") or payload.get("all_text") or "").strip().splitlines()[-1:] or ["nothing"]
+    message = f"{SESSION_FAILED_PREFIX} — the session answered {said[0][:120]!r} and ran no audit"
+    if payload.get("api_error_status") in LOGIN_STATUSES:
+        names = [name for name in LOGIN_VARIABLES if os.environ.get(name)]
+        message += ("; the login was refused — this shell sets " + ", ".join(names) + ", which takes precedence over "
+                    "`claude login`" if names else "; the login was refused — log in again (`claude login`)")
+    return message
+
+
+def is_lost_run(run: JsonObj) -> bool:
+    """A run that ran no audit for a reason outside the engine: `--resume` performs it again."""
+    return is_usage_limit_run(run) or str(run.get("error", "")).startswith(SESSION_FAILED_PREFIX)
+
+
+def stops_the_runner(run: JsonObj) -> bool:
+    """The next sessions would answer the same: the usage limit, a refused login."""
+    return is_usage_limit_run(run) or bool(run.get("login_refused"))
+
+
 def excerpt_around_marker(text: str) -> str:
     """The stretch of the session's own words that ends at its verdict line."""
     found = verdict_match(text)
@@ -509,6 +546,10 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     limit = usage_limit_message(second)
     if limit and not entries:
         return result | {"error": limit, "cost_usd": round(cost_of(second), 4)}
+    failure = session_failure_message(second)
+    if failure and not entries:
+        return result | {"error": failure, "cost_usd": round(cost_of(second), 4),
+                         "login_refused": second.get("api_error_status") in LOGIN_STATUSES}
     # Everything the session said during the audit, plus what it wrote into the ledger.
     reply = "\n\n".join([str(second.get("all_text") or second.get("result", "")), *entries])
     events: list[JsonObj] = second.get("events") or []
@@ -771,12 +812,13 @@ def main() -> int:
     # What a dropped run cost stays spent: the limit below is on money, not on kept runs.
     dropped_cost = float((previous or {}).get("dropped_cost_usd", 0.0) or 0.0)
     for row in rows.values():
-        kept = [r for r in row["runs"] if not is_usage_limit_run(r)]
+        kept = [r for r in row["runs"] if not is_lost_run(r)]
         redo += len(row["runs"]) - len(kept)
-        dropped_cost += sum(float(r.get("cost_usd", 0.0)) for r in row["runs"] if is_usage_limit_run(r))
+        dropped_cost += sum(float(r.get("cost_usd", 0.0)) for r in row["runs"] if is_lost_run(r))
         row["runs"] = kept
+        refresh(row)
     if redo:
-        print(f"{redo} run(s) lost to the account usage limit are performed again")
+        print(f"{redo} run(s) lost to the account usage limit or a failed session are performed again")
     for scenario_id in ids:
         rows.setdefault(scenario_id, {"id": scenario_id, "expected": expected[scenario_id],
                                       "runs": [], "matched": 0, "verdicts": {}})
@@ -784,7 +826,8 @@ def main() -> int:
     to_run = sum(max(0, args.runs - len(rows[i]["runs"])) for i in ids)
 
     def payload() -> JsonObj:
-        pending = [i for i in sorted(rows) if len(rows[i]["runs"]) < args.runs]
+        # A lost run is still owed: `--resume` performs it again, so its scenario is not done.
+        pending = [i for i in sorted(rows) if sum(1 for r in rows[i]["runs"] if not is_lost_run(r)) < args.runs]
         all_runs = [r for i in sorted(rows) for r in rows[i]["runs"]]
         return {
             "label": args.label or str((previous or {}).get("label", "")),
@@ -792,7 +835,10 @@ def main() -> int:
             "engine_ref": args.engine_ref, "engine_commit": engine_commit, "claude_version": version,
             "model": model, "setting_sources": setting_sources, "runs_per_scenario": args.runs,
             "tier": tier, "max_cost_usd": args.max_cost, "dropped_cost_usd": round(dropped_cost, 4),
-            "status": "complete" if not pending else "partial", "pending": pending,
+            # Every run there and not one verdict among them is a broken instrument, not a result.
+            "status": "partial" if pending else "complete" if any(r.get("marker") for r in all_runs) or not all_runs
+                      else STATUS_NO_VERDICTS,
+            "pending": pending,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in all_runs), 2),
             "scenarios": [rows[i] for i in sorted(rows)],
         }
@@ -860,9 +906,9 @@ def main() -> int:
             refresh(row)
             if args.out:
                 save_results(args.out, payload())
-            if is_usage_limit_run(row["runs"][-1]):
+            if stops_the_runner(row["runs"][-1]):
                 print(f"\n{row['runs'][-1]['error']}\nstopping: the next sessions would answer the same. "
-                      + (f"When the limit resets, continue with --resume (this run is performed again): {args.out}"
+                      + (f"When the cause is gone, continue with --resume (this run is performed again): {args.out}"
                          if args.out else "Nothing was saved (no --out)."))
                 return 3
             if len(row["runs"]) >= args.runs:
@@ -885,6 +931,10 @@ def main() -> int:
     if args.out:
         save_results(args.out, final)
         print(f"results written to {args.out} ({final['status']})")
+    if final["status"] == STATUS_NO_VERDICTS:
+        print(f"no session left a verdict in {len(all_runs)} run(s): the instrument failed, this is not a measurement "
+              "of the overseer. Read a run's reply_tail for what the sessions said.")
+        return 1
     return 1 if all_runs and errors == len(all_runs) else 0
 
 
