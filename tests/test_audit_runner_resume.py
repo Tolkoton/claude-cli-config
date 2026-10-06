@@ -43,6 +43,7 @@ RUNNER = ROOT / "evals" / "run_audit_scenarios.py"
 ONLY = "01-clean,03-false,05-masked"
 IDS = ["01-clean-pass", "03-false-done-partial-exit-criterion", "05-masked-test-gap"]
 COST_B = 0.75
+COST_FAILED = 0.02   # what a session the API cut off mid-way had already spent
 
 SHIM = r'''#!/usr/bin/env python3
 """A stand-in for `claude`: answers like the real CLI's --output-format stream-json, logs every
@@ -66,17 +67,28 @@ text = ("You've hit your session limit · resets 7pm (Europe/Berlin)" if limit_a
         else "I looked at the turn and could not decide." if os.environ.get("SHIM_NO_VERDICT")
         else "Audit of the last turn.\nAll twelve checks hold.\nOVERSEER_PASS")
 if int(os.environ.get("SHIM_AUTH_AT_B", "0")) == b_calls:
-    # What Claude Code 2.1.289 prints when the login is refused (seen 2026-10-06, board 014).
-    text = "Failed to authenticate. API Error: 401 Invalid bearer token"
+    # What Claude Code 2.1.289 prints when the login is refused (seen 2026-10-06, board 014);
+    # SHIM_API_STATUS makes it another API error (529: the service is overloaded).
+    status = int(os.environ.get("SHIM_API_STATUS", "401"))
+    text = "Failed to authenticate. API Error: 401 Invalid bearer token" if status == 401 else "API Error: %d Overloaded" % status
+    if os.environ.get("SHIM_LEDGER_FIRST"):   # the overseer's entry was written before the error
+        with open(".engine/overseer/ledger.md", "a", encoding="utf-8") as fh:
+            fh.write("\n## 2026-10-06T10:00 — OVERSEER_PASS — unit 3\n- Trigger: none\n")
     print(json.dumps({"type": "assistant", "message": {"model": "<synthetic>", "content": [{"type": "text", "text": text}]}}))
     print(json.dumps({"type": "result", "subtype": "success", "is_error": True, "terminal_reason": "api_error",
-                      "api_error_status": 401, "result": text, "total_cost_usd": 0, "duration_ms": 532,
+                      "api_error_status": status, "result": text, "total_cost_usd": @COST_FAILED@, "duration_ms": 532,
                       "num_turns": 1, "permission_denials": []}))
+    sys.exit(0)
+if int(os.environ.get("SHIM_MAX_TURNS_AT_B", "0")) == b_calls:
+    # A session that worked and was cut at --max-turns: an error result, and still a run.
+    print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}))
+    print(json.dumps({"type": "result", "subtype": "error_max_turns", "is_error": True, "total_cost_usd": @COST_B@,
+                      "duration_ms": 20, "num_turns": 30, "permission_denials": []}))
     sys.exit(0)
 print(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}))
 print(json.dumps({"type": "result", "subtype": "success", "session_id": "shim-%d" % b_calls,
                   "total_cost_usd": @COST_B@, "duration_ms": 20, "num_turns": 3, "permission_denials": []}))
-'''.replace("@COST_B@", str(COST_B))
+'''.replace("@COST_B@", str(COST_B)).replace("@COST_FAILED@", str(COST_FAILED))
 
 PASS = FAIL = 0
 

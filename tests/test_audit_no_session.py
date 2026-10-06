@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_audit_runner_resume import IDS, Harness  # noqa: E402
+from test_audit_runner_resume import COST_FAILED, IDS, Harness  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "evals" / "baseline" / "linux-ubuntu-22.04"
@@ -83,6 +83,45 @@ def main() -> int:
         check("and the file is complete with three verdicts",
               res["status"] == "complete" and [run.get("marker") for row in res["scenarios"] for run in row["runs"]] == ["PASS"] * 3, str(res["status"]))
 
+        print("the runner: an API error that is not a refused login (529) at the second session:")
+        h.out.unlink()
+        os.environ.update(SHIM_AUTH_AT_B="2", SHIM_API_STATUS="529")
+        r = h.run()
+        res = h.results()
+        rows = {row["id"]: row["runs"] for row in res["scenarios"]}
+        check("the runner goes on: three sessions, exit 0", r.returncode == 0 and h.calls("prompt-b") == 3, f"rc={r.returncode} {r.stdout[-300:]}")
+        check("the failed session is an error, its scenario pending, the file partial",
+              str(rows[IDS[1]][0].get("error", "")).startswith("session failed") and res["pending"] == [IDS[1]] and res["status"] == "partial",
+              f"{rows[IDS[1]]} {res['pending']} {res['status']}")
+        check("the other two hold their verdicts", [rows[i][0].get("marker") for i in (IDS[0], IDS[2])] == ["PASS", "PASS"], str(rows))
+        check("no login advice on an error that is not a login's", "login" not in rows[IDS[1]][0]["error"], rows[IDS[1]][0]["error"])
+        del os.environ["SHIM_AUTH_AT_B"], os.environ["SHIM_API_STATUS"]
+        r = h.run("--resume")
+        res = h.results()
+        check("--resume performs that one run again; what the lost one spent stays counted",
+              h.calls("prompt-b") == 1 and res["status"] == "complete" and res["dropped_cost_usd"] == COST_FAILED,
+              f"{h.calls('prompt-b')} {res['status']} {res['dropped_cost_usd']}")
+
+        print("the runner: the API error came after the overseer's entry was in the ledger:")
+        h.out.unlink()
+        os.environ.update(SHIM_AUTH_AT_B="1", SHIM_API_STATUS="529", SHIM_LEDGER_FIRST="1")
+        r = h.run()
+        first = h.results()["scenarios"][0]["runs"][0]
+        check("the verdict stands: a run read from the ledger, not a lost session",
+              "error" not in first and first.get("marker") == "PASS" and first.get("verdict_source") == "ledger", str(first)[:300])
+        del os.environ["SHIM_AUTH_AT_B"], os.environ["SHIM_API_STATUS"], os.environ["SHIM_LEDGER_FIRST"]
+
+        print("negative — a session cut at --max-turns worked, and is a run:")
+        h.out.unlink()
+        os.environ["SHIM_MAX_TURNS_AT_B"] = "1"
+        r = h.run()
+        del os.environ["SHIM_MAX_TURNS_AT_B"]
+        res = h.results()
+        first = res["scenarios"][0]["runs"][0]
+        check("it is recorded with its verdict and the turn-limit flag, not as «session failed»",
+              "error" not in first and first.get("marker") == "PASS" and first.get("hit_turn_limit") is True, str(first)[:300])
+        check("and the file is complete", r.returncode == 0 and res["status"] == "complete" and res["pending"] == [], f"rc={r.returncode} {res['status']}")
+
         print("the runner: every session ran and none left a verdict:")
         h.out.unlink()
         os.environ["SHIM_NO_VERDICT"] = "1"
@@ -126,6 +165,27 @@ def main() -> int:
         marks = judgements(r.stdout)
         check("that scenario is WORSE, the other eleven are the same",
               r.returncode == 1 and marks[0] == "WORSE" and marks[1:] == ["same"] * 11, str(marks))
+        print("compare_audits.py: some sessions refused among sessions with verdicts (a file from before the fix):")
+        mixed = copy.deepcopy(good)
+        for run in mixed["scenarios"][0]["runs"]:
+            run.update(marker=None, check=None, matched=False, verdict_source="none",
+                       reply_tail="Failed to authenticate. API Error: 401 Invalid bearer token")
+        (work / "mixed.json").write_text(json.dumps(mixed), encoding="utf-8")
+        r = compare(GOOD, work / "mixed.json")
+        marks = judgements(r.stdout)
+        check("that scenario is NOT MEASURED, not WORSE; its sessions are listed as failed",
+              r.returncode == 1 and marks[0] == "NOT MEASURED" and marks[1:] == ["same"] * 11 and r.stdout.count("session failed") == 3, str(marks))
+
+        print("negative — a scenario only one file has is not a failure of the instrument:")
+        fewer = copy.deepcopy(good)
+        fewer["scenarios"] = fewer["scenarios"][:-1]
+        (work / "fewer.json").write_text(json.dumps(fewer), encoding="utf-8")
+        r = compare(work / "fewer.json", GOOD)
+        check("a scenario added since: «only after», exit 0, no word of a failed instrument",
+              r.returncode == 0 and judgements(r.stdout) == ["same"] * 11 + ["only after"] and "instrument failed" not in r.stdout.split("Result:")[-1], r.stdout[-300:])
+        r = compare(GOOD, work / "fewer.json")
+        check("a scenario dropped since: «only before», exit 0",
+              r.returncode == 0 and judgements(r.stdout) == ["same"] * 11 + ["only before"], str(judgements(r.stdout)))
         r = compare(GOOD, GOOD)
         check("and a file against itself is all 'same', exit 0", r.returncode == 0 and judgements(r.stdout) == ["same"] * 12, r.stdout[-300:])
     finally:

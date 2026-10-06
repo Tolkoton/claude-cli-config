@@ -17,9 +17,10 @@ FIXED (a real improvement AND at least two of three valid sessions match after);
 other scenario whether it is WORSE (a real drop). A must-fix scenario that already matched
 (≥ 2/3) before and still does is MET — the defect was elsewhere (the instrument). Sessions that failed are listed apart from
 the differences: those lost to the account usage limit in one list, other tooling errors in
-another — a session that ran no audit is not a verdict. A scenario with no valid session on one
-side is NOT MEASURED (never WORSE, never "same"), and a file without one verdict in it is such
-on every scenario: the instrument failed (board 014). Last, «дії після вердикту»: every
+another — a session that ran no audit is not a verdict. A scenario both files ran, with no valid
+session on one side, is NOT MEASURED (never WORSE, never "same"), and a file without one verdict
+in it is such on every scenario: the instrument failed (board 014). A scenario only one file has
+is "only before" / "only after" and fails nothing. Last, «дії після вердикту»: every
 session that went on acting after its verdict (edited files, wrote a second ledger entry).
 The verdict counted is the first one; the rest is a breach of the overseer's role, listed
 apart. Files recorded before board 003 carry no such field and list nothing.
@@ -172,9 +173,13 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
             else:
                 judgement, met = "NOT FIXED", False
             ok = ok and met
+        elif sb is None or sa is None:
+            # A scenario one file does not have at all (the set grows between releases): nothing
+            # was lost and nothing failed, there is only nothing to compare it with.
+            judgement = "only after" if sb is None else "only before"
         elif rb is None or ra is None:
-            # One side holds no valid session for this scenario: nothing to subtract, and
-            # "same" would read as a clean bill for a side that was never measured.
+            # Both files ran the scenario and one holds no valid session for it: nothing to
+            # subtract, and "same" would read as a clean bill for a side that was never measured.
             judgement, ok, unmeasured = NOT_MEASURED, False, unmeasured + 1
         else:
             worse = real and diff is not None and diff < 0
@@ -190,7 +195,8 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
         "Noise = |rate(noise run 1) − rate(noise run 2)|; where undefined, the largest defined noise is the bound. "
         "A difference is real only when larger than the noise. FIXED = real improvement and at least two of three valid "
         "sessions match after; MET = it already matched at least two of three before and still does. WORSE = real drop. "
-        f"{NOT_MEASURED} = one side has no valid session for the scenario — a failure of the instrument, not a difference."
+        f"{NOT_MEASURED} = both files ran the scenario and one has no valid session for it — a failure of the instrument, "
+        "not a difference. only before / only after = the other file does not have the scenario; nothing to compare."
     )
     lines.append("")
     lines.append("**Verdicts per session**")

@@ -146,8 +146,11 @@ login (401, 403) also stops the runner with exit 3, naming any of `ANTHROPIC_API
 `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN` the shell sets — one of them overrides
 `claude login`. A file where every run is there and none holds a verdict gets the status
 `no-verdicts` (exit 1), never `complete`. `compare_audits.py` reads older files the same way: a
-scenario with no valid session on one side is `NOT MEASURED`, not `WORSE`, and the result line
-says the instrument failed. The record that taught this is
+scenario both files ran, with no valid session on one side, is `NOT MEASURED`, not `WORSE`, and
+the result line says the instrument failed; a scenario only one file has is `only before` /
+`only after` and fails nothing. Another API error (529) is recorded the same way and the runner
+goes on; a session cut at `--max-turns`, or one whose error came after the overseer's entry was
+in the ledger, stays a run with its verdict. The record that taught this is
 `baseline/linux-ubuntu-22.04/audit-v0.12.0-release.json` (36 sessions, 36 refused logins, $0.0 —
 true, since no session reached the model). `tests/test_audit_no_session.py`.
 

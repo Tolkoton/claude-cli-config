@@ -23,3 +23,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | parked | 076-maintain-build-unit-1-accept-or-reaudit | 076-maintain-build/unit 1/accept-or-reaudit: Юніт 1 задачі 076 лишився без записаного вердикту: прийняти чи повторити аудит #1ed407e9
 - 2026-10-06 | parked | 045-anomaly-failed-untested | 045/anomaly-failed-untested: Подію anomaly-failed виконавця не тримає жоден тест (045) #93310a0d
 - 2026-10-06 | parked | 717-protected-file-guard-build | 717-protected-file-guard-build: Охоронюваний файл змінився за хід: будівництво за проєктом 717 #b9cfd70d
+- 2026-10-06 | overseer | - | BLOCK no.4 masked test gap — the fix makes three claims that no test holds, and one of them is a new mislabel of the kind this task exists to remove. (1) compare_audits.py now calls a scenario that ex #978e8e12

@@ -816,7 +816,6 @@ def main() -> int:
         redo += len(row["runs"]) - len(kept)
         dropped_cost += sum(float(r.get("cost_usd", 0.0)) for r in row["runs"] if is_lost_run(r))
         row["runs"] = kept
-        refresh(row)
     if redo:
         print(f"{redo} run(s) lost to the account usage limit or a failed session are performed again")
     for scenario_id in ids:
