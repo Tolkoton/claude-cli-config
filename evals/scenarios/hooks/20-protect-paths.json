@@ -293,6 +293,42 @@
         "agent_id": "b1"
       },
       "expect": "allow"
+    },
+    {
+      "id": "pp-inbox-write",
+      "why": "Board 056: an answer of the owner is a file in the inbox, so an agent does not write into the operator's directory. Write.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "/home/owner/engine-ops/tasks-inbox/732-answer.md"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-operator-program-edit",
+      "why": "Board 056: an answer of the owner is a file in the inbox, so an agent does not write into the operator's directory. Edit of a program of the runner.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "/home/owner/engine-ops/bin/claude"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pp-like-name-allowed",
+      "why": "Board 056, negative: a file that only carries a like name.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/docs/engine-ops-notes.md"
+        }
+      },
+      "expect": "allow"
     }
   ]
 }

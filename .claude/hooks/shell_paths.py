@@ -53,6 +53,7 @@ REDIR = object()
 STRONG = re.compile(
     r"(^|/)\.env(\.[^/]*)?$|(^|/)secrets/|(^|/)\.(ssh|aws|gnupg)/|(^|/)\.(npmrc|pypirc)$"
     r"|(^|/)id_(rsa|ed25519)(\.pub)?$|(^|/)(credentials|gcloud-key|service-account[^/]*)\.json$"
+    r"|(^|/)engine-ops/simplifier-key\.sh$"
 )
 WRAPPERS = {"env", "command", "exec", "nohup", "time", "nice", "builtin", "xargs", "timeout", "stdbuf",
             "if", "then", "else", "elif", "do", "while", "until", "!"}
@@ -66,6 +67,10 @@ WRITE_CALLS = {"writeFile", "writeFileSync", "appendFile", "appendFileSync", "un
                "remove", "rmtree", "rename", "renames", "renameSync", "truncate", "truncateSync", "move",
                "chmod", "chown", "write_text", "write_bytes", "touch", "rmdir"}
 COPY_CALLS = {"copy", "copy2", "copyfile", "copytree", "copyFile", "copyFileSync", "cp", "cpSync", "symlink", "link"}
+# A path handed on through one of these is still the path: open(os.path.expanduser("~/x"), "w").
+PATH_WRAPPERS = {"expanduser", "expandvars", "join", "abspath", "realpath", "normpath", "fspath", "str", "Path", "PurePath", "resolve"}
+PATH_TAKERS = {"unlink", "unlinkSync", "rm", "rmSync", "remove", "rmtree", "rename", "renames", "renameSync", "truncate", "truncateSync",
+               "writeFile", "writeFileSync", "appendFile", "appendFileSync", "chmod", "chown", "touch", "rmdir"}
 MODE = re.compile(r"^(?:[wax][bt+]*|r[bt]*\+[bt]*)$|O_(WRONLY|RDWR|CREAT|TRUNC|APPEND)")
 
 
@@ -78,6 +83,7 @@ class Segment:
     items: list[object] = field(default_factory=list)   # words, and REDIR where a redirection stood
     method: str = ""                     # the method called on this call's result: Path(p).write_text
     method_args: Segment | None = None
+    parent: Segment | None = None        # the call in whose arguments this call stands
 
     def words(self) -> list[str]:
         return [w for w in self.items if isinstance(w, str)]
@@ -123,7 +129,7 @@ class Splitter:
         words = self.stack[-1].words()
         name = re.search(r"[A-Za-z_][\w.]*$", words[-1]) if self.word_end == m.start() and words else None
         called = name.group() if name else ""
-        seg = Segment(call=called.rsplit(".", 1)[-1], dotted=called)
+        seg = Segment(call=called.rsplit(".", 1)[-1], dotted=called, parent=self.stack[-1] if self.stack[-1].call else None)
         if closed and seg.call and closed[0].method == seg.call:
             closed[0].method_args = seg
         self.stack.append(seg)
@@ -250,7 +256,19 @@ def by_call(u: Use) -> bool:
         return True
     if seg.call in COPY_CALLS and u.before:
         return True
-    return bool(seg.method in OPENERS and seg.method_args and has_mode(seg.method_args.words()))
+    if seg.method in OPENERS and seg.method_args and has_mode(seg.method_args.words()):
+        return True
+    return wrapped_for_a_write(seg)
+
+
+def wrapped_for_a_write(seg: Segment) -> bool:
+    """open(os.path.expanduser(FILE), "w"), os.remove(os.path.join(d, FILE)), Path(expanduser(FILE)).write_text(…):
+    the word stands in a call that only hands the path on to one that writes it."""
+    while seg.call in PATH_WRAPPERS and seg.parent is not None:
+        seg = seg.parent
+        if (seg.call in OPENERS and has_mode(seg.words())) or seg.call in PATH_TAKERS or seg.method in WRITE_CALLS:
+            return True
+    return False
 
 
 def refusal(seg: Segment, lists: Lists) -> str:

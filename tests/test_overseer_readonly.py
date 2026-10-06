@@ -68,7 +68,7 @@ WRITES = [
     "git -C . stash", "git tag v9", "git branch -D feat/x", "git switch main", "git worktree add ~/copy", "git clone . ~/copy",
     "ruff format src/", "ruff check --fix src/", "black src/", "prettier --write src/a.js", "eslint --fix src/",
     "cd /tmp/copy && cd - && rm a.py", "cd src && rm pricing.py", "echo x > $OUT/a.py", "echo x > ~/notes.md",
-    "echo x > ~/engine-ops/tasks-inbox/001-x.md", "ls; echo done > .claude/state/overseer/verdicts.jsonl",
+    "echo x > /srv/shared/report.md", "ls; echo done > .claude/state/overseer/verdicts.jsonl",
     "cp -r . /tmp/copy && rm src/a.py", "echo x > /tmp/../etc/passwd",
 ]
 READS = [

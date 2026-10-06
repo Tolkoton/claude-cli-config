@@ -114,6 +114,41 @@ spaces or tabs, after a separator, with the flag anywhere before the next separa
 push (a commit message, a board item) is refused too — put the text in a file. A branch that
 merely carries the name elsewhere (`feat/main`, `main:feat/copy` with main as the source) passes.
 
+### The owner's word: the inbox and the variable
+
+"The owner answered" rests on two things an agent could fake with one command, and the deny
+hooks refuse both (board 056):
+
+- **The operator's directory** — `~/engine-ops/`: the board's inbox (an answer of the owner is a
+  file there), the runner's programs, its journal. It is a guarded path (`protected-path-list.sh`):
+  no shell command and no editing tool writes there; reading stays free. `/owner-review`
+  therefore prepares its files under `/tmp/owner-review-<date>-<time>/` and gives the owner one
+  `cp` command to type themselves. The key of the second model kept in that directory
+  (`simplifier-key.sh`) is a secret path: not read either.
+- **The owner's variable** — `CLAUDECODE`, set in every shell an agent's tools start; by it
+  `engine.py`, `owner_action.py`, `lesson_queue.py promote` and the paid runs' `--owner-approved`
+  tell the owner's terminal from an agent. `block-dangerous.sh` refuses a command that clears or
+  replaces it: `unset`, `env -u`, an assignment of anything but `1` (before a command, with
+  `export` or `env`), `export -n`, `declare +x`, inline code that pops, deletes or overwrites it;
+  and, for everyone, `env -i` and `exec -c`, which wipe the whole environment. Reading the
+  variable and `CLAUDECODE=1 <command>` pass.
+
+This is the cheap part, and the owner accepted what it does **not** see:
+
+- a script that clears the environment or writes into the inbox itself, when the command only
+  starts it (`subprocess.run(…, env=…)` in a file — the way the test suites do it);
+- another road to the inbox: `BOARD_INBOX` pointing elsewhere, a symbolic link to the
+  operator's directory under another name;
+- a way out of the session: `tmux send-keys` into the runner's session, `nohup`, `at`,
+  `crontab`, `systemd-run` — a process started there has no `CLAUDECODE` at all;
+- the key of the second model in the ENVIRONMENT of a session the runner starts: the file is
+  refused, the variable is not (a board task asks to keep it out of the session).
+
+**Refused though harmless**: a command whose text holds `pop`, `del`, `delete`, `remove` or
+`unset` and, later in the same simple command, the variable's name (a `grep` for such code);
+any directory called `engine-ops`, wherever it is; `env -i` used to run a tool in a clean
+environment — start it from a script.
+
 ### The overseer agent is read-only
 
 Inside the agent `overseer` (`agent_type` in the hook envelope — the same field whichever way

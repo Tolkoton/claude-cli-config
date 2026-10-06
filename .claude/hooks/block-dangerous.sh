@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Bash. Blocks destructive commands, git commit, the dangerous forms of a
+# PreToolUse hook for Bash. Blocks destructive commands, git commit, a command that clears the
+# owner's variable (CLAUDECODE), the dangerous forms of a
 # push (forced, deleting a remote branch, into a protected branch), and a shell write to a
 # protected path or a read of a secret one (the list: protected-path-list.sh).
 # Exit 2 = block + show reason to Claude via stderr.
@@ -128,6 +129,39 @@ for pattern in "${DANGEROUS_PATTERNS[@]}"; do
     echo "Command: $CMD" >&2
     echo "" >&2
     echo "If this is genuinely needed, ask the user to run it manually outside Claude Code." >&2
+    exit 2
+  fi
+done
+
+# The owner's variable (board 056). CLAUDECODE is set in every shell an agent's tools start, and
+# by it the board runner, engine.py and the owner-only commands (promote, apply-settings, the
+# paid runs' --owner-approved, baseline record…) tell the owner's terminal from an agent. A
+# command that clears or replaces it would speak with the owner's voice, so it is refused:
+# unset, `env -u`, `env -i`, an assignment of anything but 1 (before a command, with export or
+# declare), `export -n`, and inline code that pops, deletes or overwrites it. Reading it
+# (`echo $CLAUDECODE`, `env | grep`, `printenv`) and `CLAUDECODE=1 <command>` pass.
+# A script the command only starts is not seen (docs/engine-limits.md).
+OWNER_VARIABLE="CLAUDECODE"
+OWNER_VARIABLE_PATTERNS=(
+  "(^|[^[:alnum:]_])unset([[:space:]]+-[a-z]+)*([[:space:]]+[A-Za-z_][A-Za-z0-9_]*)*[[:space:]]+[\"']?${OWNER_VARIABLE}([^[:alnum:]_]|\$)"
+  "(^|[^[:alnum:]_])env[[:space:]]([^;&|]*[[:space:]])?(-u[[:space:]]*|--unset[=[:space:]])[\"']?${OWNER_VARIABLE}([^[:alnum:]_]|\$)"
+  "(^|[^[:alnum:]_])env[[:space:]]+([^;&|]*[[:space:]])?(-i|--ignore-environment|-)([[:space:]]|\$)"
+  "(^|[^[:alnum:]_])exec[[:space:]]+-[a-z]*c"
+  "(^|[^[:alnum:]_\$])${OWNER_VARIABLE}=([^1\"']|1[^[:space:];&|)]|[\"'][^1]|[\"']1[^\"']|\$)"
+  "(^|[^[:alnum:]_])(export|declare|typeset)[[:space:]]+(-n|\\+x)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*[[:space:]]+)*${OWNER_VARIABLE}([^[:alnum:]_]|\$)"
+  "(pop|unsetenv|delenv|delete|del|remove|unset)[^;&|]*${OWNER_VARIABLE}"
+  "environ\\[[\"']${OWNER_VARIABLE}[\"']\\][[:space:]]*="
+  "env\\.${OWNER_VARIABLE}[[:space:]]*="
+  "putenv[^;&|]*${OWNER_VARIABLE}"
+)
+for pattern in "${OWNER_VARIABLE_PATTERNS[@]}"; do
+  if printf '%s\n' "$CMD" | grep -qE -e "$pattern"; then
+    echo "BLOCKED by the engine safety hook (block-dangerous.sh): the command clears or replaces ${OWNER_VARIABLE}," >&2
+    echo "the variable that tells the owner's terminal from an agent's shell." >&2
+    echo "Command: $CMD" >&2
+    echo "" >&2
+    echo "What only the owner may start is started by the owner, in their own terminal — or by the board" >&2
+    echo "runner after their answer in tasks/blocked/. Put the question there." >&2
     exit 2
   fi
 done

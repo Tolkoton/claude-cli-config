@@ -529,7 +529,10 @@ check("the debt run at its event leaves the list", "### Борги тестув�
 print("the command and the manual")
 command = (ROOT / ".claude/commands/owner-review.md").read_text(encoding="utf-8")
 check("/owner-review exists and runs the review", "board.py review" in command and command.startswith("---\ndescription:"), command[:200])
-check("/owner-review writes into the inbox: BOARD_INBOX, by default ~/engine-ops/tasks-inbox", "BOARD_INBOX" in command and "~/engine-ops/tasks-inbox" in command)
+check("/owner-review names the inbox: BOARD_INBOX, by default ~/engine-ops/tasks-inbox", "BOARD_INBOX" in command and "~/engine-ops/tasks-inbox" in command)
+check("/owner-review never writes there itself (board 056): files under /tmp, one command for the owner's own hand",
+      "/tmp/owner-review-" in command and "Do not write into the inbox" in command and "! mkdir -p ~/engine-ops/tasks-inbox && cp /tmp/owner-review-" in command
+      and "Never run it yourself" in command)
 check("/owner-review says it changes nothing else", "tasks/TEMPLATE.md" in command and "git show" in command)
 for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
     check(f"{manual} tells the operator how to run the review and send it", "board.py review" in (ROOT / manual).read_text(encoding="utf-8"))

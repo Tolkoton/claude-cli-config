@@ -58,6 +58,10 @@ SECRET_PATTERNS=(
   'credentials\.json$'
   'service-account.*\.json$'
   'gcloud-key\.json$'
+  # The key of the second model, kept in the operator's directory (board 056). The directory is
+  # guarded as a whole below (no writing); this file may not be read either. A directory of
+  # secrets there is covered by the pattern for such directories above.
+  '(^|/)engine-ops/simplifier-key\.sh$'
 )
 
 # Guarded: anyone may read them, nobody in a Claude session may write them.
@@ -76,6 +80,10 @@ GUARDED_PATTERNS=(
   # steers every conversation. A line lands there one way only — `lesson_queue.py promote`, run
   # outside a session on the owner's «так»; an agent's own edit or shell write is refused.
   '(^|/)\.engine/rules\.md$'
+  # The operator's directory (board 056): the board's inbox, the runner's programs and its
+  # journal. An answer "from the owner" is a file in that inbox, so an agent that could write
+  # there could answer its own question. Reading it stays free.
+  '(^|/)engine-ops(/|$)'
   '(^|/)\.git/'
   '(^|/)migrations/.*\.py$'
   '(^|/)alembic/versions/.*\.py$'
