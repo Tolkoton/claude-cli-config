@@ -155,7 +155,9 @@ the artifact is written, start the `simplifier` subagent, fresh, once per lens, 
 and `… --lens architecture --paths <the draft>` print; route each answer with
 `simplifier.py route`. A slice it calls speculative and you cannot trace to an acceptance
 criterion is dropped from the DAG; a finding about an owner requirement stays in the report
-for the owner (Art. 5) and the build goes on.
+for the owner (Art. 5) and the build goes on. A finding about your own draft that you applied
+is marked, so the owner is not asked about it: `simplifier.py applied <id> --note "<what you
+changed in the plan>"`.
 
 Convergence is still the critic's `FEATURE_CRITIC_PASS` (Art. 3): the cap bounds what is spent
 asking, it does not turn an open objection into an agreed one. What round two leaves open is

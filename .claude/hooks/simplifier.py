@@ -7,6 +7,7 @@
     python3 .claude/hooks/simplifier.py accept --reason "why the excess is needed" --verdict FINDINGS.json
     python3 .claude/hooks/simplifier.py reversals [--last N] [--record]
     python3 .claude/hooks/simplifier.py decide FINDING_ID так|ні
+    python3 .claude/hooks/simplifier.py applied FINDING_ID --note "what was changed in the plan"
     python3 .claude/hooks/simplifier.py nightly [--paths P ...]
 
 The agent judges; this script decides what its judgement may DO. Read .claude/references/simplifier.md
@@ -39,6 +40,11 @@ reversals  how many removals (commits with the trailer `Simplifier-Finding: <id>
            with are counted apart, and so is how its verdicts compare with the owner's decisions.
 decide     the owner's «так» or «ні» on a confirm finding, written to
            .engine/simplifier/decisions.jsonl with the second model's verdict next to it.
+applied    the architect's own mark, between design levels: a finding about the draft plan that
+           the architect already applied. Its line in the report stops reading as an open
+           finding and its lesson candidate leaves the queue. Refused for code (that is a
+           removal) and for a protected path; a finding about what the owner asked for is the
+           owner's (Art. 5) and is never marked this way.
 nightly    the full signals with the history recorded; says whether the simplifier is called.
 
 Standard library only; Python 3.11+.
@@ -371,6 +377,30 @@ def decide(root: Path, ident: str, answer: str) -> tuple[int, str]:
     return 0, f"recorded in {DECISIONS_REL}: {ident} — {decision}" + (f"; the second model said {verdicts[-1]}" if verdicts else "")
 
 
+def applied(root: Path, ident: str, note: str) -> tuple[int, str]:
+    """Mark a finding about the draft plan as applied by the architect: nothing is left to ask the owner."""
+    note = re.sub(r"\s+", " ", note).strip()
+    if len(note) < 12 or len(note.split()) < 2:
+        return 1, "the note must say what was changed in the plan (two words at least)"
+    report = (root / REPORT_REL).read_text(encoding="utf-8") if (root / REPORT_REL).is_file() else ""
+    line = re.compile(rf"^- (`{re.escape(ident)}` \*\*(?P<target>.+?)\*\* — (?P<category>\w+): (?P<claim>.*))$", re.MULTILINE)
+    found = line.search(report)
+    if found is None:
+        return 1, f"no open finding {ident} in {REPORT_REL}"
+    env = budget.project_env(root)
+    ref = REF_RE.match(found["target"])
+    path = ref["path"] if ref else found["target"]
+    if is_protected(env, path):
+        return 1, f"{path} is protected: the finding stays the owner's"
+    if is_code(env, path):
+        return 1, f"{path} is code: taking it out is a removal (auto_remove, or the owner's confirm), not a change of the plan"
+    mark = f"  - applied to the plan {simplify_signals.utc_now()}: {note} — nothing is asked of the owner\n"
+    (root / REPORT_REL).write_text(line.sub(lambda m: f"- APPLIED BY THE ARCHITECT {m[1]}\n{mark.rstrip()}", report), encoding="utf-8")
+    essence = lesson_queue.clean_essence(f"{found['category']} {found['target']}: {found['claim']}")
+    lesson_queue.remove_line(root, lesson_queue.item_id("simplifier", essence))
+    return 0, f"marked in {REPORT_REL}: {ident} applied to the plan"
+
+
 def decision_text(root: Path) -> str:
     """How the second model's verdicts compare with what the owner decided, or '' when nothing is decided."""
     latest = {r.get("finding"): r for r in second_log(root, DECISIONS_REL)}
@@ -510,6 +540,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("decide")
     p.add_argument("finding")
     p.add_argument("answer", help="так or ні: the owner's decision on a confirm finding")
+    p = sub.add_parser("applied")
+    p.add_argument("finding")
+    p.add_argument("--note", required=True, help="what was changed in the plan")
     p = sub.add_parser("reversals")
     p.add_argument("--last", type=int, default=20)
     p.add_argument("--record", action="store_true", help="also write the line into the owner's report")
@@ -545,12 +578,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(result['findings'])} valid, {len(result['rejected'])} rejected, "
               f"{sum(bool(f['validator']) for f in result['findings'])} lowered", file=sys.stderr)
         return 1 if result["rejected"] else 0
-    if args.command == "accept":
-        code, message = accept(root, args.reason.strip(), args.verdict)
-        print(message, file=sys.stderr if code else sys.stdout)
-        return code
-    if args.command == "decide":
-        code, message = decide(root, args.finding, args.answer)
+    if args.command in ("accept", "decide", "applied"):
+        if args.command == "accept":
+            code, message = accept(root, args.reason.strip(), args.verdict)
+        elif args.command == "decide":
+            code, message = decide(root, args.finding, args.answer)
+        else:
+            code, message = applied(root, args.finding, args.note)
         print(message, file=sys.stderr if code else sys.stdout)
         return code
     rate = reversals(root, args.last)

@@ -105,6 +105,11 @@ arbiter. The second model adds no findings of its own and is not asked about a b
 
 - `confirm`, `flag_only` — `route` writes them to `.engine/simplifier/report.md` for the owner
   and adds them to the lesson queue. Nothing is removed.
+- Between design levels, a finding about the architect's own draft that the architect applied —
+  `simplifier.py applied <id> --note "<what was changed in the plan>"`: its line in the report
+  becomes `APPLIED BY THE ARCHITECT` with the note, so the owner's review no longer lists it, and
+  its lesson candidate leaves the queue. Refused for code and for a protected path; never for a
+  finding about what the owner asked for (Art. 5) — that one waits for `decide`.
 - `auto_remove` — the builder removes it, one finding per commit, only when ALL hold:
   the target is outside the protected zones (the validator already checked); a test covers
   what is removed — name it; after the removal the full suite is green (`TEST_CMD_FULL`).

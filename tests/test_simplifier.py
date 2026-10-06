@@ -202,6 +202,46 @@ check("both owner findings are in the lesson queue, source simplifier",
       queue.count("| simplifier |") == 2 and "nobody asked" in queue, queue)
 check("nothing was removed", (repo / "src/demo/pricing.py").read_text() == before)
 
+print("APPLIED-* a finding the architect already applied to the plan is not left as a question (board 709)")
+ids = dict(re.findall(r"^- `(F-[0-9a-f]{8})` \*\*([^*]+)\*\*", report, re.MULTILINE))
+plan_id = next(i for i, target in ids.items() if target == "docs/goals.md:3")
+code_id = next(i for i, target in ids.items() if target == "src/demo/pricing.py:5")
+for name, args, said in (
+        ("a finding the report does not hold", ("F-00000000", "--note", "dropped the ordering test from the plan"), "no open finding"),
+        ("a finding about code: that is a removal, not a plan", (code_id, "--note", "dropped the ordering test from the plan"), "code"),
+        ("a note that does not say what changed", (plan_id, "--note", "done"), "what was changed"),
+        ("something that is not a finding id", ("docs/goals.md:3", "--note", "dropped the ordering test from the plan"), "no open finding")):
+    done = cli(repo, "applied", *args)
+    check(f"refused: {name}", done.returncode == 1 and said in done.stderr
+          and (repo / ".engine/simplifier/report.md").read_text() == report
+          and (repo / ".engine/lesson-queue.md").read_text() == queue, done.stdout + done.stderr)
+done = cli(repo, "applied", plan_id, "--note", "dropped the ordering test from the plan")
+marked = (repo / ".engine/simplifier/report.md").read_text()
+check("the finding is marked in the report, with what was changed, and nothing else in the report moved",
+      done.returncode == 0 and f"- APPLIED BY THE ARCHITECT `{plan_id}` **docs/goals.md:3**" in marked
+      and "dropped the ordering test from the plan" in marked
+      and [ln for ln in marked.splitlines() if plan_id not in ln and "applied to the plan" not in ln]
+      == [ln for ln in report.splitlines() if plan_id not in ln], done.stdout + done.stderr + marked)
+check("it no longer reads as an open finding: no line of the report starts with its id",
+      not re.search(rf"^- `{plan_id}`", marked, re.MULTILINE) and re.search(rf"^- `{code_id}`", marked, re.MULTILINE), marked)
+after = (repo / ".engine/lesson-queue.md").read_text()
+check("its lesson candidate leaves the queue, the other finding's stays",
+      "nobody asked" not in after and "worth a look" in after and after.count("| simplifier |") == 1, after)
+done = cli(repo, "applied", plan_id, "--note", "dropped the ordering test from the plan")
+check("marking it a second time is refused and changes nothing",
+      done.returncode == 1 and (repo / ".engine/simplifier/report.md").read_text() == marked, done.stdout + done.stderr)
+cli(repo, "route", "answer.json", "--title", "second pass")
+check("a later pass that finds it again does not queue the lesson again",
+      "nobody asked" not in (repo / ".engine/lesson-queue.md").read_text())
+(repo / "answer.json").write_text(json.dumps([GOOD | {"target": "vendor/keep.py:1", "claim": "vendored copy", "proposed_action": "confirm"}]))
+cli(repo, "route", "answer.json", "--title", "protected")
+held = (repo / ".engine/simplifier/report.md").read_text()
+vendor_id = re.findall(r"^- `(F-[0-9a-f]{8})` \*\*vendor/keep.py:1\*\*", held, re.MULTILINE)[0]
+(repo / ".claude/project.env").write_text('SOURCE_DIRS="src"\nCODE_EXTENSIONS="sh"\nSIMPLIFIER_PROTECTED="vendor/**"\n')
+done = cli(repo, "applied", vendor_id, "--note", "dropped the ordering test from the plan")
+check("refused: a finding about a protected path stays the owner's",
+      done.returncode == 1 and "protected" in done.stderr and (repo / ".engine/simplifier/report.md").read_text() == held, done.stdout + done.stderr)
+
 print("RATE-*    the reversal rate: reverted, or the removed lines are back")
 
 
