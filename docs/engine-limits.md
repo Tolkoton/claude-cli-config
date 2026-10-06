@@ -399,6 +399,10 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   framework; the unused-dependency check compares the declared name with the imported module
   name and is wrong for a package whose import name differs (`pillow` / `PIL`); pylint's
   duplicate check sees only Python. The signals feed the agent and never remove anything.
+- **A name only the tests use is not a dead-code signal.** vulture reads the tests and scripts as
+  users of the production code (reporting production files only), so a library's public function
+  is not "dead" for having no caller inside the library. The price: code kept alive by its tests
+  alone is no longer flagged — finding it is the simplifier agent's judgement, not a signal.
 - **The verdict on a budget overrun is relayed by the builder.** `simplifier.py accept` checks
   the answer file it is given (schema, nothing above `flag_only`) and records its hash, but it
   cannot know the file is what the `simplifier` subagent really answered. The reason lands in

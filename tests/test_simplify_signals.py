@@ -125,6 +125,32 @@ check("...and is measured without the exclusion", "planted_on_purpose" in json.d
 write(repo, "scripts/tool.py", branchy("outside", 15))
 check("a file outside SOURCE_DIRS is never measured", "outside" not in json.dumps(signals(repo, "--scope", "stop")))
 
+print("USERS-*  a test or a script that uses a public name keeps it from reading as dead (board 710)")
+LIBRARY = BASE | {
+    "src/demo/api.py": "def quote_order() -> int:\n    return 1\n\n\ndef smoke_checked() -> int:\n    return 2\n\n\n"
+                       "def fixture_only() -> int:\n    return 3\n\n\ndef truly_dead() -> int:\n    return 4\n",
+    "tests/test_api.py": "from demo.api import quote_order\n\n\ndef test_quote() -> None:\n    assert quote_order() == 1\n",
+    "scripts/smoke.py": "from demo.api import smoke_checked\n\nprint(smoke_checked())\n",
+    "src/demo/fixtures/sample.py": "from demo.api import fixture_only\n\nprint(fixture_only())\n",
+    ".claude/project.env": BASE[".claude/project.env"] + 'SIMPLIFY_EXCLUDE="src/demo/fixtures"\n',
+}
+repo = new_repo(LIBRARY)
+found = signals(repo, "--scope", "stop", "--files", "src/demo/api.py")
+dead = json.dumps([s["message"] for s in found if s["kind"] == "dead-code"])
+check("a public function only the tests call is not a dead-code signal", "quote_order" not in dead, found)
+check("...nor one only a script outside SOURCE_DIRS calls", "smoke_checked" not in dead, found)
+check("a function nobody calls is still a signal", "truly_dead" in dead, found)
+check("a use inside SIMPLIFY_EXCLUDE does not count", "fixture_only" in dead, found)
+found = signals(repo, "--scope", "full")
+dead_files = {s["file"] for s in found if s["kind"] == "dead-code"}
+check("full: the same, and the users themselves are never reported",
+      dead_files == {"src/demo/api.py", "src/demo/old.py"} and "quote_order" not in json.dumps(found)
+      and "helper_nobody_calls" not in json.dumps(found), found)
+found = signals(repo, "--scope", "full", "--paths", "src/demo/api.py")
+check("--paths narrows what is reported, not who counts as a user",
+      {s["file"] for s in found if s["kind"] == "dead-code"} == {"src/demo/api.py"} and "quote_order" not in json.dumps(found), found)
+shutil.rmtree(repo, ignore_errors=True)
+
 print("FULL-*   the whole repository: dead code, unused dependencies, duplication, every function above the limit")
 SHARED = "\n".join(f"    step_{i} = prices[{i}] * {i + 2} + len(prices)" for i in range(12)) + "\n"
 repo = new_repo(BASE | {

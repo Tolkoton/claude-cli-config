@@ -17,7 +17,8 @@ shows each signal as a `warn` finding — a signal never blocks.
            is appended to .claude/state/simplifier/metrics.jsonl and compared with the median of
            the runs before it — growth past GROWTH is a `trend` signal, which calls the simplifier
 
-Tools run through `uvx`, like ruff: vulture (dead code), pylint's duplicate-code. Nothing is
+Tools run through `uvx`, like ruff: vulture (dead code; the tests and scripts are read as users
+of a name and never reported themselves), pylint's duplicate-code. Nothing is
 added to the project's dependencies; a tool that cannot run is reported as `unavailable`, never
 read as "clean". The result is also written to .claude/state/simplifier/signals-<scope>.json.
 
@@ -76,14 +77,18 @@ def run_tool(root: Path, tool: str, *args: str) -> str | None:
     return None if proc.returncode != 0 and not proc.stdout.strip() and proc.stderr.strip() else proc.stdout
 
 
-def production_files(root: Path, env: dict[str, str], paths: list[str] | None) -> list[str]:
-    """Python the project wrote and git knows (tracked or untracked-not-ignored): inside `paths`
-    (else SOURCE_DIRS), tests excluded, SIMPLIFY_EXCLUDE (fixtures, vendored code) excluded."""
+def project_files(root: Path, env: dict[str, str]) -> list[str]:
+    """Python the project wrote and git knows (tracked or untracked-not-ignored), anywhere in the
+    repository, SIMPLIFY_EXCLUDE (fixtures, vendored code) excluded."""
     listed = budget.git(root, "ls-files", "-co", "--exclude-standard", "*.py").splitlines()
-    scope = paths or budget.source_dirs_of(env)
     excluded = [d for d in re.split(r"[\s,]+", env.get("SIMPLIFY_EXCLUDE", "")) if d]
-    return sorted(p for p in listed if budget.in_source(p, scope) and not budget.is_test(p)
-                  and not (excluded and budget.in_source(p, excluded)) and (root / p).is_file())
+    return sorted(p for p in listed if not (excluded and budget.in_source(p, excluded)) and (root / p).is_file())
+
+
+def production_files(root: Path, env: dict[str, str], paths: list[str] | None) -> list[str]:
+    """The project's files inside `paths` (else SOURCE_DIRS), tests excluded: what is measured."""
+    scope = paths or budget.source_dirs_of(env)
+    return [p for p in project_files(root, env) if budget.in_source(p, scope) and not budget.is_test(p)]
 
 
 def limits_of(env: dict[str, str]) -> dict[str, int]:
@@ -144,16 +149,18 @@ def dependency_signals(root: Path, files: list[str]) -> list[Signal]:
     return out
 
 
-def dead_code_signals(root: Path, production: list[str], only: set[str] | None) -> list[Signal]:
-    """vulture over all production code (a name used in another file is not dead), reported for
-    the files in `only` when given."""
-    if not production or (only is not None and not only & set(production)):
+def dead_code_signals(root: Path, production: list[str], users: list[str], only: set[str] | None) -> list[Signal]:
+    """vulture over the production code and its `users` — the tests and scripts, read only as
+    callers: a name used in another file is not dead, a library's public function its tests call
+    included. Reported for production files, those in `only` when given."""
+    reported = set(production) if only is None else only & set(production)
+    if not reported:
         return []
-    out = run_tool(root, "vulture", "--min-confidence", "60", *production)
+    out = run_tool(root, "vulture", "--min-confidence", "60", *sorted({*production, *users}))
     if out is None:
         return [signal("vulture", "unavailable", None, None, "vulture could not run: dead code was not measured")]
     return [signal("vulture", "dead-code", m["file"], int(m["line"]), m["msg"])
-            for m in VULTURE_RE.finditer(out) if only is None or m["file"] in only]
+            for m in VULTURE_RE.finditer(out) if m["file"] in reported]
 
 
 def unused_dependency_signals(root: Path) -> list[Signal]:
@@ -255,14 +262,15 @@ def collect(root: Path, env: dict[str, str], scope: str, files: list[str] | None
             paths: list[str] | None = None, record: bool = False) -> list[Signal]:
     """The signals of one scope, also written to .claude/state/simplifier/signals-<scope>.json."""
     production = production_files(root, env, paths)
+    users = project_files(root, env)
     if scope == "stop":
         changed = [f for f in files or [] if f in production]
         signals = (complexity_signals(root, env, changed, against_head=True)
                    + dependency_signals(root, files or [])
-                   + dead_code_signals(root, production, set(changed)))
+                   + dead_code_signals(root, production, users, set(changed)))
     else:
         signals = (complexity_signals(root, env, production, against_head=False)
-                   + dead_code_signals(root, production, None)
+                   + dead_code_signals(root, production, users, None)
                    + unused_dependency_signals(root)
                    + duplication_signals(root, production))
         signals += trend_signals(root, totals(root, production, signals), record)
