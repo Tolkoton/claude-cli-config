@@ -93,10 +93,11 @@ class Project:
         return subprocess.run([sys.executable, str(script), *args], input=json.dumps(envelope or {}),
                               capture_output=True, text=True, env=env, check=False)
 
-    def transcript(self, after_audit: bool = False, shell: str = "") -> str:
+    def transcript(self, after_audit: bool = False, shell: str = "", checked: bool = True) -> str:
         """A turn with a code edit and a verification command; with after_audit, an overseer launch
         comes first, so the edit and the check count as work done since that audit. With `shell`,
-        the turn calls no edit tool at all: that command stands in the Edit's place (board 707)."""
+        the turn calls no edit tool at all: that command stands in the Edit's place (board 707).
+        Without `checked`, the turn runs no verification: `git status` stands in its place (board 715)."""
         def use(i: int, name: str, tool_input: dict[str, Any]) -> list[dict[str, Any]]:
             return [{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": f"t{i}", "name": name, "input": tool_input}]}},
                     {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": "6 passed in 0.02s" if name == "Bash" else "ok"}]}}]
@@ -104,7 +105,7 @@ class Project:
         if after_audit:
             records += use(0, "Agent", {"subagent_type": "overseer", "prompt": "OVERSEER_REQUEST x"})
         records += use(1, "Bash", {"command": shell}) if shell else use(1, "Edit", {"file_path": str(self.root / "src/pricing.py")})
-        records += use(2, "Bash", {"command": "pytest -q"})
+        records += use(2, "Bash", {"command": "pytest -q" if checked else "git status"})
         self.turn += 1
         path = self.root / ".claude" / "state" / f"transcript-{self.turn}.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,9 +116,9 @@ class Project:
         out = self.run(STOP, [], {"hook_event_name": "Stop", "last_assistant_message": message, "transcript_path": transcript, **extra}).stdout
         return json.loads(out)["reason"] if out.strip() else ""
 
-    def claim(self, message: str = CLAIM, after_audit: bool = False, shell: str = "") -> tuple[str, str]:
+    def claim(self, message: str = CLAIM, after_audit: bool = False, shell: str = "", checked: bool = True) -> tuple[str, str]:
         """A unit-completion claim reaches the Stop hook. Returns (what the hook said, request id)."""
-        said = self.stop(message, self.transcript(after_audit, shell))
+        said = self.stop(message, self.transcript(after_audit, shell, checked))
         return said, json.loads(self.read(".claude/state/overseer/pending.json") or "{}").get("id", "")
 
     def launch(self, prompt: str, subagent: str = "overseer", **extra: Any) -> str:
@@ -554,6 +555,20 @@ check("negative — a document written by shell is not a code edit", said == "" 
 idle = shell_project()
 said, rid = idle.claim(shell="git status")
 check("negative — a turn that only ran commands and changed nothing asks for nothing", said == "" and rid == "", said)
+
+print("\n== a claim with no verification command in the turn (board 715)")
+unchecked = Project()
+said, rid = unchecked.claim(checked=False)
+check("negative — code edited and the sentinel typed, but no verification command ran: no request (the `pytest -q` quoted in the message is not a run)",
+      said == "" and rid == "", said)
+said, rid = unchecked.claim(CLAIM + "\nNow verified.")
+check("the same edit with the verification command gets its request", rid != "" and f"OVERSEER_REQUEST {rid}" in said, said)
+unchecked = shell_project()
+unchecked.write("src/pricing.py", "def with_tax(x):\n    return x * 1.2\n")
+said, rid = unchecked.claim(shell=SHELL_WRITE, checked=False)
+check("negative — code changed in the tree by a shell command, no verification command: no request", said == "" and rid == "", said)
+said, rid = unchecked.claim(CLAIM + "\nNow verified.", shell=SHELL_WRITE)
+check("the same tree with the verification command gets its request", rid != "" and f"OVERSEER_REQUEST {rid}" in said, said)
 
 if failures:
     print(f"\nFAIL ({len(failures)}): " + "; ".join(failures))
