@@ -16,7 +16,7 @@ WHAT IS CHECKED
   - `audit-allowed` says yes only for exactly one task in doing/ that asks for the audit;
   - a task that says «Потрібна присутність власника: так» (board 016) is never offered by `next`
     and never moved by `start`; with `--attended` it is, and `--attended` is refused in an
-    unattended session; left in doing/ it makes `next` exit 5; the owner's own task 017 is one;
+    unattended session; left in doing/ it is passed over — the board goes on (board 049); the owner's own task 017 is one;
   - the board ships: the template has the owner's sections, tasks/TEMPLATE.md is the seed,
     and a synthetic `engine.py install` seeds tasks/ once and never again.
 """
@@ -216,8 +216,33 @@ check("with the owner present, `next --attended` offers 017 — not the free 019
 r = cli(root, "start", "--attended", "tasks/todo/017-guards.md")
 check("…and `start --attended` moves it to doing/", r.returncode == 0 and (root / "tasks/doing/017-guards.md").is_file(), r.stderr)
 r = cli(root, "next")
-check("017 in doing/: a plain `next` exits 5, prints no task and says what to do", r.returncode == 5 and r.stdout == ""
-      and "017-guards.md" in r.stderr and "tasks/todo/" in r.stderr, (r.returncode, r.stdout, r.stderr))
+check("017 in doing/ does not stop the board (board 049): a plain `next` passes over it and offers 019", r.returncode == 0
+      and r.stdout.strip() == "tasks/todo/019-free.md" and r.stderr == "", (r.returncode, r.stdout, r.stderr))
+r = cli(root, "summary")
+check("…summary names 017 as worked on with the owner, and 019 as next", "в роботі з власником: 017-guards.md" in r.stdout
+      and "в роботі: 017" not in r.stdout and "наступна: 019-free.md" in r.stdout, r.stdout)
+put(root, "todo", "021-ordinary.md", task())
+put(root, "todo", "020-second-attended.md", attended_task())
+r = cli(root, "start", "--attended", "tasks/todo/020-second-attended.md")
+check("…a second attended task is not started beside it: one at a time for the owner's session too", r.returncode == 2
+      and (root / "tasks/todo/020-second-attended.md").is_file(), r.stderr)
+(root / "tasks/todo/020-second-attended.md").unlink()
+r = cli(root, "start", "tasks/todo/019-free.md", unattended=True)
+check("…`start` moves 019 into doing/ beside 017", r.returncode == 0 and (root / "tasks/doing/019-free.md").is_file()
+      and (root / "tasks/doing/017-guards.md").is_file(), r.stderr)
+r = cli(root, "next", unattended=True)
+check("…and `next` then prints 019, the runner's own task — not 017, not exit 2", r.returncode == 0 and r.stdout.strip() == "tasks/doing/019-free.md", (r.returncode, r.stdout, r.stderr))
+r = cli(root, "start", "tasks/todo/021-ordinary.md")
+check("…the negative case: a second ORDINARY task is still refused — one at a time", r.returncode == 2 and "019-free.md" in r.stderr
+      and (root / "tasks/todo/021-ordinary.md").is_file(), r.stderr)
+r = cli(root, "summary")
+check("…summary shows both, each as what it is", "в роботі: 019-free.md" in r.stdout and "в роботі з власником: 017-guards.md" in r.stdout, r.stdout)
+put(root, "doing", "022-extra.md", task())
+r = cli(root, "next")
+check("…two ordinary tasks in doing/ are still refused (exit 2), whatever the owner's session holds", r.returncode == 2 and "022-extra.md" in r.stderr, (r.returncode, r.stderr))
+for name in ("019-free.md", "022-extra.md"):
+    (root / "tasks/doing" / name).unlink()
+(root / "tasks/todo/021-ordinary.md").unlink()
 r = cli(root, "next", "--attended")
 check("…`next --attended` prints it", r.returncode == 0 and r.stdout.strip() == "tasks/doing/017-guards.md", r.stdout + r.stderr)
 (root / "tasks/doing/017-guards.md").unlink()
@@ -239,6 +264,53 @@ check("only the fully answered task returns to todo/", r.returncode == 0 and r.s
       and (root / "tasks/todo/004-full.md").is_file() and (root / "tasks/blocked/003-open.md").is_file()
       and (root / "tasks/blocked/005-none.md").is_file(), r.stdout + r.stderr)
 check("its text is untouched", (root / "tasks/todo/004-full.md").read_text(encoding="utf-8") == task(questions=q_full))
+
+# --- the owner's answers first (board 049) --------------------------------------------------------
+print("the owner's answers first")
+FIRST = root / "tasks/.first"
+check("unblock writes the answered task into tasks/.first", FIRST.read_text(encoding="utf-8").split() == ["004-full.md"], FIRST.read_text(encoding="utf-8") if FIRST.exists() else "(absent)")
+shutil.rmtree(root, ignore_errors=True)
+root = new_board()
+done(root, "001-base")
+FIRST = root / "tasks/.first"
+put(root, "todo", "010-queued.md", task())
+put(root, "todo", "020-queued.md", task())
+put(root, "blocked", "900-gate-escalation-20261003T101500Z.md", task(questions="1. Закрити ескалацію?\n   Відповідь: спершу виправ тест\n").replace(
+    "Аудит потрібен: ні", "Аудит потрібен: ні\nЕскалація воріт: 2026-10-03T10:15:00Z"))
+put(root, "blocked", "050-parked.md", task(questions="1. Що далі?\n   Відповідь: роби далі\n"))
+put(root, "blocked", "060-waits.md", task(deps="999", questions="1. Що далі?\n   Відповідь: так\n"))
+put(root, "blocked", "070-with-owner.md", attended_task().replace("## Питання до власника\n", "## Питання до власника\n1. Що?\n   Відповідь: разом\n"))
+check("the negative case first: before any answer returns, the queue is by number", cli(root, "next").stdout.strip() == "tasks/todo/010-queued.md")
+r = cli(root, "unblock")
+check("four answered tasks return to todo/ — a gate question with an instruction among them", r.stdout.split() ==
+      ["050-parked.md", "060-waits.md", "070-with-owner.md", "900-gate-escalation-20261003T101500Z.md"], r.stdout + r.stderr)
+check("tasks/.first lists them in the order answered", FIRST.read_text(encoding="utf-8").split() == r.stdout.split(), FIRST.read_text(encoding="utf-8"))
+r = cli(root, "next")
+check("`next` offers the answered 050 before 010, whatever the number", r.returncode == 0 and r.stdout.strip() == "tasks/todo/050-parked.md", r.stdout + r.stderr)
+r = cli(root, "summary")
+check("summary says which tasks go first and why, and names 050 as next", "першою, бо власник відповів: 050-parked.md" in r.stdout
+      and "першою, бо власник відповів: 900-gate-escalation-20261003T101500Z.md" in r.stdout and "наступна: 050-parked.md" in r.stdout
+      and "першою, бо власник відповів: 010" not in r.stdout, r.stdout)
+r = cli(root, "start", "tasks/todo/050-parked.md")
+check("started, a task leaves tasks/.first", r.returncode == 0 and "050-parked.md" not in FIRST.read_text(encoding="utf-8").split()
+      and "900-gate-escalation-20261003T101500Z.md" in FIRST.read_text(encoding="utf-8").split(), FIRST.read_text(encoding="utf-8"))
+shutil.rmtree(root / "tasks/doing")
+(root / "tasks/doing").mkdir()
+r = cli(root, "next")
+check("then the gate question numbered 900 — still before 010 and 020; 060 waits for its dependency, 070 for the owner's presence",
+      r.returncode == 0 and r.stdout.strip() == "tasks/todo/900-gate-escalation-20261003T101500Z.md", r.stdout + r.stderr)
+check("…with the owner present, the answered attended task is the one offered", cli(root, "next", "--attended").stdout.strip() == "tasks/todo/070-with-owner.md")
+cli(root, "start", "tasks/todo/900-gate-escalation-20261003T101500Z.md")
+(root / "tasks/doing/900-gate-escalation-20261003T101500Z.md").unlink()
+check("the answers taken, the queue is by number again: 010", cli(root, "next").stdout.strip() == "tasks/todo/010-queued.md")
+check("…and the answered task that cannot start yet keeps its place for when it can", FIRST.read_text(encoding="utf-8").split() == ["060-waits.md", "070-with-owner.md"], FIRST.read_text(encoding="utf-8"))
+done(root, "999-arrived")
+check("…its dependency done, 060 goes before 010", cli(root, "next").stdout.strip() == "tasks/todo/060-waits.md")
+(root / "tasks/todo/060-waits.md").rename(root / "tasks/blocked/060-waits.md")
+FIRST.write_text("060-waits.md\n020-queued.md\nno-such-task.md\n", encoding="utf-8")
+check("a name in tasks/.first that is not in todo/ changes nothing; one that is goes first", cli(root, "next").stdout.strip() == "tasks/todo/020-queued.md")
+FIRST.unlink()
+check("no tasks/.first at all: by number", cli(root, "next").stdout.strip() == "tasks/todo/010-queued.md")
 
 # --- park and the anomaly journal (board 021) ----------------------------------------------------
 print("park: the runner gives up on a task, not on the board")
@@ -533,9 +605,9 @@ here = " ".join((ROOT / "tasks/README.md").read_text(encoding="utf-8").split())
 short = (ROOT / ".claude/engine-rules.md").read_text(encoding="utf-8")
 short = short[short.index("## The task board and paid runs"):short.index("## Constitution")]
 MANUAL = {
-    "which task: the first in todo/ with its dependencies in done/": ("першу за номером задачу з `todo/`", "залежності вже в `done/`"),
+    "which task: the first in todo/ with its dependencies in done/": ("першу в черзі задачу з `todo/`", "залежності вже в `done/`"),
     "…moved to doing/ in a commit of its own — or already there when the runner started you": ("окремим commit-ом", "вже лежить задача"),
-    "…one task in doing/ at a time": ("одночасно лише одна задача",),
+    "…one task in doing/ at a time": ("одночасно лише одна твоя задача",),
     "through the pipeline: big by /feature-architect, small in one slice": ("/feature-architect", "одним зрізом"),
     "small decisions are the agent's, recorded in the report": ("Рішення, які я ухвалив сам",),
     "the owner is needed: a question, blocked/, the next task": ("допиши питання", "`blocked/`", "берись за наступну"),
@@ -556,7 +628,9 @@ MANUAL = {
         "зробити урок правилом"),
     "a task that needs the owner present is never the runner's; how to do one with the owner (board 016)": (
         "Потрібна присутність власника: так", "Виконавець її не бере ніколи", "next --attended", "start --attended",
-        "поверніть її в `todo/`", "Задачу з присутнім власником сам не бери"),
+        "Задачу з присутнім власником сам не бери"),
+    "the owner's answers go first; an attended task in doing/ does not stop the runner (board 049)": (
+        "## Відповіді власника — першими", "першою після поточної", "`tasks/.first`", "у роботі з власником", "бере наступні задачі"),
     "paid runs only on the owner's written word": ("Аудит потрібен: так", "лімітом у доларах", "Агент сам таких прогонів не починає"),
     "the audit script refuses by itself; --owner-approved is the owner's": ("він відмовляє", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),

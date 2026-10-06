@@ -64,8 +64,10 @@ empty, or all that is left waits for the owner — it puts a cleanup task there 
 simplifier's rules), with an entry in the anomaly journal, in one commit — not more than once a day, never
 while one waits in `todo/`, `doing/` or `blocked/`, `CLEANUP_EVERY_DAYS` in `project.env` (empty: 1, `0`:
 never); the pass after that task finds nothing due and stops as before. A task that says `Потрібна присутність
-власника: так` it never takes (`board.py next` does not offer one; left in `doing/` it stops the runner with
-`reason=attended`): such a task is done in an interactive session with the owner (`tasks/README.md`).
+власника: так` it never takes (`board.py next` does not offer one): such a task is done in an interactive
+session with the owner (`tasks/README.md`). Left in `doing/` it stops nothing: the runner leaves it as it is,
+takes the next tasks beside it, and the review shows it as «у роботі з власником». A task the owner has just
+answered is taken first after the one in hand, whatever its number (`tasks/.first`, written by `board.py unblock`).
 It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
 A session that ends with the task still open is continued (`--resume`); a usage-limit notice

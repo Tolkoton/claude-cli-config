@@ -173,6 +173,9 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "tasks/todo/020-free.md", task("020 — Вільна", deps="001"))
     write(work, "tasks/todo/030-stands.md", task("030 — Стоїть", deps="008, 020"))
     write(work, "tasks/todo/040-attended.md", task("040 — ЗАДАЧА-З-ВЛАСНИКОМ").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
+    write(work, "tasks/doing/045-with-owner.md", task("045 — ВЕДЕ-ВЛАСНИК").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
+    write(work, "tasks/todo/950-answered.md", task("950 — ВЛАСНИК-ВІДПОВІВ"))
+    write(work, "tasks/.first", "950-answered.md\n007-gone.md\n")
     write(work, "docs/tasks/settings.json", '{"proposal": true}\n')
     write(work, ".claude/settings.json", '{"proposal": false}\n')
     write(work, ".engine/rule-proposals.md", "# Rule proposals\n\n## RP-ab12 — 2026-01-02 — PROPOSED\n- Rule: ПРАВИЛО-ПРОПОЗИЦІЯ\n- Why: бо\n\n"
@@ -336,6 +339,9 @@ check("…and the one that can start is not said to stand", "стоїть" not i
 line_040 = next(line for line in plan.splitlines() if "040-attended.md" in line)
 check("…an attended task is in the plan as one the runner does not take, never as «наступна»", "лише з присутнім власником" in line_040
       and "наступна" not in line_040, line_040)
+check("board 049: a task the owner answered heads the plan, whatever its number, and says why", plan.find("950-answered.md") != -1
+      and plan.find("950-answered.md") < plan.find("020-free.md") and "власник відповів" in next(line for line in plan.splitlines() if "950-answered.md" in line)
+      and "власник відповів" not in line_020 and "007-gone" not in plan, plan)
 candidates = section(doc, "Кандидати в нові задачі")
 check("candidates: «Відкладене» and «Чого мені бракувало» of the finished reports", "ВІДКЛАДЕНЕ-001-first" in candidates
       and "ВІДКЛАДЕНЕ-002-second" in candidates and "БРАКУВАЛО-002-second" in candidates, candidates)
@@ -382,6 +388,12 @@ check("a runner that is not working has no attempt in hand, whatever the log's l
       "Спроба, що триває" not in section(cli(clone, state=state_files(top, "state=stalled task=009-in-work since=2026-02-01T00:00:00Z reason=no-commit")).stdout, "Стан зараз"))
 now = section(doc, "Стан зараз")
 check("without the state files: from git — the task in doing/ and since when", "009-in-work.md" in now and "2026-02-01" in now and "git" in now, now)
+line_045 = next((line for line in now.splitlines() if "045-with-owner.md" in line), "")
+line_009 = next((line for line in now.splitlines() if "009-in-work.md" in line), "")
+check("board 049: an attended task in doing/ is shown as worked on with the owner; the runner's own task is not",
+      "у роботі з власником" in line_045 and "ВЕДЕ-ВЛАСНИК" in line_045 and "у роботі з власником" not in line_009, now)
+check("…and under «Чекає на власника» it says the same", "`045-with-owner.md`" in attended_part
+      and "у роботі з власником" in next(line for line in attended_part.splitlines() if "045-with-owner.md" in line), attended_part)
 elapsed = review.elapsed(datetime(2026, 2, 1, tzinfo=UTC), datetime(2026, 2, 2, 3, 4, tzinfo=UTC))
 check("a duration is said in days, hours and minutes", elapsed == "1 дн 3 год 4 хв", elapsed)
 

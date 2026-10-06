@@ -88,6 +88,8 @@ def git(*a):
     subprocess.run(["git", *a], check=True, capture_output=True)
 
 doing = sorted(Path("tasks/doing").glob("[0-9]*.md"))
+named = [p for p in doing if f"tasks/doing/{p.name}" in argv[1]]   # the task the runner named, when doing/ holds another beside it
+doing = named or doing
 result = "worked"
 leave = step.endswith("-dirty")
 step = step.removesuffix("-dirty")
@@ -1075,13 +1077,26 @@ w.put("todo", "017-block-dangerous-push-hardening.md", ATTENDED_017.replace("З�
 r = w.run("--once")
 check("017 alone, nothing to wait for, even with --once: claude is not called, the task does not move", r.returncode == 0
       and len(w.calls()) == 0 and w.has("tasks/todo/017-block-dangerous-push-hardening.md") and "state=waiting-owner" in w.status(), w.status() + r.stderr)
-w = World("done")
+w = World("done done")
 w.put("doing", "017-block-dangerous-push-hardening.md", ATTENDED_017)
 w.put("todo", "019-free.md")
+w.put("todo", "020-also-free.md")
 r = w.run()
-check("017 left in doing/ by the owner's session: the runner does not continue it — claude not called, reason=attended", r.returncode == 0
-      and len(w.calls()) == 0 and w.has("tasks/doing/017-block-dangerous-push-hardening.md") and "state=waiting-owner" in w.status()
-      and "reason=attended" in w.status(), w.status() + r.stdout + r.stderr)
+check("017 left in doing/ by the owner's session does not stop the runner (board 049): it takes 019, then 020", r.returncode == 0
+      and len(w.calls()) == 2 and "tasks/doing/019-free.md" in w.argv(0)[1] and "tasks/doing/020-also-free.md" in w.argv(1)[1]
+      and w.has("tasks/done/019-free/report.md") and w.has("tasks/done/020-also-free/report.md"), w.status() + r.stdout + r.stderr + str(w.calls()))
+check("…017 stays in doing/, byte for byte: no session was started on it and no commit of the runner moved it",
+      (w.repo / "tasks/doing/017-block-dangerous-push-hardening.md").read_text(encoding="utf-8") == ATTENDED_017
+      and not any("017-block" in " ".join(c["argv"]) for c in w.calls())
+      and not any("017-block" in line for line in w.log() if not line.startswith("owner: ")), w.log())
+check("…the runner ends idle, not on an error and not with reason=attended", "state=idle" in w.status() and "reason=attended" not in w.status(), w.status())
+summary_049 = sh(w.repo, sys.executable, str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "summary").stdout
+check("…and the board's summary shows it as worked on with the owner", "в роботі з власником: 017-block-dangerous-push-hardening.md" in summary_049, summary_049)
+w = World("done")
+w.put("doing", "017-block-dangerous-push-hardening.md", ATTENDED_017)
+r = w.run()
+check("the negative case: 017 in doing/ and nothing else — claude is not called, 017 does not move, the runner stops quietly", r.returncode == 0
+      and len(w.calls()) == 0 and w.has("tasks/doing/017-block-dangerous-push-hardening.md") and "state=error" not in w.status(), w.status() + r.stderr)
 r = w.run("--retry")
 check("--retry is gone (board 035): an unknown option, exit 2, nothing runs", r.returncode == 2 and "unknown option '--retry'" in r.stderr
       and len(w.calls()) == 0 and w.has("tasks/doing/017-block-dangerous-push-hardening.md"), r.stderr + w.status())
@@ -1089,6 +1104,34 @@ w = World("done")
 w.put("todo", "017-ordinary.md", ATTENDED_017.replace("Потрібна присутність власника: так", "Потрібна присутність власника: ні").replace("Залежить від: 016", "Залежить від: —"))
 r = w.run()
 check("the negative case: the same task with «ні» IS taken", len(w.calls()) == 1 and w.has("tasks/done/017-ordinary/report.md"), w.status() + r.stderr)
+
+# --- the owner's answers first (board 049) ---------------------------------------------------------------------------------
+print("the owner's answers first")
+w = World("done done done done")
+w.put("doing", "001-in-hand.md")
+w.put("todo", "002-queued.md")
+w.put("todo", "003-queued.md")
+w.put("blocked", "950-open-item.md", task(questions="1. Що робити?\n   Відповідь:\n"))
+sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+owner_answers(w, "950-open-item.md", "зроби інакше")
+r = w.run()
+order = [next(part.rstrip(".") for part in c["argv"][1].split() if part.startswith("tasks/doing/")) for c in w.calls()]
+check("the task in hand is finished first, then the one the owner answered — numbered 950 — and only then 002 and 003", r.returncode == 0
+      and order == ["tasks/doing/001-in-hand.md", "tasks/doing/950-open-item.md", "tasks/doing/002-queued.md", "tasks/doing/003-queued.md"], order)
+first_log = sh(w.repo, "git", "log", "--format=%s", "--", "tasks/.first").stdout.splitlines()
+check("…the order is on the board, in the runner's own commits: written with the answer's return, removed with the start",
+      len(first_log) == 2 and first_log[1].startswith("board: answered, back to todo — 950-open-item.md")
+      and first_log[0] == "board: 950-open-item → doing", first_log)
+check("…and nothing is left uncommitted or behind", not w.has("tasks/.first") and sh(w.repo, "git", "status", "--porcelain").stdout == ""
+      and w.origin_head() == w.head(), sh(w.repo, "git", "status", "--porcelain").stdout)
+w = World("done done done")
+w.put("todo", "002-queued.md")
+w.put("todo", "003-queued.md")
+w.put("blocked", "950-open-item.md", task(questions="1. Що робити?\n   Відповідь:\n"))
+r = w.run()
+order = [next(part.rstrip(".") for part in c["argv"][1].split() if part.startswith("tasks/doing/")) for c in w.calls()]
+check("the negative case: the same board with the question unanswered — by number, and 950 waits in blocked/", order ==
+      ["tasks/doing/002-queued.md", "tasks/doing/003-queued.md"] and w.has("tasks/blocked/950-open-item.md"), order)
 
 # --- the soft stop (board 019) ---------------------------------------------------------------------------------------------
 print("the soft stop: --stop-after-task")

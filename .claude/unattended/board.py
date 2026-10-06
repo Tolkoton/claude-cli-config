@@ -15,10 +15,11 @@ It never runs git: staging and committing belong to the runner and to the agent.
 exception reads only: `review` takes the board from the work branch in origin (board_review.py).
 
     board.py next [--attended]       the task to work on: the one in doing/, else the first in
-                                     todo/ whose dependencies are all in done/.
-                                     exit 3: todo/ is empty; exit 4: tasks wait, none is eligible;
-                                     exit 5: doing/ holds a task that needs the owner present
-    board.py start [--attended] <todo file>   move it to doing/ (refused while doing/ holds a task)
+                                     todo/ whose dependencies are all in done/ — a task the owner
+                                     answered before any other (THE OWNER'S ANSWERS FIRST).
+                                     exit 3: todo/ is empty; exit 4: tasks wait, none is eligible
+    board.py start [--attended] <todo file>   move it to doing/ (refused while doing/ holds a task
+                                     of the same side: see AN ATTENDED TASK)
     board.py where <NNN-name>        todo | doing | blocked | done | missing
     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
@@ -111,8 +112,20 @@ rightly refuses without a person. `next` never offers one and `start` never move
 runner therefore never takes it, and a task that depends on it waits. With `--attended` both do
 — `next --attended` offers attended tasks only — and `--attended` is refused in an unattended
 session (CLAUDE_UNATTENDED_SESSION=1, or `.claude/state/overseer/mode` says `unattended`), so
-the flag is the owner's interactive session and nothing else. An attended task left in doing/
-makes `next` exit 5: the runner stops and says so instead of working on it.
+the flag is the owner's interactive session and nothing else. An attended task in doing/ is
+that session's and stops nobody (board 049): a plain `next` neither continues it nor waits for
+it — it offers the next task of todo/ — and a plain `start` puts the runner's task beside it, so
+doing/ holds at most one task of each side. `summary` and the review call it «в роботі з
+власником». `start --attended` is still refused while doing/ holds any task.
+
+THE OWNER'S ANSWERS FIRST (board 049). A task the owner has just answered does not go to the end
+of the queue, whatever its number — a gate question is numbered from 900. `unblock` appends the
+names it returns to todo/ to `tasks/.first`, one per line; `next` takes the tasks named there
+before every other, in the order answered, and the rest by number. Dependencies and the owner's
+presence hold as for any task: an answered task that cannot start keeps its place for when it
+can. `start` removes the name; a name that is not in todo/ means nothing. Every answered task —
+a gate's, a rule's, an offered action's, a parked one, an open item — returns through `unblock`,
+so the rule has one place. The file is committed with tasks/ like the move itself.
 
 A PARKED TASK (board 021). One task never stops the board: when the runner gives up on a task —
 attempts in a row without a commit, a task open too long, its budget spent, a task the agent put
@@ -156,11 +169,13 @@ import json
 import os
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 COLUMNS = ("todo", "doing", "blocked", "done")
+FIRST = ".first"  # tasks/.first: the todo/ tasks the owner answered (THE OWNER'S ANSWERS FIRST)
 TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
@@ -191,7 +206,7 @@ FIRST_RESERVED = 800  # ordinary tasks are numbered under the rule questions and
 ITEM = re.compile(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
 ITEM_FIRST = 700  # open items (board 037) are numbered from here, under the rule questions
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
-EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_ATTENDED = 2, 3, 4, 5
+EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE = 2, 3, 4
 
 
 @dataclass(frozen=True)
@@ -277,6 +292,14 @@ def parse(text: str) -> Task:
     )
 
 
+def first_rank(first: list[str]) -> Callable[[str], int]:
+    """The sort key that moves the task files named in `first` to the front, in the order of
+    `first`, and leaves the rest as they were. The one rule of THE OWNER'S ANSWERS FIRST, for the
+    board and for the review."""
+    rank = {n: i for i, n in enumerate(dict.fromkeys(first))}
+    return lambda name: rank.get(name, len(rank))
+
+
 def number_of(name: str) -> int | None:
     match = TASK_NAME.match(name) or DONE_NAME.match(name)
     return int(match.group(1)) if match else None
@@ -308,10 +331,33 @@ class Board:
         finished = self.numbers("done")
         return [n for n in task.depends if n not in finished]
 
+    def first(self) -> list[str]:
+        """The names in tasks/.first: the tasks the owner answered, oldest answer first."""
+        return _text(self.tasks / FIRST).split()
+
+    def set_first(self, names: list[str]) -> None:
+        """Rewrite tasks/.first with those of `names` that are in todo/; no such name — no file."""
+        waiting = {p.name for p in self.files("todo")}
+        kept = [n for n in dict.fromkeys(names) if n in waiting]
+        if kept:
+            (self.tasks / FIRST).write_text("".join(f"{n}\n" for n in kept), encoding="utf-8")
+        else:
+            (self.tasks / FIRST).unlink(missing_ok=True)
+
+    def queue(self) -> list[Path]:
+        """todo/ in the order it is taken: what the owner answered, then the rest by number."""
+        rank = first_rank(self.first())
+        return sorted(self.files("todo"), key=lambda p: rank(p.name))
+
+    def in_hand(self, attended: bool = False) -> list[Path]:
+        """The tasks of doing/ that are this side's: the owner's session holds the attended ones,
+        an agent alone the others (AN ATTENDED TASK)."""
+        return [p for p in self.files("doing") if read(p).attended == attended]
+
     def eligible(self, attended: bool = False) -> Path | None:
-        """The first task in todo/ that can start: for an agent alone, never an attended one; with
-        attended=True (the owner's session), the first attended one."""
-        return next((p for p in self.files("todo") for task in [read(p)]
+        """The first task of the queue that can start: for an agent alone, never an attended one;
+        with attended=True (the owner's session), the first attended one."""
+        return next((p for p in self.queue() for task in [read(p)]
                      if task.attended == attended and not self.unmet(task)), None)
 
     def shown(self, path: Path) -> str:
@@ -338,17 +384,14 @@ def attended_refusal(root: Path) -> str | None:
 
 
 def cmd_next(board: Board, attended: bool = False) -> int:
-    doing = board.files("doing")
+    # An agent alone never sees the owner's session's task in doing/ (board 049): it is neither
+    # continued nor in the way. The owner's session continues whatever doing/ holds.
+    doing = board.files("doing") if attended else board.in_hand()
     if len(doing) > 1:
         print("board: tasks/doing/ holds more than one task (" + ", ".join(p.name for p in doing)
               + ") — one at a time; move the extra ones back to tasks/todo/", file=sys.stderr)
         return EXIT_REFUSED
     if doing:
-        if read(doing[0]).attended and not attended:
-            print(f"board: tasks/doing/ holds {doing[0].name}, which needs the owner present "
-                  "(«Потрібна присутність власника: так») — it is worked on in an interactive session with the owner; "
-                  "to free the board, move it back to tasks/todo/", file=sys.stderr)
-            return EXIT_ATTENDED
         print(board.shown(doing[0]))
         return 0
     task = board.eligible(attended)
@@ -367,13 +410,14 @@ def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> i
         print(f"board: {source.name} needs the owner present («Потрібна присутність власника: так») — it is started only "
               "in an interactive session with the owner: board.py start --attended (tasks/README.md)", file=sys.stderr)
         return EXIT_REFUSED
-    doing = board.files("doing")
+    doing = board.files("doing") if attended else board.in_hand()
     if doing:
         print(f"board: tasks/doing/ already holds {doing[0].name} — one task at a time", file=sys.stderr)
         return EXIT_REFUSED
     target = board.tasks / "doing" / source.name
     target.parent.mkdir(parents=True, exist_ok=True)
     source.rename(target)
+    board.set_first(board.first())
     print(board.shown(target))
     return 0
 
@@ -443,6 +487,8 @@ def unblock(board: Board) -> list[str]:
             target.parent.mkdir(parents=True, exist_ok=True)
             path.rename(target)
             moved.append(path.name)
+    if moved:
+        board.set_first([*board.first(), *moved])
     return moved
 
 
@@ -783,7 +829,7 @@ def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
     every = _every(root, "CLEANUP_EVERY_DAYS", CLEANUP_DAYS)
     if every == 0 or not (root / CLEANUP_SCRIPT).is_file() or not _due(board, CLEANUP_NAME, today, every):
         return None
-    if board.files("doing") or board.eligible() is not None:
+    if board.in_hand() or board.eligible() is not None:
         return None
     number, often = _own_number(board), "раз на добу" if every == 1 else f"раз на {every} діб"
     path = board.tasks / "todo" / f"{number:03d}-cleanup-{today.isoformat()}.md"
@@ -976,7 +1022,7 @@ def summary(board: Board) -> list[str]:
     todo, doing, blocked, done = board.files("todo"), board.files("doing"), board.files("blocked"), board.done()
     known = {n for column in COLUMNS for n in board.numbers(column)}
     lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}"]
-    lines += [f"в роботі: {p.name}" for p in doing]
+    lines += [f"в роботі з власником: {p.name}" if read(p).attended else f"в роботі: {p.name}" for p in doing]
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
     for path in todo:
@@ -987,7 +1033,8 @@ def summary(board: Board) -> list[str]:
         if unmet:
             waits = ", ".join(f"{n:03d}" + ("" if n in known else " (такої задачі ніде немає)") for n in unmet)
             lines.append(f"чекає на залежності: {path.name} — {waits}")
-    task = board.eligible() if not doing else None
+    lines += [f"першою, бо власник відповів: {p.name}" for p in todo if p.name in board.first()]
+    task = board.eligible() if not board.in_hand() else None
     if task:
         lines.append(f"наступна: {task.name}")
     return lines

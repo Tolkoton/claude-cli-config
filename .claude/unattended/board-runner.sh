@@ -16,7 +16,11 @@
 #                       (one commit); close the gate escalations the owner answered «так»
 #                       and take the actions the owner answered «так» (see below); move answered tasks from tasks/blocked/ back to todo/ (one commit)
 #   the task            the first in todo/ whose dependencies are in done/ goes to doing/ in a
-#                       commit of its own, then `claude -p` in a FRESH conversation
+#                       commit of its own, then `claude -p` in a FRESH conversation. A task the
+#                       owner has just answered is the first, whatever its number (board 049:
+#                       `board.py unblock` writes tasks/.first, `board.py next` reads it). A task
+#                       that needs the owner present is never taken, and one left in doing/ by
+#                       the owner's session stops nothing: it stays as it is, beside the runner's own task
 #   while it is open    a session that ended with the task still in doing/ is continued
 #                       (--resume); a usage-limit notice waits 15 minutes and is not an attempt
 #   the task is closed  when the agent moved it to done/ or blocked/. Then: the working tree is
@@ -704,11 +708,6 @@ while :; do
         finish waiting-owner - owner "nothing can move: what is left waits for the owner's answers, for the owner's presence or for tasks that are not done ($FINISHED task(s) closed in this run)"
       fi
       finish idle - todo-empty "tasks/todo/ is empty ($FINISHED task(s) closed in this run)"
-      ;;
-    5)
-      # An attended task (board 016) is in doing/: the owner's interactive session works on it, never this runner.
-      push_branch
-      finish waiting-owner - attended "tasks/doing/ holds a task that needs the owner present; the runner never works on it — finish it in an interactive session or move it back to tasks/todo/ ($FINISHED task(s) closed in this run)"
       ;;
     *) finish error - board "board.py next refused (two tasks in tasks/doing/?); see its message above" ;;
   esac

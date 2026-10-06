@@ -321,7 +321,9 @@ def now_section(src: Source, state: Path, now: datetime) -> list[str]:
     doing = src.column("doing")
     for path in doing:
         moved = as_utc(src.log("-1", "--diff-filter=AR", "--format=%cI", src.sha, "--", path))
-        lines.append(f"- У гілці в `doing/`: `{posixpath.basename(path)}` — {title_of(src.show(path), 'без назви')}; "
+        text = src.show(path)
+        with_owner = " (**у роботі з власником** — виконавець її не чіпає і бере наступні)" if board.parse(text).attended else ""
+        lines.append(f"- У гілці в `doing/`: `{posixpath.basename(path)}` — {title_of(text, 'без назви')}{with_owner}; "
                      f"узято в роботу {stamp(moved)}" + (f", {elapsed(moved, now)} тому" if moved else "") + ".")
     if not doing:
         unpushed = status is not None and status.group(2) != "-"
@@ -470,7 +472,7 @@ def attended_lines(src: Source) -> list[str]:
             text = src.show(path)
             if board.parse(text).attended:
                 name = posixpath.basename(path)
-                lines.append(f"- `{name}` — {title_of(text, name)}" + (" (зараз у `doing/`)" if column == "doing" else ""))
+                lines.append(f"- `{name}` — {title_of(text, name)}" + (" — зараз у роботі з власником (у `doing/`); виконавця вона не зупиняє" if column == "doing" else ""))
     if not lines:
         return ["- Немає."]
     return [("Виконавець їх не бере ніколи; кожна робиться в інтерактивній сесії Claude Code разом із вами (`tasks/README.md`, "
@@ -560,19 +562,22 @@ def journal_lines(src: Source, period: Since) -> list[str]:
 
 
 def plan_section(src: Source) -> list[str]:
-    todo = src.column("todo")
+    first = src.show(f"tasks/{board.FIRST}").split()
+    rank = board.first_rank(first)
+    todo = sorted(src.column("todo"), key=lambda p: rank(posixpath.basename(p)))   # the order the runner takes them in
     if not todo:
         return ["У `todo/` порожньо."]
     place = {board.number_of(posixpath.basename(p)): c for c in ("todo", "doing", "blocked") for p in src.column(c)}
     place.update({board.number_of(s): "done" for s in src.done()})
     lines = []
-    first_free = not src.column("doing")
+    first_free = not [p for p in src.column("doing") if not board.parse(src.show(p)).attended]   # the owner's session's task is not in the way
     for index, path in enumerate(todo, 1):
         text = src.show(path)
         task = board.parse(text)
         depends = task.depends
         unmet = [n for n in depends if place.get(n) != "done"]
         line = f"{index}. `{posixpath.basename(path)}` — {title_of(text, 'без назви')}"
+        line += "; **першою — власник відповів**" if posixpath.basename(path) in first else ""
         if task.attended:
             line += "; **лише з присутнім власником** — виконавець не бере"
             line += ("; чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)) if unmet else ""
