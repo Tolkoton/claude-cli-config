@@ -183,10 +183,13 @@ TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
 AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
-# The owner's leave for paid runs (board 053): «так» or any wording that is not a refusal; a dollar
-# number in the line is a ceiling, never a required field. The runner's BOARD_MAX_USD guards a loop.
+# The owner's leave for paid runs (board 053), recognised positively and in the task's header only:
+# the line begins with «так», or says «скільки потрібно / треба», or names a dollar sum above zero
+# (the wording before this board; the sum is a ceiling, never a required field). Anything else —
+# the word «ні» anywhere, «не треба», an empty line, wording nobody foresaw — is no leave: the guard fails closed.
 PAID = re.compile(r"^Платні прогони:[ \t]*(.*)$", re.MULTILINE)
-PAID_NO = re.compile(r"(?:ні|немає|нема|no)\b|[—–-]*[\s.]*$", re.IGNORECASE)
+PAID_NO = re.compile(r"(?:немає|нема|не(?! більше| понад)|без|no|not|none)\b|.*\bні\b", re.IGNORECASE)
+PAID_YES = re.compile(r"так\b|.*\bскільки (?:потрібно|треба)\b", re.IGNORECASE)
 PAID_CEILING = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.IGNORECASE)
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
@@ -274,6 +277,20 @@ def consents(answer: str) -> bool:
     return is_word(answer, CONSENT)
 
 
+def paid_leave(header: str) -> tuple[bool, float | None]:
+    """(the owner gave leave for paid runs, the dollar ceiling written there or None). One line
+    only: two «Платні прогони:» lines in a header are nobody's clear word, so no leave."""
+    lines = [m.group(1).strip(" \t*_") for m in PAID.finditer(header)]
+    if len(lines) != 1:
+        return False, None
+    sum_ = PAID_CEILING.search(lines[0])
+    ceiling = float(sum_.group(1).replace(",", ".")) if sum_ else None
+    said_yes = PAID_YES.match(lines[0]) is not None
+    if ceiling == 0 or PAID_NO.match(lines[0]) or not (said_yes or ceiling):
+        return False, None
+    return True, ceiling
+
+
 def parse(text: str) -> Task:
     text = COMMENT.sub("", text)
     first_heading = HEADING.search(text)
@@ -289,8 +306,7 @@ def parse(text: str) -> Task:
         following = HEADING.search(rest)
         questions = rest[: following.start()] if following else rest
     rule = RULE.search(header)
-    paid = next((m.group(1).strip(" \t*_") for m in PAID.finditer(text) if not PAID_NO.match(m.group(1).strip(" \t*_"))), None)
-    ceiling = PAID_CEILING.search(paid) if paid else None
+    paid, ceiling = paid_leave(header)
     offers = [m for m in ACTION.finditer(questions) if m.group(1) in OFFERS]
     return Task(
         action=offers[-1].group(1) if offers else "",
@@ -302,8 +318,8 @@ def parse(text: str) -> Task:
         gate=gate.group(1) if gate else "",
         rule=rule.group(1) if rule else "",
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
-        paid=paid is not None,
-        paid_ceiling=float(ceiling.group(1).replace(",", ".")) if ceiling else None,
+        paid=paid,
+        paid_ceiling=ceiling,
     )
 
 

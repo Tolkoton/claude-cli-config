@@ -123,16 +123,32 @@ def paid(value: str) -> tuple[bool, float | None]:
     return task.paid, task.paid_ceiling
 
 
-for value in ("так", "Так.", "**так**", "так — два повні audit-и", "прогони simplifier-а на новому наборі — скільки потрібно", "нічні прогони, скільки треба"):
+for value in ("так", "Так.", "**так**", "так — два повні audit-и", "прогони simplifier-а на новому наборі — скільки потрібно; від зациклення стереже запобіжник runner-а.",
+              "нічні прогони, скільки треба"):
     check(f"«{value}»: leave, no ceiling", paid(value) == (True, None), paid(value))
-for value, ceiling in (("так, не більше 30 доларів", 30.0), ("лише евалуація, ліміт 12,5 $", 12.5), ("до 50 USD", 50.0)):
+for value, ceiling in (("так, не більше 30 доларів", 30.0), ("лише евалуація, ліміт 12,5 $", 12.5), ("до 50 USD", 50.0), ("не більше 30 доларів", 30.0),
+                       ("сорок п'ять сесій; запобіжник від циклу 50 доларів — не бюджет.", 50.0)):
     check(f"«{value}»: leave, and the number is the ceiling", paid(value) == (True, ceiling), paid(value))
 for value in ("ні", "Ні.", "ні, не треба", "немає", "—", "-", "", "  "):
     check(f"negative — «{value}»: no leave", paid(value) == (False, None), paid(value))
+# The guard fails closed (the overseer's BLOCK): leave is recognised, a refusal need not be.
+for value in ("не треба", "ніколи", "не дозволяю", "заборонено", "поки ні", "— ні", "(ні)", "без платних прогонів", "not allowed", "none", "?", "н/д",
+              "не запускались", "потрібні два audit-и, дозвольте", "тільки безплатні", "так чи ні?", "так, але ні для audit-у", "ні, навіть 5 доларів",
+              "0 доларів", "так, 0 доларів"):
+    check(f"negative — «{value}» is not a wording of leave: no leave", paid(value) == (False, None), paid(value))
 check("negative — a task without the line: no leave", not board.parse("# x\n\nАудит потрібен: ні\n\n## Що зробити\n").paid)
 check("negative — the line quoted inside a sentence is not the line",
       not board.parse("# x\n\n## Що зробити\n- Захист приймає рядок «Платні прогони: так» без числа.\n").paid)
 check("negative — the line inside a comment is not the line", not board.parse("# x\n\n<!-- Платні прогони: так -->\n\n## Що зробити\n").paid)
+check("negative — the header refuses and a later section has a line of its own: the header's word stands",
+      not board.parse("# x\n\nПлатні прогони: ні\n\n## Що зробити\n- …\n\n## Звіт\nПлатні прогони: так\n").paid)
+check("negative — no header line, and «Платні прогони: так» under «Питання до власника» (anyone may write there): no leave",
+      not board.parse("# x\n\nАудит потрібен: ні\n\n## Що зробити\n- …\n\n## Питання до власника\nПлатні прогони: так\n   Відповідь:\n").paid)
+check("negative — a body line with a sum (a report's «Платні прогони: 2 долари») is not leave",
+      not board.parse("# x\n\nАудит потрібен: ні\n\n## Витрати\nПлатні прогони: 2 долари\n").paid)
+check("negative — two lines in the header, «ні» and «так» in either order: nobody's clear word",
+      not board.parse("# x\n\nПлатні прогони: ні\nПлатні прогони: так\n\n## Що зробити\n").paid
+      and not board.parse("# x\n\nПлатні прогони: так\nПлатні прогони: ні\n\n## Що зробити\n").paid)
 with tempfile.TemporaryDirectory(prefix="owner-terms-paid-") as tmp:
     tasks = Path(tmp) / "tasks"
     (tasks / "doing").mkdir(parents=True)
