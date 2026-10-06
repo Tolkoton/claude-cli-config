@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The testing manager's decisions on thirteen scenes (board 062; the design of board 060, section 3).
 
-    python3 evals/run_manager_evals.py --out @env/manager-evals-<label>.json   # PAID: 13 short read-only sessions
+    python3 evals/run_manager_evals.py --out evals/baseline/@env/manager-evals-<label>.json   # PAID: 13 short read-only sessions
     python3 evals/run_manager_evals.py --scenes discount-threshold fourth-exporter
     python3 evals/run_manager_evals.py --dry-run DIR                           # free: every sandbox, nothing is run
     python3 evals/run_manager_evals.py --score ANSWER.txt --scene NAME         # free: score a ready answer

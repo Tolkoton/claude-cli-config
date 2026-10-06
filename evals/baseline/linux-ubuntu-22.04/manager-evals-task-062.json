@@ -1,0 +1,519 @@
+{
+  "recorded_utc": "2026-10-06T12:30:40Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "7ab85663126def285cde587c620c0d61f0d31447",
+  "limit_usd": 5.0,
+  "planned": [
+    "discount-threshold",
+    "tracer-three-consumers",
+    "fourth-exporter",
+    "rename-settings-key",
+    "date-format-after-dispute",
+    "api-wrapper-retries",
+    "legacy-parameter",
+    "second-of-five",
+    "block-closed-connected",
+    "feature-of-two-wrappers",
+    "not-switched-then-surprised",
+    "large-block-no-mutation-tool",
+    "neighbour-helper-untested"
+  ],
+  "scenes": {
+    "discount-threshold": "O3: the owner ratified 50 %; «over» — inclusive or not?",
+    "tracer-three-consumers": "O2: a thin tracer bullet whose result three slices read",
+    "fourth-exporter": "the fourth of five exporters of one shape; nothing found on the earlier ones; no consumers",
+    "rename-settings-key": "a settings key renamed and carried through two calls: no branching, no seams",
+    "date-format-after-dispute": "O4: a small formatter, but the previous slice of the block ended «the code was wrong»",
+    "api-wrapper-retries": "nothing mandatory; branching; the first of its kind — the conditions of «do not switch» are not met",
+    "legacy-parameter": "O8: one parameter added to a file no test touches",
+    "second-of-five": "the second slice of five in the block «prices», no surprises: nothing now, integration deferred to the close of the block",
+    "block-closed-connected": "the last slice of «prices»; «stock» is built and «prices» reads it; a large block; MUTATION_CMD set",
+    "feature-of-two-wrappers": "O5: the last slice of a feature of one block of two wrappers; not large",
+    "not-switched-then-surprised": "O7: point (a) said «the builder», and the builder added two self-added behaviours",
+    "large-block-no-mutation-tool": "a large block closed, MUTATION_CMD empty: no run, and the owner sees a large block without one",
+    "neighbour-helper-untested": "O8 by the diff: the builder also fixed a helper in a neighbouring module no test runs"
+  },
+  "summary": {
+    "runs": 13,
+    "errors": 0,
+    "passed": 13,
+    "matched": 13,
+    "named_the_fact": 13,
+    "the_script_would_refuse": [],
+    "not_passed": [],
+    "cost_usd": 0.7075
+  },
+  "runs": [
+    {
+      "scene": "discount-threshold",
+      "point": "a",
+      "expected": {
+        "decision": "tester"
+      },
+      "cost_usd": 0.0837,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"discount-threshold\", \"decision\": \"tester\",\n \"reason\": \"O3: `ratified_thresholds` is not empty — the exit criterion \\\"A discount over 50 percent is refused with ValueError (threshold owner-ratified)\\\" carries a number the owner ratified. The boundary (exactly 50 allowed, anything over refused) must be checked by someone who did not write the code, since a builder who reads \\\"≥\\\" would write both test and code on \\\"≥\\\". The slice's small size (one function, about 15 lines), empty `hardest_seams` and empty `consumers` do not cancel this mandatory case.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "discount-threshold",
+        "decision": "tester",
+        "reason": "O3: `ratified_thresholds` is not empty — the exit criterion \"A discount over 50 percent is refused with ValueError (threshold owner-ratified)\" carries a number the owner ratified. The boundary (exactly 50 allowed, anything over refused) must be checked by someone who did not write the code, since a builder who reads \"≥\" would write both test and code on \"≥\". The slice's small size (one function, about 15 lines), empty `hardest_seams` and empty `consumers` do not cancel this mandatory case."
+      },
+      "shown": "tester",
+      "differs": [],
+      "mandatory": {
+        "O3": "the exit criterion carries a threshold the owner ratified"
+      }
+    },
+    {
+      "scene": "tracer-three-consumers",
+      "point": "a",
+      "expected": {
+        "decision": "tester"
+      },
+      "cost_usd": 0.042,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"tracer-three-consumers\", \"decision\": \"tester\",\n \"reason\": \"O2: `consumers` is not empty (S2, S3, S4) — the `Order` record returned by `load_order` is read by later slices of the feature, so a misreading of the contract (the shape of `lines`, `total_cents`, the KeyError path) would multiply in every consumer. The slice is small (one function, about 10 lines, no hardest seams, no ratified thresholds), but O2 is mandatory regardless of size.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "tracer-three-consumers",
+        "decision": "tester",
+        "reason": "O2: `consumers` is not empty (S2, S3, S4) — the `Order` record returned by `load_order` is read by later slices of the feature, so a misreading of the contract (the shape of `lines`, `total_cents`, the KeyError path) would multiply in every consumer. The slice is small (one function, about 10 lines, no hardest seams, no ratified thresholds), but O2 is mandatory regardless of size."
+      },
+      "shown": "tester",
+      "differs": [],
+      "mandatory": {
+        "O2": "the output is consumed by S2, S3, S4"
+      }
+    },
+    {
+      "scene": "fourth-exporter",
+      "point": "a",
+      "expected": {
+        "decision": "builder"
+      },
+      "cost_usd": 0.0577,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"fourth-exporter\", \"decision\": \"builder\",\n \"reason\": \"No mandatory case applies: `hardest_seams` is empty, `ratified_thresholds` is empty, `consumers` is empty and `public_contract` is false, the last entry of `earlier_in_block` (export-xml) has no dispute, no contract ambiguity and no overseer block on check #4, and the «Seam» names only a new module (`src/shop/export_tsv.py`), so `existing_code_the_slice_changes` has no entry with `touched: false`. The slice is the fourth exporter of one shape in the block `exporters`, and the series is clean so far.\",\n \"small\": \"One responsibility — `export_tsv(orders) -> str`, a pure transformation with no error path, expected at one function of about 12 lines; its three behaviours are listed outright in «Exit criterion» (an empty list gives an empty string; two orders give two lines with fields in the order id, total; a tab inside a field is replaced by a space), with nothing to interpret.\",\n \"uniform\": \"It is the next slice of a series of the same shape in the block `exporters`: the independent tester wrote the tests on export-csv and export-json and found nothing (`questions_to_contract` 0, no `dispute_outcomes`, `contract_ambiguous` false), and export-xml, built with the builder's own tests, also passed with no overseer block on check #4.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "fourth-exporter",
+        "decision": "builder",
+        "reason": "No mandatory case applies: `hardest_seams` is empty, `ratified_thresholds` is empty, `consumers` is empty and `public_contract` is false, the last entry of `earlier_in_block` (export-xml) has no dispute, no contract ambiguity and no overseer block on check #4, and the «Seam» names only a new module (`src/shop/export_tsv.py`), so `existing_code_the_slice_changes` has no entry with `touched: false`. The slice is the fourth exporter of one shape in the block `exporters`, and the series is clean so far.",
+        "small": "One responsibility — `export_tsv(orders) -> str`, a pure transformation with no error path, expected at one function of about 12 lines; its three behaviours are listed outright in «Exit criterion» (an empty list gives an empty string; two orders give two lines with fields in the order id, total; a tab inside a field is replaced by a space), with nothing to interpret.",
+        "uniform": "It is the next slice of a series of the same shape in the block `exporters`: the independent tester wrote the tests on export-csv and export-json and found nothing (`questions_to_contract` 0, no `dispute_outcomes`, `contract_ambiguous` false), and export-xml, built with the builder's own tests, also passed with no overseer block on check #4."
+      },
+      "shown": "builder",
+      "differs": [],
+      "mandatory": {}
+    },
+    {
+      "scene": "rename-settings-key",
+      "point": "a",
+      "expected": {
+        "decision": "builder"
+      },
+      "cost_usd": 0.0493,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"rename-settings-key\", \"decision\": \"builder\",\n \"reason\": \"No mandatory case applies: `hardest_seams` is empty, `consumers` is empty and `public_contract` is false, `ratified_thresholds` is empty, `earlier_in_block` is empty (the ledger records no dispute, ambiguity or check #4 block), and every entry of `existing_code_the_slice_changes` (client.py, retry.py, settings.py) has `touched: true`. The slice is both small and uniform, so the builder writes its contract tests.\",\n \"small\": \"One responsibility — the settings key `timeout` is renamed to `timeout_s`; `expected_size` is three files, about 8 lines changed, no new function, and both behaviours are listed outright in the exit criterion (`Settings(timeout_s=5).timeout_s == 5`; the client and the retry helper receive the value), with nothing to interpret.\",\n \"uniform\": \"The slice has no branching logic of its own: the contract says 'Returns: n/a — wiring' and 'Errors: none' — one value carried through the two calls that read it.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "rename-settings-key",
+        "decision": "builder",
+        "reason": "No mandatory case applies: `hardest_seams` is empty, `consumers` is empty and `public_contract` is false, `ratified_thresholds` is empty, `earlier_in_block` is empty (the ledger records no dispute, ambiguity or check #4 block), and every entry of `existing_code_the_slice_changes` (client.py, retry.py, settings.py) has `touched: true`. The slice is both small and uniform, so the builder writes its contract tests.",
+        "small": "One responsibility — the settings key `timeout` is renamed to `timeout_s`; `expected_size` is three files, about 8 lines changed, no new function, and both behaviours are listed outright in the exit criterion (`Settings(timeout_s=5).timeout_s == 5`; the client and the retry helper receive the value), with nothing to interpret.",
+        "uniform": "The slice has no branching logic of its own: the contract says 'Returns: n/a — wiring' and 'Errors: none' — one value carried through the two calls that read it."
+      },
+      "shown": "builder",
+      "differs": [],
+      "mandatory": {}
+    },
+    {
+      "scene": "date-format-after-dispute",
+      "point": "a",
+      "expected": {
+        "decision": "tester"
+      },
+      "cost_usd": 0.0471,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"date-format-after-dispute\", \"decision\": \"tester\",\n \"reason\": \"O4: the last entry of `earlier_in_block` (invoice-total, S1 of block `invoice`) has `code_was_wrong: true` with `dispute_outcomes: [\\\"test_right\\\"]` and one question to the contract. The slice itself is small (one formatter, 3 lines, no `hardest_seams`, no `consumers`, no `ratified_thresholds`), but the previous slice of this block already showed that readings differ, so the tester is mandatory and `builder` is not available.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "date-format-after-dispute",
+        "decision": "tester",
+        "reason": "O4: the last entry of `earlier_in_block` (invoice-total, S1 of block `invoice`) has `code_was_wrong: true` with `dispute_outcomes: [\"test_right\"]` and one question to the contract. The slice itself is small (one formatter, 3 lines, no `hardest_seams`, no `consumers`, no `ratified_thresholds`), but the previous slice of this block already showed that readings differ, so the tester is mandatory and `builder` is not available."
+      },
+      "shown": "tester",
+      "differs": [],
+      "mandatory": {
+        "O4": "on the previous slice of the block (invoice-total): a dispute ended «the code was wrong»; the tester found an ambiguity of the contract"
+      }
+    },
+    {
+      "scene": "api-wrapper-retries",
+      "point": "a",
+      "expected": {
+        "decision": "tester"
+      },
+      "cost_usd": 0.0473,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"api-wrapper-retries\", \"decision\": \"tester\",\n \"reason\": \"No mandatory case fires (`hardest_seams` empty, `consumers` empty, `public_contract` false, `ratified_thresholds` empty, `earlier_in_block` empty, `existing_code_the_slice_changes` unknown until the diff), but the conditions for `builder` are not met. Not small: the contract has branching of its own (timeout retried up to three times with a growing pause, 4xx not retried, nothing raised), and the «Exit criterion» leaves readings open — whether \\\"up to three times\\\" means three attempts or three retries, what happens on 5xx or other errors, and the growing pause has no criterion at all. Not uniform: `earlier_in_block` is empty, so there is no clean series of the same shape behind it, and `expected_size` is one flow function and two helpers, not wiring.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "api-wrapper-retries",
+        "decision": "tester",
+        "reason": "No mandatory case fires (`hardest_seams` empty, `consumers` empty, `public_contract` false, `ratified_thresholds` empty, `earlier_in_block` empty, `existing_code_the_slice_changes` unknown until the diff), but the conditions for `builder` are not met. Not small: the contract has branching of its own (timeout retried up to three times with a growing pause, 4xx not retried, nothing raised), and the «Exit criterion» leaves readings open — whether \"up to three times\" means three attempts or three retries, what happens on 5xx or other errors, and the growing pause has no criterion at all. Not uniform: `earlier_in_block` is empty, so there is no clean series of the same shape behind it, and `expected_size` is one flow function and two helpers, not wiring."
+      },
+      "shown": "tester",
+      "differs": [],
+      "mandatory": {}
+    },
+    {
+      "scene": "legacy-parameter",
+      "point": "a",
+      "expected": {
+        "decision": "tester"
+      },
+      "cost_usd": 0.0415,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "```json\n{\"point\": \"a\", \"slice\": \"legacy-parameter\", \"decision\": \"tester\",\n \"reason\": \"O8: existing_code_the_slice_changes lists legacy/export.py with touched: false (no test touches it). The slice adds `delimiter` to export_csv there, so the first tests of that code, including the exit criterion 'with no argument the output is as before', must come from the independent tester, not from the builder who has just changed it. The slice is small (expected_size: one line changed; no hardest_seams, consumers or ratified_thresholds), but O8 is mandatory regardless of size.\"}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "a",
+        "slice": "legacy-parameter",
+        "decision": "tester",
+        "reason": "O8: existing_code_the_slice_changes lists legacy/export.py with touched: false (no test touches it). The slice adds `delimiter` to export_csv there, so the first tests of that code, including the exit criterion 'with no argument the output is as before', must come from the independent tester, not from the builder who has just changed it. The slice is small (expected_size: one line changed; no hardest_seams, consumers or ratified_thresholds), but O8 is mandatory regardless of size."
+      },
+      "shown": "tester",
+      "differs": [],
+      "mandatory": {
+        "O8": "the slice changes existing code no test touches: legacy/export.py"
+      }
+    },
+    {
+      "scene": "second-of-five",
+      "point": "b",
+      "expected": {
+        "checks": {
+          "catch_up": "none",
+          "integration": "defer",
+          "mutation": "none"
+        },
+        "until": {
+          "integration": "block-closed:prices"
+        }
+      },
+      "cost_usd": 0.0532,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"b\", \"slice\": \"second-of-five\", \"reason\": \"The slice finished without surprises inside the unclosed block \\\"prices\\\", so nothing is checked now and only the integration check is deferred until the block closes.\", \"block_large\": null,\n \"checks\": {\"catch_up\": {\"when\": \"none\", \"reason\": \"decision_at_point_a is tester, self_added_behaviours is 0, overseer_blocks_check_4 is 0, and changed_code_and_tests has no entry with touched: false — the contract tests were already written independently and nothing calls for a second pass.\"},\n            \"integration\": {\"when\": \"defer\", \"until\": \"block-closed:prices\", \"reason\": \"connected_blocks names \\\"stock\\\" (already built), but closes_block is false and closes_feature is false — the connection between prices and stock is tested once the block \\\"prices\\\" is closed.\"},\n            \"mutation\": {\"when\": \"none\", \"reason\": \"closes_block is false, so there is no closed block to run mutation over; mutation_cmd_set is also false.\"}}}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "b",
+        "slice": "second-of-five",
+        "reason": "The slice finished without surprises inside the unclosed block \"prices\", so nothing is checked now and only the integration check is deferred until the block closes.",
+        "block_large": null,
+        "checks": {
+          "catch_up": {
+            "when": "none",
+            "reason": "decision_at_point_a is tester, self_added_behaviours is 0, overseer_blocks_check_4 is 0, and changed_code_and_tests has no entry with touched: false — the contract tests were already written independently and nothing calls for a second pass."
+          },
+          "integration": {
+            "when": "defer",
+            "until": "block-closed:prices",
+            "reason": "connected_blocks names \"stock\" (already built), but closes_block is false and closes_feature is false — the connection between prices and stock is tested once the block \"prices\" is closed."
+          },
+          "mutation": {
+            "when": "none",
+            "reason": "closes_block is false, so there is no closed block to run mutation over; mutation_cmd_set is also false."
+          }
+        }
+      },
+      "shown": "catch_up: none; integration: defer until block-closed:prices; mutation: none",
+      "differs": [],
+      "mandatory": {}
+    },
+    {
+      "scene": "block-closed-connected",
+      "point": "b",
+      "expected": {
+        "checks": {
+          "catch_up": "none",
+          "integration": "now",
+          "mutation": "now"
+        },
+        "block_large": true
+      },
+      "cost_usd": 0.0604,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"b\", \"slice\": \"block-closed-connected\",\n \"reason\": \"This slice closes the block «prices», which is connected to the already built block «stock» and carries a due integration debt; the block is large and has had no mutation run, so integration and mutation both run now, and nothing calls for catch-up tests.\",\n \"block_large\": true,\n \"checks\": {\n   \"catch_up\": {\"when\": \"none\", \"reason\": \"decision_at_point_a is `tester`, self_added_behaviours is 0, overseer_blocks_check_4 is 0, and changed_code_and_tests has no entry with touched: false — neither O7 nor O8 applies.\"},\n   \"integration\": {\"when\": \"now\", \"reason\": \"O6: the integration debt from slice price-rounding (until block-closed:prices) has due: true and cannot be deferred again; also closes_block is true and connected_ready_blocks contains «stock». The connection to «output» is not yet testable because that block is not built, and closes_feature is false, so acceptance criterion A1 is not checked yet.\"},\n   \"mutation\": {\"when\": \"now\", \"reason\": \"closes_block is true, mutation_cmd_set is true, and last_mutation_run_of_block is null. I judge the block large from its own decision logic: block_numbers shows 17 branching functions across 5 slices, 4 hardest seams, 3 ratified thresholds, and 1 slice tested after the code.\"}\n }}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "b",
+        "slice": "block-closed-connected",
+        "reason": "This slice closes the block «prices», which is connected to the already built block «stock» and carries a due integration debt; the block is large and has had no mutation run, so integration and mutation both run now, and nothing calls for catch-up tests.",
+        "block_large": true,
+        "checks": {
+          "catch_up": {
+            "when": "none",
+            "reason": "decision_at_point_a is `tester`, self_added_behaviours is 0, overseer_blocks_check_4 is 0, and changed_code_and_tests has no entry with touched: false — neither O7 nor O8 applies."
+          },
+          "integration": {
+            "when": "now",
+            "reason": "O6: the integration debt from slice price-rounding (until block-closed:prices) has due: true and cannot be deferred again; also closes_block is true and connected_ready_blocks contains «stock». The connection to «output» is not yet testable because that block is not built, and closes_feature is false, so acceptance criterion A1 is not checked yet."
+          },
+          "mutation": {
+            "when": "now",
+            "reason": "closes_block is true, mutation_cmd_set is true, and last_mutation_run_of_block is null. I judge the block large from its own decision logic: block_numbers shows 17 branching functions across 5 slices, 4 hardest seams, 3 ratified thresholds, and 1 slice tested after the code."
+          }
+        }
+      },
+      "shown": "catch_up: none; integration: now; mutation: now; block_large: True",
+      "differs": [],
+      "mandatory": {
+        "O6:integration": "the integration check of price-rounding was deferred until block-closed:prices, and that has come"
+      }
+    },
+    {
+      "scene": "feature-of-two-wrappers",
+      "point": "b",
+      "expected": {
+        "checks": {
+          "catch_up": "none",
+          "integration": "now",
+          "mutation": "none"
+        },
+        "block_large": false
+      },
+      "cost_usd": 0.0536,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"b\", \"slice\": \"feature-of-two-wrappers\",\n \"reason\": \"S2 closes the only block and the feature (`closes_feature`: true), so integration with acceptance criterion A1 is mandatory now (O5); the slice gave no surprises and the block is two wrappers with no decision logic, so nothing else is due.\",\n \"block_large\": false,\n \"checks\": {\n   \"catch_up\": {\"when\": \"none\", \"reason\": \"Point (a) said `builder` and the slice did not surprise: `self_added_behaviours` 0, `overseer_blocks_check_4` 0, `changed` is 9 code lines in 1 file with 0 branching functions, and `changed_code_and_tests` has no entry with `touched: false` — neither O7 nor O8 applies.\"},\n   \"integration\": {\"when\": \"now\", \"reason\": \"O5: `closes_feature` is true — the last block of the feature (`report-wiring`) is closed, so the acceptance criteria (A1: an order can be priced, paid and exported) are checked now, even though `connected_blocks` is empty.\"},\n   \"mutation\": {\"when\": \"none\", \"reason\": \"The block is closed and `mutation_cmd_set` is true, but the block is not large: `block_numbers` show 2 slices, 22 code lines, 0 branching functions, 0 hardest seams, 0 ratified thresholds — wrappers and wiring, no decision logic of its own to mutate.\"}\n }}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "b",
+        "slice": "feature-of-two-wrappers",
+        "reason": "S2 closes the only block and the feature (`closes_feature`: true), so integration with acceptance criterion A1 is mandatory now (O5); the slice gave no surprises and the block is two wrappers with no decision logic, so nothing else is due.",
+        "block_large": false,
+        "checks": {
+          "catch_up": {
+            "when": "none",
+            "reason": "Point (a) said `builder` and the slice did not surprise: `self_added_behaviours` 0, `overseer_blocks_check_4` 0, `changed` is 9 code lines in 1 file with 0 branching functions, and `changed_code_and_tests` has no entry with `touched: false` — neither O7 nor O8 applies."
+          },
+          "integration": {
+            "when": "now",
+            "reason": "O5: `closes_feature` is true — the last block of the feature (`report-wiring`) is closed, so the acceptance criteria (A1: an order can be priced, paid and exported) are checked now, even though `connected_blocks` is empty."
+          },
+          "mutation": {
+            "when": "none",
+            "reason": "The block is closed and `mutation_cmd_set` is true, but the block is not large: `block_numbers` show 2 slices, 22 code lines, 0 branching functions, 0 hardest seams, 0 ratified thresholds — wrappers and wiring, no decision logic of its own to mutate."
+          }
+        }
+      },
+      "shown": "catch_up: none; integration: now; mutation: none; block_large: False",
+      "differs": [],
+      "mandatory": {
+        "O5": "the last block of the feature is closed: integration tests on the acceptance criteria cannot be deferred further"
+      }
+    },
+    {
+      "scene": "not-switched-then-surprised",
+      "point": "b",
+      "expected": {
+        "checks": {
+          "catch_up": "now",
+          "mutation": "none"
+        }
+      },
+      "cost_usd": 0.0546,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"b\", \"slice\": \"not-switched-then-surprised\",\n \"reason\": \"Point (a) said `builder`, but the slice came back with 2 self-added behaviours, so the tester writes contract tests now (O7); the block `receipt` is not closed and has no connections, so nothing else is due.\",\n \"block_large\": null,\n \"checks\": {\n   \"catch_up\": {\"when\": \"now\", \"reason\": \"O7: `decision_at_point_a` is `builder` and `self_added_behaviours` is 2, so \\\"small and uniform\\\" did not hold; the contract's exit criterion (\\\"the tests of the slice pass\\\") lists no behaviours, so the builder's own tests are the only definition of what the 3 branching functions do.\"},\n   \"integration\": {\"when\": \"none\", \"reason\": \"`closes_block` and `closes_feature` are false, and `connected_blocks` and `connected_ready_blocks` are empty: there is no connection between blocks to test or to defer. O5 will make it `now` when S3 closes the feature.\"},\n   \"mutation\": {\"when\": \"none\", \"reason\": \"`closes_block` is false (S2 of S1–S3 in `receipt`), `mutation_cmd_set` is false, and `debts` is empty.\"}\n }}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "b",
+        "slice": "not-switched-then-surprised",
+        "reason": "Point (a) said `builder`, but the slice came back with 2 self-added behaviours, so the tester writes contract tests now (O7); the block `receipt` is not closed and has no connections, so nothing else is due.",
+        "block_large": null,
+        "checks": {
+          "catch_up": {
+            "when": "now",
+            "reason": "O7: `decision_at_point_a` is `builder` and `self_added_behaviours` is 2, so \"small and uniform\" did not hold; the contract's exit criterion (\"the tests of the slice pass\") lists no behaviours, so the builder's own tests are the only definition of what the 3 branching functions do."
+          },
+          "integration": {
+            "when": "none",
+            "reason": "`closes_block` and `closes_feature` are false, and `connected_blocks` and `connected_ready_blocks` are empty: there is no connection between blocks to test or to defer. O5 will make it `now` when S3 closes the feature."
+          },
+          "mutation": {
+            "when": "none",
+            "reason": "`closes_block` is false (S2 of S1–S3 in `receipt`), `mutation_cmd_set` is false, and `debts` is empty."
+          }
+        }
+      },
+      "shown": "catch_up: now; integration: none; mutation: none",
+      "differs": [],
+      "mandatory": {
+        "O7": "point (a) said «the builder», and the slice gave a self-added behaviour or a block on check #4"
+      }
+    },
+    {
+      "scene": "large-block-no-mutation-tool",
+      "point": "b",
+      "expected": {
+        "checks": {
+          "catch_up": "none",
+          "mutation": "none"
+        },
+        "block_large": true
+      },
+      "cost_usd": 0.0623,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"b\", \"slice\": \"large-block-no-mutation-tool\",\n \"reason\": \"The slice closes the block «stock» with no surprises: nothing to catch up, the connection to «prices» cannot be tested until «prices» is built, and the block is large but no mutation command is set.\",\n \"block_large\": true,\n \"checks\": {\n   \"catch_up\": {\"when\": \"none\", \"reason\": \"decision_at_point_a is tester, self_added_behaviours is 0, overseer_blocks_check_4 is 0, and changed_code_and_tests has no entry with touched: false.\"},\n   \"integration\": {\"when\": \"defer\", \"until\": \"block-closed:prices\", \"reason\": \"closes_block is true and connected_blocks names «prices», but connected_ready_blocks is empty and closes_feature is false: the other side of the connection does not exist yet, so the check waits for «prices» to close.\"},\n   \"mutation\": {\"when\": \"none\", \"reason\": \"mutation_cmd_set is false, so there is no run. The block is judged large (block_numbers: 23 branching functions, 5 hardest seams, 2 ratified thresholds, 2 slices tested after the code; last_mutation_run_of_block is null), so it is shown to the owner as a large block closed without a mutation tool.\"}\n }}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "b",
+        "slice": "large-block-no-mutation-tool",
+        "reason": "The slice closes the block «stock» with no surprises: nothing to catch up, the connection to «prices» cannot be tested until «prices» is built, and the block is large but no mutation command is set.",
+        "block_large": true,
+        "checks": {
+          "catch_up": {
+            "when": "none",
+            "reason": "decision_at_point_a is tester, self_added_behaviours is 0, overseer_blocks_check_4 is 0, and changed_code_and_tests has no entry with touched: false."
+          },
+          "integration": {
+            "when": "defer",
+            "until": "block-closed:prices",
+            "reason": "closes_block is true and connected_blocks names «prices», but connected_ready_blocks is empty and closes_feature is false: the other side of the connection does not exist yet, so the check waits for «prices» to close."
+          },
+          "mutation": {
+            "when": "none",
+            "reason": "mutation_cmd_set is false, so there is no run. The block is judged large (block_numbers: 23 branching functions, 5 hardest seams, 2 ratified thresholds, 2 slices tested after the code; last_mutation_run_of_block is null), so it is shown to the owner as a large block closed without a mutation tool."
+          }
+        }
+      },
+      "shown": "catch_up: none; integration: defer until block-closed:prices; mutation: none; block_large: True",
+      "differs": [],
+      "mandatory": {}
+    },
+    {
+      "scene": "neighbour-helper-untested",
+      "point": "b",
+      "expected": {
+        "checks": {
+          "catch_up": "now",
+          "mutation": "none"
+        }
+      },
+      "cost_usd": 0.0548,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "answer": "```json\n{\"point\": \"b\", \"slice\": \"neighbour-helper-untested\",\n \"reason\": \"O8: the diff changed src/shop/money_helpers.py, working code no test touches, so the tester writes its contract tests now; the block 'receipt' is not closed and has no connections, so nothing else is due.\",\n \"block_large\": null,\n \"checks\": {\n   \"catch_up\": {\"when\": \"now\", \"reason\": \"O8 — changed_code_and_tests lists src/shop/money_helpers.py with touched: false ('no test touches it'), the slice's own tests counted; the contract's goal is the receipt tax line, so the helper change is outside what the point (a) tester covered, and its first tests must not come from the one who just changed it.\"},\n   \"integration\": {\"when\": \"none\", \"reason\": \"closes_block and closes_feature are false, and connected_blocks and connected_ready_blocks are empty: 'receipt' is the only block of the feature, so there is no connection between blocks to test or defer; no debts are due.\"},\n   \"mutation\": {\"when\": \"none\", \"reason\": \"The block 'receipt' is not closed (S1 built, S2 of S1–S3 finishing), and mutation_cmd_set is false.\"}\n }}\n```",
+      "matched": true,
+      "names_fact": true,
+      "script_refuses": [],
+      "passed": true,
+      "decision": {
+        "point": "b",
+        "slice": "neighbour-helper-untested",
+        "reason": "O8: the diff changed src/shop/money_helpers.py, working code no test touches, so the tester writes its contract tests now; the block 'receipt' is not closed and has no connections, so nothing else is due.",
+        "block_large": null,
+        "checks": {
+          "catch_up": {
+            "when": "now",
+            "reason": "O8 — changed_code_and_tests lists src/shop/money_helpers.py with touched: false ('no test touches it'), the slice's own tests counted; the contract's goal is the receipt tax line, so the helper change is outside what the point (a) tester covered, and its first tests must not come from the one who just changed it."
+          },
+          "integration": {
+            "when": "none",
+            "reason": "closes_block and closes_feature are false, and connected_blocks and connected_ready_blocks are empty: 'receipt' is the only block of the feature, so there is no connection between blocks to test or defer; no debts are due."
+          },
+          "mutation": {
+            "when": "none",
+            "reason": "The block 'receipt' is not closed (S1 built, S2 of S1–S3 finishing), and mutation_cmd_set is false."
+          }
+        }
+      },
+      "shown": "catch_up: now; integration: none; mutation: none",
+      "differs": [],
+      "mandatory": {
+        "O8": "the slice changed working code no test touches: src/shop/money_helpers.py"
+      }
+    }
+  ]
+}

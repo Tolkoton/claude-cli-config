@@ -775,9 +775,9 @@ def park_slice(root: Path, slug: str) -> str:
     if board.is_file() and (root / "tasks").is_dir():
         subprocess.run(
             [sys.executable, str(board), "open-item", "--to", "blocked", "--key", f"testing-parked-{slug}", "--source", "hook testing.py",
-             "--title", f"slice {slug}: a third dispute over its contract tests",
-             "--what", f"Two rounds of dispute between the builder and the tester did not settle the slice {slug}: " + " | ".join(earlier)
-             + ". The slice is parked; both rounds stand in .engine/testing/ledger.md.",
+             "--title", f"зріз {slug}: третя суперечка про контрактні тести",
+             "--what", (f"Два кола суперечки між будівельником і тестувальником не розв'язали зріз {slug}: " + " | ".join(earlier)
+                        + ". Третє коло не проводиться: зріз відкладено, робота йде далі з наступним. Обидва кола стоять у .engine/testing/ledger.md."),
              "--question", f"Хто правий у суперечці про тести зрізу {slug} — тест, код чи контракт слід уточнити?"],
             cwd=root, capture_output=True, text=True, check=False)
     return f"PARKED: {slug} had {MAX_ROUNDS} rounds of dispute already; the third parks the slice. Go on with the next unblocked slice."
