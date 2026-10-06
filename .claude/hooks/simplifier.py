@@ -130,7 +130,7 @@ def _project_ref(root: Path, ref: str) -> str | None:
     match = REF_RE.match(ref.strip())
     try:
         return (root / match["path"]).resolve().relative_to(root.resolve()).as_posix() + ref.strip()[match.end("path"):] if match else None
-    except (OSError, ValueError):
+    except (OSError, ValueError, RuntimeError):  # RuntimeError: a symlink loop, up to Python 3.12
         return None
 
 

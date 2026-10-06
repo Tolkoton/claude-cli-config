@@ -152,12 +152,20 @@ check("negative — an absolute path to an ordinary file stays auto_remove, and 
       found.get("proposed_action") == "auto_remove" and found.get("target") == "src/demo/pricing.py:5-6"
       and found["evidence"][0]["ref"] == "src/demo/pricing.py:5" and found["id"] == one(repo, target="src/demo/pricing.py:5-6")["id"], found)
 check("negative — path::symbol keeps its symbol", one(repo, target=f"{repo}/src/demo/pricing.py::old_total").get("target") == "src/demo/pricing.py::old_total")
+(repo / "src/demo/loop.py").symlink_to("loop.py")  # a link to itself (board 716)
+for field, change, error in (("a target", {"target": "src/demo/loop.py"}, "not a file of this repository"),
+                             ("an evidence reference", {"evidence": [{"source": "read", "ref": "src/demo/loop.py:1", "detail": "x"}]}, "does not exist")):
+    try:
+        found = one(repo, **change)
+    except RuntimeError as crash:
+        found = {"traceback": repr(crash)}
+    check(f"{field} that is a symlink loop is rejected, not a traceback (board 716)", error in str(found.get("errors")), found)
 (repo / "absolute.json").write_text(json.dumps([GOOD | {"target": f"{repo}/.claude/constitution.md"}, GOOD | {"target": str(outside)}]))
 done = cli(repo, "validate", "absolute.json")
 check("through the command: the absolute protected target is confirm, the outside one rejected",
       '"proposed_action": "confirm"' in done.stdout and '"proposed_action": "auto_remove"' in done.stdout  # auto_remove: only in the rejected one, as written
       and "1 valid, 1 rejected, 1 lowered" in done.stderr, done.stdout + done.stderr)
-for name in ("absolute.json", "src/demo/link.py", "src/demo/rules.md"):
+for name in ("absolute.json", "src/demo/link.py", "src/demo/rules.md", "src/demo/loop.py"):
     (repo / name).unlink()
 shutil.rmtree(outside.parent)
 

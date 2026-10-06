@@ -162,6 +162,32 @@ body = Gemini.seen[0]["body"] if Gemini.seen else ""
 check("a file the claim names by an absolute or dotted path is not sent when it is protected, excluded or outside (board 708)",
       body and not any(part in body for part in ("SECRET-MARK", "VENDOR-MARK", "OUTSIDE-MARK")), body)
 check("negative — an ordinary file the claim names by an absolute path is still shown", "FILES THE CLAIM NAMES" in body and "import sys" in body, body[:1500])
+(repo / "src/demo/loop.py").symlink_to("loop.py")  # a link to itself
+(repo / "src/demo/link.py").symlink_to(outside)
+try:
+    sendable = second.may_send(repo, {}, "src/demo/loop.py")
+except RuntimeError as crash:
+    sendable = repr(crash)
+check("a symlink loop is not sent, and is no traceback (board 716)", sendable is False, sendable)
+answer("agree")
+try:
+    second.review(repo, [GOOD | {"id": "F-00000000", "target": "src/demo/loop.py:1"}])
+    check("a target that is a symlink loop gets no request (board 716)", not Gemini.seen and log_rows(repo)[-1]["verdict"] == "no_opinion", log_rows(repo)[-1])
+except RuntimeError as crash:
+    check("a target that is a symlink loop gets no request (board 716)", False, repr(crash))
+answer("agree")
+second.review(repo, valid(repo, {"claim": "old_total has no caller, see src/demo/link.py"}))
+check("a link the claim names that leads outside the project is not sent (board 716)",
+      Gemini.seen and "OUTSIDE-MARK" not in Gemini.seen[0]["body"], [s["body"] for s in Gemini.seen])
+real_git = second.budget.git
+second.budget.git = lambda root, *args: real_git(root, *args) + ("src/demo/link.py:1:x = 1\n" if args[0] == "grep" else "")  # git grep itself never reads a link
+answer("agree")
+second.review(repo, valid(repo))
+second.budget.git = real_git
+check("a git grep hit on a link that leads outside the project is not sent (board 716)",
+      Gemini.seen and "OUTSIDE-MARK" not in Gemini.seen[0]["body"] and "src/demo/link.py" not in Gemini.seen[0]["body"], [s["body"] for s in Gemini.seen])
+for name in ("src/demo/loop.py", "src/demo/link.py"):
+    (repo / name).unlink()
 shutil.rmtree(outside.parent)
 
 print("CHECK-*   the answer is checked like the simplifier's own")
