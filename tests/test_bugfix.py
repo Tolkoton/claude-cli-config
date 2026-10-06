@@ -137,6 +137,14 @@ try:
     check("the test passes without the fix — refused", r.returncode == 1 and "REFUSED" in r.stdout
           and "passes on the code before the fix" in r.stdout, out(r))
 
+    root = fresh()
+    (root / "tests/loop.py").symlink_to("loop.py")  # a link to itself
+    r = run(root, "prove", "--test", "tests/loop.py", "--cmd", RUN)
+    check("a --test path that is a symlink loop is refused, not a traceback (board 718)",
+          r.returncode == 2 and "tests/loop.py is not a file of this project" in r.stderr and "Traceback" not in r.stderr, out(r)[-300:])
+    r = run(root, "prove", "--test", "tests/nope.py", "--cmd", RUN)
+    check("negative — a --test path that does not exist is refused the same way", r.returncode == 2 and "tests/nope.py is not a file of this project" in r.stderr, out(r))
+
     root = fresh(test=TEST.replace("== 4", "== 5"))
     r = prove(root)
     check("the test fails with the fix too — refused", r.returncode == 1 and "REFUSED" in r.stdout

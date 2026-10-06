@@ -113,7 +113,10 @@ def test_files(root: Path, given: list[str]) -> list[str]:
     """The `--test` paths, relative to the root; each must be a file of the working tree."""
     found = []
     for name in given:
-        path = (root / name).resolve()
+        try:
+            path = (root / name).resolve()
+        except RuntimeError:  # a symlink loop, up to Python 3.12
+            path = root / name
         if not path.is_file() or not path.is_relative_to(root.resolve()):
             raise CannotCheck(f"the test file {name} is not a file of this project")
         found.append(path.relative_to(root.resolve()).as_posix())

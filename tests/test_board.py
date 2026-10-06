@@ -164,6 +164,12 @@ r = cli(root, "next")
 check("two tasks in doing/: exit 2, said on stderr", r.returncode == 2 and "doing" in r.stderr, r.stderr)
 r = cli(root, "start", "tasks/todo/nope.md")
 check("start of a file that is not in todo/: exit 2", r.returncode == 2, r.stderr)
+(root / "tasks/todo/005-loop.md").symlink_to("005-loop.md")  # a link to itself
+for given in ("tasks/todo/005-loop.md", str(root / "tasks/todo/005-loop.md")):
+    r = cli(root, "start", given)
+    check(f"start of a symlink loop ({'absolute' if given.startswith('/') else 'relative'}) is refused, not a traceback (board 718)",
+          r.returncode == 2 and "is not a task file in tasks/todo/" in r.stderr and "Traceback" not in r.stderr, r.stderr[-300:])
+(root / "tasks/todo/005-loop.md").unlink()
 
 # --- a task that needs the owner present (board 016) ------------------------------------------
 print("attended tasks")
@@ -494,6 +500,11 @@ put(root, "todo", "002-b.md", task(audit="так"))
 check("«так» in todo/ allows nothing", cli(root, "audit-allowed").returncode == 1)
 r = cli(root, "audit-allowed", "--tasks-dir", str(new_board() / "tasks"))
 check("--tasks-dir names another board", r.returncode == 1, r.stdout + r.stderr)
+(root / "loop").symlink_to("loop")  # a link to itself
+r = cli(root, "audit-allowed", "--tasks-dir", str(root / "loop"))
+check("--tasks-dir that is a symlink loop holds no task: refused, not a traceback (board 718)",
+      r.returncode == 1 and "paid audit not allowed: no task of this session is in" in r.stdout and "Traceback" not in r.stderr, r.stdout + r.stderr[-300:])
+(root / "loop").unlink()
 
 # --- an open item (board 037) ---------------------------------------------------------------------
 print("an open item is a task of the board (board 037)")
