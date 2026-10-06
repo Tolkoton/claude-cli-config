@@ -1,7 +1,7 @@
 # Bug 003-validator-absolute-path
 
 type: bugfix
-status: reproduced
+status: fixed
 <!-- status: recorded → reproduced → fixed; or parked (not reproduced in three attempts);
      or question for the owner (the expected behaviour is written nowhere); or became a slice.
      This file is the contract of the fix and its report at once: the overseer audits against it.
@@ -77,7 +77,7 @@ Written before the fix.
   ```
 - What it changes beyond the bug, deliberately: (1) an accepted finding is recorded with the normalised target, so the id of a finding written absolutely is now the id of the same finding written relatively (one finding, one id — `decisions.jsonl` and the removal trailers key on it); ids of findings that were always written relatively do not change. (2) A link inside the project is judged as the file it leads to: a link to a protected file is protected, a link out of the project is not a file of the repository.
 - Budget: `complexity_budget.py check` → within budget: 0 new files, +27 lines, 0 new public symbols, 0 new abstractions, 0 new dependencies. The first version of the neighbour's fix put the check into `second_opinion.collect` and the budget refused it (cyclomatic 30 → 32, over the limit of 13, a function that was over before); it was moved into `may_send`, where the decision belongs, and `collect` is unchanged apart from the argument. `second_opinion.py` calls the private `simplifier._project_ref`: the budget allows no new public name, and the two modules already share `REF_RE`, `is_protected` and `glob_match`.
-- Known limits, left as they are: `may_send`'s signature changed (`root` first) — it has no caller outside `second_opinion.py` (`grep -rn may_send`). `simplify_signals.py` is untouched (section 4).
+- Known limits, left as they are: a symlink loop named as a path is a traceback, not a rejection (found by the overseer, section 7; task 716). `may_send`'s signature changed (`root` first) — it has no caller outside `second_opinion.py` (`grep -rn may_send`). `simplify_signals.py` is untouched (section 4).
 - Nothing else: no tidying on the way, no renaming, no new helper for later.
 
 The budget below is the ready small budget of a bug fix. The 40 is a signal, not a ceiling —
@@ -178,7 +178,7 @@ PROVED: tests/test_second_opinion.py fails on 24719d7 and passes on the working 
 
 ## 7. Gate and overseer
 - Gate: `bash tests/run_all.sh --fast` — 32 suites green after the last change of code (2026-10-06). `ruff` and `mypy` are not installed on this server; `python3 -m py_compile` of both changed modules passes. The full set, once: `bash tests/run_all.sh` — `PASS: 70 suites green` on the final code (machine record `.claude/state/health/tests-full.json`, 2026-10-06T04:08:02Z, 70 of 70, red: none).
-- Overseer: pending — the unit is claimed after this record is written.
+- Overseer: PASS — request 20261006T041920Z-f8021c (attempt 1), entry in `.engine/overseer/ledger.md`. The Stop hook raised no request after the claim, so the request was made by hand from the claimed turn written out verbatim (`.engine/artifacts/overseer/turn-2026-10-06-708.md`; the anomaly is in `tasks/ANOMALIES.md`). The overseer ran both proofs and the full set again, killed eight mutants of its own and tried twenty spellings. Its two notes, kept: (1) a target, a reference or a claim-named path that is a symlink LOOP inside the project raises `RuntimeError` out of `_project_ref` on Python 3.12 (only `OSError` and `ValueError` are caught) — a traceback where the old code rejected; it fails closed, nothing is accepted or sent — a new task, `tasks/todo/716-open-item-708-symlink-loop-traceback.md`, not fixed here because the code had been audited; (2) the claimed turn said "nothing is committed yet" while the checkpoint `e6d05a6` was made before the request — true when the turn was written, stale when it was audited.
 - The regression test stays in the suite: `tests/test_simplifier.py`, section «PATH-*», and `tests/test_second_opinion.py`, the cases marked «board 708» (both run by `bash tests/run_all.sh`).
 
 ## 8. Lesson
