@@ -51,6 +51,11 @@ project  .engine/goals.md                 seed=templates/project/.engine/goals.m
 # `baseline.py record`. Written by that script alone and committed with the project; the owner's
 # approval of its text is machine state (.claude/state/baseline/approved.sha256).
 project  .engine/baseline.json
+# The testing ledger (board 062): written by testing.py, read in the owner's review. Its machine
+# state — requests, recorded rows, the seals of contract tests — is .claude/state/testing/. The
+# script, the shared check test_touch.py and the two agents (test-manager, slice-tester) are the
+# engine's by the rule `.claude/**`.
+project  .engine/testing/
 project  .engine/**
 
 # --- legacy paths of a project built before package 3c. Still the PROJECT'S data: never ----

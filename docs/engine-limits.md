@@ -393,6 +393,48 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
 - **Three BLOCKs park a unit by instruction.** The hook tells the builder to move the task to
   `tasks/blocked/` with a question; the move itself is the builder's.
 
+## The testing manager and the slice tester (board 062)
+
+- **Where the tester's blindness is real, and where it is a rule.** On the first pass (mode
+  `contract`, before the code) there is no implementation to read, and the script proves it: it
+  runs every contract test itself and each must fail. In an objection, in a catch-up and in
+  mode `block` the code lies in the tree, and the Agent tool cannot keep an agent from reading a
+  file: there the blindness is a rule of the agent's definition and nothing more. `guard` keeps
+  the tester from WRITING anything but test files; it cannot keep it from reading. A separate
+  git worktree for such runs is deferred until the review after ten slices shows the rule is
+  not enough.
+- **Until the owner applies the proposal** (`docs/tasks/settings.json`, two handlers) nothing
+  checks that the two agents were started with the script's line, and the answer is recorded
+  by hand (`testing.py record --answer`): the builder carries the agent's answer to the script
+  and could carry a different one. What holds without the handlers: the mandatory cases, the
+  script's own RED run, the seal, and no audit request before the decision of point (a).
+  `engine.py update` adds the overseer's two handlers to a settings file a project edited; it
+  does not add these two — such a project applies the proposal itself.
+- **"Not on an import" is a pattern.** A failing run counts as RED unless its output shows an
+  import, syntax or collection error (`ImportError`, `ModuleNotFoundError`, `SyntaxError`,
+  "collected 0 items", "Ran 0 tests", "Cannot find module" …). A runner that words such an error
+  differently passes a test that never reached its body. The command that runs one test is the
+  tester's (`run`, with `{test}`); the tests run in the working tree, not in a clean copy.
+- **O8 is as exact as the delete guard.** With `COVERAGE_CMD` — the executed lines; without it
+  — "the module has its test file, or a test file mentions its name", which a test that only
+  imports the module satisfies. At point (a) it sees the files the contract's «Seam» names that
+  already exist; a contract that names none gives "unknown", and O8 is decided at point (b) by
+  the diff. In a project with no tests it fires on almost every slice — that is meant, and every
+  firing stands in the owner's review.
+- **The script reads marks, not meaning.** O3 fires on a line of «Exit criterion» that carries
+  the mark `/plan-slice` writes (`(threshold owner-ratified)`, `PROVISIONAL — owner ratification
+  pending`); a threshold written without the mark is invisible to the script, and the planner's
+  critic is what checks the mark. A self-added behaviour is counted by the word `self-added` in
+  `.engine/slices/<slug>*.md`. A slice is found in a feature artifact by its name: the slug
+  equals the name in «Slices (the DAG)», or ends with it; a slice the artifact does not name
+  stands alone as one block, without consumers.
+- **A slice already in flight when this arrives** has a sealed contract and no decision of point
+  (a): its next completion claim gets `TESTING NOT SETTLED` instead of an audit until the manager
+  is asked once. A slice without a sealed contract is untouched.
+- **A mutation run is whatever `MUTATION_CMD` prints.** The script records its duration, its
+  exit code and its output; it does not parse survivors, and there is no score. How many
+  survived and how many were handled is the number the builder records with `mutation-result`.
+
 ## The simplifier
 
 - **A signal is a lead.** vulture cannot see a name used through a string, a decorator or a
