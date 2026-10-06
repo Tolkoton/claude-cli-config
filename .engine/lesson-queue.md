@@ -16,3 +16,5 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | agent | 004-symlink-loop-traceback | A test was missing: when fix 003 replaced is_file() with Path.resolve(), its cases had only links that lead somewhere; a call swapped for one with a different set of exceptions needs a case for each w #7ac596ba
 - 2026-10-06 | parked | 013-second-opinion-remove-or-keep | 013-second-opinion-remove-or-keep: Друга думка Gemini не пройшла пороги: прибрати збудоване чи лишити вимкненим #44a91037
 - 2026-10-06 | parked | release-counts-zero-verdict-audit | release-counts-zero-verdict-audit: реліз приймає повний аудит без жодного вердикту #d74d85ad
+- 2026-10-06 | parked | 076-maintain-build-unit-1-accept-or-reaudit | 076-maintain-build/unit 1/accept-or-reaudit: Юніт 1 задачі 076 лишився без записаного вердикту: прийняти чи повторити аудит #1ed407e9
+- 2026-10-06 | parked | 045-anomaly-failed-untested | 045/anomaly-failed-untested: Подію anomaly-failed виконавця не тримає жоден тест (045) #93310a0d
