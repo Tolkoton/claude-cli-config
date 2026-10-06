@@ -31,3 +31,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | overseer | - | BLOCK no.4 masked test gap — the noise rule the unit delivers («a difference that is not zero and not larger than the bound is у межах шуму») is decided by float rounding, and the suite holds only the #f65a0317
 - 2026-10-07 | parked | 058-noise-three-files | 058-noise-three-files: compare_audits --measure-noise: a scene one of three runs lost #fcc2e6fe
 - 2026-10-07 | parked | 059-scorer-residuals | 059-scorer-residuals: run_simplifier_evals: три залишки з PASS overseer-а задачі 059 #39a5bbd4
+- 2026-10-06 | parked | board-start-attended-separate-clone | board-start-attended-separate-clone: Attended-сесія в окремому клоні блокується задачею runner-а в doing/ #6949d5bd
