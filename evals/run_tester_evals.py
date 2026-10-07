@@ -73,8 +73,10 @@ before «Exit criterion». The script counts as above; arm C is run with `--hypo
 the count is the same every time. It also records, per run: the number of tests; `trap_calls` —
 calls of the slice's functions on which the wrong implementation differs from the right one
 (the suite REACHED the trap, caught or not); `fails_only_on_wrong` — tests red on the wrong
-implementation and green on the right one, which says what a «fails on both» suite did to the trap; in arm C `search` — on how many of five other
-seeds the suite fails on the wrong implementation — the lines of the file that make the
+implementation and green on the right one, which says what a «fails on both» suite did to the trap;
+`invariant_test_red` — one of them is the test named for an invariant (`test_I…`), not a neighbouring example; in arm C `search` — on how many of five other
+seeds the suite fails on the wrong implementation — and `property_search` — on how many of them
+the invariant's own test is red (an example beside it fails on every seed) — the lines of the file that make the
 generator, and whether health checks are suppressed. The control has no wrong implementation:
 `clean` or `fails_on_right`, and `invented_invariant` (a `test_I…` or the library in the file).
 
@@ -237,10 +239,12 @@ def score_property(tests: str | None, name: str, scene: JsonObj, arm: str, work:
     wrong = run_suite(tests, name, scene, "wrong", work, runner)
     outcome = "no_tests" if wrong["empty"] or right["empty"] else OUTCOMES[(wrong["passed"], right["passed"])]
     row = {"outcome": outcome, "caught": outcome == "caught", "observed": f"wrong: {wrong['last_line']} | right: {right['last_line']}"} | facts
-    row |= trap_calls(tests, name, scene, work, runner) | {"fails_only_on_wrong": len(set(wrong["failed"]) - set(right["failed"]))}
+    only = set(wrong["failed"]) - set(right["failed"])
+    row |= trap_calls(tests, name, scene, work, runner) | {"fails_only_on_wrong": len(only), "invariant_test_red": any("::test_I" in test for test in only)}
     if library:
-        found = sum(1 for seed in SEARCH_SEEDS if not run_suite(tests, name, scene, "wrong", work, (*HYPOTHESIS, f"--hypothesis-seed={seed}"))["passed"])
-        row["search"] = f"{found} of {len(SEARCH_SEEDS)}"
+        seeds = [run_suite(tests, name, scene, "wrong", work, (*HYPOTHESIS, f"--hypothesis-seed={seed}")) for seed in SEARCH_SEEDS]
+        row["search"] = f"{sum(1 for verdict in seeds if not verdict['passed'])} of {len(seeds)}"
+        row["property_search"] = f"{sum(1 for verdict in seeds if any('::test_I' in test for test in verdict['failed']))} of {len(seeds)}"
     return row
 
 
@@ -320,7 +324,7 @@ def table(runs: list[JsonObj]) -> str:
         cells = []
         for arm in arms:
             mine = [r for r in runs if r["scene"] == name and r["arm"] == arm]
-            cells.append("<br>".join(f"{n}. {shown(r)}" + (f" ({r['test_count']} tests, trap calls {r.get('trap_calls', '—')}" + (f", search {r['search']}" if "search" in r else "") + (f", red on the wrong one only {r['fails_only_on_wrong']}" if r.get("outcome") == "fails_on_both" and "fails_only_on_wrong" in r else "") + ")" if "test_count" in r else "")
+            cells.append("<br>".join(f"{n}. {shown(r)}" + (f" ({r['test_count']} tests, trap calls {r.get('trap_calls', '—')}" + (f", search {r['search']}" if "search" in r else "") + (f", the invariant's test {r['property_search']}" if "property_search" in r else "") + (f", red on the wrong one only {r['fails_only_on_wrong']}" if r.get("outcome") == "fails_on_both" and "fails_only_on_wrong" in r else "") + ")" if "test_count" in r else "")
                                      for n, r in enumerate(mine, 1)))
         lines.append(f"| `{name}` | " + " | ".join(cells) + " |")
     return "\n".join(lines)
@@ -405,7 +409,7 @@ def main() -> int:
     parser.add_argument("--score", type=Path, help="score this ready test file against --scene and stop; free")
     parser.add_argument("--scene", help="the scene --score is for")
     parser.add_argument("--arm", choices=list(ARMS), default="c", help="the property set: the arm --score counts as (c brings the library)")
-    parser.add_argument("--rescore", nargs="+", type=Path, help="the property set: count the test files these recordings kept again, print the table and stop; free. With --out, write it")
+    parser.add_argument("--rescore", nargs="+", type=Path, help="the property set: count the test files these recordings kept again, print the table and stop; free. With --out, write the rows (the test files stay in the recordings)")
     parser.add_argument("--table", nargs="+", type=Path, help="print scene × arm × repeat and the summary of these recordings together and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
@@ -426,7 +430,8 @@ def main() -> int:
         if args.out:
             args.out.write_text(json.dumps({"rescored_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(), "set": "property",
                                             "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-                                            "rescored_from": [path.name for path in args.rescore], "outcomes_moved": moved, "summary": summary(runs), "runs": runs}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                                            "rescored_from": [path.name for path in args.rescore], "outcomes_moved": moved, "summary": summary(runs),
+                                            "runs": [{k: v for k, v in run.items() if k not in ("tests", "answer")} for run in runs]}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             print(f"results written to {args.out}")
         return 1 if moved else 0
     expected = scenes_of(args.set)

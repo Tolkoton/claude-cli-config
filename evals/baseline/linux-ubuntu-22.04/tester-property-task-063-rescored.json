@@ -1,0 +1,2946 @@
+{
+  "rescored_utc": "2026-10-07T06:57:37Z",
+  "environment": "linux-ubuntu-22.04",
+  "set": "property",
+  "engine_commit": "521e4a7b6e1f360df082731c218fb7b4012a8f11",
+  "rescored_from": [
+    "tester-property-task-063-arm-a.json",
+    "tester-property-task-063-arm-b.json",
+    "tester-property-task-063-arm-c.json",
+    "tester-property-task-063-repeats-arm-a.json",
+    "tester-property-task-063-repeats-arm-b.json",
+    "tester-property-task-063-repeats-arm-c.json",
+    "tester-property-task-063-repeats2-arm-a.json",
+    "tester-property-task-063-repeats2-arm-b.json",
+    "tester-property-task-063-repeats2-arm-c.json",
+    "tester-property-task-063-repeats3-arm-b.json",
+    "tester-property-task-063-repeats3-arm-c.json",
+    "tester-property-task-063-repeats4-arm-b.json",
+    "tester-property-task-063-repeats4-arm-c.json"
+  ],
+  "outcomes_moved": [],
+  "summary": {
+    "runs": 105,
+    "caught": {
+      "a": "10 of 24",
+      "b": "30 of 36",
+      "c": "35 of 36"
+    },
+    "cost_usd": 23.3781,
+    "table": {
+      "roundtrip/a": "fails_on_both",
+      "roundtrip/a#2": "fails_on_both",
+      "roundtrip/a#3": "fails_on_both",
+      "conserve/a": "caught",
+      "conserve/a#2": "caught",
+      "conserve/a#3": "caught",
+      "idempotent/a": "caught",
+      "idempotent/a#2": "caught",
+      "idempotent/a#3": "caught",
+      "bound/a": "missed",
+      "bound/a#2": "missed",
+      "bound/a#3": "missed",
+      "none/a": "clean",
+      "none/a#2": "clean",
+      "none/a#3": "clean",
+      "roundtrip/b": "fails_on_both",
+      "roundtrip/b#2": "caught",
+      "roundtrip/b#3": "caught",
+      "conserve/b": "caught",
+      "conserve/b#2": "caught",
+      "conserve/b#3": "caught",
+      "idempotent/b": "caught",
+      "idempotent/b#2": "caught",
+      "idempotent/b#3": "caught",
+      "bound/b": "caught",
+      "bound/b#2": "caught",
+      "bound/b#3": "caught",
+      "none/b": "clean",
+      "none/b#2": "clean",
+      "none/b#3": "clean",
+      "roundtrip/c": "caught",
+      "roundtrip/c#2": "caught",
+      "roundtrip/c#3": "caught",
+      "conserve/c": "caught",
+      "conserve/c#2": "caught",
+      "conserve/c#3": "caught",
+      "idempotent/c": "caught",
+      "idempotent/c#2": "caught",
+      "idempotent/c#3": "caught",
+      "bound/c": "caught",
+      "bound/c#2": "caught",
+      "bound/c#3": "caught",
+      "none/c": "clean",
+      "none/c#2": "clean",
+      "none/c#3": "clean",
+      "roundtrip/a#4": "fails_on_both",
+      "roundtrip/a#5": "caught",
+      "roundtrip/a#6": "caught",
+      "bound/a#4": "missed",
+      "bound/a#5": "missed",
+      "bound/a#6": "missed",
+      "roundtrip/b#4": "caught",
+      "roundtrip/b#5": "fails_on_both",
+      "roundtrip/b#6": "caught",
+      "bound/b#4": "caught",
+      "bound/b#5": "caught",
+      "bound/b#6": "caught",
+      "roundtrip/c#4": "caught",
+      "roundtrip/c#5": "caught",
+      "roundtrip/c#6": "caught",
+      "bound/c#4": "caught",
+      "bound/c#5": "caught",
+      "bound/c#6": "caught",
+      "roundtrip/a#7": "fails_on_both",
+      "roundtrip/a#8": "fails_on_both",
+      "roundtrip/a#9": "fails_on_both",
+      "roundtrip/a#10": "fails_on_both",
+      "roundtrip/a#11": "caught",
+      "roundtrip/a#12": "caught",
+      "roundtrip/b#7": "caught",
+      "roundtrip/b#8": "caught",
+      "roundtrip/b#9": "caught",
+      "roundtrip/b#10": "fails_on_both",
+      "roundtrip/b#11": "caught",
+      "roundtrip/b#12": "caught",
+      "roundtrip/c#7": "caught",
+      "roundtrip/c#8": "caught",
+      "roundtrip/c#9": "caught",
+      "roundtrip/c#10": "caught",
+      "roundtrip/c#11": "caught",
+      "roundtrip/c#12": "caught",
+      "roundtrip/b#13": "caught",
+      "roundtrip/b#14": "caught",
+      "roundtrip/b#15": "caught",
+      "roundtrip/b#16": "fails_on_both",
+      "roundtrip/b#17": "caught",
+      "roundtrip/b#18": "caught",
+      "roundtrip/c#13": "caught",
+      "roundtrip/c#14": "caught",
+      "roundtrip/c#15": "caught",
+      "roundtrip/c#16": "caught",
+      "roundtrip/c#17": "caught",
+      "roundtrip/c#18": "caught",
+      "roundtrip/b#19": "fails_on_both",
+      "roundtrip/b#20": "caught",
+      "roundtrip/b#21": "fails_on_both",
+      "roundtrip/b#22": "caught",
+      "roundtrip/b#23": "caught",
+      "roundtrip/b#24": "caught",
+      "roundtrip/c#19": "caught",
+      "roundtrip/c#20": "missed",
+      "roundtrip/c#21": "caught",
+      "roundtrip/c#22": "caught",
+      "roundtrip/c#23": "caught",
+      "roundtrip/c#24": "caught"
+    },
+    "by_arm": {
+      "a": {
+        "fails_on_both": 8,
+        "reached_the_trap": "18 of 24",
+        "control_clean": "3 of 3",
+        "tests": 1174,
+        "cost_usd": 6.5673
+      },
+      "b": {
+        "fails_on_both": 6,
+        "reached_the_trap": "36 of 36",
+        "control_clean": "3 of 3",
+        "tests": 1558,
+        "cost_usd": 8.6705
+      },
+      "c": {
+        "fails_on_both": 0,
+        "reached_the_trap": "35 of 36",
+        "control_clean": "3 of 3",
+        "tests": 807,
+        "cost_usd": 8.1403
+      }
+    }
+  },
+  "runs": [
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.4635,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 13,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 9 failed, 80 passed in 0.21s | right: 4 failed, 85 passed in 0.20s",
+      "test_count": 89,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 103,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.3026,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 11,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 8 failed, 78 passed in 0.18s | right: 4 failed, 82 passed in 0.16s",
+      "test_count": 86,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 95,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.3596,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 8 failed, 57 passed in 0.17s | right: 4 failed, 61 passed in 0.14s",
+      "test_count": 65,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 80,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1795,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 14 passed in 0.08s | right: 18 passed in 0.06s",
+      "test_count": 18,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 18,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1477,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 13 passed in 0.07s | right: 16 passed in 0.05s",
+      "test_count": 16,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 17,
+      "trap_calls": 6,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1639,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 14 passed in 0.06s | right: 16 passed in 0.04s",
+      "test_count": 16,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 16,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2238,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 41 passed in 0.09s | right: 42 passed in 0.08s",
+      "test_count": 42,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 47,
+      "trap_calls": 1,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2028,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 37 passed in 0.08s | right: 38 passed in 0.06s",
+      "test_count": 38,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 39,
+      "trap_calls": 1,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1927,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 41 passed in 0.10s | right: 43 passed in 0.09s",
+      "test_count": 43,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 50,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2641,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 19 passed in 0.05s | right: 19 passed in 0.05s",
+      "test_count": 19,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 20,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2661,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 19 passed in 0.07s | right: 19 passed in 0.06s",
+      "test_count": 19,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 20,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1622,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 17 passed in 0.04s | right: 17 passed in 0.04s",
+      "test_count": 17,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 18,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "none",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1225,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 3,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 4 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 4,
+      "invariant_tests": [],
+      "uses_library": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "none",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1811,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 5 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 5,
+      "invariant_tests": [],
+      "uses_library": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "none",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1221,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 6 passed in 0.03s",
+      "invented_invariant": false,
+      "test_count": 6,
+      "invariant_tests": [],
+      "uses_library": false,
+      "recorded_in": "tester-property-task-063-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.3374,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 7 failed, 49 passed in 0.14s | right: 3 failed, 53 passed in 0.13s",
+      "test_count": 56,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 113,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2175,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 35 passed in 0.10s | right: 39 passed in 0.06s",
+      "test_count": 39,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 52,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.3424,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 7 failed, 88 passed in 0.20s | right: 95 passed in 0.14s",
+      "test_count": 95,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 118,
+      "trap_calls": 7,
+      "fails_only_on_wrong": 7,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.187,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 13 passed in 0.07s | right: 17 passed in 0.05s",
+      "test_count": 17,
+      "invariant_tests": [
+        "test_I1_shares_add_up_to_the_bill_exactly"
+      ],
+      "uses_library": false,
+      "calls": 27,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2305,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 8 failed, 26 passed in 0.13s | right: 34 passed in 0.06s",
+      "test_count": 34,
+      "invariant_tests": [
+        "test_I1_shares_add_up_to_the_bill_exactly"
+      ],
+      "uses_library": false,
+      "calls": 51,
+      "trap_calls": 19,
+      "fails_only_on_wrong": 8,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1856,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 6 failed, 21 passed in 0.11s | right: 27 passed in 0.06s",
+      "test_count": 27,
+      "invariant_tests": [
+        "test_I1_shares_add_up_to_the_bill_exactly"
+      ],
+      "uses_library": false,
+      "calls": 28,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 6,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1525,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 35 passed in 0.10s | right: 37 passed in 0.06s",
+      "test_count": 37,
+      "invariant_tests": [
+        "test_I1_normalizing_twice_is_the_same_as_normalizing_once"
+      ],
+      "uses_library": false,
+      "calls": 49,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1431,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 7 passed in 0.07s | right: 9 passed in 0.05s",
+      "test_count": 9,
+      "invariant_tests": [
+        "test_I1_normalizing_twice_is_the_same_as_normalizing_once"
+      ],
+      "uses_library": false,
+      "calls": 61,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1538,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 7 passed in 0.06s | right: 9 passed in 0.03s",
+      "test_count": 9,
+      "invariant_tests": [
+        "test_I1_normalizing_twice_is_the_same_as_normalizing_once"
+      ],
+      "uses_library": false,
+      "calls": 49,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2198,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 16 passed in 0.08s | right: 19 passed in 0.04s",
+      "test_count": 19,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": false,
+      "calls": 39,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.186,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 17 passed in 0.09s | right: 20 passed in 0.06s",
+      "test_count": 20,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": false,
+      "calls": 50,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2766,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 6 failed, 38 passed in 0.15s | right: 44 passed in 0.08s",
+      "test_count": 44,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": false,
+      "calls": 150,
+      "trap_calls": 19,
+      "fails_only_on_wrong": 6,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "none",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1395,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 4 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 4,
+      "invariant_tests": [],
+      "uses_library": false,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "none",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1082,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 3 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 3,
+      "invariant_tests": [],
+      "uses_library": false,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "none",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.0919,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 4 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 4,
+      "invariant_tests": [],
+      "uses_library": false,
+      "recorded_in": "tester-property-task-063-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2389,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 18 passed in 0.73s | right: 20 passed in 0.21s",
+      "test_count": 20,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(_price, st.integers(min_value=0, max_value=999_999_999), st.booleans())",
+        "@settings(database=None)",
+        "@given(price=PRICES)"
+      ],
+      "calls": 219,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1929,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 19 passed in 0.67s | right: 21 passed in 0.20s",
+      "test_count": 21,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(",
+        "st.integers(min_value=0, max_value=999_999_999),",
+        "st.sampled_from(_SPELLINGS),",
+        "@given(PRICES)"
+      ],
+      "calls": 221,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1835,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 17 passed in 0.74s | right: 19 passed in 0.24s",
+      "test_count": 19,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CENTS = st.integers(min_value=0, max_value=999_999_999)",
+        "_TO_THE_CENT = _CENTS.map(lambda cents: Decimal(cents).scaleb(-2))",
+        "PRICES = st.one_of(_TO_THE_CENT, _TO_THE_CENT.map(lambda price: price.normalize()))",
+        "@given(price=PRICES)"
+      ],
+      "calls": 219,
+      "trap_calls": 10,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1838,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 14 passed in 0.33s | right: 18 passed in 0.23s",
+      "test_count": 18,
+      "invariant_tests": [
+        "test_I1_shares_add_up_to_the_bill_exactly"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "amount=st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"999999.99\"), places=2),",
+        "people=st.integers(min_value=1, max_value=100),"
+      ],
+      "calls": 117,
+      "trap_calls": 29,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2926,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 13 passed in 0.30s | right: 16 passed in 0.24s",
+      "test_count": 16,
+      "invariant_tests": [
+        "test_I1_shares_add_up_to_the_bill_exactly"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "AMOUNTS = st.integers(min_value=0, max_value=99_999_999).map(lambda c: Decimal(c).scaleb(-2))",
+        "PEOPLE = st.integers(min_value=1, max_value=100)",
+        "@given(amount=AMOUNTS, people=PEOPLE)"
+      ],
+      "calls": 115,
+      "trap_calls": 28,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "conserve",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1545,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 13 passed in 0.33s | right: 17 passed in 0.32s",
+      "test_count": 17,
+      "invariant_tests": [
+        "test_I1_shares_add_up_to_the_bill_exactly"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "amount=st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"999999.99\"), places=2),",
+        "people=st.integers(min_value=1, max_value=100),"
+      ],
+      "calls": 116,
+      "trap_calls": 27,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.178,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 23 passed in 0.47s | right: 24 passed in 0.42s",
+      "test_count": 24,
+      "invariant_tests": [
+        "test_I1_normalizing_twice_is_the_same_as_normalizing_once"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "st.builds(",
+        "st.text(alphabet=LETTERS_AND_DIGITS + SEPARATORS),",
+        "st.sampled_from(LETTERS_AND_DIGITS),",
+        "st.text(alphabet=LETTERS_AND_DIGITS + SEPARATORS),"
+      ],
+      "calls": 224,
+      "trap_calls": 1,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": false,
+      "search": "5 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1355,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 19 passed in 0.45s | right: 20 passed in 0.44s",
+      "test_count": 20,
+      "invariant_tests": [
+        "test_I1_normalizing_twice_is_the_same_as_normalizing_once"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "ARTICLE_TEXTS = st.builds(",
+        "st.text(alphabet=ALPHANUMERIC + SEPARATORS),",
+        "st.sampled_from(ALPHANUMERIC),",
+        "st.text(alphabet=ALPHANUMERIC + SEPARATORS),",
+        "@given(ARTICLE_TEXTS)"
+      ],
+      "calls": 219,
+      "trap_calls": 1,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": false,
+      "search": "5 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "idempotent",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1961,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 28 passed in 0.47s | right: 31 passed in 0.43s",
+      "test_count": 31,
+      "invariant_tests": [
+        "test_I1_normalizing_twice_is_normalizing_once"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CHARS = st.one_of(st.sampled_from(SEPARATORS), st.sampled_from(LETTERS_AND_DIGITS))",
+        "_ARTICLE_NUMBERS = st.builds(",
+        "st.text(alphabet=_CHARS),",
+        "st.sampled_from(LETTERS_AND_DIGITS),",
+        "st.text(alphabet=_CHARS),",
+        "@given(_ARTICLE_NUMBERS)"
+      ],
+      "calls": 232,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": false,
+      "search": "5 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2433,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 13 passed in 5.74s | right: 14 passed in 3.05s",
+      "test_count": 14,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "start=st.builds(",
+        "sku=st.text(),",
+        "on_hand=st.integers(min_value=0),",
+        "held=st.integers(min_value=0),",
+        "calls=st.lists(st.tuples(st.sampled_from([hold, release]), st.integers())),"
+      ],
+      "calls": 436,
+      "trap_calls": 11,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "4 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2017,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 19 passed in 6.02s | right: 20 passed in 2.35s",
+      "test_count": 20,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "shelf=st.builds(",
+        "sku=st.text(),",
+        "on_hand=st.integers(min_value=0),",
+        "held=st.integers(min_value=0),",
+        "calls=st.lists(st.tuples(st.sampled_from([hold, release]), st.integers())),"
+      ],
+      "calls": 442,
+      "trap_calls": 11,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "4 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1805,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 15 passed in 5.86s | right: 16 passed in 2.56s",
+      "test_count": 16,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "sku=st.text(),",
+        "on_hand=st.integers(min_value=0),",
+        "held=st.integers(min_value=0),",
+        "calls=st.lists(st.tuples(st.sampled_from([hold, release]), st.integers())),"
+      ],
+      "calls": 438,
+      "trap_calls": 11,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "4 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "none",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1136,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 3 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 3,
+      "invariant_tests": [],
+      "uses_library": false,
+      "health_checks_suppressed": false,
+      "generator": [],
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "none",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.0861,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 4 passed in 0.02s",
+      "invented_invariant": false,
+      "test_count": 4,
+      "invariant_tests": [],
+      "uses_library": false,
+      "health_checks_suppressed": false,
+      "generator": [],
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "none",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1005,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "clean",
+      "caught": false,
+      "observed": "right: 4 passed in 0.03s",
+      "invented_invariant": false,
+      "test_count": 4,
+      "invariant_tests": [],
+      "uses_library": false,
+      "health_checks_suppressed": false,
+      "generator": [],
+      "recorded_in": "tester-property-task-063-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2907,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 11,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 6 failed, 51 passed in 0.13s | right: 3 failed, 54 passed in 0.11s",
+      "test_count": 57,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 75,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2339,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 60 passed in 0.15s | right: 64 passed in 0.10s",
+      "test_count": 64,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 79,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2269,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 55 passed in 0.12s | right: 57 passed in 0.09s",
+      "test_count": 57,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 72,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats-arm-a.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2016,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 17 passed in 0.04s | right: 17 passed in 0.04s",
+      "test_count": 17,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 18,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats-arm-a.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1798,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 18 passed in 0.04s | right: 18 passed in 0.04s",
+      "test_count": 18,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 20,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats-arm-a.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.155,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 15 passed in 0.04s | right: 15 passed in 0.04s",
+      "test_count": 15,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 16,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.193,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 5 failed, 34 passed in 0.10s | right: 39 passed in 0.06s",
+      "test_count": 39,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 53,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.241,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 5 failed, 32 passed in 0.10s | right: 3 failed, 34 passed in 0.09s",
+      "test_count": 37,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 64,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2289,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 21 passed in 0.08s | right: 23 passed in 0.05s",
+      "test_count": 23,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 67,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats-arm-b.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.24,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 11,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 18 passed in 0.09s | right: 21 passed in 0.05s",
+      "test_count": 21,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": false,
+      "calls": 46,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats-arm-b.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1867,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 16 passed in 0.07s | right: 17 passed in 0.05s",
+      "test_count": 17,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": false,
+      "calls": 146,
+      "trap_calls": 22,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats-arm-b.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2531,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 16 passed in 0.09s | right: 18 passed in 0.05s",
+      "test_count": 18,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": false,
+      "calls": 39,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2808,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 32 passed in 0.80s | right: 36 passed in 0.28s",
+      "test_count": 36,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CENTS = st.integers(min_value=0, max_value=999_999_999).map(lambda c: Decimal(c).scaleb(-2))",
+        "PRICES = st.one_of(_CENTS, _CENTS.map(lambda price: price.normalize()))",
+        "@given(price=PRICES)"
+      ],
+      "calls": 242,
+      "trap_calls": 12,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2499,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 34 passed in 0.79s | right: 37 passed in 0.22s",
+      "test_count": 37,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"9999999.99\"), places=2))"
+      ],
+      "calls": 239,
+      "trap_calls": 11,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.3153,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 26 passed in 0.72s | right: 27 passed in 0.28s",
+      "test_count": 27,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.integers(min_value=0, max_value=999_999_999).flatmap(",
+        "lambda cents: st.sampled_from([Decimal(cents).scaleb(-2), Decimal(cents) / 100])",
+        "@given(price=PRICES)"
+      ],
+      "calls": 226,
+      "trap_calls": 7,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats-arm-c.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2542,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 19 passed in 5.66s | right: 20 passed in 2.51s",
+      "test_count": 20,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "CALLS = st.lists(st.tuples(st.sampled_from([hold, release]), st.integers()))",
+        "@given(",
+        "start=st.builds(",
+        "sku=st.text(),",
+        "on_hand=st.integers(min_value=0),",
+        "held=st.integers(min_value=0),"
+      ],
+      "calls": 442,
+      "trap_calls": 11,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "4 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-repeats-arm-c.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1929,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 13 passed in 1.95s | right: 14 passed in 0.37s",
+      "test_count": 14,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "on_hand=st.integers(min_value=0),",
+        "held=st.integers(min_value=0),",
+        "calls=st.lists(st.tuples(st.sampled_from([\"hold\", \"release\"]), st.integers())),"
+      ],
+      "calls": 470,
+      "trap_calls": 20,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "2 of 5",
+      "property_search": "2 of 5",
+      "recorded_in": "tester-property-task-063-repeats-arm-c.json"
+    },
+    {
+      "scene": "bound",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2743,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 16,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 15 passed in 5.71s | right: 16 passed in 2.30s",
+      "test_count": 16,
+      "invariant_tests": [
+        "test_I1_nothing_on_the_shelf_is_ever_negative"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(",
+        "start=st.builds(",
+        "sku=st.text(),",
+        "on_hand=st.integers(min_value=0),",
+        "held=st.integers(min_value=0),",
+        "calls=st.lists(st.tuples(st.sampled_from([hold, release]), st.integers())),"
+      ],
+      "calls": 440,
+      "trap_calls": 11,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "4 of 5",
+      "property_search": "4 of 5",
+      "recorded_in": "tester-property-task-063-repeats-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.4069,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 14,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 12 failed, 105 passed in 0.33s | right: 7 failed, 110 passed in 0.23s",
+      "test_count": 117,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 132,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats2-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.3502,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 10 failed, 98 passed in 0.22s | right: 5 failed, 103 passed in 0.18s",
+      "test_count": 108,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 119,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats2-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.3918,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 8 failed, 74 passed in 0.18s | right: 4 failed, 78 passed in 0.16s",
+      "test_count": 82,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 93,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats2-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.3645,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 13,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 7 failed, 49 passed in 0.16s | right: 4 failed, 52 passed in 0.12s",
+      "test_count": 56,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 75,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats2-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.2407,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 3 failed, 66 passed in 0.13s | right: 69 passed in 0.10s",
+      "test_count": 69,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 78,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 3,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats2-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "a",
+      "sees": "skeleton",
+      "cost_usd": 0.1711,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 29 passed in 0.08s | right: 31 passed in 0.06s",
+      "test_count": 31,
+      "invariant_tests": [],
+      "uses_library": false,
+      "calls": 38,
+      "trap_calls": 2,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": false,
+      "recorded_in": "tester-property-task-063-repeats2-arm-a.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.231,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 51 passed in 0.13s | right: 55 passed in 0.09s",
+      "test_count": 55,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 77,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats2-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1551,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 16 passed in 0.05s | right: 17 passed in 0.04s",
+      "test_count": 17,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 40,
+      "trap_calls": 3,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats2-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.193,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 31 passed in 0.09s | right: 35 passed in 0.07s",
+      "test_count": 35,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 51,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats2-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2898,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 10 failed, 61 passed in 0.19s | right: 3 failed, 68 passed in 0.16s",
+      "test_count": 71,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 104,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 7,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats2-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2349,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 6 failed, 45 passed in 0.13s | right: 51 passed in 0.08s",
+      "test_count": 51,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 81,
+      "trap_calls": 6,
+      "fails_only_on_wrong": 6,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats2-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2153,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 67 passed in 0.15s | right: 71 passed in 0.10s",
+      "test_count": 71,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 113,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats2-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2546,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 23 passed in 0.72s | right: 25 passed in 0.24s",
+      "test_count": 25,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CENTS = st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"9999999.99\"), places=2)",
+        "PRICES = _CENTS | _CENTS.map(lambda price: price.normalize())",
+        "@given(price=PRICES)"
+      ],
+      "calls": 225,
+      "trap_calls": 10,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats2-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.181,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 22 passed in 0.75s | right: 24 passed in 0.26s",
+      "test_count": 24,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CENTS = st.decimals(min_value=Decimal(\"0.00\"), max_value=MAX_PRICE, places=2)",
+        "PRICES = st.one_of(_CENTS, _CENTS.map(lambda price: price.normalize()))",
+        "@given(price=PRICES)"
+      ],
+      "calls": 223,
+      "trap_calls": 10,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats2-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2096,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 15 passed in 0.65s | right: 17 passed in 0.19s",
+      "test_count": 17,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(_price, st.integers(min_value=0, max_value=999_999_999), st.booleans())",
+        "@given(PRICES)"
+      ],
+      "calls": 217,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats2-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2228,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 20 passed in 0.72s | right: 22 passed in 0.41s",
+      "test_count": 22,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(",
+        "st.integers(min_value=0, max_value=999_999_999),",
+        "st.sampled_from(_SPELLINGS),",
+        "@given(PRICES)"
+      ],
+      "calls": 222,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats2-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2606,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 10,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 17 passed in 0.72s | right: 18 passed in 0.22s",
+      "test_count": 18,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CENTS = st.integers(min_value=0, max_value=999_999_999).map(lambda c: Decimal(c).scaleb(-2))",
+        "PRICES = st.one_of(_CENTS, _CENTS.map(lambda price: price.normalize()))",
+        "@given(price=PRICES)"
+      ],
+      "calls": 217,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats2-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2104,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 20 passed in 0.56s | right: 22 passed in 0.22s",
+      "test_count": 22,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(st.decimals(min_value=Decimal(\"0.00\"), max_value=MAX_PRICE, places=2))"
+      ],
+      "calls": 221,
+      "trap_calls": 10,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats2-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.3379,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 5 failed, 59 passed in 0.34s | right: 64 passed in 0.22s",
+      "test_count": 64,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 95,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats3-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1753,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 5 failed, 59 passed in 0.23s | right: 64 passed in 0.17s",
+      "test_count": 64,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 94,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats3-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2116,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 7 failed, 62 passed in 0.29s | right: 69 passed in 0.16s",
+      "test_count": 69,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 83,
+      "trap_calls": 7,
+      "fails_only_on_wrong": 7,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats3-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2759,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 9,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 9 failed, 53 passed in 0.23s | right: 4 failed, 58 passed in 0.18s",
+      "test_count": 62,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 90,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats3-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.204,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 5 failed, 53 passed in 0.14s | right: 58 passed in 0.11s",
+      "test_count": 58,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 93,
+      "trap_calls": 6,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats3-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2263,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 46 passed in 0.13s | right: 50 passed in 0.08s",
+      "test_count": 50,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 63,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats3-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2488,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 20 passed in 0.85s | right: 22 passed in 0.23s",
+      "test_count": 22,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@st.composite",
+        "def prices(draw: st.DrawFn) -> Decimal:",
+        "cents = draw(st.integers(min_value=0, max_value=999_999_999))",
+        "return price.normalize() if draw(st.booleans()) else price",
+        "@given(prices())"
+      ],
+      "calls": 222,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats3-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2041,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 32 passed in 0.90s | right: 34 passed in 0.24s",
+      "test_count": 34,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(",
+        "st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"9999999.99\"), places=2),",
+        "st.booleans(),",
+        "@given(price=PRICES)"
+      ],
+      "calls": 237,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats3-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1603,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 15 passed in 0.56s | right: 16 passed in 0.21s",
+      "test_count": 16,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"9999999.99\"), places=2))"
+      ],
+      "calls": 215,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats3-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2225,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 22 passed in 0.98s | right: 24 passed in 0.40s",
+      "test_count": 24,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_PRICES = st.builds(",
+        "st.integers(min_value=0, max_value=999_999_999),",
+        "st.sampled_from(_SPELLINGS),",
+        "@given(price=_PRICES)"
+      ],
+      "calls": 224,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats3-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2167,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 1 failed, 21 passed in 0.29s | right: 22 passed in 0.28s",
+      "test_count": 22,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@st.composite",
+        "def prices(draw: st.DrawFn) -> Decimal:",
+        "cents = draw(st.integers(min_value=0, max_value=999_999_999))",
+        "extra_zeros = draw(st.integers(min_value=0, max_value=4))",
+        "if draw(st.booleans()):",
+        "@given(prices())"
+      ],
+      "calls": 223,
+      "trap_calls": 1,
+      "fails_only_on_wrong": 1,
+      "invariant_test_red": false,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats3-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1847,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 24 passed in 0.64s | right: 26 passed in 0.22s",
+      "test_count": 26,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(st.decimals(min_value=Decimal(\"0.00\"), max_value=Decimal(\"9999999.99\"), places=2))"
+      ],
+      "calls": 225,
+      "trap_calls": 10,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats3-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2462,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 7 failed, 35 passed in 0.11s | right: 3 failed, 39 passed in 0.10s",
+      "test_count": 42,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 58,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats4-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2579,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 44 passed in 0.14s | right: 48 passed in 0.08s",
+      "test_count": 48,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 68,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats4-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.4305,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 12,
+      "touched_module": false,
+      "outcome": "fails_on_both",
+      "caught": false,
+      "observed": "wrong: 10 failed, 76 passed in 0.26s | right: 3 failed, 83 passed in 0.15s",
+      "test_count": 86,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 110,
+      "trap_calls": 7,
+      "fails_only_on_wrong": 7,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats4-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2467,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 5 failed, 58 passed in 0.14s | right: 63 passed in 0.12s",
+      "test_count": 63,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 93,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 5,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats4-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.2328,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 8,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 37 passed in 0.14s | right: 39 passed in 0.10s",
+      "test_count": 39,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 76,
+      "trap_calls": 5,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats4-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "b",
+      "sees": "skeleton",
+      "cost_usd": 0.1918,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 4 failed, 37 passed in 0.11s | right: 41 passed in 0.07s",
+      "test_count": 41,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": false,
+      "calls": 56,
+      "trap_calls": 4,
+      "fails_only_on_wrong": 4,
+      "invariant_test_red": true,
+      "recorded_in": "tester-property-task-063-repeats4-arm-b.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2429,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 23 passed in 0.81s | right: 25 passed in 0.22s",
+      "test_count": 25,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "_CENTS = st.integers(min_value=0, max_value=999_999_999)",
+        "_TWO_PLACES = _CENTS.map(lambda cents: Decimal(cents).scaleb(-2))",
+        "PRICES = st.one_of(_TWO_PLACES, _TWO_PLACES.map(lambda price: price.normalize()))",
+        "@given(price=PRICES)"
+      ],
+      "calls": 225,
+      "trap_calls": 10,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats4-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.199,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "missed",
+      "caught": false,
+      "observed": "wrong: 24 passed in 0.27s | right: 24 passed in 0.26s",
+      "test_count": 24,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(",
+        "cents=st.integers(min_value=0, max_value=999_999_999),",
+        "extra_zeros=st.integers(min_value=0, max_value=3),",
+        "normalized=st.booleans(),",
+        "@given(PRICES)"
+      ],
+      "calls": 223,
+      "trap_calls": 0,
+      "fails_only_on_wrong": 0,
+      "invariant_test_red": false,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats4-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2783,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 6,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 19 passed in 0.89s | right: 21 passed in 0.21s",
+      "test_count": 21,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(",
+        "st.integers(min_value=0, max_value=999_999_999),",
+        "st.sampled_from([None, 0, 1, 2]),",
+        "@given(PRICES)"
+      ],
+      "calls": 220,
+      "trap_calls": 7,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats4-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.1525,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 17 passed in 0.78s | right: 19 passed in 0.20s",
+      "test_count": 19,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "@given(cents=st.integers(min_value=0, max_value=999_999_999), shortened=st.booleans())"
+      ],
+      "calls": 219,
+      "trap_calls": 8,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats4-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2029,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 5,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 23 passed in 0.72s | right: 25 passed in 0.24s",
+      "test_count": 25,
+      "invariant_tests": [
+        "test_I1_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.builds(",
+        "st.integers(min_value=0, max_value=999_999_999),",
+        "st.sampled_from(_SPELLINGS),",
+        "@given(PRICES)"
+      ],
+      "calls": 224,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats4-arm-c.json"
+    },
+    {
+      "scene": "roundtrip",
+      "arm": "c",
+      "sees": "skeleton",
+      "cost_usd": 0.2397,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "touched_module": false,
+      "outcome": "caught",
+      "caught": true,
+      "observed": "wrong: 2 failed, 22 passed in 0.83s | right: 24 passed in 0.31s",
+      "test_count": 24,
+      "invariant_tests": [
+        "test_I1_a_printed_price_reads_back_as_the_same_price"
+      ],
+      "uses_library": true,
+      "health_checks_suppressed": false,
+      "generator": [
+        "from hypothesis import strategies as st",
+        "PRICES = st.integers(min_value=0, max_value=999_999_999).flatmap(",
+        "lambda cents: st.sampled_from(_same_value_spellings(cents))",
+        "@given(price=PRICES)"
+      ],
+      "calls": 223,
+      "trap_calls": 9,
+      "fails_only_on_wrong": 2,
+      "invariant_test_red": true,
+      "search": "5 of 5",
+      "property_search": "5 of 5",
+      "recorded_in": "tester-property-task-063-repeats4-arm-c.json"
+    }
+  ]
+}

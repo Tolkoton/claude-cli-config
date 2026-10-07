@@ -145,7 +145,7 @@ for name in TRAPS:
     scene = scenes[name]
     obvious, trap = evals.score_property(HEAD[name] + OBVIOUS[name], name, scene, "a", work), evals.score_property(HEAD[name] + OBVIOUS[name] + "\n" + TRAP[name], name, scene, "a", work)
     check(f"{name}: the wrong implementation passes every example of the contract, and no call of them reaches the trap", obvious["outcome"] == "missed" and obvious["trap_calls"] == 0 and obvious["calls"] > 0, obvious)
-    check(f"{name}: …and fails on the trap's input, where the right one passes", trap["outcome"] == "caught" and trap["trap_calls"] >= 1 and "1 failed" in trap["observed"], trap)
+    check(f"{name}: …and fails on the trap's input, where the right one passes", trap["outcome"] == "caught" and trap["trap_calls"] >= 1 and "1 failed" in trap["observed"] and not trap["invariant_test_red"], trap)
     red = evals.run_suite(HEAD[name] + OBVIOUS[name] + "\n" + TRAP[name], name, scene, "skeleton", work)
     check(f"{name}: against the skeleton every test is red", not red["passed"] and "passed" not in red["last_line"], red)
     for example in [line.split("`")[1] for line in [scene["trap_input"]] if "`" in line]:
@@ -181,6 +181,10 @@ check("arm C, a generator narrowed to one guest: «missed», the trap never reac
 blind = PROPERTY[name].replace("assert sum(split_bill(amount, people)) == amount", "assert len(split_bill(amount, people)) == people")
 got = evals.score_property(HEAD[name] + GIVEN + blind, name, scene, "c", work)
 check("arm C, the trap reached by the generator and not noticed by the assertion: «missed» with trap calls", got["outcome"] == "missed" and got["trap_calls"] > 0, got)
+got = evals.score_property(HEAD[name] + GIVEN + TRAP[name] + "\n" + narrowed, name, scene, "c", work)
+check("arm C, an example on the trap beside a narrowed generator: «caught» on every seed — by the example, and the invariant's own test on none",
+      got["outcome"] == "caught" and not got["invariant_test_red"] and got["search"] == "5 of 5" and got["property_search"] == "0 of 5"
+      and "search 5 of 5, the invariant's test 0 of 5" in evals.table([got | {"scene": name, "arm": "c"}]), got)
 quiet = PROPERTY[name].replace("@given", "@settings(suppress_health_check=[HealthCheck.filter_too_much])\n@given")
 got = evals.score_property(HEAD[name] + GIVEN + quiet, name, scene, "c", work)
 check("suppressed health checks are named in the row", got["health_checks_suppressed"] and "HEALTH CHECKS SUPPRESSED" in evals.shown(got), got)
@@ -188,7 +192,7 @@ for name in TRAPS:
     scene = scenes[name]
     got = evals.score_property(HEAD[name] + GIVEN + OBVIOUS[name] + "\n" + PROPERTY[name], name, scene, "c", work)
     check(f"{name}: the invariant as a property test over the contract's domain is «caught», and the search finds it on other seeds",
-          got["outcome"] == "caught" and got["invariant_tests"] and not got["health_checks_suppressed"] and got["trap_calls"] > 0 and got["search"] != "0 of 5", got)
+          got["outcome"] == "caught" and got["invariant_tests"] and got["invariant_test_red"] and not got["health_checks_suppressed"] and got["trap_calls"] > 0 and got["search"] != "0 of 5" and got["property_search"] == got["search"], got)
     if name == "conserve":   # the seed is fixed: a second count is the same count
         again = evals.score_property(HEAD[name] + GIVEN + OBVIOUS[name] + "\n" + PROPERTY[name], name, scene, "c", work)
         same = [(row["outcome"], row["test_count"], row["calls"], row["trap_calls"], row["search"]) for row in (got, again)]
