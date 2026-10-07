@@ -687,6 +687,9 @@ def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) ->
     audit runs when the one task in tasks/doing/ says «Аудит потрібен: так» or «Платні прогони: так», or when the owner
     starts it by hand with --owner-approved. The flag is the owner's: inside a Claude Code
     session (CLAUDECODE is set in every shell the agent's tools start) it does not count."""
+    unread = board_module().line_unread(tasks_dir.resolve())
+    if unread is not None:
+        return f"refusing to start paid sessions: {unread}."
     reason = board_module().audit_refusal(tasks_dir.resolve())
     if reason is None or (owner_approved and not in_session):
         return None

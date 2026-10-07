@@ -156,16 +156,33 @@ for value in ("прогони simplifier-а на новому наборі — �
     check(f"negative — «{value}»: no «так», no leave", paid(value) == (False, None), paid(value))
 for value in ("так, 0 доларів", "так, до 0 доларів", "так, 0,0 $"):
     check(f"negative — «{value}»: a ceiling of zero is no leave", paid(value) == (False, None), paid(value))
-# A sum in a line that is no leave is not dropped: board.paid_ceiling hands it to a run another word opened.
-def bound(header: str) -> float | None:
-    return board.parse(f"# x\n\n{header}\n\n## Що зробити\n- до 1 долара\n").paid_sum
-for line, ceiling in (("до 5 доларів", 5.0), ("так, до 5 доларів на audit", 5.0), ("ні, навіть не 3 долари", 3.0), ("так, до 30 доларів, для audit-у до 10 доларів", 10.0),
-                      ("так, до 12,5 $", 12.5), ("ліміт 9 USD", 9.0)):
-    check(f"«{line}»: the sum binds, leave or not", bound(f"Платні прогони: {line}") == ceiling, bound(f"Платні прогони: {line}"))
-check("two lines: the smaller sum of both binds", bound("Платні прогони: до 7 доларів\nПлатні прогони: так, до 4 доларів") == 4.0)
-for line in ("так", "ні", "скільки потрібно", "до 5 прогонів", "п'ять доларів"):
-    check(f"negative — «{line}»: no sum, no ceiling invented (a sum in the task's body is not the line's)", bound(f"Платні прогони: {line}") is None)
-check("negative — no line at all: no ceiling", bound("Аудит потрібен: так") is None)
+# A line that is neither leave nor a plain «ні» stops every paid run (the overseer's fourth and fifth BLOCKs):
+# it may hold a ceiling in a spelling the guard does not read, and the owner's word is never dropped silently.
+def unread(header: str) -> bool:
+    return board.parse(f"# x\n\n{header}\n\n## Що зробити\n- до 1 долара, $5\n").paid_unread
+for line in ("до 5 доларів", "до $5", "$5", "USD 5", "до 5 dollars", "до 5 дол.", "до .5 долара", "5", "1 000 доларів", "п'ять, тобто 5", "так, до $5", "так, до 5",
+             "так, до 5 доларів на audit", "так, до 30 доларів, для audit-у до 10 доларів", "ні, навіть не 3 долари", "так, 0 доларів", "2 audit-и", "до ５ доларів", "до ٥ доларів",
+             "п'ять доларів", "до V доларів", "скільки потрібно", "так, але не для audit-у", "так, лише прогони simplifier-а", "ні, крім audit-у", "ні?", "yes", "no", "?"):
+    check(f"«{line}»: neither leave nor a plain «ні» — every paid run stops", unread(f"Платні прогони: {line}") and paid(line) == (False, None), paid(line))
+check("two lines, one of them with a number: stops", unread("Платні прогони: так\nПлатні прогони: до $7"))
+for line in ("так", "так, до 5 доларів", "так, 12,5 $", "Так — до 5 доларів."):
+    check(f"negative — «{line}» is leave: nothing unread", not unread(f"Платні прогони: {line}"))
+for line in ("ні", "Ні.", "**ні**", "—", "-", "", "  "):
+    check(f"negative — «{line}»: a plain refusal, nothing unread (a number in the task's body is not the line's)", not unread(f"Платні прогони: {line}"))
+check("negative — no line at all: nothing unread", not unread("Аудит потрібен: так"))
+with tempfile.TemporaryDirectory(prefix="owner-terms-unread-") as tmp:
+    tasks = Path(tmp) / "tasks"
+    (tasks / "doing").mkdir(parents=True)
+    for audit in ("так", "ні"):
+        (tasks / "doing/001-a.md").write_text(f"# 001\n\nАудит потрібен: {audit}\nПлатні прогони: до $5\n\n## Що зробити\n", encoding="utf-8")
+        check(f"«Аудит потрібен: {audit}» beside «до $5»: line_unread names the task and the one wording, and the audit is refused",
+              "001-a.md" in str(board.line_unread(tasks)) and "так, до N доларів" in str(board.line_unread(tasks)) and board.audit_refusal(tasks) is not None, board.line_unread(tasks))
+    (tasks / "doing/001-a.md").write_text("# 001\n\nАудит потрібен: так\nПлатні прогони: ні\n\n## Що зробити\n", encoding="utf-8")
+    check("negative — «Аудит потрібен: так» beside «Платні прогони: ні»: the audit's own leave stands", board.line_unread(tasks) is None and board.audit_refusal(tasks) is None)
+    (tasks / "doing/001-a.md").write_text("# 001\n\nАудит потрібен: так\nПлатні прогони: так, до 5 доларів\n\n## Що зробити\n", encoding="utf-8")
+    check("negative — «так, до 5 доларів»: nothing unread, the ceiling is 5", board.line_unread(tasks) is None and board.audit_refusal(tasks) is None and board.paid_ceiling(tasks) == 5.0)
+    (tasks / "doing/002-b.md").write_text("# 002\n\nПлатні прогони: до $5\n", encoding="utf-8")
+    check("negative — two tasks in doing/: the other refusals speak, not this one", board.line_unread(tasks) is None and board.audit_refusal(tasks) is not None)
 check("negative — a task without the line: no leave", not board.parse("# x\n\nАудит потрібен: ні\n\n## Що зробити\n").paid)
 check("negative — the line quoted inside a sentence is not the line",
       not board.parse("# x\n\n## Що зробити\n- Захист приймає рядок «Платні прогони: так» без числа.\n").paid)
@@ -213,7 +230,7 @@ for rel in ("tasks/README.md", "templates/project/tasks/README.md"):
     check(f"{rel}: says the rule the guard applies — only «так», a sum after it is the ceiling, anything else refuses",
           "Згода — лише слово «так» на початку рядка" in flat and "Будь-що інше в рядку — відмова" in flat and "три формулювання" not in flat
           and "можна дописати" not in flat and "ствердно" not in flat and "Після «так» можна написати лише суму в доларах" in flat
-          and "Сума діє й тоді, коли сам рядок згодою не є" in flat)
+          and "Сума діє лише після «так»" in flat and "слово власника не губиться мовчки" in flat and "Сума діє й тоді" not in flat)
     check(f"{rel}: its own examples read as it says", paid("так, до 30 доларів") == (True, 30.0) and all(
         f"«{refused}»" in flat and paid(refused) == (False, None) for refused in ("так, але не для audit-у", "так, лише прогони simplifier-а", "скільки потрібно", "до 5 доларів")))
 for rel in ("tasks/TEMPLATE.md", "templates/project/tasks/TEMPLATE.md"):

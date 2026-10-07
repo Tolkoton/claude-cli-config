@@ -115,6 +115,9 @@ def board_module() -> Any:
 
 def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) -> str | None:
     """Why paid sessions may not start, or None (tasks/README.md, «Платні прогони»)."""
+    unread = board_module().line_unread(tasks_dir.resolve())
+    if unread is not None:
+        return f"refusing to start paid sessions: {unread}."
     if owner_approved and not in_session:
         return None
     reason = board_module().paid_refusal(tasks_dir.resolve())

@@ -69,8 +69,9 @@ limit: paid runs take what an honest result needs. The owner's leave is the line
 `Платні прогони: так` (or `Аудит потрібен: так` for the audit) — no number; a dollar number the
 owner did write there is a ceiling the paid-run scripts stop before. The line is read in the task's
 header only and leave is recognised, not assumed: the line is the word «так», after which only a
-dollar sum above zero may stand («так, до 30 доларів»); anything else in the line refuses, though a sum in it
-still caps a run that another word of the owner opened (`Аудит потрібен: так`, `--owner-approved`). Only the runner's per-task
+dollar sum above zero may stand («так, до 30 доларів»); anything else in the line refuses, and a line
+that is neither leave nor a plain «ні» stops every paid run of the task, one opened by
+`Аудит потрібен: так` or `--owner-approved` too: the owner's word is never dropped silently. Only the runner's per-task
 guard (`BOARD_MAX_USD`) stands against a loop: it does not cut the work, it parks the task with a
 question, and the owner's answer continues it with the same budget again. Where something
 proves too long or too dear — measure first, then simplify in a task of its own.

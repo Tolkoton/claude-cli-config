@@ -189,9 +189,7 @@ AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
 # fails closed, so a refusal needs no list of its words.
 PAID = re.compile(r"^Платні прогони:[ \t]*(.*)$", re.MULTILINE)
 PAID_YES = re.compile(r"так(?:[\s,;:—–-]+(?:(?:до|не більше|не понад)\s+)?(?<![-–—])(\d+(?:[.,]\d+)?)\s*(?:долар\w*|\$|USD))?[.!]?", re.IGNORECASE)
-# A dollar sum written anywhere in that line binds whatever run another word opened («Аудит потрібен:
-# так», --owner-approved), leave or not: the owner's number is never dropped silently.
-PAID_SUM = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.IGNORECASE)
+PAID_PLAIN_NO = ("", "ні", "—", "–", "-")  # a refusal that can hide no ceiling and no condition
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
@@ -235,7 +233,7 @@ class Task:
     attended: bool = False
     paid: bool = False
     paid_ceiling: float | None = None
-    paid_sum: float | None = None
+    paid_unread: bool = False
 
     @property
     def answered(self) -> bool:
@@ -321,7 +319,7 @@ def parse(text: str) -> Task:
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
         paid=paid,
         paid_ceiling=ceiling,
-        paid_sum=min((float(n.replace(",", ".")) for line in PAID.findall(header) for n in PAID_SUM.findall(line)), default=None),
+        paid_unread=not paid and any(line.strip(" \t*_.!").lower() not in PAID_PLAIN_NO for line in PAID.findall(header)),
     )
 
 
@@ -937,7 +935,7 @@ def audit_refusal(tasks: Path) -> str | None:
         return f"{tasks}/doing/ holds more than one task: " + ", ".join(p.name for p in doing)
     if not (read(doing[0]).audit or read(doing[0]).paid):
         return f"the task in doing/, {doing[0].name}, says neither «Аудит потрібен: так» nor «Платні прогони: так»"
-    return None
+    return line_unread(tasks)
 
 
 def paid_refusal(tasks: Path) -> str | None:
@@ -952,10 +950,22 @@ def paid_refusal(tasks: Path) -> str | None:
 
 
 def paid_ceiling(tasks: Path) -> float | None:
-    """The smallest dollar sum the owner wrote in that line, if any; None is no ceiling. It binds
-    also when the line itself is no leave and the run was opened by another word."""
+    """The dollar ceiling the owner wrote after «так» in that line, if any; None is no ceiling."""
     doing = own(tasks)
-    return read(doing[0]).paid_sum if len(doing) == 1 else None
+    return read(doing[0]).paid_ceiling if len(doing) == 1 else None
+
+
+def line_unread(tasks: Path) -> str | None:
+    """Why NO paid run may start, whatever word opened it («Аудит потрібен: так», --owner-approved):
+    the «Платні прогони:» line of this session's task is neither leave nor a plain «ні». It may
+    hold a ceiling or a condition the guard does not read («до $5», «п'ять доларів», «лише
+    simplifier»), and the owner's word is never dropped silently: the run stops rather than go on
+    uncapped. No list of spellings is kept: what is not one of the two is unread. None otherwise."""
+    doing = own(tasks)
+    if len(doing) == 1 and read(doing[0]).paid_unread:
+        return (f"the «Платні прогони:» line of the task in doing/, {doing[0].name}, is neither the owner's leave nor a plain «ні», "
+                "so a ceiling or a condition may be meant there that cannot be read; the wordings are «Платні прогони: так», «так, до N доларів» and «ні»")
+    return None
 
 
 ANOMALIES = "ANOMALIES.md"
