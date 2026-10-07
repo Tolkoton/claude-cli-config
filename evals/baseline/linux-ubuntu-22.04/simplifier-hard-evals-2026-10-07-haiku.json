@@ -1,0 +1,252 @@
+{
+  "recorded_utc": "2026-10-07T02:33:13Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "6a437c87b9a67598e5943e04c5b8fbba3b8fe518",
+  "set": "hard",
+  "model": "haiku",
+  "planted": [
+    "abstraction-almost-used",
+    "dead-branch-behind-a-flag",
+    "duplication-with-small-differences",
+    "dependency-only-a-test-imports",
+    "guard-impossible-across-functions",
+    "requirement-with-a-borrowed-goal",
+    "slice-for-later-with-a-goal-tag"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "rare-error-at-the-boundary",
+    "security-check-path",
+    "security-check-constant-time",
+    "contract-field-read-on-a-rare-path",
+    "contract-field-for-another-service",
+    "old-data-format",
+    "requirement-derived-at-planning",
+    "slice-a-goal-needs"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 2,
+    "recall_mean": 0.071,
+    "recall_range": [
+      0.0,
+      0.143
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {
+      "dependency-only-a-test-imports": 1
+    },
+    "touched_in_runs": {},
+    "cost_usd": 0.2895
+  },
+  "runs": [
+    {
+      "cost_usd": 0.213,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 55,
+      "recall": 0.0,
+      "precision": null,
+      "traps_touched": 0,
+      "found": {},
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "dependency-only-a-test-imports",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 0,
+      "rejected": [
+        {
+          "errors": [
+            "evidence cites '', which does not exist"
+          ],
+          "finding": {
+            "target": "src/refproj/discounts.py:27-34",
+            "category": "premature_abstraction",
+            "claim": "FixedAmountDiscount is never instantiated in the application; R3 requires only percentage discounts (0-100), and all discounting is done via PercentDiscount.",
+            "evidence": [
+              {
+                "source": "grep",
+                "ref": "src/refproj/discounts.py:27",
+                "detail": "FixedAmountDiscount is defined as a DiscountPolicy subclass"
+              },
+              {
+                "source": "grep",
+                "ref": "",
+                "detail": "FixedAmountDiscount is not referenced anywhere in src/ except its definition"
+              },
+              {
+                "source": "grep",
+                "ref": "src/refproj/cli.py:26",
+                "detail": "policy_for() always returns PercentDiscount; cli.py uses only percentage-based discounts"
+              },
+              {
+                "source": "read",
+                "ref": "docs/goals.md:21",
+                "detail": "R3 specifies 'A discount is a whole percentage between 0 and 100' — no fixed-amount requirement"
+              }
+            ],
+            "protected": false,
+            "chesterton_checked": true,
+            "test_safety": "characterization_exists",
+            "proposed_action": "flag_only",
+            "traceability": "R3 specifies percentage discounts only; no fixed-amount discount requirement",
+            "reversal_risk": "medium"
+          }
+        },
+        {
+          "errors": [
+            "evidence cites '', which does not exist",
+            "evidence cites 'tests/test_inventory.py:5,20', which does not exist"
+          ],
+          "finding": {
+            "target": "src/refproj/inventory.py:25-27",
+            "category": "dead_code",
+            "claim": "reserved_value() is never called in the application; no code path uses the calculated value of reserved inventory despite the module docstring mentioning it.",
+            "evidence": [
+              {
+                "source": "grep",
+                "ref": "src/refproj/inventory.py:25",
+                "detail": "reserved_value() is defined"
+              },
+              {
+                "source": "grep",
+                "ref": "",
+                "detail": "reserved_value is not referenced anywhere in src/ except its definition"
+              },
+              {
+                "source": "grep",
+                "ref": "tests/test_inventory.py:5,20",
+                "detail": "reserved_value is only called in unit tests, not in application or integration tests"
+              },
+              {
+                "source": "read",
+                "ref": "docs/goals.md",
+                "detail": "No goal or requirement asks for tracking the value of reserved stock; R4 only requires refusing oversell"
+              }
+            ],
+            "protected": false,
+            "chesterton_checked": true,
+            "test_safety": "characterization_exists",
+            "proposed_action": "flag_only",
+            "traceability": "none found — inventory reserve() satisfies R4 without value tracking",
+            "reversal_risk": "low"
+          }
+        }
+      ],
+      "lowered": 0,
+      "answer": [],
+      "ambiguous": [],
+      "resolved": []
+    },
+    {
+      "cost_usd": 0.0171,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 10,
+      "error": "the answer is not a JSON list of findings: Expecting value: line 1 column 1 (char 0)",
+      "answer": "Based on my analysis:\n\nThe signal S-2316ed69 reports `pyyaml` as an unused dependency, but grep reveals:\n- Line 5 of `tests/test_price_fixtures.py`: `import yaml` (the pyyaml package)\n- Line 13 of `tests/test_price_fixtures.py`: `yaml.safe_load()` (actual usage)\n\nThe `pyyaml` package is imported and actively used in the test suite. This is a false positive from the signal tool. The dependency is needed and properly declared.\n\n```json\n[]\n```"
+    },
+    {
+      "cost_usd": 0.0594,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 20,
+      "recall": 0.143,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dependency-only-a-test-imports": [
+          "confirm"
+        ]
+      },
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 1,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is imported only to load test fixtures in YAML format; no requirement asks for YAML support and the test would pass equally with JSON or hardcoded fixtures",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyyaml is declared and no module named pyyaml is imported"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "yaml module imported only in test fixture loading"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_price_fixtures.py",
+              "detail": "yaml.safe_load() loads fixture from YAML, converts to JSON, passes to load_price_list()"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md",
+              "detail": "no goal or requirement mentions YAML; R1 and R2 specify JSON format only"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json",
+              "detail": "no feature or slice mentions YAML"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/orders.py",
+              "detail": "production load_price_list() accepts only JSON, not YAML"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "fixture format (YAML vs JSON) is not a requirement; test's purpose is to verify load_price_list() behavior"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-09ad0827",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    }
+  ],
+  "rescored_utc": "2026-10-07T04:22:51Z"
+}

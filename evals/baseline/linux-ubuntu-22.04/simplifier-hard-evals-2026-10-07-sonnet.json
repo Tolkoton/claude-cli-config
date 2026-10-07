@@ -1,0 +1,242 @@
+{
+  "recorded_utc": "2026-10-07T02:29:13Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "6a437c87b9a67598e5943e04c5b8fbba3b8fe518",
+  "set": "hard",
+  "model": "sonnet",
+  "planted": [
+    "abstraction-almost-used",
+    "dead-branch-behind-a-flag",
+    "duplication-with-small-differences",
+    "dependency-only-a-test-imports",
+    "guard-impossible-across-functions",
+    "requirement-with-a-borrowed-goal",
+    "slice-for-later-with-a-goal-tag"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "rare-error-at-the-boundary",
+    "security-check-path",
+    "security-check-constant-time",
+    "contract-field-read-on-a-rare-path",
+    "contract-field-for-another-service",
+    "old-data-format",
+    "requirement-derived-at-planning",
+    "slice-a-goal-needs"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 3,
+    "recall_mean": 0.143,
+    "recall_range": [
+      0.143,
+      0.143
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {
+      "dependency-only-a-test-imports": 3
+    },
+    "touched_in_runs": {},
+    "cost_usd": 0.058
+  },
+  "runs": [
+    {
+      "cost_usd": 0.0327,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 4,
+      "recall": 0.143,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dependency-only-a-test-imports": [
+          "confirm"
+        ]
+      },
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 1,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is declared as a runtime dependency, but only the test file imports it. It belongs in the dev group, and the runtime dependency list can then be empty.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyyaml declared and no module named pyyaml is imported (the signal does not see the test import)"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "the only `import yaml` in the repo is in this test file"
+            },
+            {
+              "source": "read",
+              "ref": "pyproject.toml:6",
+              "detail": "the project is `package = false`, and no file under src/ imports yaml"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-b71f0ddd",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    },
+    {
+      "cost_usd": 0.0127,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 3,
+      "recall": 0.143,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 1,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is declared as a runtime dependency, but only a test imports it (as `yaml`). It could move to the dev group, and nothing under src would change.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyyaml declared and no module named pyyaml imported. The signal matches the distribution name rather than the import name `yaml`, so it is not quite right."
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "`import yaml` appears only in this test. The grep for 'yaml' found no use under src."
+            },
+            {
+              "source": "read",
+              "ref": "pyproject.toml:6",
+              "detail": "The project is `package = false`, so `uv sync` only installs tools. The runtime dependency list serves no consumer."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-5880adc4",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    },
+    {
+      "cost_usd": 0.0126,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 3,
+      "recall": 0.143,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dependency-only-a-test-imports": [
+          "confirm"
+        ]
+      },
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 1,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is declared as a runtime dependency, but only a test imports it (as `yaml`). It can move to the dev dependency group, and the runtime dependency list can then be empty.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyproject: pyyaml declared and no module named pyyaml imported. The import name is `yaml`, so the signal is only partly right."
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "`import yaml` is the only use in the repository; nothing under src imports it."
+            },
+            {
+              "source": "read",
+              "ref": "pyproject.toml:9",
+              "detail": "The dev group lists mypy, pytest and ruff but not pyyaml."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-e8fa5e14",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    }
+  ],
+  "rescored_utc": "2026-10-07T04:22:51Z"
+}

@@ -1,0 +1,1543 @@
+{
+  "recorded_utc": "2026-10-07T02:45:08Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "6a437c87b9a67598e5943e04c5b8fbba3b8fe518",
+  "set": "hard",
+  "model": "the agent's own",
+  "planted": [
+    "abstraction-almost-used",
+    "dead-branch-behind-a-flag",
+    "duplication-with-small-differences",
+    "dependency-only-a-test-imports",
+    "guard-impossible-across-functions",
+    "requirement-with-a-borrowed-goal",
+    "slice-for-later-with-a-goal-tag"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "rare-error-at-the-boundary",
+    "security-check-path",
+    "security-check-constant-time",
+    "contract-field-read-on-a-rare-path",
+    "contract-field-for-another-service",
+    "old-data-format",
+    "requirement-derived-at-planning",
+    "slice-a-goal-needs"
+  ],
+  "summary": {
+    "runs": 5,
+    "scored": 5,
+    "recall_mean": 0.828,
+    "recall_range": [
+      0.714,
+      0.857
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 2,
+    "found_in_runs": {
+      "abstraction-almost-used": 5,
+      "dead-branch-behind-a-flag": 5,
+      "dependency-only-a-test-imports": 4,
+      "guard-impossible-across-functions": 5,
+      "requirement-with-a-borrowed-goal": 5,
+      "slice-for-later-with-a-goal-tag": 5
+    },
+    "touched_in_runs": {},
+    "cost_usd": 4.6927
+  },
+  "runs": [
+    {
+      "cost_usd": 0.9356,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 31,
+      "recall": 0.857,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "abstraction-almost-used": [
+          "confirm",
+          "confirm"
+        ],
+        "guard-impossible-across-functions": [
+          "confirm"
+        ],
+        "dead-branch-behind-a-flag": [
+          "confirm"
+        ],
+        "slice-for-later-with-a-goal-tag": [
+          "confirm"
+        ],
+        "requirement-with-a-borrowed-goal": [
+          "confirm"
+        ],
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "duplication-with-small-differences"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 8,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "`reserved_value` has no caller outside its own test; `reserve` and the stock guard it serves (R4) are untouched without it, and the `pricing` import in inventory.py goes with it.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "'reserved_value' appears at its definition and only in tests/test_inventory.py:5,19-20; cli.py imports only StockItem and reserve"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "module docstring 'Depends on pricing for the value of what is reserved' describes the function; it gives no reason a caller needs it"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:23",
+              "detail": "G2/R4 ask that an over-count line be refused; no goal or requirement asks for the value of a reservation"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:6",
+              "detail": "S2 'stock reservation' — the value computation is not part of the slice title or G2"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-948e66da",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py::FixedAmountDiscount",
+          "category": "invented_requirement",
+          "claim": "`FixedAmountDiscount` is instantiated only by its own tests; R3 defines a discount as a whole percentage, and `policy_for` can never produce it, so charging behaves identically without it.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/discounts.py:27",
+              "detail": "'FixedAmountDiscount' is used only in tests/test_discounts.py:3,11,15; policy_for at discounts.py:37-38 always returns PercentDiscount"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3 (G1, owner): 'A discount is a whole percentage between 0 and 100' — no owner line asks for a fixed-amount discount"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:26",
+              "detail": "the only production caller builds its policy through policy_for(percent)"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-a9825c72",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "The `DiscountPolicy` ABC, `PercentDiscount` and `policy_for` wrap `pricing.apply_discount` behind one implementation; `charge` can call `apply_discount(price, percent)` directly with the same result, and the module can go.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:37-38",
+              "detail": "policy_for(percent) unconditionally returns PercentDiscount(percent), whose apply() is a one-line delegation to apply_discount"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:11",
+              "detail": "cli.py is the sole importer of discounts; it already imports apply_discount from pricing at cli.py:14 for the wholesale branch"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line pins the charged total (8.75) and stays green when charge uses apply_discount directly"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "one concrete strategy behind an abstract base is a seam for variants no requirement names"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R3 (docs/goals.md:22) is served by pricing.apply_discount alone",
+          "reversal_risk": "medium",
+          "id": "F-601fef59",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:33-34",
+          "category": "defensive_for_impossible",
+          "claim": "The `left.on_hand < 0` guard in `charge` cannot fire: `reserve` has just refused any quantity above `on_hand` and `parse_order_line` has refused any non-positive quantity, so G2 is already enforced on every path that reaches it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:18-22",
+              "detail": "reserve raises ValueError when quantity <= 0 or quantity > item.on_hand, then returns on_hand - quantity, which is therefore >= 0"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/orders.py:33-34",
+              "detail": "parse_order_line raises OrderError for quantity <= 0 before reserve is called"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:33",
+              "detail": "'on_hand < 0' / 'went negative' appear nowhere else; no test names the RuntimeError"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_inventory.py:14-16",
+              "detail": "test_cannot_reserve_more_than_on_hand characterizes the refusal that makes the guard unreachable"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "G2/R4 (docs/goals.md:11,23) — satisfied by inventory.reserve",
+          "reversal_risk": "low",
+          "id": "F-3778b45d",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:36-37",
+          "category": "invented_requirement",
+          "claim": "The `wholesale` flag with `WHOLESALE_FROM`/`WHOLESALE_PERCENT` is never passed as True by any caller and no goal or requirement mentions a wholesale discount; `charge` returns the same totals without the parameter, the two constants and the branch.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:19-20",
+              "detail": "'wholesale'/'WHOLESALE' appear only in cli.py (definition at 19-20, parameter at 24, branch at 36-37); no caller, test, document or slice mentions it"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:60",
+              "detail": "main calls charge(prices, int(args[2]), args[3:]) — the default wholesale=False is the only value ever used"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:18-31",
+              "detail": "R1-R10 contain no wholesale or quantity-tier discount; R3 names a single whole percentage"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line exercises charge without the flag and stays green"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-4950784e",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/price-list-cache.md",
+          "category": "speculative_slice",
+          "claim": "Slice S7 (price-list cache) answers a load the slice itself says does not exist yet ('a few dozen SKUs today'); no goal asks for counter speed, and dropping the slice and its DAG node leaves every stated goal reachable.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/slices/price-list-cache.md:8-10",
+              "detail": "'It holds a few dozen SKUs today; when a shop carries thousands the parse will be felt' — the justification is a future condition"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:11",
+              "detail": "S7 is 'todo', traced to G1; G1 (docs/goals.md:10) asks only that a clerk gets the total to charge, which S3 'done' already delivers"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/slices/stock-levels.md:7-9",
+              "detail": "by contrast S6's 'Why now' names a present defect (ON_HAND constant 100 defeats R4) — S6 is not speculative"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "a pickle cache keyed on mtime adds a second source of truth for the operator's hand-edited file with no owner request behind it"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-c5be281a",
+          "validator": []
+        },
+        {
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "claim": "R7 (PDF rendering and e-mailing of receipts) is marked `planning`, not `owner`; G3 is met by the receipt file the clerk can hand over, no slice in the DAG implements R7, and nothing in the code or tests references it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:27",
+              "detail": "'R7 (G3, planning) A receipt can also be rendered as a PDF and e-mailed to the customer.'"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:12",
+              "detail": "G3: 'Every charged order leaves a receipt file the clerk can hand over or re-print' — a file, already written by receipts.write_receipt"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:27",
+              "detail": "'pdf' / 'e-mail' / 'email' appear nowhere else in the repository; no DAG node or slice names R7"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:4-6",
+              "detail": "the document's own legend distinguishes owner statements from lines 'written down while a slice was planned'"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "G3 (docs/goals.md:12) — satisfied by the receipt file",
+          "reversal_risk": "medium",
+          "id": "F-cfaa894a",
+          "validator": []
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "`pyyaml` is a runtime dependency that no source module imports; its sole user is one test that round-trips a YAML fixture into the same JSON that `test_price_list_is_loaded` already covers, so the dependency (and that test) can go with no production behaviour changed.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyproject: pyyaml is declared and no module named pyyaml is imported — note the tool matched the distribution name; the module is imported as 'yaml'"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "'import yaml' is the only import of the library in the repository; nothing under src/ imports it"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_price_fixtures.py:12-16",
+              "detail": "the test loads prices.yaml, dumps it to JSON, then calls load_price_list — the same path tests/test_counter.py:28-30 exercises with an inline JSON mapping"
+            },
+            {
+              "source": "read",
+              "ref": "tests/fixtures/prices.yaml:1",
+              "detail": "comment says 'The price list the tests share', but only this one test reads it; R1 (docs/goals.md:18) names a JSON price list, not YAML"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-e880b3ca",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    },
+    {
+      "cost_usd": 0.9542,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 29,
+      "recall": 0.857,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "guard-impossible-across-functions": [
+          "confirm"
+        ],
+        "dead-branch-behind-a-flag": [
+          "confirm"
+        ],
+        "abstraction-almost-used": [
+          "confirm"
+        ],
+        "slice-for-later-with-a-goal-tag": [
+          "confirm"
+        ],
+        "requirement-with-a-borrowed-goal": [
+          "confirm"
+        ],
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "duplication-with-small-differences"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 7,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "src/refproj/cli.py:33-34",
+          "category": "defensive_for_impossible",
+          "claim": "The `left.on_hand < 0` RuntimeError guard can go: `reserve` has already refused any quantity above `on_hand` and `parse_order_line` has already refused any quantity below 1, so `on_hand - quantity` is non-negative on every path that reaches it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:18-22",
+              "detail": "reserve raises ValueError when quantity <= 0 or quantity > item.on_hand before building the new StockItem"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/orders.py:33-34",
+              "detail": "parse_order_line raises OrderError for quantity <= 0, so charge never passes a non-positive quantity"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:33",
+              "detail": "'on_hand < 0' and this RuntimeError appear nowhere else; no test, doc or slice names them"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "the value was just built by reserve, which rules the negative state out; G2 is enforced inside reserve, not here"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "docs/goals.md R4 / G2 — satisfied by inventory.reserve, which tests/test_inventory.py::test_cannot_reserve_more_than_on_hand covers",
+          "reversal_risk": "low",
+          "id": "F-4a774e6f",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:19-20",
+          "category": "invented_requirement",
+          "claim": "The `wholesale` parameter of `charge` and the WHOLESALE_FROM / WHOLESALE_PERCENT constants can go: no goal or requirement mentions a wholesale discount, `main` never passes `wholesale=True`, and no test exercises it, so every observable total is unchanged.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:19-37",
+              "detail": "'wholesale' occurs only in cli.py: the two constants, the parameter default False, and the branch at lines 36-37"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:60",
+              "detail": "main calls charge(prices, int(args[2]), args[3:]) without the wholesale argument"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:18-31",
+              "detail": "R1-R10 describe one whole-percentage discount (R3); nothing names a quantity threshold or a second discount"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "the only charge test passes three arguments and stays green without the branch"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-49801e14",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "The DiscountPolicy ABC, FixedAmountDiscount and policy_for can go: policy_for always returns PercentDiscount, whose apply is a one-line call to pricing.apply_discount, so charge can call apply_discount directly and every total stays the same.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:11-26",
+              "detail": "policy_for is the only production use of the module; it is called once and its result only has .apply called on it"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:37-38",
+              "detail": "policy_for(percent) returns PercentDiscount(percent) unconditionally; no other DiscountPolicy is ever constructed outside tests"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_discounts.py:3-15",
+              "detail": "FixedAmountDiscount is used only by its own two tests; no caller in src, docs or slices"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3: 'A discount is a whole percentage between 0 and 100' — the owner asks for one kind of discount"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "charge(PRICES, 50, ...) == 8.75 characterises the percent path end to end"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "docs/goals.md R3 (G1) — met by pricing.apply_discount alone",
+          "reversal_risk": "medium",
+          "id": "F-ecb69b7b",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "reserved_value can go, and with it the unit_price field of StockItem and inventory's import of pricing.total: its only caller is its own unit test, and no goal, requirement or slice asks for the value of a reservation.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "'reserved_value' appears at its definition and in tests/test_inventory.py:5,20 only; cli.py imports StockItem and reserve, not reserved_value"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:12",
+              "detail": "'unit_price' is read only by reserved_value and copied through by reserve; cli.py fills it from prices[line.sku] but never reads it back"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "the docstring 'Depends on pricing for the value of what is reserved' and the S2->S1 edge in .engine/architecture/feature-dag.json:6 exist for this function, but neither traces to a goal: G2 only asks that stock never go negative"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_inventory.py:10-16",
+              "detail": "test_reserve_takes_units_off_the_shelf and test_cannot_reserve_more_than_on_hand cover reserve without reserved_value"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found (G2 / R4 need reserve only)",
+          "reversal_risk": "low",
+          "id": "F-dd8f2cc0",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/price-list-cache.md",
+          "category": "speculative_slice",
+          "claim": "Slice S7 (price-list-cache) can be dropped from the plan: its own 'why now' says the list holds a few dozen SKUs today and the cost would be felt only if a shop someday carried thousands; no goal or requirement asks for load speed, and G1 is already done.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/slices/price-list-cache.md:8-10",
+              "detail": "'It holds a few dozen SKUs today; when a shop carries thousands the parse will be felt' — a hypothetical future load, not a stated need"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:11",
+              "detail": "S7 cites G1 only; S1, S3 (status done) already deliver G1"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:10-31",
+              "detail": "no goal or requirement mentions performance, caching or a pickle file"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "a pickle cache keyed on mtime also adds a second file the operator could corrupt, which R1's 'message the clerk can act on' would then have to cover"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "G1 — already satisfied by S1 and S3; no acceptance criterion names load time",
+          "reversal_risk": "medium",
+          "id": "F-54ca9d23",
+          "validator": []
+        },
+        {
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "claim": "R7 (PDF rendering and e-mailing a receipt) is marked `planning`, not `owner`, and goes beyond what G3 asks: G3 wants a receipt file the clerk can hand over or re-print, which R5 and R6 already deliver; nothing in code, tests or the slice plan implements R7.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:12",
+              "detail": "G3: 'Every charged order leaves a receipt file the clerk can hand over or re-print' — no customer e-mail, no PDF"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:27",
+              "detail": "R7 is sourced 'planning', i.e. written while a slice was planned, not stated by the owner"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:27",
+              "detail": "'pdf' and 'e-mail' occur nowhere else in the repository; no slice or DAG node references R7"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:8",
+              "detail": "S4 'receipt files and the receipt record' is done and covers G3 without R7"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found — G3 does not ask for it",
+          "reversal_risk": "medium",
+          "id": "F-2a309c2c",
+          "validator": []
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is a runtime dependency that no src module uses; its only importer is tests/test_price_fixtures.py, whose assertion repeats tests/test_counter.py::test_price_list_is_loaded through a YAML-to-JSON round trip, so that test, the prices.yaml fixture and the dependency could go together with no loss of coverage.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyproject: pyyaml declared and no module named pyyaml imported — note the import name is 'yaml', which is present, so the signal's stated reason is inaccurate, but the dependency still serves no production code"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "'import yaml' is the only yaml import in the repository; no file under src imports it"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_price_fixtures.py:12-16",
+              "detail": "the test loads prices.yaml, dumps it as JSON, and asserts load_price_list returns the same two Decimals"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:28-30",
+              "detail": "test_price_list_is_loaded already writes a JSON mapping and asserts load_price_list returns Decimals"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/fixtures/prices.yaml:1",
+              "detail": "the fixture says 'The price list the tests share' but test_price_fixtures.py is its only reader; test_counter.py uses its own PRICES dict"
+            }
+          ],
+          "protected": true,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "docs/goals.md R1 — covered by tests/test_counter.py::test_price_list_is_loaded",
+          "reversal_risk": "low",
+          "id": "F-061dcb68",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": [
+        {
+          "id": "F-2a309c2c",
+          "planted": "requirement-with-a-borrowed-goal",
+          "trap": "requirement-derived-at-planning",
+          "as": "planted",
+          "why": "session 2: the finding drops R7 only; R6 is named as what already delivers G3 («which R5 and R6 already deliver») — read by the agent of board 059, 2026-10-07",
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "action": "confirm",
+          "claim": "R7 (PDF rendering and e-mailing a receipt) is marked `planning`, not `owner`, and goes beyond what G3 asks: G3 wants a receipt file the clerk can hand over or re-print, which R5 and R6 already deliver; nothing in code, tests or the slice plan implements R7."
+        }
+      ]
+    },
+    {
+      "cost_usd": 1.0057,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 33,
+      "recall": 0.857,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "abstraction-almost-used": [
+          "confirm"
+        ],
+        "guard-impossible-across-functions": [
+          "confirm"
+        ],
+        "dead-branch-behind-a-flag": [
+          "confirm"
+        ],
+        "requirement-with-a-borrowed-goal": [
+          "confirm"
+        ],
+        "slice-for-later-with-a-goal-tag": [
+          "confirm"
+        ],
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "duplication-with-small-differences"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 7,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "The DiscountPolicy ABC, FixedAmountDiscount and the policy_for factory can go; charge() calls pricing.apply_discount(prices[sku], percent) directly and every charged total stays the same, since policy_for always returns PercentDiscount, whose apply() is that one call.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:26",
+              "detail": "policy_for is the only production use of the module; it is called with the percent and the result's apply() is called once at cli.py:35"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:37-38",
+              "detail": "policy_for ignores every input except percent and unconditionally returns PercentDiscount(percent)"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:23-24",
+              "detail": "PercentDiscount.apply is a one-line delegation to pricing.apply_discount"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_discounts.py:11",
+              "detail": "FixedAmountDiscount is constructed only in its own tests; no src module, document or slice names it"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3: 'A discount is a whole percentage between 0 and 100' — no requirement, goal or slice asks for a fixed-amount discount or for more than one way of discounting"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R3 (G1) asks only for a whole-percentage discount; no owner statement asks for a second policy",
+          "reversal_risk": "low",
+          "id": "F-c3a75fa0",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:33-34",
+          "category": "defensive_for_impossible",
+          "claim": "The `if left.on_hand < 0: raise RuntimeError` after reserve() can go; reserve() has already raised ValueError on every path where on_hand would go below zero, so this branch is unreachable and G2 stays guaranteed by inventory.reserve.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:18-22",
+              "detail": "reserve raises on quantity <= 0 and on quantity > item.on_hand, then returns on_hand - quantity, which is therefore >= 0 on the only path that returns"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/orders.py:33-34",
+              "detail": "parse_order_line also rejects quantity <= 0 before the line reaches charge()"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:34",
+              "detail": "'went negative' and RuntimeError appear nowhere else — no test, document or slice names this branch"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_inventory.py:14-16",
+              "detail": "test_cannot_reserve_more_than_on_hand pins the behaviour the guard duplicates; tests/test_counter.py:15-16 exercises charge() end to end"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "G2 / R4 — already met by inventory.reserve, which is what the guard re-checks",
+          "reversal_risk": "low",
+          "id": "F-c68f123f",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:19-20",
+          "category": "invented_requirement",
+          "claim": "The `wholesale` parameter of charge() with WHOLESALE_FROM, WHOLESALE_PERCENT and the branch at cli.py:36-37 can go; nothing ever passes wholesale=True, so no total changes.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:24",
+              "detail": "'wholesale' (any case) occurs only in cli.py: the parameter default False, the two constants and the branch; no caller, test, document or slice mentions it"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:60",
+              "detail": "main() calls charge(prices, int(args[2]), args[3:]) without the keyword; the CLI usage line at cli.py:3 offers no flag that would set it"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:18-31",
+              "detail": "no requirement mentions wholesale, bulk or a quantity-dependent second discount; R3 defines the discount as one whole percentage"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line pins charge() without wholesale and stays green"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-ca377e6f",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "reserved_value and its import of pricing.total can go together with the test that is its only caller; no production path reads the value of reserved stock, and reserve() is unaffected.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "reserved_value is defined here and used only in tests/test_inventory.py:5 and :20"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "the module docstring 'Depends on pricing for the value of what is reserved' describes this function, but nothing in src asks for that value — charge() computes amounts from the price list itself (cli.py:35)"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/slices/stock-levels.md:3-13",
+              "detail": "the only pending stock slice (S6) is about units on hand, not their value"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:6",
+              "detail": "S2 'stock reservation' lists deps [S1]; that edge is realised only by reserved_value, so it goes stale with the function — to be noted when confirming"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "G2 asks that stock never go negative; R4 asks that over-reservation be refused. Neither asks for a monetary value of what was reserved."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found (G2/R4 cover reserve, not the value)",
+          "reversal_risk": "low",
+          "id": "F-711cd98b",
+          "validator": []
+        },
+        {
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "claim": "R7 (PDF rendering and e-mailing a receipt) traces to no owner statement and is implemented nowhere; it can be dropped from the requirements without changing any goal, slice or code.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:27",
+              "detail": "R7 is tagged `planning`, not `owner`; its parent goal G3 (docs/goals.md:12) asks only for 'a receipt file the clerk can hand over or re-print'"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:27",
+              "detail": "'PDF', 'e-mail'/'email' and 'R7' occur nowhere else in the repository — no slice, no DAG node, no source, no test"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:8-11",
+              "detail": "S4 covers receipt files and the JSON record; no node, done or todo, names rendering or e-mail"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found — G3 does not need it, and no owner note is cited",
+          "reversal_risk": "low",
+          "id": "F-bb16f219",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/price-list-cache.md",
+          "category": "speculative_slice",
+          "claim": "Slice S7 (pickle cache of the parsed price list) serves no stated goal now and can be dropped from the slice plan and the feature DAG; G1 is met by load_price_list as it stands.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/slices/price-list-cache.md:8-10",
+              "detail": "the slice's own 'Why now' is conditional: the list 'holds a few dozen SKUs today; when a shop carries thousands the parse will be felt' — the need is hypothetical, not present"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:10-31",
+              "detail": "no goal or requirement mentions speed, latency or caching; R1 only asks that prices come from the operator's JSON file and that a broken list stop the order"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:11",
+              "detail": "S7 status todo, goals [G1]; nothing depends on S7"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "A pickle cache also adds a second source of truth for prices that R1's error handling (orders.py:41-55) would have to be mirrored for; the slice contract does not mention this."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found — cites G1, but G1 does not need it now",
+          "reversal_risk": "medium",
+          "id": "F-046ca422",
+          "validator": []
+        },
+        {
+          "target": "tests/test_price_fixtures.py",
+          "category": "duplication",
+          "claim": "test_the_shared_price_list_loads re-tests what tests/test_counter.py::test_price_list_is_loaded already pins, via a YAML-to-JSON detour; dropping the test, tests/fixtures/prices.yaml and the pyyaml dependency leaves the covered behaviour unchanged.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyproject reports pyyaml unused; the signal is imprecise — pyyaml's import name is `yaml`, imported at tests/test_price_fixtures.py:5 — but this one test is the dependency's sole user"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_price_fixtures.py:12-16",
+              "detail": "the test parses the YAML, re-serialises it as JSON and asserts load_price_list returns the two Decimals"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:28-30",
+              "detail": "test_price_list_is_loaded writes a JSON mapping and asserts the same Decimal conversion of load_price_list"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:13",
+              "detail": "prices.yaml is read by exactly one test, although its header (tests/fixtures/prices.yaml:1) calls it 'the price list the tests share'"
+            },
+            {
+              "source": "read",
+              "ref": "pyproject.toml:6",
+              "detail": "pyyaml is the only runtime dependency, and no src module imports it"
+            }
+          ],
+          "protected": true,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "R1 (G1) — already characterised by tests/test_counter.py:28-30",
+          "reversal_risk": "low",
+          "id": "F-e4c382b3",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    },
+    {
+      "cost_usd": 0.9525,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 33,
+      "recall": 0.857,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "guard-impossible-across-functions": [
+          "confirm"
+        ],
+        "dead-branch-behind-a-flag": [
+          "confirm"
+        ],
+        "abstraction-almost-used": [
+          "confirm"
+        ],
+        "requirement-with-a-borrowed-goal": [
+          "confirm"
+        ],
+        "slice-for-later-with-a-goal-tag": [
+          "confirm"
+        ],
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "duplication-with-small-differences"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 7,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "src/refproj/cli.py:33-34",
+          "category": "defensive_for_impossible",
+          "claim": "The `left.on_hand < 0` RuntimeError can go: `reserve` has just raised ValueError for any quantity above `on_hand` or at or below zero, so `on_hand - quantity` is non-negative on every path that reaches the guard, and R4 stays enforced by `reserve`.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:16-22",
+              "detail": "reserve raises ValueError when quantity <= 0 or quantity > item.on_hand, then returns on_hand - quantity"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:32-34",
+              "detail": "the guard checks the value reserve just returned; no other path reaches it"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:34",
+              "detail": "'went negative' / RuntimeError appears nowhere else in the repository, no test expects it"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_inventory.py:14-16",
+              "detail": "test_cannot_reserve_more_than_on_hand pins the refusal in reserve; test_charge_applies_the_discount_to_every_line stays green without the guard"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "G2/R4 — satisfied by reserve, not by this guard",
+          "reversal_risk": "low",
+          "id": "F-4440ef9e",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:19-20",
+          "category": "invented_requirement",
+          "claim": "The `wholesale` parameter, `WHOLESALE_FROM`, `WHOLESALE_PERCENT` and the branch at lines 36-37 can go: no caller passes `wholesale=True`, no goal or requirement mentions a wholesale discount, and `charge` returns the same totals without them.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:24",
+              "detail": "'wholesale' appears only in cli.py: the parameter default False, the constants and the branch; neither main (cli.py:60) nor any test passes it"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3 defines a discount as one whole percentage 0..100; no requirement names a quantity-based extra discount"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line exercises charge without wholesale and would stay green"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-f7c22c88",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "`reserved_value` has no production caller and can go together with its test; `reserve` and the stock refusal (R4) are unchanged, and inventory no longer needs `pricing.total` (its only reason for importing pricing).",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "'reserved_value' is referenced only at its definition and in tests/test_inventory.py:5,20"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "module docstring says the module depends on pricing 'for the value of what is reserved' — a description of this function, not a reason anything needs it"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:32",
+              "detail": "cli builds StockItem and calls reserve only; the value of reserved stock is computed via the discount policy, not via reserved_value"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "once it goes, StockItem.unit_price is read by nothing but reserve's copy; the S2→S1 dependency in the feature DAG exists only through this function"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found (G2 asks only that stock never goes negative)",
+          "reversal_risk": "low",
+          "id": "F-8a3d8f70",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "The `DiscountPolicy` ABC, `FixedAmountDiscount` and `policy_for` can go: `policy_for` always returns `PercentDiscount`, which only wraps `pricing.apply_discount`, so `charge` can call `apply_discount(prices[sku], percent)` directly with the same result.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/discounts.py:37-38",
+              "detail": "policy_for has one caller (cli.py:26) and one return value, PercentDiscount(percent)"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/discounts.py:27",
+              "detail": "FixedAmountDiscount is used only in tests/test_discounts.py; 'fixed amount' appears in no goal, requirement or slice"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:23-24",
+              "detail": "PercentDiscount.apply is a one-line delegation to apply_discount"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3: a discount is a whole percentage between 0 and 100 — the only kind asked for"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line pins the total charge computes; tests/test_pricing.py pins apply_discount"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R3",
+          "reversal_risk": "low",
+          "id": "F-70a55df3",
+          "validator": []
+        },
+        {
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "claim": "R7 (PDF rendering and e-mailing of receipts) was written during planning, not stated by the owner, and goes beyond G3, which asks only for a receipt file the clerk can hand over or re-print; nothing in the code, tests or slices implements or depends on it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:27",
+              "detail": "R7 is tagged (G3, planning); G3 at line 12 asks for a file the clerk hands over or re-prints"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:27",
+              "detail": "'pdf' and 'e-mail' appear nowhere else in the repository — no slice, no DAG node, no code"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:4-6",
+              "detail": "the document itself distinguishes owner-stated requirements from ones written while planning"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "G3 does not ask for it",
+          "reversal_risk": "low",
+          "id": "F-acacb6d2",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/price-list-cache.md",
+          "category": "speculative_slice",
+          "claim": "Slice S7 (pickle cache of the parsed price list) serves no stated goal now: the slice's own rationale says the list holds a few dozen SKUs and the cost would be felt only 'when a shop carries thousands'; G1 is already met by S3 and no requirement mentions load time.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/slices/price-list-cache.md:8-10",
+              "detail": "'It holds a few dozen SKUs today; when a shop carries thousands the parse will be felt' — a future condition, and 'easier to add while load_price_list has one caller' is convenience, not need"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:11",
+              "detail": "S7 is tagged to G1, status todo; S3 (done) already satisfies G1/R1/R2"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:10",
+              "detail": "G1: the clerk types an order and gets the total — no performance goal"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "contrast with S6 (stock-levels), whose 'why now' cites a present gap in R4; S7's cites none"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-742a7640",
+          "validator": []
+        },
+        {
+          "target": "tests/test_price_fixtures.py",
+          "category": "duplication",
+          "claim": "Signal S-2316ed69 is a false lead (pyyaml's import name is `yaml`, used at line 5), but the test it serves repeats `test_price_list_is_loaded` by converting a YAML fixture to JSON first; dropping the test and `tests/fixtures/prices.yaml` would leave `load_price_list` as well covered and make pyyaml truly unused.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyproject: pyyaml declared, no module named pyyaml imported — the tool matched the distribution name, not the import name"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "'import yaml' is the only use of the package in the repository"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_price_fixtures.py:12-16",
+              "detail": "loads prices.yaml, dumps it to JSON, calls load_price_list and compares to a dict"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:28-30",
+              "detail": "test_price_list_is_loaded does the same against an inline JSON mapping"
+            },
+            {
+              "source": "read",
+              "ref": "tests/fixtures/prices.yaml:1",
+              "detail": "comment calls it 'the price list the tests share', but only this one test reads it; test_counter uses its own PRICES dict"
+            }
+          ],
+          "protected": true,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "R1 (already covered by tests/test_counter.py:28-35)",
+          "reversal_risk": "low",
+          "id": "F-8c87fcd4",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": []
+    },
+    {
+      "cost_usd": 0.8447,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 32,
+      "recall": 0.714,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "abstraction-almost-used": [
+          "confirm"
+        ],
+        "guard-impossible-across-functions": [
+          "confirm"
+        ],
+        "dead-branch-behind-a-flag": [
+          "confirm"
+        ],
+        "requirement-with-a-borrowed-goal": [
+          "confirm"
+        ],
+        "slice-for-later-with-a-goal-tag": [
+          "confirm"
+        ]
+      },
+      "missed": [
+        "duplication-with-small-differences",
+        "dependency-only-a-test-imports"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "findings": 6,
+      "rejected": [],
+      "lowered": 1,
+      "answer": [
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "The DiscountPolicy ABC, FixedAmountDiscount and policy_for can go; charge() calls pricing.apply_discount(price, percent) directly and every order is priced the same, since policy_for only ever builds a PercentDiscount.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/discounts.py:37-38",
+              "detail": "policy_for has one implementation path: `return PercentDiscount(percent)`; PercentDiscount.apply is a one-line call to pricing.apply_discount"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:26",
+              "detail": "the only production caller of the module is `policy = policy_for(percent)`; no production code constructs FixedAmountDiscount or references DiscountPolicy"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_discounts.py:11-15",
+              "detail": "FixedAmountDiscount is exercised only by its own two unit tests"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3 (owner): 'A discount is a whole percentage between 0 and 100' — no requirement asks for a fixed-amount discount or a pluggable policy"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:16",
+              "detail": "test_charge_applies_the_discount_to_every_line pins charge()'s result and stays green when charge calls apply_discount directly"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R3 (G1) asks only for a whole-percentage discount; nothing traces to a second discount kind",
+          "reversal_risk": "low",
+          "id": "F-d9bad474",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:33-34",
+          "category": "defensive_for_impossible",
+          "claim": "The `if left.on_hand < 0: raise RuntimeError` guard can go; reserve() has already refused any quantity above on_hand and any non-positive quantity, so on_hand is never negative on the line after it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:18-22",
+              "detail": "reserve raises ValueError for quantity <= 0 and for quantity > item.on_hand, then returns on_hand - quantity, which is therefore >= 0 on every path"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:33-34",
+              "detail": "'went negative' and RuntimeError appear nowhere else — no test or document names this guard"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_inventory.py:14-16",
+              "detail": "test_cannot_reserve_more_than_on_hand protects the real refusal (R4) that lives in reserve()"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R4 (G2) is satisfied by inventory.reserve; this guard adds nothing to it",
+          "reversal_risk": "low",
+          "id": "F-b56e7207",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/cli.py:19-20",
+          "category": "invented_requirement",
+          "claim": "The `wholesale` parameter of charge(), WHOLESALE_FROM, WHOLESALE_PERCENT and the extra apply_discount on lines of 12+ units can go; no caller passes wholesale=True and no goal or requirement mentions a wholesale discount.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:60",
+              "detail": "main calls `charge(prices, int(args[2]), args[3:])` without the wholesale flag; the CLI usage string offers no way to set it"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_counter.py:16",
+              "detail": "both test callers of charge() leave wholesale at its default False"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:36-37",
+              "detail": "'wholesale' occurs only in cli.py — never in docs/goals.md, the slices or the feature DAG"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:22",
+              "detail": "R3 defines the discount as one whole percentage; no requirement adds a quantity-tiered second discount"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-85a19329",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "reserved_value can go together with its one test; nothing on the order path asks for the value of a reservation, and inventory would no longer need to import pricing.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "reserved_value is defined here and called only from tests/test_inventory.py:20"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:32",
+              "detail": "charge() uses reserve() only; the line value is computed from prices[line.sku] directly"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "module docstring 'Depends on pricing for the value of what is reserved' explains the import, not a consumer; no goal or requirement asks for a reserved value"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:6",
+              "detail": "S2 'stock reservation' serves G2 (stock never negative), which reserve() alone fulfils"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found (G2/R4 are met by reserve)",
+          "reversal_risk": "low",
+          "id": "F-693b5414",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        },
+        {
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "claim": "R7 (PDF rendering and e-mailing a receipt) is marked `planning`, not `owner`, and serves nothing in G3, which asks only for a receipt file the clerk can hand over or re-print; it can be dropped from the requirements without any goal losing coverage.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:27",
+              "detail": "R7 is the only requirement whose origin is `planning` and whose content is not a tightening of an owner statement (R6, also planning, narrows R5)"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:12",
+              "detail": "G3: 'Every charged order leaves a receipt file the clerk can hand over or re-print' — no mention of PDF, e-mail or the customer receiving anything electronically"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:27",
+              "detail": "'PDF' and 'e-mail' occur nowhere else: no slice, no DAG node, no code, no test"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "claims G3, but G3 is fully met by R5/R6",
+          "reversal_risk": "medium",
+          "id": "F-8bbe112d",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/price-list-cache.md",
+          "category": "speculative_slice",
+          "claim": "Slice S7 (pickle cache of the parsed price list keyed by mtime) can be removed from the plan; its own justification says the list holds a few dozen SKUs today and the cost is hypothetical, and no goal asks for it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/slices/price-list-cache.md:8-9",
+              "detail": "'It holds a few dozen SKUs today; when a shop carries thousands the parse will be felt' — the need is conditional on a future that no owner statement describes"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:11",
+              "detail": "S7 traces to G1, which is 'a clerk types an order ... and gets the total'; G1 is already met by S1/S3 (status done) and says nothing about latency or caching"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:18-21",
+              "detail": "R1/R2 govern the price list: hand-edited JSON, broken list stops the order, legacy row format keeps loading; a stale-cache failure mode would be a new way to break R1 with no requirement behind it"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "Contrast with S6 (stock-levels), whose 'why now' names a present defect (ON_HAND=100 makes R4 vacuous); S7 names none"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "G1 cited, but G1 is already satisfied without it",
+          "reversal_risk": "low",
+          "id": "F-ce03bf69",
+          "validator": []
+        }
+      ],
+      "ambiguous": [],
+      "resolved": [
+        {
+          "id": "F-8bbe112d",
+          "planted": "requirement-with-a-borrowed-goal",
+          "trap": "requirement-derived-at-planning",
+          "as": "planted",
+          "why": "session 5: the finding drops R7 only; its evidence says R6 «narrows R5», i.e. stays — read by the agent of board 059, 2026-10-07",
+          "target": "docs/goals.md:27",
+          "category": "invented_requirement",
+          "action": "confirm",
+          "claim": "R7 (PDF rendering and e-mailing a receipt) is marked `planning`, not `owner`, and serves nothing in G3, which asks only for a receipt file the clerk can hand over or re-print; it can be dropped from the requirements without any goal losing coverage."
+        }
+      ]
+    }
+  ],
+  "rescored_utc": "2026-10-07T04:22:51Z",
+  "read_by_hand": {
+    "F-2a309c2c": {
+      "as": "planted",
+      "why": "session 2: the finding drops R7 only; R6 is named as what already delivers G3 («which R5 and R6 already deliver») — read by the agent of board 059, 2026-10-07"
+    },
+    "F-8bbe112d": {
+      "as": "planted",
+      "why": "session 5: the finding drops R7 only; its evidence says R6 «narrows R5», i.e. stays — read by the agent of board 059, 2026-10-07"
+    }
+  }
+}

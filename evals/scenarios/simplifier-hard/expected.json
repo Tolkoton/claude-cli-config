@@ -1,0 +1,415 @@
+{
+  "note": "The harder set (board 059): subtler excess and more traps than ../simplifier/. What was planted in project/ (an overlay on evals/reference-project) and what must be left alone. A finding matches an entry when its target is one of `files` and one of `any` appears in its target, claim or evidence (case-insensitive). Where a planted item and a trap share a file, `lines` (file -> [first, last] ranges) says which lines are whose: a finding on a trap's own line is that trap touched; any other finding that names both a planted item and a trap, by line or by word, is ambiguous until read by hand (`read_by_hand` in the results file). `neutral` is what a careful reviewer may report or leave: counted neither for nor against. Read by evals/run_simplifier_evals.py --set hard; kept honest by tests/test_simplifier_evals.py.",
+  "scope": [
+    "src",
+    "tests",
+    "docs",
+    "pyproject.toml",
+    ".engine/architecture",
+    ".engine/slices"
+  ],
+  "test_with": [
+    "pyyaml"
+  ],
+  "planted": [
+    {
+      "id": "abstraction-almost-used",
+      "category": "premature_abstraction",
+      "why": "DiscountPolicy has a second implementation, FixedAmountDiscount, but only its test builds one: policy_for returns PercentDiscount always, and R3 knows percentages only",
+      "files": [
+        "src/refproj/discounts.py",
+        "src/refproj/cli.py",
+        "tests/test_discounts.py"
+      ],
+      "any": [
+        "DiscountPolicy",
+        "PercentDiscount",
+        "FixedAmountDiscount",
+        "policy_for"
+      ],
+      "lines": {
+        "src/refproj/cli.py": [
+          [
+            11,
+            11
+          ],
+          [
+            26,
+            26
+          ]
+        ]
+      }
+    },
+    {
+      "id": "dead-branch-behind-a-flag",
+      "category": "dead_code",
+      "why": "charge(..., wholesale=False): no caller and no test passes it, no command-line flag sets it, no requirement asks for it; WHOLESALE_FROM and WHOLESALE_PERCENT live for that branch only",
+      "files": [
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "wholesale"
+      ],
+      "lines": {
+        "src/refproj/cli.py": [
+          [
+            19,
+            20
+          ],
+          [
+            23,
+            25
+          ],
+          [
+            36,
+            37
+          ]
+        ]
+      }
+    },
+    {
+      "id": "duplication-with-small-differences",
+      "category": "duplication",
+      "why": "refund_amount recomputes what the loop of charge computes for one line (unknown SKU, discounted unit price times quantity), written differently",
+      "files": [
+        "src/refproj/refunds.py",
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "refund_amount"
+      ],
+      "lines": {
+        "src/refproj/refunds.py": [
+          [
+            15,
+            21
+          ]
+        ]
+      }
+    },
+    {
+      "id": "dependency-only-a-test-imports",
+      "category": "redundant_dependency",
+      "why": "pyyaml is a runtime dependency; only tests/test_price_fixtures.py imports yaml, to read a two-line fixture",
+      "files": [
+        "pyproject.toml",
+        "tests/test_price_fixtures.py",
+        "tests/fixtures/prices.yaml"
+      ],
+      "any": [
+        "yaml"
+      ]
+    },
+    {
+      "id": "guard-impossible-across-functions",
+      "category": "defensive_for_impossible",
+      "why": "charge checks left.on_hand < 0 right after reserve(), which raises unless 0 < quantity <= on_hand",
+      "files": [
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "on_hand < 0",
+        "went negative",
+        "RuntimeError"
+      ],
+      "lines": {
+        "src/refproj/cli.py": [
+          [
+            32,
+            34
+          ]
+        ]
+      }
+    },
+    {
+      "id": "requirement-with-a-borrowed-goal",
+      "category": "invented_requirement",
+      "why": "R7 cites G3, but G3 asks for a receipt file the clerk hands over or re-prints — nobody asked for PDF or e-mail",
+      "files": [
+        "docs/goals.md"
+      ],
+      "any": [
+        "R7",
+        "PDF",
+        "e-mail",
+        "email"
+      ],
+      "lines": {
+        "docs/goals.md": [
+          [
+            27,
+            27
+          ]
+        ]
+      }
+    },
+    {
+      "id": "slice-for-later-with-a-goal-tag",
+      "category": "speculative_slice",
+      "why": "S7 cites G1, but its own contract says the list holds a few dozen SKUs today and the cache is for when a shop carries thousands",
+      "files": [
+        ".engine/slices/price-list-cache.md",
+        ".engine/architecture/feature-dag.json"
+      ],
+      "any": [
+        "cache",
+        "S7"
+      ],
+      "lines": {
+        ".engine/architecture/feature-dag.json": [
+          [
+            11,
+            11
+          ]
+        ]
+      }
+    }
+  ],
+  "traps": [
+    {
+      "id": "input-validation-at-the-edge",
+      "why": "parse_order_line checks what the clerk typed",
+      "files": [
+        "src/refproj/orders.py"
+      ],
+      "any": [
+        "parse_order_line",
+        "OrderError"
+      ]
+    },
+    {
+      "id": "error-handling-at-the-edge",
+      "why": "load_price_list turns a missing or broken operator file into a message the clerk can act on (R1)",
+      "files": [
+        "src/refproj/orders.py"
+      ],
+      "any": [
+        "PriceListError",
+        "JSONDecodeError",
+        "OSError",
+        "InvalidOperation",
+        "AttributeError"
+      ]
+    },
+    {
+      "id": "rare-error-at-the-boundary",
+      "why": "write_receipt turns a full or read-only disk into ReceiptError; no test raises it, and without it the clerk gets a traceback after the charge was computed",
+      "files": [
+        "src/refproj/receipts.py",
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "ReceiptError",
+        "OSError"
+      ],
+      "lines": {
+        "src/refproj/cli.py": [
+          [
+            15,
+            15
+          ],
+          [
+            60,
+            62
+          ]
+        ]
+      }
+    },
+    {
+      "id": "security-check-path",
+      "why": "receipt_path keeps a typed order id inside the receipts directory (path traversal, R6)",
+      "files": [
+        "src/refproj/receipts.py"
+      ],
+      "any": [
+        "receipt_path",
+        "is_relative_to",
+        "resolve"
+      ]
+    },
+    {
+      "id": "security-check-constant-time",
+      "why": "pin_matches compares the manager's PIN with hmac.compare_digest and refuses when no PIN is configured; `==` would look simpler",
+      "files": [
+        "src/refproj/refunds.py",
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "pin_matches",
+        "compare_digest",
+        "hmac",
+        "REFPROJ_MANAGER_PIN"
+      ],
+      "lines": {
+        "src/refproj/refunds.py": [
+          [
+            10,
+            12
+          ]
+        ],
+        "src/refproj/cli.py": [
+          [
+            16,
+            16
+          ],
+          [
+            42,
+            44
+          ]
+        ]
+      }
+    },
+    {
+      "id": "contract-field-read-on-a-rare-path",
+      "why": "OrderLine.refund_reference is read only by refund_note (R8, G4)",
+      "files": [
+        "src/refproj/orders.py",
+        "src/refproj/refunds.py"
+      ],
+      "any": [
+        "refund_reference",
+        "refund_note"
+      ],
+      "lines": {
+        "src/refproj/refunds.py": [
+          [
+            24,
+            28
+          ]
+        ]
+      }
+    },
+    {
+      "id": "contract-field-for-another-service",
+      "why": "nothing in the repository reads `schema` or `currency` of the receipt record; the accountant's import does (docs/receipt-export.md, R10)",
+      "files": [
+        "src/refproj/receipts.py",
+        "docs/receipt-export.md",
+        "docs/goals.md"
+      ],
+      "any": [
+        "export_record",
+        "EXPORT_SCHEMA",
+        "CURRENCY",
+        "schema",
+        "R10"
+      ],
+      "lines": {
+        "docs/goals.md": [
+          [
+            30,
+            31
+          ]
+        ]
+      }
+    },
+    {
+      "id": "old-data-format",
+      "why": "load_price_list still takes the old till's list of rows; no test loads one, and two of three shops still have such a file (R2)",
+      "files": [
+        "src/refproj/orders.py",
+        "docs/goals.md"
+      ],
+      "any": [
+        "isinstance",
+        "list of rows",
+        "old till",
+        "legacy",
+        "R2"
+      ],
+      "lines": {
+        "docs/goals.md": [
+          [
+            20,
+            21
+          ]
+        ]
+      }
+    },
+    {
+      "id": "requirement-derived-at-planning",
+      "why": "R6 was written at planning, like R7, but it is what R5 means for an id a person types",
+      "files": [
+        "docs/goals.md"
+      ],
+      "any": [
+        "R6",
+        "outside the receipts"
+      ],
+      "lines": {
+        "docs/goals.md": [
+          [
+            25,
+            26
+          ]
+        ]
+      }
+    },
+    {
+      "id": "slice-a-goal-needs",
+      "why": "S6 is not built yet, like S7, but without it G2 is not met: ON_HAND is a constant",
+      "files": [
+        ".engine/slices/stock-levels.md",
+        ".engine/architecture/feature-dag.json"
+      ],
+      "any": [
+        "stock-levels",
+        "S6",
+        "counted-stock"
+      ],
+      "lines": {
+        ".engine/architecture/feature-dag.json": [
+          [
+            10,
+            10
+          ]
+        ]
+      }
+    }
+  ],
+  "also_true": [
+    {
+      "id": "reserved-value-has-no-production-caller",
+      "why": "evals/reference-project had it before the overlay: only its test calls reserved_value. True excess, not planted — counts for precision, not for recall.",
+      "files": [
+        "src/refproj/inventory.py",
+        "tests/test_inventory.py"
+      ],
+      "any": [
+        "reserved_value"
+      ]
+    }
+  ],
+  "neutral": [
+    {
+      "id": "reserve-repeats-the-positive-quantity-check",
+      "why": "reserve() refuses quantity <= 0, which parse_order_line already did for the one production caller; reserve is also a function of its own with its own tests. Either reading is defensible.",
+      "files": [
+        "src/refproj/inventory.py"
+      ],
+      "any": [
+        "quantity <= 0",
+        "quantity must be positive",
+        "positive"
+      ]
+    },
+    {
+      "id": "on-hand-is-a-constant",
+      "why": "ON_HAND = 100 is a stand-in the slice S6 is to replace: calling it out is fair, removing it is not possible yet",
+      "files": [
+        "src/refproj/cli.py"
+      ],
+      "any": [
+        "ON_HAND"
+      ],
+      "lines": {
+        "src/refproj/cli.py": [
+          [
+            18,
+            18
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# The price list the tests share. Prices are strings, as in the operator's file.
+TEA: "4.00"
+MUG: "9.50"

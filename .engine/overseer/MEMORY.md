@@ -48,3 +48,9 @@ case. Assert the block.
   slice — a mutation that did not apply, and a harness that died mid-mutation.
   Recorded as the owner's observation; not independently verified here, and
   carrying no citation of mine.
+
+## 2026-10-07 — A scorer that matches findings by words must be tested with a finding that names two entri
+
+A scorer that matches findings by words must be tested with a finding that names two entries of opposite kinds (a planted item AND its trap), in both directions — aimed at the trap's line and aimed at the planted item's line. When an audit finds a gap in one direction, check the mirror case before claiming the fix: on board 059 the first fix closed one direction and the next audit blocked on the other.
+
+Cited: 2026-10-07T03:41:47Z 059-simplifier-harder-eval-set; 2026-10-07T04:13:04Z 059-simplifier-harder-eval-set. Origin: lesson #2084c5b8 (overseer, -, 2026-10-07).
