@@ -1,0 +1,862 @@
+{
+  "recorded_utc": "2026-10-07T15:51:14Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "b734b368a82b811e30df4ebb493ffb573893678f",
+  "set": "basic",
+  "model": "the agent's own",
+  "planted": [
+    "abstraction-with-one-implementation",
+    "dead-code",
+    "unused-dependency",
+    "guard-against-impossible-state",
+    "slice-for-the-future",
+    "invented-requirement"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "security-check",
+    "contract-field-read-on-a-rare-path"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 3,
+    "recall_mean": 1.0,
+    "recall_range": [
+      1.0,
+      1.0
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {
+      "abstraction-with-one-implementation": 3,
+      "dead-code": 3,
+      "guard-against-impossible-state": 3,
+      "invented-requirement": 3,
+      "slice-for-the-future": 3,
+      "unused-dependency": 3
+    },
+    "touched_in_runs": {},
+    "cost_usd": 2.0129
+  },
+  "runs": [
+    {
+      "cost_usd": 0.7156,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 20,
+      "recall": 1.0,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "auto_remove"
+        ],
+        "unused-dependency": [
+          "confirm"
+        ],
+        "guard-against-impossible-state": [
+          "confirm"
+        ],
+        "abstraction-with-one-implementation": [
+          "confirm"
+        ],
+        "invented-requirement": [
+          "confirm"
+        ],
+        "slice-for-the-future": [
+          "confirm"
+        ]
+      },
+      "missed": [],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 7,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24-29",
+          "category": "dead_code",
+          "claim": "`_legacy_total_v1` can be deleted; nothing in src, tests or docs calls it and `total` (Decimal, tested) is the only summing path in use.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1'"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "'_legacy_total_v1' / 'legacy' appears only at its definition across the repository (src, tests, docs, .engine)"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:25",
+              "detail": "docstring: 'Sum prices the way the first version did, in floats' — a historical note, not a reason to keep it; module docstring at line 1 says 'exact decimals'"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py:22-23",
+              "detail": "test_total_of_empty_basket_is_zero exercises `total`; no test names the legacy function"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "auto_remove",
+          "traceability": "none found (S1 'price arithmetic: discount, total' and G1 are served by `total`)",
+          "reversal_risk": "low",
+          "id": "F-72bcd24b",
+          "validator": []
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "The `requests>=2.31` runtime dependency can be dropped; no module imports it and the project makes no network calls.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-20b93157",
+              "detail": "pyproject: requests is declared and no module named requests is imported"
+            },
+            {
+              "source": "grep",
+              "ref": "pyproject.toml:6",
+              "detail": "'requests' appears nowhere in the repository except the dependency declaration"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:8-20",
+              "detail": "no goal or requirement involves HTTP; the only I/O is a local JSON price list and receipt files"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-d87c186a",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/pricing.py:14-15",
+          "category": "defensive_for_impossible",
+          "claim": "The `factor < 0` RuntimeError guard can go; line 11 already refuses any percent outside 0..100, so factor is in [0, 1] on every path that reaches it. The range check at line 11 (R2) stays.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:11-13",
+              "detail": "`if not 0 <= percent <= 100: raise ValueError`, then factor = (100 - percent) / 100 — cannot be negative"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py:12-19",
+              "detail": "bounds (0, 100) and out-of-range (101) are tested; the RuntimeError branch is unreachable and untested"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:15",
+              "detail": "'discount factor went negative' appears nowhere else — no test or doc depends on this message"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R2 (G1) is satisfied by line 11 alone",
+          "reversal_risk": "low",
+          "id": "F-3e8716cd",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py:9-28",
+          "category": "premature_abstraction",
+          "claim": "The `DiscountPolicy` ABC, its single `PercentDiscount` implementation and `policy_for` wrap one call to `apply_discount`; `cli.charge` can call `apply_discount(prices[sku], percent)` directly with identical results.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:27-28",
+              "detail": "`policy_for` unconditionally returns `PercentDiscount(percent)`; there is no second policy"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:18-25",
+              "detail": "the only user: `policy = policy_for(percent)` then `policy.apply(prices[line.sku])`"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:17",
+              "detail": "R2: 'A discount is a whole percentage between 0 and 100' — one kind of discount is asked for"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:5-10",
+              "detail": "no slice introduces another discount kind"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line pins the resulting amount and would stay green"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R2 (G1) — served by `pricing.apply_discount` directly",
+          "reversal_risk": "low",
+          "id": "F-7da60468",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py:25-27",
+          "category": "dead_code",
+          "claim": "`reserved_value` has no caller outside its own test; removing it (with tests/test_inventory.py:19-20) leaves `reserve` and every goal-serving path unchanged.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "'reserved_value' is referenced only at its definition and in tests/test_inventory.py:5,20; cli.py imports only StockItem and reserve"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "module docstring 'Depends on pricing for the value of what is reserved' describes this function, but nothing consumes the value"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:6",
+              "detail": "S2 'stock reservation' serves G2 (stock never negative); valuing a reservation is not asked for by G2 or R3"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_inventory.py:10-16",
+              "detail": "the reserve tests exercise the module's remaining behaviour and would stay green"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-903b4cf1",
+          "validator": []
+        },
+        {
+          "target": "docs/goals.md:21-22",
+          "category": "invented_requirement",
+          "claim": "R6 (seven-year append-only audit log with CSV export) names no goal, is implemented nowhere and has no slice; it should be confirmed by the owner or struck.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:3-4",
+              "detail": "the document's own rule: 'each requirement names the goal it serves' — R6 is the only requirement with no goal tag"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:8-11",
+              "detail": "G1–G4 cover charging, stock, receipts and refunds; none asks for auditing or retention"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:5-10",
+              "detail": "no slice mentions an audit log"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:21",
+              "detail": "'audit' appears nowhere in src, tests or .engine"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-fc76b545",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/currency-rates.md",
+          "category": "speculative_slice",
+          "claim": "Slice S6 (currency table, `convert`, a `currency` argument threaded through `total` and receipts) serves no stated goal and can be dropped from the plan until the shop sells in more than one currency.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:10",
+              "detail": "S6 has `\"goals\": []`, status todo"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/slices/currency-rates.md:8-10",
+              "detail": "'The shop sells in one currency today. Once it sells abroad…' — the justification is a future the owner has not stated"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:8-20",
+              "detail": "no goal or requirement mentions currency or conversion"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/slices/currency-rates.md:4-5",
+              "detail": "the exit criterion would change the signature of `total` and the receipt format, touching S1, S3 and S4 for no present need"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-0ef54285",
+          "validator": []
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.6807,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 26,
+      "recall": 1.0,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "auto_remove"
+        ],
+        "unused-dependency": [
+          "confirm"
+        ],
+        "guard-against-impossible-state": [
+          "confirm"
+        ],
+        "abstraction-with-one-implementation": [
+          "confirm"
+        ],
+        "invented-requirement": [
+          "confirm"
+        ],
+        "slice-for-the-future": [
+          "confirm"
+        ]
+      },
+      "missed": [],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 7,
+      "rejected": [],
+      "lowered": 1,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py::_legacy_total_v1",
+          "category": "dead_code",
+          "claim": "`_legacy_total_v1` has no caller anywhere in the repository and `total` already computes the sum in exact decimals, so it can be deleted with no change in behaviour.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1' (60% confidence)"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "'_legacy_total_v1' appears only at its definition; no code, test, doc or config names it"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:24-29",
+              "detail": "docstring says it sums 'the way the first version did, in floats' — a superseded version of `total` (pricing.py:19-21), which the module docstring says must use exact decimals"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py:22-23",
+              "detail": "`total` is covered by test_total_of_empty_basket_is_zero and stays green without the legacy function"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "auto_remove",
+          "traceability": "none found (S1 'price arithmetic: discount, total' is served by `total`)",
+          "reversal_risk": "low",
+          "id": "F-3481c5e2",
+          "validator": []
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "`requests` is declared as a runtime dependency but nothing in src, tests or docs imports or mentions it; dropping it leaves the program unchanged.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-20b93157",
+              "detail": "pyproject: requests is declared and no module named requests is imported"
+            },
+            {
+              "source": "grep",
+              "ref": "pyproject.toml:6",
+              "detail": "'requests' matches only the dependency line itself across the whole repository"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/cli.py:3-12",
+              "detail": "every module imports only the standard library and refproj; the CLI reads a local JSON file and writes a local receipt, no network path exists"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found (R1 reads the price list from a local JSON file)",
+          "reversal_risk": "low",
+          "id": "F-51a26324",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/pricing.py:14-15",
+          "category": "defensive_for_impossible",
+          "claim": "The `factor < 0` RuntimeError can never fire: `percent` was just bounded to 0..100 on line 11, so `factor` is always within 0..1; removing the guard changes nothing.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:11-15",
+              "detail": "line 11 raises unless 0 <= percent <= 100; line 13 computes (100 - percent)/100, which is then in [0, 1] on every path reaching line 14"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py:12-19",
+              "detail": "bounds (0 and 100) and out-of-range rejection are both tested; these tests stay green without lines 14-15"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:15",
+              "detail": "'discount factor went negative' is not named by any test or document"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R2 (discount is a whole percentage between 0 and 100) — already enforced by line 11",
+          "reversal_risk": "low",
+          "id": "F-fed265da",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "`DiscountPolicy`/`PercentDiscount`/`policy_for` has exactly one implementation and one caller; `charge` could call `apply_discount(price, percent)` directly and the module could go.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:7",
+              "detail": "`policy_for` is the only name imported from discounts, used once at cli.py:18; `DiscountPolicy` and `PercentDiscount` are referenced nowhere outside discounts.py"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:27-28",
+              "detail": "`policy_for` unconditionally returns `PercentDiscount(percent)`, whose `apply` is a one-line delegation to `apply_discount`"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:17",
+              "detail": "R2 defines a discount as one whole percentage; no goal, requirement or DAG node asks for a second kind of discount"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line pins `charge`'s result and would stay green if `charge` called `apply_discount` directly"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R2 (G1) — served by `apply_discount` alone",
+          "reversal_risk": "low",
+          "id": "F-447328b0",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "`reserved_value` is called only by its own test; no goal needs the value of reserved stock, and removing it (with its test) also removes inventory's only dependency on pricing.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "callers: tests/test_inventory.py:5 and :20 only; cli.charge reserves stock but computes amounts itself"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1",
+              "detail": "module docstring 'Depends on pricing for the value of what is reserved' — the pricing import on line 6 exists solely for this function"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:9",
+              "detail": "G2/R3 ask only that stock never goes negative and over-orders are refused; nothing asks for the value of a reservation"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:6",
+              "detail": "S2 'stock reservation' depends on S1 only through this function"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-1bd8e784",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        },
+        {
+          "target": "docs/goals.md:21-22",
+          "category": "invented_requirement",
+          "claim": "R6 (seven-year append-only audit log with CSV export) names no goal, breaking the document's own rule that each requirement serves a goal, and nothing in code, DAG or slices implements or plans it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:3-4",
+              "detail": "'each requirement names the goal it serves' — R1..R5 do, R6 does not"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:8-11",
+              "detail": "G1..G4 cover charging, stock, receipts and refunds; none mentions auditing, retention or export"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:21",
+              "detail": "'audit', 'csv', 'seven years' and 'R6' match nowhere else in the repository — no code, test, DAG node or slice"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-81fb544d",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/currency-rates.md",
+          "category": "speculative_slice",
+          "claim": "Slice S6 (currency table, `convert`, a `currency` argument through `total` and the receipt) serves no stated goal and its own text says the shop sells in one currency today; it can be dropped from the plan until a goal asks for it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:10",
+              "detail": "S6 has \"goals\": [] and status \"todo\"; every other node names a goal"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/slices/currency-rates.md:8-10",
+              "detail": "'The shop sells in one currency today. Once it sells abroad…' — the justification is a future possibility, not an owner statement"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:8-11",
+              "detail": "'currency', 'convert' and 'rates' do not appear in the goals document"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-613b1418",
+          "validator": []
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.6166,
+      "models": [
+        "claude-fable-5-1"
+      ],
+      "turns": 25,
+      "recall": 1.0,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "auto_remove"
+        ],
+        "unused-dependency": [
+          "confirm"
+        ],
+        "guard-against-impossible-state": [
+          "confirm"
+        ],
+        "abstraction-with-one-implementation": [
+          "confirm"
+        ],
+        "invented-requirement": [
+          "confirm"
+        ],
+        "slice-for-the-future": [
+          "confirm"
+        ]
+      },
+      "missed": [],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 7,
+      "rejected": [],
+      "lowered": 1,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py::_legacy_total_v1",
+          "category": "dead_code",
+          "claim": "The private float-based `_legacy_total_v1` has no callers and is superseded by the Decimal `total`; removing it changes no behaviour.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1' (60% confidence)"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "'_legacy_total_v1' appears only at its definition across the whole repository (src, tests, docs, config)"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:19-29",
+              "detail": "docstring says it sums 'the way the first version did, in floats'; `total` at line 19 is the exact-decimal replacement and is what inventory and cli import"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py:22-23",
+              "detail": "`total` is characterised by test_total_of_empty_basket_is_zero; no test names the legacy function"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "auto_remove",
+          "traceability": "S1 / G1 are served by `total`; nothing traces to the legacy float version",
+          "reversal_risk": "low",
+          "id": "F-fadff29a",
+          "validator": []
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "`requests` is declared as a runtime dependency but nothing in the project imports it; dropping it leaves the install smaller and the code unchanged.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-20b93157",
+              "detail": "pyproject: requests is declared and no module named requests is imported"
+            },
+            {
+              "source": "grep",
+              "ref": "pyproject.toml:6",
+              "detail": "the string 'requests' occurs nowhere in the repository except this dependency line"
+            },
+            {
+              "source": "read",
+              "ref": "pyproject.toml:11-13",
+              "detail": "project is `package = false`; no comment or note explains why requests is needed; no lock file is present"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found — no goal or requirement involves network access",
+          "reversal_risk": "low",
+          "id": "F-3bff5fa9",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/pricing.py:14-15",
+          "category": "defensive_for_impossible",
+          "claim": "The `factor < 0` RuntimeError can never fire because `percent` was just confined to 0..100 two lines above, so `factor` is always within 0..1; the guard can go.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:11-15",
+              "detail": "line 11 raises unless 0 <= percent <= 100; line 13 computes factor = (100 - percent)/100, which is then >= 0 on every path reaching line 14"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py:12-19",
+              "detail": "bounds (0 and 100) and out-of-range rejection are tested; those tests stay green without the second guard"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R2 (G1): discount is a whole percentage between 0 and 100 — satisfied by the line-11 check alone",
+          "reversal_risk": "low",
+          "id": "F-a4013a84",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/discounts.py",
+          "category": "premature_abstraction",
+          "claim": "The `DiscountPolicy` ABC, `PercentDiscount` and `policy_for` wrap a single call to `apply_discount` with one concrete implementation and no selection logic; `cli.charge` could call `apply_discount(price, percent)` directly and the module could go.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:9-28",
+              "detail": "one abstract class, one subclass whose `apply` forwards to `apply_discount`, and `policy_for` that unconditionally returns `PercentDiscount(percent)`"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:7",
+              "detail": "`policy_for` is the only name used outside the module, and only in `charge`; `DiscountPolicy`/`PercentDiscount` are referenced nowhere else"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:17",
+              "detail": "R2 defines a discount as a whole percentage; no goal or requirement asks for more than one kind of discount"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py:15-16",
+              "detail": "test_charge_applies_the_discount_to_every_line characterises `charge` end to end and would stay green with a direct call"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "R2 (G1) — met by `pricing.apply_discount` alone",
+          "reversal_risk": "low",
+          "id": "F-de9b76b8",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/inventory.py::reserved_value",
+          "category": "dead_code",
+          "claim": "`reserved_value` is called by no production code — only by the test that names it — and it is the sole reason inventory imports pricing; removing it and its test leaves reservation (G2/R3) unchanged.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/inventory.py:25",
+              "detail": "'reserved_value' appears at its definition and in tests/test_inventory.py only; cli.py imports `StockItem, reserve` and never the value"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/inventory.py:1-6",
+              "detail": "module docstring and the `from refproj.pricing import total` exist to serve this function alone"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:9-18",
+              "detail": "G2/R3 ask that stock never go negative and over-reservation be refused; nothing asks for the value of reserved stock"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:6",
+              "detail": "S2 declares a dependency on S1; it would become unnecessary, which the owner should confirm"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-f1f77971",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        },
+        {
+          "target": "docs/goals.md:21-22",
+          "category": "invented_requirement",
+          "claim": "R6 (seven-year append-only audit log with CSV export) names no goal, unlike every other requirement, serves none of G1–G4, and has no implementation or test; it should be confirmed by the owner or struck.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "docs/goals.md:3-4",
+              "detail": "preamble states 'each requirement names the goal it serves'; R1–R5 each cite a goal, R6 cites none"
+            },
+            {
+              "source": "read",
+              "ref": "docs/goals.md:8-11",
+              "detail": "goals G1–G4 cover charging, stock, receipts and refunds; none mentions auditing, retention or export"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:21",
+              "detail": "'audit', 'csv', 'seven years' occur nowhere else in the repository — no code, slice or DAG node"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found — no goal cited",
+          "reversal_risk": "medium",
+          "id": "F-9c471564",
+          "validator": []
+        },
+        {
+          "target": ".engine/slices/currency-rates.md",
+          "category": "speculative_slice",
+          "claim": "Slice S6 (currency table, `convert`, and a `currency` argument threaded through `total` and receipts) serves no stated goal and its own rationale says the shop sells in one currency today; it can be dropped from the plan until a goal asks for it.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": ".engine/architecture/feature-dag.json:10",
+              "detail": "S6 has `\"goals\": []` and status `todo`; every other node cites a goal"
+            },
+            {
+              "source": "read",
+              "ref": ".engine/slices/currency-rates.md:7-10",
+              "detail": "'The shop sells in one currency today. Once it sells abroad…' — justification is a future the owner has not stated"
+            },
+            {
+              "source": "grep",
+              "ref": "docs/goals.md:8-22",
+              "detail": "'currenc' does not occur in goals.md or in any source file"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-b13a3d54",
+          "validator": []
+        }
+      ]
+    }
+  ]
+}

@@ -107,6 +107,8 @@ Do not report style, naming, formatting or missing features. Do not propose addi
 ```
 
 - `target`: `path`, `path:line`, `path:line-line` or `path::symbol`, a file that exists.
+  One place only: a list of lines or ranges (`path:19-20,24`) is refused and the finding is
+  lost. Name the other lines in the claim.
 - `category`: `dead_code`, `premature_abstraction`, `defensive_for_impossible`,
   `redundant_dependency`, `speculative_slice`, `invented_requirement`, `verbose_output`,
   `duplication`, `shallow_module`.
