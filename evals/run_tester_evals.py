@@ -51,6 +51,7 @@ THE PROPERTY SET (board 063, the spike of the design of board 048): `--set prope
     python3 evals/run_tester_evals.py --set property --dry-run DIR                                       # free
     python3 evals/run_tester_evals.py --set property --score FILE --scene conserve --arm c               # free
     python3 evals/run_tester_evals.py --table FILE [FILE …]                                              # free: scene × arm × repeat
+    python3 evals/run_tester_evals.py --rescore FILE [FILE …] [--out FILE]                               # free: count the kept test files again
 
 Do an «Invariants» section in the slice contract and a property-based testing library catch more
 than examples? Five scenes (evals/scenarios/tester-property/scenes/), one per form of rule and a
@@ -71,7 +72,8 @@ The two contracts of a scene differ by the section alone: contract.md, and invar
 before «Exit criterion». The script counts as above; arm C is run with `--hypothesis-seed=0`, so
 the count is the same every time. It also records, per run: the number of tests; `trap_calls` —
 calls of the slice's functions on which the wrong implementation differs from the right one
-(the suite REACHED the trap, caught or not); in arm C `search` — on how many of five other
+(the suite REACHED the trap, caught or not); `fails_only_on_wrong` — tests red on the wrong
+implementation and green on the right one, which says what a «fails on both» suite did to the trap; in arm C `search` — on how many of five other
 seeds the suite fails on the wrong implementation — the lines of the file that make the
 generator, and whether health checks are suppressed. The control has no wrong implementation:
 `clean` or `fails_on_right`, and `invented_invariant` (a `test_I…` or the library in the file).
@@ -187,7 +189,8 @@ def prompt(scene: JsonObj, arm: str) -> str:
 def pytest_verdict(project: Path, *selection: str, runner: tuple[str, ...] = PYTEST, env: dict[str, str] | None = None) -> JsonObj:
     proc = subprocess.run([*runner, *selection], cwd=project, capture_output=True, text=True, check=False, env=env)
     lines = proc.stdout.strip().splitlines()
-    return {"passed": proc.returncode == 0, "empty": proc.returncode == 5, "last_line": lines[-1] if lines else proc.stderr.strip()[-200:]}
+    return {"passed": proc.returncode == 0, "empty": proc.returncode == 5, "last_line": lines[-1] if lines else proc.stderr.strip()[-200:],
+            "failed": sorted({line[7:].split(" - ")[0] for line in lines if line.startswith("FAILED ")})}
 
 
 def run_suite(tests: str, name: str, scene: JsonObj, implementation: str, work: Path, runner: tuple[str, ...] = PYTEST) -> JsonObj:
@@ -234,7 +237,7 @@ def score_property(tests: str | None, name: str, scene: JsonObj, arm: str, work:
     wrong = run_suite(tests, name, scene, "wrong", work, runner)
     outcome = "no_tests" if wrong["empty"] or right["empty"] else OUTCOMES[(wrong["passed"], right["passed"])]
     row = {"outcome": outcome, "caught": outcome == "caught", "observed": f"wrong: {wrong['last_line']} | right: {right['last_line']}"} | facts
-    row |= trap_calls(tests, name, scene, work, runner)
+    row |= trap_calls(tests, name, scene, work, runner) | {"fails_only_on_wrong": len(set(wrong["failed"]) - set(right["failed"]))}
     if library:
         found = sum(1 for seed in SEARCH_SEEDS if not run_suite(tests, name, scene, "wrong", work, (*HYPOTHESIS, f"--hypothesis-seed={seed}"))["passed"])
         row["search"] = f"{found} of {len(SEARCH_SEEDS)}"
@@ -317,7 +320,7 @@ def table(runs: list[JsonObj]) -> str:
         cells = []
         for arm in arms:
             mine = [r for r in runs if r["scene"] == name and r["arm"] == arm]
-            cells.append("<br>".join(f"{n}. {shown(r)}" + (f" ({r['test_count']} tests, trap calls {r.get('trap_calls', '—')}" + (f", search {r['search']}" if "search" in r else "") + ")" if "test_count" in r else "")
+            cells.append("<br>".join(f"{n}. {shown(r)}" + (f" ({r['test_count']} tests, trap calls {r.get('trap_calls', '—')}" + (f", search {r['search']}" if "search" in r else "") + (f", red on the wrong one only {r['fails_only_on_wrong']}" if r.get("outcome") == "fails_on_both" and "fails_only_on_wrong" in r else "") + ")" if "test_count" in r else "")
                                      for n, r in enumerate(mine, 1)))
         lines.append(f"| `{name}` | " + " | ".join(cells) + " |")
     return "\n".join(lines)
@@ -344,6 +347,18 @@ def run_once(sandbox: Path, text: str, args: argparse.Namespace, runner: tuple[s
     if payload.get("is_error"):
         return row | {"error": f"the session ended in an error: {answer[:300]}"}
     return row | {"answer": answer}
+
+
+def rescore(paths: list[Path], work: Path) -> tuple[list[JsonObj], list[str]]:
+    """The runs of property-set recordings counted again from the test files they kept; and the rows whose outcome moved."""
+    scenes, runs, moved = scenes_of("property"), [], []
+    for path in paths:
+        for n, run in enumerate(json.loads(path.read_text(encoding="utf-8"))["runs"], 1):
+            fresh = dict(run) if "error" in run else {k: run[k] for k in ("scene", "arm", "sees", "cost_usd", "models", "turns", "answer", "tests", "touched_module") if k in run}
+            fresh |= {} if "error" in run else score_property(run["tests"], run["scene"], scenes[run["scene"]], run["arm"], work)
+            moved += [f"{path.name} run {n} ({run['scene']}/{run['arm']}): {run.get('outcome')} -> {fresh.get('outcome')}"] if fresh.get("outcome") != run.get("outcome") else []
+            runs.append(fresh | {"recorded_in": path.name})
+    return runs, moved
 
 
 def sees(scene: JsonObj, arm: str) -> tuple[str, bool]:
@@ -390,6 +405,7 @@ def main() -> int:
     parser.add_argument("--score", type=Path, help="score this ready test file against --scene and stop; free")
     parser.add_argument("--scene", help="the scene --score is for")
     parser.add_argument("--arm", choices=list(ARMS), default="c", help="the property set: the arm --score counts as (c brings the library)")
+    parser.add_argument("--rescore", nargs="+", type=Path, help="the property set: count the test files these recordings kept again, print the table and stop; free. With --out, write it")
     parser.add_argument("--table", nargs="+", type=Path, help="print scene × arm × repeat and the summary of these recordings together and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
@@ -402,6 +418,17 @@ def main() -> int:
         runs = [run for path in args.table for run in json.loads(path.read_text(encoding="utf-8"))["runs"]]
         print(table(runs) + "\n\n" + json.dumps({k: v for k, v in summary(runs).items() if k != "table"}, indent=2, ensure_ascii=False))
         return 0
+    if args.rescore:
+        with tempfile.TemporaryDirectory(prefix="engine-tester-eval-") as tmp:
+            runs, moved = rescore(args.rescore, Path(tmp))
+        print(table(runs) + "\n\n" + json.dumps({k: v for k, v in summary(runs).items() if k != "table"}, indent=2, ensure_ascii=False))
+        print("\n".join(["every outcome is as recorded"] if not moved else ["OUTCOMES THAT MOVED:", *moved]))
+        if args.out:
+            args.out.write_text(json.dumps({"rescored_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(), "set": "property",
+                                            "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
+                                            "rescored_from": [path.name for path in args.rescore], "outcomes_moved": moved, "summary": summary(runs), "runs": runs}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            print(f"results written to {args.out}")
+        return 1 if moved else 0
     expected = scenes_of(args.set)
     unknown = [name for name in [*(args.scenes or []), *([args.scene] if args.scene else [])] if name not in expected]
     if unknown:

@@ -131,6 +131,14 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--table", str(out)], capture_output=True, text=True, check=False)
     check("--table prints scene × arm × repeat of a recording, free", r.returncode == 0 and "| `conserve` | 1. caught (9 tests, trap calls 1)<br>2. caught" in r.stdout and '"reached_the_trap": "2 of 2"' in r.stdout, r.stdout + r.stderr)
 
+    out.write_text(json.dumps(recorded | {"runs": [recorded["runs"][0], recorded["runs"][2] | {"outcome": "missed", "caught": False}, {"scene": "none", "arm": "a", "cost_usd": 0.0, "error": "x"}]}), encoding="utf-8")
+    again = Path(tmp) / "again.json"
+    r = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(out), "--out", str(again)], capture_output=True, text=True, check=False)
+    counted = json.loads(again.read_text(encoding="utf-8")) if again.is_file() else {}
+    check("--rescore counts the kept test files again, free: a recorded outcome that does not hold is named, an error row stays an error",
+          r.returncode == 1 and "out.json run 2 (conserve/b): missed -> caught" in r.stdout and len(counted.get("outcomes_moved", [])) == 1
+          and [row.get("outcome") for row in counted["runs"]] == ["caught", "caught", None] and counted["runs"][0]["fails_only_on_wrong"] == 1 and counted["runs"][0]["cost_usd"] == 0.2, r.stdout + r.stderr)
+
 print("the scenes are what they claim")
 work = Path(tempfile.mkdtemp(prefix="engine-tester-propertytest-"))
 for name in TRAPS:
@@ -194,6 +202,11 @@ got = evals.score_property(HEAD[name] + GIVEN + OBVIOUS[name] + "\n@given(st.int
 check("the control: a property test where the contract names no invariant is an invented invariant too", got["outcome"] == "clean" and got["invented_invariant"], got)
 got = evals.score_property(HEAD[name] + OBVIOUS[name], name, scene, "c", work)
 check("the control: the contract's two cases and nothing else is «clean»", got["outcome"] == "clean" and not got["invented_invariant"] and got["test_count"] == 2 and "trap_calls" not in got, got)
+name, scene = "roundtrip", scenes["roundtrip"]
+stricter = "\ndef test_no_leading_zero():\n    with pytest.raises(ValueError):\n        parse_price('012.50')\n"
+got = evals.score_property(HEAD[name] + OBVIOUS[name] + "\n" + TRAP[name] + stricter, name, scene, "a", work)
+check("a suite that tests the trap and also reads the contract more strictly than the right implementation: «fails on both», with one test red on the wrong one only",
+      got["outcome"] == "fails_on_both" and not got["caught"] and got["fails_only_on_wrong"] == 1 and "red on the wrong one only 1" in evals.table([got | {"scene": name, "arm": "a"}]), got)
 check("no scratch project is left behind by the scoring", not any(work.iterdir()), list(work.iterdir()))
 shutil.rmtree(work)
 
