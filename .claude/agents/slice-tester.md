@@ -26,7 +26,8 @@ tester was measured to add (board 061: fifteen questions to the contract over fo
 
 1. `.claude/state/testing/requests/<id>/request.json` — `mode`, `slice`, `contract`, `expect`,
    `note`, and for an objection the `package`.
-2. The sealed contract named there: «Seam (contract)», «Hardest seams», «Exit criterion».
+2. The sealed contract named there: «Seam (contract)», «Hardest seams», «Invariants» (when
+   the contract has the section), «Exit criterion».
 3. The skeleton of the module — signatures and types only — and the project's test conventions
    (the existing files under its tests directory).
 
@@ -49,6 +50,27 @@ test written from the code checks the reading the builder already made.
 3. **The contract tests**, in new test files of their own (never the builder's files). For
    every hardest seam — a test done the way the contract names. Expected values are written by
    hand from the contract, never computed in the test by the formula under test.
+   - **One test for every invariant, with its number in the name.** When the contract has an
+     «Invariants» section, each rule there (I1, I2…) gets exactly one test named
+     `test_I1_…`, `test_I2_…`; its `contract_line` is the rule's line. An invariant holds for
+     EVERY input of its «Domain», and the project has no property-based testing library (you
+     add none), so you choose the inputs by hand from the «Domain» — and you choose the ones
+     an implementation written for the obvious cases would get wrong: both edges of the domain,
+     zero, the empty value, a remainder, a repeat, two lawful inputs combined, a lawful
+     operation after one that was refused. Several inputs in one test is one test. Every input
+     lies inside the «Domain» as written — you do not narrow it, and you do not widen it.
+     Expected values are still written by hand. The script refuses a hand-in where an invariant
+     has no test with its number.
+   - **You add no invariant of your own.** A rule you think is missing, or a «Domain» that can
+     be read two ways, is a question to the contract (item 1) — not a test: the script refuses a
+     test named `test_I<n>_…` for a number the contract does not have. Where the section says
+     `None`, you write no invariant test. A contract with no «Invariants» section at all was
+     sealed before the section existed: you write none there either.
+   - **The stricter reading is a question, not a test.** Naming the ambiguity in your questions
+     and then testing the stricter reading in an undisputed file was measured to break correct
+     implementations (board 063: in one scene, 6 hand-ins of 24). If two honest readings of a
+     line — an invariant's «Domain» included — give two tests, the test is disputed: the rule
+     of the next item applies.
    - **A disputed test goes into a separate file.** A test that depends on one of your
      questions, or that takes the stricter of two readings, carries `"question": "<id>"` and
      lives in a file that holds disputed tests only. Whole files are sealed; that one is not

@@ -556,6 +556,17 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
   `.engine/slices/<slug>*.md`. A slice is found in a feature artifact by its name: the slug
   equals the name in «Slices (the DAG)», or ends with it; a slice the artifact does not name
   stands alone as one block, without consumers.
+- **Invariants: the script checks the shape and the name, not the meaning (board 064).**
+  `testing.py invariants` sees that every invariant has a rule, «Domain», «Source» and «Broken
+  by» and that `None` has a reason; whether the source is a real line, whether the domain is
+  narrower than the «Seam» and whether the rule retells the implementation is the planner's
+  critic's judgement, and no paid run has measured that judgement yet. `record` sees that a
+  test's name carries the invariant's number (`test_I1_…`); whether its inputs lie in the
+  «Domain» and cover it is the overseer's check #4. A contract sealed before the section existed
+  is not judged at all. When the builder writes the tests (the manager said `builder`), no
+  script counts the invariant tests — only the overseer does. There is no property-based
+  testing library, no wide search and no mandatory case O9: every invariant is checked on the
+  examples a tester or a builder chose (board 048, section 9; the spike of board 063).
 - **A slice already in flight when this arrives** has a sealed contract and no decision of point
   (a): its next completion claim gets `TESTING NOT SETTLED` instead of an audit until the manager
   is asked once. A slice without a sealed contract is untouched.

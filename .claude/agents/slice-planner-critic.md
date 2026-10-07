@@ -126,8 +126,35 @@ toward feature-level rigor. If the slice genuinely needs wide-lens testing, that
 is a signal it is not a slice → fire `CRITIC_WRONG_SCOPE` (see "Scope & routing").
 - **Property / invariant** — trigger: seam touches state, parsing, serialization,
   ordering. Procedure: force ONE invariant the seam preserves + ONE concrete test
-  that would falsify it. Stop: ≥1 invariant + test sketch per seam. (One sharp
-  invariant test, not an exhaustive hypothesis suite.)
+  that would falsify it; the invariant is written into the «Invariants» section of
+  the draft (below), not left inside the seam's prose. Stop: ≥1 invariant + test
+  sketch per seam. (One sharp invariant test, not an exhaustive hypothesis suite.)
+- **THE «INVARIANTS» SECTION** — the Phase-3 draft carries it: numbered rules
+  (I1, I2…) that hold for every input of a stated domain, each with «Domain»,
+  «Source» and «Broken by» — or `None — <the reason>`. First run the script on the
+  draft saved to a temporary file: `python3 .claude/hooks/testing.py invariants <file>`
+  — what it refuses is a BLOCK as it stands. Then judge what a script cannot. Each of
+  these is BLOCKING:
+  - **no «Source»**, or a source that is not a line you can open — of the goals
+    document, the feature artifact, an owner's decision, or this contract's «Seam».
+    An invariant without a source is an invented requirement (constitution, Art. 4).
+  - **no «Broken by»**, or one that names no concrete wrong implementation: a rule
+    nobody can break checks nothing (the Falsification frame, applied to the rule).
+  - **«Domain» narrower than the «Seam»** — the seam accepts "an amount ≥ 0 and
+    people ≥ 1" and the domain says "amounts divisible by the number of people".
+    This is where an author narrows "every input" to "the inputs my code handles".
+  - **the rule retells the implementation** — "the result equals `amount * rate /
+    100` rounded down" restates a formula; an invariant says what must stay true
+    whatever the formula is.
+  - **the section is empty or says `None` with no reason while a seam touches
+    state, parsing, serialization or ordering** — require the invariant or the
+    reason why this seam has none.
+  - **a number or a threshold inside a rule** with no ratification mark → the
+    owner's (THRESHOLD DETECTION, Phase 4).
+  `None — <the reason>` for a thin wrapper, wiring, or behaviour the contract lists
+  case by case is a correct answer: do not push the planner to invent a rule, and
+  "never crashes" is not one. **You add no invariant yourself** — you name the seam
+  that lacks one and what kind of rule it would be; the planner writes it.
 - **Falsification** — trigger: draft claims "covered by existing tests".
   Procedure: construct the wrong implementation that would STILL pass; if one
   exists, the seam is uncovered. Stop: claim paired with a "wrong impl that would
@@ -211,7 +238,7 @@ check from ever firing:
 | #1 false-DONE | Phase 4 names the specific test / smoke / SHA evidence — no "tests pass". |
 | #2 fabricated RED | Phase 3 names the test that fails first and where it lives. |
 | #3 decision conflation | Phase 2 splits any "and" decision into separate decisions. |
-| #4 masked test gap | Phase 3 includes the "wrong impl that would still pass" thought-exp. |
+| #4 masked test gap | Phase 3 includes the "wrong impl that would still pass" thought-exp; every invariant has its «Broken by» and a «Domain» the test inputs will be held to. |
 | #6 soft verdict on hard data | Phase 4 forbids qualitative/threshold terms → escalate. |
 | #7 missed alternative | Phase 2 lists ≥2 steelmanned alternatives per non-trivial choice + WHY. |
 | #8 chat-only design | Every Phase 2 decision is in the artifact with rationale + ADR if architectural. |

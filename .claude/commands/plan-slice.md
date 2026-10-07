@@ -109,7 +109,19 @@ Run sequentially. The four phases and their artifact sections:
   signature, input/output types, error model, and injected dependencies (the
   slice-builder's Step-0 input), plus design decisions with ≥2 steelmanned
   alternatives each.
-- **Phase 3** → "Hardest seams" — seams that fool naive unit tests + concrete test approach each.
+- **Phase 3** → "Hardest seams" — seams that fool naive unit tests + concrete test approach each —
+  and "Invariants": the rules that hold for EVERY input of a stated domain (there and back,
+  conservation, a repeat changes nothing, a bound never crossed, agreement with a reference).
+  Each has a number (I1, I2…), the rule in one sentence in the words of the task, and three
+  fields: «Domain» (for which inputs — the field an author narrows without noticing, so it is
+  never narrower than what «Seam» accepts), «Source» (the line of the goals, the feature
+  artifact, an owner's decision or this contract's «Seam» it follows from) and «Broken by» (the
+  wrong implementation it would catch). `None — <the reason>` is a full answer, and for a thin
+  wrapper, wiring or behaviour listed case by case it is the right one: an invented rule is an
+  invented requirement. "Never crashes" is not an invariant. A number or a threshold inside a
+  rule is the owner's — it goes through the Phase-4 ratification below. There is no «Check»
+  field: every invariant is checked by example tests (no property-based testing library is set
+  up). You write the rules, never their tests; the critic checks them and adds none of its own.
 - **Phase 4** → "Exit criterion" — the specific observable that proves done,
   including the real-environment smoke assertion the slice-builder requires.
 - **Phase 5** → "Deferred to later slices" — knowingly deferred items + revisit trigger.
@@ -216,6 +228,13 @@ Use `Write` to create `.engine/slices/$ARGUMENTS.md` with this structure
 ## Hardest seams (test-confidence points — distinct from the contract Seam above)
 - **Seam 1: [name]** — test approach: [concrete; names the anti-pattern it rules out]
 
+## Invariants (rules that hold for every input in the stated domain)
+[the list below — or, instead of it, the one line `None — [the reason]`]
+- **I1** — [the rule, one sentence]
+  - Domain: [for which inputs it holds]
+  - Source: [the line it follows from]
+  - Broken by: [the wrong implementation it would catch]
+
 ## Exit criterion
 [specific observable — named test(s) + the real-environment smoke test script that closes the slice (slice-builder requires a passing smoke); threshold owner-ratified if present]
 
@@ -241,6 +260,12 @@ shape of change that can meet the exit criterion, with `base_commit` set to the 
 `python3 .claude/hooks/complexity_budget.py validate .engine/slices/$ARGUMENTS.md`
 and fix what it reports. Include the budget in the owner summary below.
 
+**Check the «Invariants» section** before the seal:
+`python3 .claude/hooks/testing.py invariants .engine/slices/$ARGUMENTS.md`. It refuses a contract
+without the section, an invariant without «Domain», «Source» or «Broken by», and `None` without
+its reason. Fix what it names — in the artifact, through the critic, not around it. The tester's
+hand-in is later held to these numbers: one test named `test_I<n>_…` for each.
+
 **Seal the contract** — the critic has passed it and it is written, so record what was approved:
 `python3 .claude/hooks/contract_fingerprint.py seal .engine/slices/$ARGUMENTS.md`. The
 fingerprint goes to `.claude/state/contracts/$ARGUMENTS.sha256` (machine state, never
@@ -261,7 +286,9 @@ with the reading its test took. Answer every one from the sealed contract and th
 document, without changing the contract:
 `python3 .claude/hooks/testing.py answer $ARGUMENTS <Q> --reading taken|other --text "<the answer and the line it rests on>"`,
 then `python3 .claude/hooks/testing.py seal $ARGUMENTS`. `taken` seals the disputed test as
-written; `other` sends it back to a fresh tester. A question the contract and the goals cannot
+written; `other` sends it back to a fresh tester. A question that says an invariant is missing, or that a
+«Domain» reads two ways, is answered the same way: the tester adds no invariant to a sealed
+contract, and neither do you — a missing rule is a re-plan. A question the contract and the goals cannot
 answer is a product decision: attended — ask the owner; unattended — park it on the board, the
 disputed test stays unsealed. An answer that needs the contract changed is a re-plan, and
 re-approving a sealed contract is the owner's act.

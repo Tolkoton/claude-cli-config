@@ -100,6 +100,28 @@ LINE_RETURNS = "- Returns: the price after the discount, in cents"
 LINE_ERRORS = "- Errors: a discount over 50 percent is refused with ValueError"
 
 
+INV_HEAD = "## Invariants (rules that hold for every input in the stated domain)\n"
+LINE_I1 = "- **I1** — the price after the discount is never above the price and never below zero"
+INV_ONE = INV_HEAD + LINE_I1 + """
+  - Domain: every price from 0 in whole cents; every percent from 0 to 50
+  - Source: Seam, "Returns: the price after the discount, in cents"
+  - Broken by: an implementation that subtracts the percent as cents and goes below zero on a price of 10
+"""
+INV_NONE = INV_HEAD + "None — a thin wrapper: it has no rule of its own beyond the two cases the Seam lists.\n"
+TESTS_INV = TESTS.replace("    def test_green(self):\n        self.assertTrue(True)\n", """    def test_I1_never_above_the_price(self):
+        for price, percent in ((0, 0), (0, 50), (10, 50), (1, 50), (999, 0)):
+            self.assertTrue(0 <= apply_discount(price, percent) <= price)
+
+    def test_I2_rounds_down(self):
+        self.assertEqual(apply_discount(1, 50), 0)
+""")
+
+
+def with_invariants(contract: str, text: str) -> str:
+    """The contract with an «Invariants» section between «Hardest seams» and «Exit criterion» — or, with no text, without one."""
+    return contract.replace("## Exit criterion", text + "\n## Exit criterion") if text else contract
+
+
 def check(name: str, ok: bool, detail: object = "") -> None:
     global PASS, FAIL
     if ok:
@@ -121,14 +143,14 @@ def write(repo: Path, rel: str, text: str) -> None:
 
 
 def new_repo(seams: str = "- none", exit_line: str = "The tests of tests/test_pricing.py pass.", feature: bool = False,
-             slugs: tuple[str, ...] = ("discount",), env: str = "") -> Path:
+             slugs: tuple[str, ...] = ("discount",), env: str = "", invariants: str = "") -> Path:
     repo = Path(tempfile.mkdtemp(prefix="testing-"))
     for rel, text in FILES.items():
         write(repo, rel, text)
     if env:
         write(repo, ".claude/project.env", FILES[".claude/project.env"] + env)
     for slug in slugs:
-        write(repo, f".engine/slices/{slug}.md", CONTRACT.format(seams=seams, exit=exit_line).replace("Slice discount", f"Slice {slug}"))
+        write(repo, f".engine/slices/{slug}.md", with_invariants(CONTRACT.format(seams=seams, exit=exit_line), invariants).replace("Slice discount", f"Slice {slug}"))
     if feature:
         write(repo, ".engine/architecture/feature/shop.md", FEATURE)
     git(repo, "init", "-q", "-b", "main")
@@ -447,6 +469,113 @@ check("the planner chose the OTHER reading: the file is not sealed, a fresh test
 out = answer(r, handin([test("test_half"), test("test_half", LINE_ERRORS)]))
 check("with no request pending nothing is recorded by hand", out.returncode == 1 and "no request is pending" in out.stderr.lower(), out.stderr)
 
+# ------------------------------------------------------------------ invariants (board 064)
+print("invariants — the section is checked before the contract is sealed")
+
+
+def inv_check(text: str) -> subprocess.CompletedProcess[str]:
+    folder = Path(tempfile.mkdtemp(prefix="invariants-"))
+    write(folder, "c.md", with_invariants(CONTRACT.format(seams="- none", exit="ok"), text))
+    return cli(folder, "invariants", str(folder / "c.md"))
+
+
+def without(field: str) -> str:
+    return "\n".join(line for line in INV_ONE.splitlines() if not line.strip().startswith(f"- {field}:")) + "\n"
+
+
+out = inv_check(INV_ONE)
+check("an invariant with its rule, «Domain», «Source» and «Broken by»: well-formed", out.returncode == 0 and "1 invariant(s) — I1" in out.stdout, out.stdout + out.stderr)
+out = inv_check(without("Source"))
+check("an invariant WITHOUT a source is refused, and the refusal names it", out.returncode == 1 and "I1: no «Source»" in out.stderr and "invented requirement" in out.stderr, out.stderr)
+out = inv_check(without("Broken by"))
+check("an invariant WITHOUT «Broken by» is refused", out.returncode == 1 and "I1: no «Broken by»" in out.stderr and "«Source»" not in out.stderr, out.stderr)
+out = inv_check(without("Domain"))
+check("an invariant without «Domain» is refused", out.returncode == 1 and "I1: no «Domain»" in out.stderr, out.stderr)
+out = inv_check(INV_ONE.replace('Source: Seam, "Returns: the price after the discount, in cents"', "Source: <the line it follows from>"))
+check("a field left as the template's placeholder counts as missing", out.returncode == 1 and "I1: no «Source»" in out.stderr, out.stderr)
+out = inv_check(INV_ONE + INV_ONE.replace(INV_HEAD, ""))
+check("a number used twice is refused", out.returncode == 1 and "used twice" in out.stderr, out.stderr)
+out = inv_check(INV_ONE + "  - Check: generative\n")
+check("a «Check» field is refused: every invariant is checked by examples, there is no library", out.returncode == 1 and "no «Check» field" in out.stderr, out.stderr)
+out = inv_check(INV_NONE)
+check("«None — the reason» is a full answer", out.returncode == 0 and "no invariants — a thin wrapper" in out.stdout, out.stdout + out.stderr)
+out = inv_check(INV_HEAD + "None.\n")
+check("«None» without its reason is refused", out.returncode == 1 and "without its reason" in out.stderr, out.stderr)
+out = inv_check(INV_HEAD + "\n")
+check("an empty section is refused", out.returncode == 1 and "names no invariant" in out.stderr, out.stderr)
+out = inv_check("")
+check("a NEW contract without the section is refused before the seal", out.returncode == 1 and "no «Invariants» section" in out.stderr, out.stderr)
+two = testing.invariants(with_invariants(CONTRACT.format(seams="- none", exit="ok"), INV_ONE + "- **I2** — applying a discount of zero\n  changes nothing\n"
+                                         "  - Domain: every price from 0\n    in whole cents\n  - Source: Goal\n  - Broken by: a rounding step that runs at zero\n"))
+check("two invariants, a rule and a field that run over two lines: read whole",
+      [i["id"] for i in two["items"]] == ["I1", "I2"] and two["items"][1]["rule"] == "applying a discount of zero changes nothing"
+      and two["items"][1]["domain"] == "every price from 0 in whole cents" and not two["problems"], two)
+for scene in sorted((ROOT / "evals/scenarios/tester-property/scenes").glob("*/invariants.md")):
+    measured = scene.read_text(encoding="utf-8")
+    shape = testing.invariants("# c\n\n" + "\n".join(line for line in measured.splitlines() if "- Check:" not in line) + "\n\n## Exit criterion\nok\n")
+    check(f"the section as the spike measured it ({scene.parent.name}) is well-formed without its «Check» line",
+          not shape["problems"] and shape["section"] == ("none" if scene.parent.name == "none" else "named"), shape)
+template = (ROOT / ".claude/templates/slice-contract.md").read_text(encoding="utf-8")
+plan = (ROOT / ".claude/commands/plan-slice.md").read_text(encoding="utf-8")
+written = plan[plan.index("# Slice $ARGUMENTS — planning artifact"):]
+for name, text in (("the template", template), ("the artifact /plan-slice writes", written)):
+    order = [text.index("## Hardest seams"), text.index("## Invariants"), text.index("## Exit criterion")]
+    shape = testing.invariants(text.replace("[", "<").replace("]", ">"))
+    check(f"{name}: «Invariants» stands between «Hardest seams» and «Exit criterion», with I1 and the three fields",
+          order == sorted(order) and [i["id"] for i in shape["items"]] == ["I1"]
+          and all(f"  - {field}:" in testing.section(text, "Invariants") for field in testing.INVARIANT_FIELDS.values()), shape)
+    check(f"{name} left unfilled is not a contract: every placeholder is refused", len(shape["problems"]) >= 4, shape["problems"])
+check("/plan-slice runs the check before the seal",
+      plan.index("testing.py invariants .engine/slices/$ARGUMENTS.md") < plan.index("contract_fingerprint.py seal .engine/slices/$ARGUMENTS.md"))
+
+print("invariants — facts for the manager")
+r = new_repo(invariants=INV_ONE)
+facts = facts_of(r, request_id(cli(r, "request", "discount", "--point", "a")))
+check("the manager is told how many invariants the contract names", facts["invariants"] == {"section": "named", "count": 1, "ids": ["I1"]}, facts["invariants"])
+check("an invariant is a fact, not a mandatory case: it fires nothing (O9 is not built)",
+      testing.mandatory(facts) == testing.mandatory(facts | {"invariants": {"section": "absent", "count": 0, "ids": []}}) and "O9" not in testing.mandatory(facts), testing.mandatory(facts))
+answer(r, TESTER | {"slice": "discount"})
+row = testing.ledger_rows((r / ".engine/testing/ledger.md").read_text(encoding="utf-8"))[-1]
+check("the decision carries the invariants into the ledger, for the owner's review",
+      row.get("invariants") == facts["invariants"] and "invariants: 1 (I1)" in (r / ".engine/testing/ledger.md").read_text(encoding="utf-8"), row)
+facts = facts_of(new := new_repo(invariants=INV_NONE), request_id(cli(new, "request", "discount", "--point", "a")))
+check("«None — the reason» reaches the manager with its reason", facts["invariants"]["section"] == "none" and facts["invariants"]["count"] == 0
+      and facts["invariants"]["none_reason"].startswith("a thin wrapper"), facts["invariants"])
+facts = facts_of(new := new_repo(), request_id(cli(new, "request", "discount", "--point", "a")))
+check("a contract sealed before the section existed: «not named» is a fact, and the request is made",
+      facts["invariants"]["section"] == "absent" and facts["invariants"]["count"] == 0 and "problems" not in facts["invariants"], facts["invariants"])
+
+print("invariants — record: a test for every invariant, and none of the tester's own")
+write(r, "tests/test_pricing.py", TESTS_INV)
+cli(r, "request", "discount", "--tester", "contract")
+out = answer(r, handin([test("test_half"), test("test_over", LINE_ERRORS)]))
+check("a hand-in with NO test for the invariant I1 is refused, and the refusal names it",
+      out.returncode == 1 and "I1: the contract names this invariant and no test carries its number" in out.stderr and cli(r, "check", "discount").returncode == 4, out.stderr)
+out = answer(r, handin([test("test_half"), test("test_over", LINE_ERRORS), test("test_I1_never_above_the_price", LINE_I1)]))
+check("the same hand-in WITH `test_I1_…` is accepted and sealed", out.returncode == 0 and cli(r, "check", "discount").returncode == 0, out.stderr)
+check("…and the ledger says every invariant has its test", "a test for every invariant of the contract: I1" in (r / ".engine/testing/ledger.md").read_text(encoding="utf-8"))
+r = new_repo(invariants=INV_ONE)
+decide_a(r, "discount")
+write(r, "tests/test_pricing.py", TESTS_INV)
+cli(r, "request", "discount", "--tester", "contract")
+out = answer(r, handin([test("test_half"), test("test_I1_never_above_the_price", LINE_I1), test("test_I2_rounds_down", LINE_RETURNS)]))
+check("a test for an invariant the contract does not have (I2) is refused: the tester adds none of its own",
+      out.returncode == 1 and "the contract has no invariant I2" in out.stderr and "question to the contract" in out.stderr, out.stderr)
+r = new_repo(invariants=INV_NONE)
+decide_a(r, "discount")
+write(r, "tests/test_pricing.py", TESTS_INV)
+cli(r, "request", "discount", "--tester", "contract")
+out = answer(r, handin([test("test_half"), test("test_I1_never_above_the_price", LINE_RETURNS)]))
+check("the section says «None»: an invariant test is refused", out.returncode == 1 and "says `None`" in out.stderr, out.stderr)
+out = answer(r, handin([test("test_half"), test("test_over", LINE_ERRORS)]))
+check("…and a hand-in without one is accepted", out.returncode == 0, out.stderr)
+r = new_repo()
+decide_a(r, "discount")
+write(r, "tests/test_pricing.py", TESTS_INV)
+cli(r, "request", "discount", "--tester", "contract")
+out = answer(r, handin([test("test_half"), test("test_over", LINE_ERRORS)]))
+check("a contract sealed before the section existed: the hand-in is judged as before", out.returncode == 0, out.stderr)
+
 # ------------------------------------------------------------------ disputes: two rounds, the third parks
 print("disputes — one package a round, two rounds, the third parks the slice")
 r = new_repo()
@@ -550,8 +679,10 @@ check("the catch-up hand-in is accepted (the code exists: what each test catches
 check("…and now the next slice may start", cli(r, "request", "next", "--point", "a").returncode == 0)
 
 print("the review after ten slices; the mutation run")
-r = new_repo()
+r = new_repo(invariants=INV_ONE, slugs=("s0", "s1"))
+write(r, ".engine/slices/s1.md", with_invariants(CONTRACT.format(seams="- none", exit="ok"), INV_NONE))
 (r / "tasks").mkdir()
+write(r, ".claude/unattended/board.py", "import json, sys\nopen('board-argv.json', 'w', encoding='utf-8').write(json.dumps(sys.argv[1:], ensure_ascii=False))\n")
 for n in range(10):
     testing.append_row(r, {"type": "decision", "point": "b", "slice": f"s{n}", "checks": checks()}, "t", [])
     testing.review_task(r)
@@ -560,6 +691,13 @@ for n in range(10):
 check("ten slices: the review is recorded once", len(testing.rows(r, kind="review_task")) == 1)
 testing.review_task(r)
 check("…and not a second time", len(testing.rows(r, kind="review_task")) == 1)
+argv = json.loads((r / "board-argv.json").read_text(encoding="utf-8"))
+what, todo = argv[argv.index("--what") + 1], argv[argv.index("--do") + 1]
+check("the review task goes to todo/ with the two questions to the owner and the spike's report (board 064)",
+      argv[argv.index("--to") + 1] == "todo" and "Чи братися за stateful testing" in todo and "Чи повертатися до бібліотеки property-based testing" in todo
+      and "tasks/done/063-property-tests-spike/report.md" in todo and "яких не було серед прикладів tester-а" in todo, todo)
+check("…and with what the live slices showed: invariants written, «none», contracts without the section",
+      "записано 1 у 1 slice-ах" in what and "«немає — причина» — 1" in what and "slice contract без розділу — 8" in what and "перевіркою №4 — 0" in what, what)
 r = new_repo(env='MUTATION_CMD="echo survived: $MUTATION_FILES"\n')
 write(r, "tests/test_pricing.py", "import unittest\n")
 decide_a(r, "discount", "builder")
@@ -597,6 +735,22 @@ check("the tester: questions first, one test per behaviour, a disputed test apar
       and "A disputed test goes into a separate file" in tester_text and '"keeps": true' in tester_text, "")
 check("the tester's definition does not claim to catch what the author misses (board 061 did not show it)",
       not any(phrase in tester_text.lower() for phrase in ("author misses", "author missed", "builder misses", "catches what")), "")
+check("the tester: a test named `test_I<n>_…` for every invariant, inputs from «Domain», none of its own, none where the section says None",
+      all(needle in tester_text for needle in ("`test_I1_…`", "You add no invariant of your own", "from the «Domain»", "you write no invariant test",
+                                                "The stricter reading is a question, not a test")), "")
+check("the manager is told invariants are facts, with the three states of the section",
+      all(needle in manager_text for needle in ("`facts.invariants`", "`named`", "`none`", "`absent`")) and "**O9**" not in manager_text, "")
+critic_text = (AGENTS_DIR / "slice-planner-critic.md").read_text(encoding="utf-8")
+check("the critic: the five checks of the section, each blocking; it runs the script and adds no invariant itself",
+      all(needle in critic_text for needle in ("**no «Source»**", "**no «Broken by»**", "**«Domain» narrower than the «Seam»**", "**the rule retells the implementation**",
+                                               "state, parsing, serialization or ordering", "testing.py invariants <file>", "**You add no invariant yourself**")), "")
+overseer_text = (AGENTS_DIR / "overseer.md").read_text(encoding="utf-8")
+check("the overseer, check #4: the inputs of an invariant test lie in the contract's «Domain», and the test does not repeat the implementation",
+      all(needle in overseer_text for needle in ("**Invariant tests.**", "Its inputs lie in the «Domain»", "It does not repeat the implementation")), "")
+builder_text = (ROOT / ".claude/skills/slice-builder/SKILL.md").read_text(encoding="utf-8")
+check("the builder: rule 6 is unchanged — property tests stay out of a slice", "exhaustive hypothesis property tests" in builder_text and "`test_I<n>_…`" in builder_text)
+for rel in (".claude/project.env", "templates/project/.claude/project.env"):
+    check(f"{rel}: no key of a property-based testing library (not built: board 064)", "PROPERTY_" not in (ROOT / rel).read_text(encoding="utf-8"))
 check("both definitions are started by the script's line only", all("TESTING_REQUEST <id>" in text for text in (manager_text, tester_text)))
 for rel, needles in ((".claude/skills/slice-builder/SKILL.md", ("testing.py request <slug> --point a", "--tester objection --package", "testing.py request <slug> --point b")),
                      (".claude/commands/plan-slice.md", ("(threshold owner-ratified)", "testing.py answer $ARGUMENTS")),

@@ -6,6 +6,7 @@
     python3 .claude/hooks/testing.py guard                               # PreToolUse hook (stdin: the envelope)
     python3 .claude/hooks/testing.py record [--answer FILE]              # SubagentStop hook; by hand only while not wired
     python3 .claude/hooks/testing.py validate DECISION.json --request ID # 0 allowed, 1 refused with the reasons
+    python3 .claude/hooks/testing.py invariants CONTRACT.md              # the «Invariants» section: 0 well-formed, 1 not
     python3 .claude/hooks/testing.py answer <slug> <Q> --reading taken|other --text "…"
     python3 .claude/hooks/testing.py seal <slug> | check <slug> | gate <slug> | status [<slug>] | ledger
     python3 .claude/hooks/testing.py feature-close <feature>             # 0 the feature may close, 3 it may not
@@ -40,6 +41,14 @@ fail, and not on an import; a test marked `keeps` (behaviour the contract tells 
 pass. A test that depends on an unanswered question to the contract lives in a file of its own,
 and that file is not sealed until the question is answered. Sealed files: `check` compares them
 with their fingerprints, and overseer_stop.py asks `gate` before it requests an audit.
+
+INVARIANTS (board 048, built by board 064). A contract planned by `/plan-slice` has a section
+«Invariants»: numbered rules (I1, I2…) that hold for every input of a stated domain, each with
+«Domain», «Source» and «Broken by» — or "None" with the reason. `invariants` checks that shape
+before the contract is sealed; the manager gets them as facts; a contract hand-in of the tester
+has a test named `test_I<n>_…` for every invariant and none for a number the contract does not
+have. Every invariant is checked by examples: there is no property-based testing library here.
+A contract sealed before the section existed has none, and that is a fact, not an error.
 
 State: .claude/state/testing/ (machine state — written here only). The human journal:
 .engine/testing/ledger.md. Exit: 0 ok, 1 refused, 2 usage, 3 blocked. Standard library only; Python 3.11+.
@@ -99,6 +108,13 @@ SLICE_LINE_RE = re.compile(r"^- \*\*(?P<id>S\d+)\b\s*(?P<name>[^*]*)\*\*(?P<rest
 EDGE_RE = re.compile(r"^- (?P<a>S\d+)\s*(?:→|->)\s*(?P<b>S\d+)\b", re.MULTILINE)
 PATH_RE = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+\.[A-Za-z]{1,5})(?![\w/-])")
 EVENT_RE = re.compile(r"^(?:block-closed:[\w.-]+|feature-closed)$")
+INVARIANTS_TITLE = "Invariants"
+INVARIANT_RE = re.compile(r"^[-*]\s*\*\*(?P<id>I\d+)\*\*\s*(?:[—–:-]\s*)?(?P<rule>.*)$")
+INVARIANT_FIELDS = {"domain": "Domain", "source": "Source", "broken_by": "Broken by"}
+INVARIANT_FIELD_RE = re.compile(r"^\s+[-*]\s*(?P<name>[A-Za-z][A-Za-z ]*?)\s*:\s*(?P<value>.*)$")
+INVARIANT_NONE_RE = re.compile(r"^(?:[-*]\s*)?\**(?:none|немає)\b\**[\s.:—–-]*(?P<reason>.*)$", re.IGNORECASE | re.DOTALL)
+INVARIANT_TEST_RE = re.compile(r"(?<![A-Za-z0-9])test_(I\d+)(?!\d)")
+PLACEHOLDER_RE = re.compile(r"^[\s.…?—–-]*$|^\s*(?:<[^>]*>|\[[^\]]*\])[\s.]*$|^(?:tbd|todo|n/?a)\b", re.IGNORECASE)
 LEDGER_HEADER = ("# Testing ledger\n\nWritten by `.claude/hooks/testing.py` only: every decision of the testing manager, every "
                  "hand-in of the tester, every dispute and its end, every debt. Read in the owner's review.\n")
 
@@ -236,6 +252,82 @@ def section(text: str, title: str) -> str:
 
 def norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def invariants(text: str) -> JsonObj:
+    """The «Invariants» section of a contract: `section` is `absent` (a contract sealed before the
+    section existed), `none` (the planner said there are none, with `none_reason`) or `named`;
+    `items` are the numbered rules with their fields; `problems` is what makes the section
+    ill-formed. A problem is refused before the contract is sealed (`invariants`), never after."""
+    if not re.search(rf"^##\s+{INVARIANTS_TITLE}\b", text, re.IGNORECASE | re.MULTILINE):
+        return {"section": "absent", "items": [], "none_reason": "", "problems": ["the contract has no «Invariants» section"]}
+    body = section(text, INVARIANTS_TITLE)
+    items: list[JsonObj] = []
+    last_key = ""
+    for line in body.splitlines():
+        head = INVARIANT_RE.match(line)
+        part = INVARIANT_FIELD_RE.match(line) if items else None
+        if head:
+            items.append({"id": head.group("id"), "rule": head.group("rule").strip(), "fields": {}})
+            last_key = "rule"
+        elif part:
+            last_key = part.group("name").strip().lower()
+            items[-1]["fields"][last_key] = part.group("value").strip()
+        elif items and line.strip() and last_key == "rule":
+            items[-1]["rule"] = f"{items[-1]['rule']} {line.strip()}".strip()
+        elif items and line.strip():
+            items[-1]["fields"][last_key] = f"{items[-1]['fields'][last_key]} {line.strip()}".strip()
+    problems = []
+    none = INVARIANT_NONE_RE.match(body) if not items else None
+    reason = one_line(none.group("reason"), 300) if none else ""
+    if not items and not none:
+        problems.append("the section names no invariant (`- **I1** — <rule>`) and does not say `None — <the reason>`")
+    elif none and PLACEHOLDER_RE.match(reason):
+        problems.append("`None` stands without its reason: say why this slice has no rule that holds for every input")
+    seen: set[str] = set()
+    for item in items:
+        if item["id"] in seen:
+            problems.append(f"{item['id']}: the number is used twice")
+        seen.add(item["id"])
+        if PLACEHOLDER_RE.match(item["rule"]):
+            problems.append(f"{item['id']}: no rule — one sentence, in the words of the task")
+        for key, name in INVARIANT_FIELDS.items():
+            if PLACEHOLDER_RE.match(item["fields"].get(name.lower(), "")):
+                problems.append(f"{item['id']}: no «{name}» — " + {
+                    "domain": "for which inputs the rule holds",
+                    "source": "the line of the goals, the feature artifact, an owner's decision or this contract's «Seam» the rule follows "
+                              "from; an invariant without a source is an invented requirement",
+                    "broken_by": "the wrong implementation the rule would catch; an invariant nobody can break checks nothing"}[key])
+        if "check" in item["fields"]:
+            problems.append(f"{item['id']}: there is no «Check» field — every invariant is checked by examples "
+                            "(no property-based testing library is set up; board 064)")
+    found = [{"id": i["id"], "rule": i["rule"]} | {key: i["fields"].get(name.lower(), "") for key, name in INVARIANT_FIELDS.items()} for i in items]
+    return {"section": "named" if items else "none", "items": found, "none_reason": reason if not items else "", "problems": problems}
+
+
+def invariant_facts(text: str) -> JsonObj:
+    """What the manager and the ledger are told: how many invariants, their numbers, or why none."""
+    found = invariants(text)
+    facts: JsonObj = {"section": found["section"], "count": len(found["items"]), "ids": [i["id"] for i in found["items"]]}
+    if found["section"] == "none":
+        facts["none_reason"] = found["none_reason"]
+    if found["section"] == "absent":
+        facts["note"] = "the contract was sealed before the section existed: invariants were not named"
+    elif found["problems"]:
+        facts["problems"] = found["problems"]
+    return facts
+
+
+def check_invariants(path: Path) -> tuple[int, str]:
+    try:
+        found = invariants(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError as exc:
+        return 2, f"cannot read the contract: {exc}"
+    if found["problems"]:
+        return 1, f"REFUSED: the «Invariants» section of {path.name} is not ready to be sealed:\n- " + "\n- ".join(found["problems"])
+    if found["section"] == "none":
+        return 0, f"well-formed: no invariants — {found['none_reason']}"
+    return 0, f"well-formed: {len(found['items'])} invariant(s) — " + ", ".join(i["id"] for i in found["items"])
 
 
 @dataclass
@@ -432,6 +524,7 @@ def history(root: Path, slug: str) -> JsonObj:
         "slice": slug, "decision_a": decision.get("decision") if decision else None,
         "hardest_seams": len(re.findall(r"^\s*[-*]\s*\*\*(.+?)\*\*", section(text, "Hardest seams"), re.MULTILINE)),
         "ratified_thresholds": sum(1 for line in section(text, "Exit criterion").splitlines() if RATIFIED_RE.search(line)),
+        "invariants": invariant_facts(text),
         "questions_to_contract": sum(len(r.get("questions", [])) for r in handins),
         "dispute_outcomes": outcomes, "code_was_wrong": "test_right" in outcomes,
         "contract_ambiguous": "contract_ambiguous" in outcomes,
@@ -476,7 +569,7 @@ def facts_a(root: Path, env: dict[str, str], slug: str) -> JsonObj:
     existing: object = touch(root, env, named, {}) if named else "unknown: the «Seam» names no existing file; decided at point (b) by the diff"
     return {
         "point": "a", "slice": slug, "contract": contract_path(root, slug).relative_to(root).as_posix(),
-        "hardest_seams": seams, "ratified_thresholds": ratified, **block_facts(root, slug),
+        "hardest_seams": seams, "ratified_thresholds": ratified, "invariants": invariant_facts(text), **block_facts(root, slug),
         "expected_size": section(text, "Complexity budget") or "the contract has no «Complexity budget»",
         "existing_code_the_slice_changes": existing,
     }
@@ -966,10 +1059,33 @@ def handin_errors(root: Path, request: JsonObj, handin: JsonObj) -> list[str]:
         if request.get("expect") == "recorded" and not str(test.get("catches", "")).strip():
             errors.append(f"{name}: the code exists, so RED cannot be shown — `catches` names the breakage this test would catch")
         by_file.setdefault(rel, set()).add(test.get("question") is not None)
+    if request.get("mode") == "contract":
+        errors += invariant_test_errors(sources[0], seen)
     for rel, kinds in by_file.items():
         if len(kinds) > 1:
             errors.append(f"{rel}: holds both disputed and undisputed tests — a disputed test (one that depends on a question to the "
                           "contract) goes into a file of its own: whole files are sealed, and that one is not sealed before the answer")
+    return errors
+
+
+def invariant_test_errors(contract: str, tests: set[str]) -> list[str]:
+    """Every invariant of the contract has a test with its number in the name (`test_I1_…`), and no
+    test carries a number the contract does not have: the tester does not add invariants of its
+    own. A contract without the section (sealed before it existed) is not judged here."""
+    found = invariants(contract)
+    if found["section"] == "absent":
+        return []
+    named = {i["id"] for i in found["items"]}
+    tested: dict[str, list[str]] = {}
+    for name in sorted(tests):
+        for ident in INVARIANT_TEST_RE.findall(name):
+            tested.setdefault(ident, []).append(name)
+    errors = [f"{ident}: the contract names this invariant and no test carries its number — one test named `test_{ident}_…`, on inputs "
+              "you choose from its «Domain»" for ident in sorted(named - set(tested), key=lambda i: int(i[1:]))]
+    errors += [f"{', '.join(names)}: the contract has no invariant {ident} — "
+               + ("its «Invariants» section says `None`, so no invariant test is written; " if found["section"] == "none" else "")
+               + "the tester does not add an invariant of its own: a rule that seems missing is a question to the contract"
+               for ident, names in sorted(tested.items()) if ident not in named]
     return errors
 
 
@@ -1021,6 +1137,9 @@ def record_tests(root: Path, request: JsonObj, handin: JsonObj) -> list[str]:
     failing = [r["test"] for r in results if r["outcome"] == "failed"]
     questions = handin.get("questions", [])
     lines = [f"{len(handin['tests'])} test(s), one per behaviour; sealed: {', '.join(files) or 'nothing'}"]
+    tested = sorted({i for t in handin["tests"] for i in INVARIANT_TEST_RE.findall(str(t["test"]))}, key=lambda i: int(i[1:]))
+    if request["mode"] == "contract" and tested:
+        lines.append(f"a test for every invariant of the contract: {', '.join(tested)}")
     lines += [f"question to the contract {q['id']}: {one_line(q['text'], 300)} — reading taken: {one_line(q['reading_taken'], 200)}" for q in questions]
     lines += [f"NOT SEALED until its question is answered: {rel} ({', '.join(qs)})" for rel, qs in held.items()]
     if request.get("expect") == "red":
@@ -1061,6 +1180,19 @@ def record_objection(root: Path, request: JsonObj, answer: JsonObj) -> list[str]
 # ------------------------------------------------------------------ the manager's decision
 
 
+def review_numbers(root: Path, slugs: set[str]) -> str:
+    """What the live slices showed about invariants, as far as a script can count it: the review
+    task carries these numbers to the owner's two questions (stateful testing; the library)."""
+    named = [history(root, slug)["invariants"] for slug in sorted(slugs)]
+    tested = {str(r.get("slice")) for r in rows(root, kind="handin") if r.get("accepted") and r.get("mode") == "contract"} & slugs
+    late = sum(len(r.get("failing", [])) for r in rows(root, kind="handin") if r.get("accepted") and r.get("slice") in tested and r.get("mode") == "block")
+    return (f"Invariants: записано {sum(n['count'] for n in named)} у {sum(1 for n in named if n['section'] == 'named')} slice-ах; "
+            f"«немає — причина» — {sum(1 for n in named if n['section'] == 'none')}; slice contract без розділу — "
+            f"{sum(1 for n in named if n['section'] == 'absent')}. Помилки в коді, який уже пройшов contract tests tester-а ({len(tested)} slice-ів): "
+            f"overseer заблокував за перевіркою №4 — {sum(overseer_blocks_4(root, slug) for slug in sorted(tested))}; "
+            f"інтеграційних тестів упало — {late}.")
+
+
 def review_task(root: Path) -> None:
     """After ten slices with a decision of the manager: a review task on the board — once."""
     done = {str(r.get("slice")) for r in rows(root, kind="decision") if r.get("point") == "b"}
@@ -1071,9 +1203,16 @@ def review_task(root: Path) -> None:
         subprocess.run(
             [sys.executable, str(board), "open-item", "--to", "todo", "--key", "testing-review", "--source", "hook testing.py",
              "--title", "розбір тестування після десяти slice-ів",
-             "--what", f"У журналі тестування .engine/testing/ledger.md набралося {len(done)} slice-ів із рішенням test manager-а.",
+             "--what", f"У журналі тестування .engine/testing/ledger.md набралося {len(done)} slice-ів із рішенням test manager-а. " + review_numbers(root, done),
              "--do", ("Розбір, а не вирок: що впіймали незалежні тести, чого не впіймано понад overseer-а, де test manager помилився (скільки разів "
-                      "«не перемикатися» довелося наздоганяти). Результат — пропозиції змін до визначень test-manager і slice-tester; затверджує власник.")],
+                      "«не перемикатися» довелося наздоганяти). Результат — пропозиції змін до визначень test-manager і slice-tester; затверджує власник. "
+                      "Окремо порахуй і покажи у звіті, що показали живі slices про invariants: скільки помилок знайдено на входах, яких не було "
+                      "серед прикладів tester-а (числа вище рахує скрипт; до них додай записи .engine/bugs/ про код цих slices — прочитай кожен і "
+                      "скажи, чи був той вхід в області якогось invariant). Розбір закінчи двома питаннями до власника, кожне з цими числами і з "
+                      "посиланням на звіт spike tasks/done/063-property-tests-spike/report.md: (1) «Чи братися за stateful testing — invariants на "
+                      "кілька slices, перевірка послідовностями операцій?» (відкладено відповіддю 5 на задачу 048); (2) «Чи повертатися до бібліотеки "
+                      "property-based testing?» (spike 063: приклади з розділом «Invariants» ловили стільки ж, скільки бібліотека; повний проєкт — "
+                      "tasks/done/048-property-tests-design/report.md, розділ 9).")],
             cwd=root, capture_output=True, text=True, check=False)
     append_row(root, {"type": "review_task", "slices": sorted(done)}, "review after ten slices", [f"{len(done)} slices have a decision; the review task is on the board"])
 
@@ -1084,6 +1223,11 @@ def decision_lines(decision: JsonObj, facts: JsonObj, fired: dict[str, str]) -> 
         lines.append("WRITTEN BY THE SCRIPT — the manager's own decision was refused: " + one_line(json.dumps(decision.get("manager_said"), ensure_ascii=False), 300))
     lines += [f"mandatory case {case}: {why}" for case, why in fired.items()]
     if facts["point"] == "a":
+        named = facts.get("invariants")
+        if isinstance(named, dict):
+            lines.append({"absent": "invariants: not named — the contract was sealed before the section existed",
+                          "none": f"invariants: none — {named.get('none_reason', '')}"}.get(
+                              str(named.get("section")), f"invariants: {named.get('count')} ({', '.join(named.get('ids', []))})"))
         lines.append(("the tester writes the contract tests" if decision["decision"] == "tester" else "NOT SWITCHING — the builder writes the tests")
                      + f": {one_line(decision['reason'])}")
         if decision["decision"] == "builder":
@@ -1105,7 +1249,8 @@ def record_decision(root: Path, request: JsonObj, decision: JsonObj) -> None:
     row = {k: decision.get(k) for k in ("point", "slice", "decision", "reason", "small", "uniform", "checks", "block_large", "by_script", "manager_said")
            if decision.get(k) is not None}
     append_row(root, {"type": "decision", **row, "request": request["id"], "mandatory": fired, "events_due": facts.get("events_due", []),
-                      "block": facts.get("block"), "feature": facts.get("feature")},
+                      "block": facts.get("block"), "feature": facts.get("feature"),
+                      **({"invariants": facts["invariants"]} if isinstance(facts.get("invariants"), dict) else {})},
                f"{slug} — the manager's decision, point ({facts['point']})", decision_lines(decision, facts, fired))
     if facts["point"] == "b":
         review_task(root)
@@ -1359,6 +1504,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("validate")
     p.add_argument("decision", type=Path)
     p.add_argument("--request", required=True, help="the id of the request, or the path of a request.json")
+    sub.add_parser("invariants").add_argument("contract", type=Path)
     p = sub.add_parser("answer")
     p.add_argument("slug")
     p.add_argument("question")
@@ -1425,6 +1571,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_record(root, args.answer)
     if args.command == "validate":
         return cmd_validate(root, args.decision, args.request)
+    if args.command == "invariants":
+        return finish(check_invariants(args.contract))
     if args.command == "request":
         if bool(args.point) == bool(args.tester):
             return finish((2, "one of --point a|b (the manager) or --tester contract|objection|block"))

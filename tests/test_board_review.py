@@ -500,6 +500,12 @@ testing.append_row(t, {"type": "decision", "point": "a", "slice": "exporter-4", 
 testing.append_row(t, {"type": "decision", "point": "a", "slice": "discount", "decision": "tester", "reason": "r", "by_script": True,
                        "mandatory": {"O3": "the exit criterion carries a threshold the owner ratified"}}, "t", [])
 testing.append_row(t, {"type": "handin", "slice": "discount", "accepted": True, "questions": [{"id": "Q1"}, {"id": "Q2"}]}, "t", [])
+testing.append_row(t, {"type": "decision", "point": "a", "slice": "split", "decision": "tester", "reason": "r", "mandatory": {},
+                       "invariants": {"section": "named", "count": 2, "ids": ["I1", "I2"]}}, "t", [])
+testing.append_row(t, {"type": "decision", "point": "a", "slice": "shelf", "decision": "builder", "reason": "r", "small": "s", "uniform": "u", "mandatory": {},
+                       "invariants": {"section": "none", "count": 0, "ids": [], "none_reason": "ПРИЧИНА-ОБГОРТКА"}}, "t", [])
+testing.append_row(t, {"type": "decision", "point": "a", "slice": "old", "decision": "tester", "reason": "r", "mandatory": {},
+                       "invariants": {"section": "absent", "count": 0, "ids": []}}, "t", [])
 testing.append_row(t, {"type": "round", "slice": "discount", "round": 1, "items": [{"test": "test_over", "verdict": "test_right", "reason": "ПРИЧИНА-ТЕСТ -- правий"},
                                                                                 {"test": "test_half", "verdict": "test_wrong", "reason": "cents"}]}, "t", [])
 testing.append_row(t, {"type": "parked", "slice": "rounding"}, "t", [])
@@ -518,6 +524,8 @@ check("a mandatory case that fired, and that the manager did not arrive there it
 check("an open testing debt with its event", "інтеграційні тести slice-а `discount` — відкладено до події `block-closed:prices`: БОРГ-ПРИЧИНА" in part, part)
 check("a mutation run with its duration and the survivors handled", "блок `stock`: 412 с, вихід 0; уціліло 7, розібрано 3" in part, part)
 check("a large block closed without a mutation check is shown", "великий блок `prices` закрито БЕЗ mutation testing" in part, part)
+check("invariants: how many are written, and which slices said «none» with the reason (board 064)",
+      "записано 2 у 1 slice-ах; «немає — причина» — 1 (`shelf`: ПРИЧИНА-ОБГОРТКА); slice contract без розділу (запечатаний раніше) — 1" in part, part)
 check("questions to the contract are counted", "питань до slice contract, знайдених до коду: 2" in part, part)
 testing.append_row(t, {"type": "decision", "point": "b", "slice": "rounding2", "events_due": ["block-closed:prices"], "mandatory": {"O6:integration": "due"},
                        "checks": NONE | {"integration": {"when": "now", "reason": "r"}}}, "t", [])

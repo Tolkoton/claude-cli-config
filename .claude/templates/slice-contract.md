@@ -17,6 +17,17 @@ For each: how it will be tested. Name the anti-pattern that the test rules out.
 - Seam 1: <name> — test approach: <concrete description, anti-pattern named>
 - Seam 2: <name> — test approach: ...
 
+## Invariants (rules that hold for every input in the stated domain)
+A rule that must hold for EVERY input of a named domain, not for three examples: there and back,
+conservation, a repeat changes nothing, a bound never crossed, agreement with a reference.
+One numbered entry per rule; every invariant gets one test named `test_I<n>_…`, on examples
+chosen from its Domain. `None — <the reason>` is a full answer (a thin wrapper, wiring,
+behaviour the contract lists case by case): do not invent a rule to fill the section.
+- **I1** — <the rule, one sentence, in the words of the task, not of the code>
+  - Domain: <for which inputs it holds — not narrower than what «Seam» accepts>
+  - Source: <the line of the goals, the feature artifact, an owner's decision or this contract's «Seam» it follows from>
+  - Broken by: <the wrong implementation this rule would catch>
+
 ## Exit criterion
 What proves the slice is done. Specific, measurable, with what evidence.
 Not "all tests pass" — name the specific tests / smoke / SHA that closes it.

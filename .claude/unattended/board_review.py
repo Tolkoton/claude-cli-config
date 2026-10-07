@@ -552,6 +552,15 @@ def testing_section(src: Source, period: Since) -> list[str]:
     decisions = of("decision")
     lines = [(f"- Slice-ів із рішенням test manager-а за період: {len({r.get('slice') for r in decisions})}; питань до slice contract, знайдених до коду: "
               f"{sum(len(r.get('questions', [])) for r in of('handin') if r.get('accepted'))}. Це показники для читання, не цілі для агента.")]
+    named = {str(r.get("slice")): r["invariants"] for r in decisions if r.get("point") == "a" and isinstance(r.get("invariants"), dict)}
+    if named:
+        none = sorted(slug for slug, n in named.items() if n.get("section") == "none")
+        absent = sum(1 for n in named.values() if n.get("section") == "absent")
+        lines.append(f"- Invariants у slice contracts за період: записано {sum(int(n.get('count') or 0) for n in named.values())} у "
+                     f"{sum(1 for n in named.values() if n.get('section') == 'named')} slice-ах; «немає — причина» — {len(none)}"
+                     + (" (" + "; ".join(f"`{slug}`: {testing.one_line(named[slug].get('none_reason'), 120)}" for slug in none) + ")" if none else "")
+                     + (f"; slice contract без розділу (запечатаний раніше) — {absent}" if absent else "")
+                     + ". Кожен invariant перевіряється прикладами: бібліотеки property-based testing немає.")
     lines += ["", "### Суперечки про тести", ""]
     rounds = of("round")
     for row in rounds:

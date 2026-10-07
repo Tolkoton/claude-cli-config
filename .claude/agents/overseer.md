@@ -156,6 +156,22 @@ missing**.
   none is `BLOCK #4`. Tests written after the code — catch-up and integration
   tests — carry no RED: each names the breakage it catches, and you judge that
   claim here like any other assertion.
+- **Invariant tests.** When the contract has an «Invariants» section with numbered
+  rules (I1, I2…), each has a test with its number in the name (`test_I1_…`),
+  whoever wrote the tests; an invariant with none is `BLOCK #4`. For each such
+  test, open it and judge two things. (1) **Its inputs lie in the «Domain» the
+  contract states, and cover it** — a test that only tries the inputs the
+  implementation handles (the domain says "people from 1", the test starts at 2;
+  "any sequence of calls", the test never releases after a refused hold) has
+  narrowed the rule: `BLOCK #4 masked test gap — <test>: the «Domain» of <I-n>
+  includes <input>, the test never tries it`. An input OUTSIDE the domain proves
+  nothing about the rule either. (2) **It does not repeat the implementation** —
+  an expected value computed in the test by the formula under test, or by calling
+  the code's own helper, passes on any implementation that is wrong the same way;
+  the invariant is asserted as the contract words it (the shares add up to the
+  bill), with expected values written by hand. A contract whose section says
+  `None`, or one sealed before the section existed, has no invariant tests, and
+  that is not a gap.
 - **A silenced check is a masked gap too — every `gate-allow` is judged
   here.** The Stop gate lets a new `# type: ignore`, `# noqa`, skip / xfail or
   a loosened lint / type configuration through when `gate-allow: <reason>`

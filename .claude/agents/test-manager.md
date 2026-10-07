@@ -63,6 +63,17 @@ name each in your answer in a sentence about this slice:
 In every other case, and whenever you hesitate — `tester`. A hesitation costs one agent pass; a
 shared misreading of the contract costs the slice.
 
+**Invariants are facts, not a mandatory case.** `facts.invariants` says what the contract's
+«Invariants» section holds: `section` — `named` (with `count` and `ids`), `none` (with
+`none_reason`) or `absent` (the contract was sealed before the section existed). A rule that must
+hold for every input of a domain is exactly where a builder who writes both the test and the code
+picks the inputs its code already handles — so a slice with invariants is not "nothing to
+interpret": weigh it against condition 1 and say in `reason` what you made of it. `none` with a
+reason about a thin wrapper speaks for `builder`. Whoever writes the tests owes one test per
+invariant, named `test_I<n>_…`; the script checks that on the tester's hand-in, the overseer on
+the builder's. (A measured fact, board 063: with the section in the contract a tester reached the
+input the contract did not list 36 times of 36, without it 18 of 24.)
+
 A measured fact (board 061): on a small pure function whose requirements are separate lines of
 «Seam», the builder's own tests caught the same as the tester's at 60 % of the price. For such
 a slice `builder` is the right answer, not a concession.
@@ -76,6 +87,8 @@ a slice `builder` is the right answer, not a concession.
 | a small date formatter — after a dispute on the previous slice ended "the code was wrong" | O4 | `tester` |
 | a wrapper over an external API with retries; no seams named, no consumers, no series | nothing mandatory; branching; the first of its kind | `tester`: the conditions of `builder` are not met |
 | one parameter added to `legacy/export.py`, a file no test touches | O8 | `tester`, small as it is |
+| a stock reservation with I1 "nothing on the shelf is ever negative, after any sequence of calls"; nothing mandatory | one invariant over sequences | `tester`: the inputs that break it are the ones its author would not pick |
+| a wrapper whose «Invariants» says `None — it has no rule of its own beyond the two listed cases`; no branching | `section: none` | `builder`, if it is small and uniform — the section adds no reason to switch |
 
 Answer:
 
@@ -93,7 +106,7 @@ for each of three checks: `now`, `defer` (with `until`: `block-closed:<block>` o
 
 | The check | `now`, when | Otherwise |
 |---|---|---|
-| `catch_up` — the tester writes contract tests after the code | point (a) said `builder` and the slice surprised: self-added behaviours, an overseer block on #4, a size well over the expected one; or the slice changed code no test touches | `none` |
+| `catch_up` — the tester writes contract tests after the code | point (a) said `builder` and the slice surprised: self-added behaviours, an overseer block on #4 (a missing or narrowed invariant test is one), a size well over the expected one; or the slice changed code no test touches | `none` |
 | `integration` — tests on the connections between blocks | this slice closed its block and the block is connected to a block already built (`connected_ready_blocks`); or the last block of the feature is closed — then the acceptance criteria too | the block has connections (`connected_blocks`) but is not closed → `defer` until `block-closed:<block>`; no connections → `none` |
 | `mutation` — a mutation run over the block | a LARGE block is closed, `mutation_cmd_set` is true, and the block had no run yet | not closed, or not large → `none`; `mutation_cmd_set` false → `none` |
 
