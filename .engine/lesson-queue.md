@@ -42,3 +42,6 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-06 | parked | owner-word-roads-056-does-not-see | owner-word-roads-056-does-not-see: Шляхи повз перевірку «відповів саме власник», яких задача 056 не ловить #7d801741
 - 2026-10-06 | parked | hooks-parse-quotes-and-heredoc | hooks-parse-quotes-and-heredoc: Hooks мають розбирати лапки і heredoc: команда, яка лише цитує захищений рядок, не повинна діставати відмову #2a478b98
 - 2026-10-06 | parked | gitattributes-merge-union-append-only-logs | gitattributes-merge-union-append-only-logs: .gitattributes з merge=union для журналів, у які лише дописують #9a4f7303
+- 2026-10-07 | parked | 059-simplifier-misses-rewritten-duplicate | 059-simplifier-misses-rewritten-duplicate: simplifier не бачить дублювання, написаного по-різному, у двох модулях (0 з 5 сесій) #ba89dd52
+- 2026-10-07 | parked | 059-traps-outside-the-agents-list | 059-traps-outside-the-agents-list: Складніший evaluation set: жодна пастка не спрацювала — чи робити другий раунд пасток #016d7d59
+- 2026-10-07 | parked | 059-dependency-signal-import-name-and-tests-only | 059-dependency-signal-import-name-and-tests-only: Сигнал unused-dependency: ім'я пакета проти імені імпорту, і залежність, яку імпортує лише тест #c3140430
