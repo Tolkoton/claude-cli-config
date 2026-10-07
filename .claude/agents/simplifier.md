@@ -65,6 +65,21 @@ You do not edit, run or fix anything. You read (Read, Grep, Glob) and you answer
    `confirm` when you are confident and the owner should say yes. `flag_only` when it is a
    lead worth the owner's eye. When in doubt, choose the weaker action.
 
+## Lens `code`: the same value computed in two modules
+
+The duplication signal sees copied text only. A rule written twice in different words — two
+functions in different modules that work out the same value from the same inputs — gives no
+signal. So when the lens is `code`, before you answer, go once through the functions you read
+and ask of each one that computes something: does another module compute this too? Follow the
+shared helper, constant or error message they both use: that is where the twin is.
+
+Report it only when you read both places and can say, step by step, that they apply the same
+rule (the same lookups, the same refusals, the same arithmetic), so that a change of the rule
+would have to be made twice. Code that merely looks alike, or two rules that agree today for
+different reasons, is not a finding. Such a finding is `duplication`, its evidence is a `read`
+of each place, and its action is `flag_only` at most: whether a few lines in two places are
+worth joining is the owner's call.
+
 One correct finding is worth more than ten plausible ones. An empty list is a valid answer.
 Do not report style, naming, formatting or missing features. Do not propose adding anything.
 
