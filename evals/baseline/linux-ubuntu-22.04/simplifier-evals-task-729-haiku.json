@@ -1,0 +1,384 @@
+{
+  "recorded_utc": "2026-10-07T17:04:33Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "a65c8be722f6d414b1bc32de44fc544eb406fef4",
+  "set": "basic",
+  "model": "haiku",
+  "planted": [
+    "abstraction-with-one-implementation",
+    "dead-code",
+    "unused-dependency",
+    "guard-against-impossible-state",
+    "slice-for-the-future",
+    "invented-requirement"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "security-check",
+    "contract-field-read-on-a-rare-path"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 3,
+    "recall_mean": 0.167,
+    "recall_range": [
+      0.167,
+      0.167
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {
+      "dead-code": 3
+    },
+    "touched_in_runs": {},
+    "cost_usd": 0.1702
+  },
+  "runs": [
+    {
+      "cost_usd": 0.0621,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 24,
+      "recall": 0.167,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-with-one-implementation",
+        "unused-dependency",
+        "guard-against-impossible-state",
+        "slice-for-the-future",
+        "invented-requirement"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 1,
+      "rejected": [
+        {
+          "errors": [
+            "evidence cites '', which does not exist"
+          ],
+          "finding": {
+            "target": "pyproject.toml:6",
+            "category": "redundant_dependency",
+            "claim": "requests is declared as a dependency but is never imported or used anywhere in the codebase; it can be removed.",
+            "evidence": [
+              {
+                "source": "signal",
+                "ref": "S-20b93157",
+                "detail": "pyproject: requests is declared and no module named requests is imported"
+              },
+              {
+                "source": "grep",
+                "ref": "pyproject.toml:6",
+                "detail": "'requests' appears only in the dependencies list"
+              },
+              {
+                "source": "grep",
+                "ref": "",
+                "detail": "grep for 'import.*requests' and 'from.*requests' returns no matches across the entire codebase"
+              },
+              {
+                "source": "read",
+                "ref": "docs/goals.md",
+                "detail": "Goals (G1-G4) and requirements (R1-R6) do not mention HTTP calls or network operations"
+              },
+              {
+                "source": "read",
+                "ref": ".engine/slices/currency-rates.md",
+                "detail": "Future slice for currency conversion does not require external HTTP requests"
+              }
+            ],
+            "protected": false,
+            "chesterton_checked": true,
+            "test_safety": "none",
+            "proposed_action": "confirm",
+            "traceability": "none found",
+            "reversal_risk": "low"
+          }
+        }
+      ],
+      "lowered": 1,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24",
+          "category": "dead_code",
+          "claim": "_legacy_total_v1 is never called and can be removed; the active implementation is the modern `total` function using Decimals.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1' (60% confidence)"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "'_legacy_total_v1' appears only at its definition, no imports or calls found"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py",
+              "detail": "Tests import only apply_discount and total, not _legacy_total_v1"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_counter.py",
+              "detail": "No test exercises float-based pricing"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "Docstring indicates backward compatibility for 'the first version', but no migration or compatibility requirement exists in goals or requirements"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-77c0db36",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.0624,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 30,
+      "recall": 0.167,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-with-one-implementation",
+        "unused-dependency",
+        "guard-against-impossible-state",
+        "slice-for-the-future",
+        "invented-requirement"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 1,
+      "rejected": [
+        {
+          "errors": [
+            "evidence cites '', which does not exist"
+          ],
+          "finding": {
+            "target": "pyproject.toml:6",
+            "category": "redundant_dependency",
+            "claim": "The `requests` package is declared in dependencies but never imported or used anywhere in the codebase. It can be safely removed.",
+            "evidence": [
+              {
+                "source": "signal",
+                "ref": "S-20b93157",
+                "detail": "pyproject analysis: requests is declared and no module named requests is imported"
+              },
+              {
+                "source": "grep",
+                "ref": "pyproject.toml:6",
+                "detail": "'requests' appears only in the dependencies list"
+              },
+              {
+                "source": "grep",
+                "ref": "",
+                "detail": "Search for 'import.*requests' across entire codebase returns no matches"
+              },
+              {
+                "source": "read",
+                "ref": "docs/goals.md",
+                "detail": "No goals mention HTTP communication or external APIs. Project reads local JSON price files and writes local receipt files."
+              },
+              {
+                "source": "read",
+                "ref": ".engine/architecture/feature-dag.json",
+                "detail": "Slice S6 (currency rates) is the only speculative slice and does not mention HTTP or network requests."
+              }
+            ],
+            "protected": false,
+            "chesterton_checked": true,
+            "test_safety": "none",
+            "proposed_action": "confirm",
+            "traceability": "none found",
+            "reversal_risk": "low"
+          }
+        }
+      ],
+      "lowered": 1,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24",
+          "category": "dead_code",
+          "claim": "The function `_legacy_total_v1` is defined but never imported or called anywhere in the codebase. It can be removed without affecting any current functionality.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1' (60% confidence)"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "'_legacy_total_v1' appears only at its definition, not imported or called anywhere"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py",
+              "detail": "test file imports only 'apply_discount' and 'total', not '_legacy_total_v1'"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "Function has underscore prefix (private) and docstring explicitly labels it 'legacy'. No goal, requirement or slice contract asks for legacy API compatibility."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-a1ea1ab3",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.0457,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 24,
+      "recall": 0.167,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-with-one-implementation",
+        "unused-dependency",
+        "guard-against-impossible-state",
+        "slice-for-the-future",
+        "invented-requirement"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 1,
+      "rejected": [
+        {
+          "errors": [
+            "evidence cites 'src/refproj', which does not exist"
+          ],
+          "finding": {
+            "target": "pyproject.toml:6",
+            "category": "redundant_dependency",
+            "claim": "requests is declared as a dependency but not imported or used anywhere in the codebase; removing it does not affect any functionality.",
+            "evidence": [
+              {
+                "source": "signal",
+                "ref": "S-20b93157",
+                "detail": "pyproject: requests is declared and no module named requests is imported"
+              },
+              {
+                "source": "grep",
+                "ref": "pyproject.toml:6",
+                "detail": "'requests' appears only in the dependencies declaration"
+              },
+              {
+                "source": "grep",
+                "ref": "src/refproj",
+                "detail": "No import of requests found in any source file"
+              },
+              {
+                "source": "judgement",
+                "ref": "",
+                "detail": "No goal, requirement, or feature mentions HTTP requests or integration with external services"
+              }
+            ],
+            "protected": false,
+            "chesterton_checked": true,
+            "test_safety": "none",
+            "proposed_action": "confirm",
+            "traceability": "none found",
+            "reversal_risk": "low"
+          }
+        }
+      ],
+      "lowered": 1,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24",
+          "category": "dead_code",
+          "claim": "_legacy_total_v1 is never called; removing it does not change system behaviour. The function is kept as a historical reference to the first version's float-based arithmetic, but the active codebase uses the Decimal-based total() function.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1' (60% confidence)"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "'_legacy_total_v1' appears only at its definition, not called anywhere"
+            },
+            {
+              "source": "read",
+              "ref": "tests/test_pricing.py",
+              "detail": "No test exercises _legacy_total_v1; tests only use apply_discount and total"
+            },
+            {
+              "source": "judgement",
+              "ref": "",
+              "detail": "Docstring states 'the way the first version did' — kept for reference only. Current codebase uses total() with Decimals for exact arithmetic"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-bd08ddc6",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -53,3 +53,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | parked | 720-second-opinion-remove-build | 720-second-opinion-remove-build: Прибрати з двигуна другу думку Gemini (відповідь власника «так» у задачі 720) #8e924112
 - 2026-10-07 | parked | 076-maintain-build-rule-proposals-line-untested | 076-maintain-build/rule-proposals-line-untested: Звіт догляду: рядки про пропозиції правил і прибирання пам'яті без перевірки значення #2257d428
 - 2026-10-07 | parked | paid-consent-written-in-an-answer | paid-consent-written-in-an-answer: Згода на платні прогони, написана у відповіді, нічого не відкриває — двічі за день #cb276cfe
+- 2026-10-07 | parked | 729-traps-with-no-written-reason | 729-traps-with-no-written-reason: 729: жодна пастка не зачеплена — але в кожної причина записана в документах проєкту #f88b9d6e

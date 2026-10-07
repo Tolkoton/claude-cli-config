@@ -1,0 +1,222 @@
+{
+  "recorded_utc": "2026-10-07T16:59:32Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "a65c8be722f6d414b1bc32de44fc544eb406fef4",
+  "set": "traps",
+  "model": "sonnet",
+  "planted": [
+    "abstraction-almost-used",
+    "dead-branch-behind-a-flag",
+    "duplication-with-small-differences",
+    "dependency-only-a-test-imports",
+    "guard-impossible-across-functions",
+    "requirement-with-a-borrowed-goal",
+    "slice-for-later-with-a-goal-tag"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "rare-error-at-the-boundary",
+    "security-check-path",
+    "security-check-constant-time",
+    "contract-field-read-on-a-rare-path",
+    "contract-field-for-another-service",
+    "old-data-format",
+    "requirement-derived-at-planning",
+    "slice-a-goal-needs",
+    "file-lock",
+    "retry-with-a-pause",
+    "idempotency-key",
+    "kill-switch-nothing-in-the-repository-sets",
+    "write-order-for-crash-recovery",
+    "rounding-the-law-asks-for"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 2,
+    "recall_mean": 0.214,
+    "recall_range": [
+      0.143,
+      0.286
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {
+      "abstraction-almost-used": 1,
+      "dependency-only-a-test-imports": 2
+    },
+    "touched_in_runs": {},
+    "cost_usd": 0.0766
+  },
+  "runs": [
+    {
+      "cost_usd": 0.0538,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 6,
+      "recall": 0.286,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "abstraction-almost-used": [
+          "confirm"
+        ],
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 2,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "src/refproj/discounts.py:9",
+          "category": "premature_abstraction",
+          "claim": "The DiscountPolicy ABC, PercentDiscount, FixedAmountDiscount and policy_for wrap a single call to apply_discount. Only the percent path is used (cli.py:37), so cli could call apply_discount directly. FixedAmountDiscount is used only by its own tests.",
+          "evidence": [
+            {
+              "source": "grep",
+              "ref": "src/refproj/cli.py:37",
+              "detail": "policy_for(percent) is the only production use; it always returns PercentDiscount"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_discounts.py:11",
+              "detail": "FixedAmountDiscount is referenced only in tests"
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/discounts.py:23",
+              "detail": "PercentDiscount.apply just delegates to apply_discount"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "medium",
+          "id": "F-969dfef6",
+          "validator": []
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is declared as a runtime dependency but only tests/test_price_fixtures.py imports it, and no src module does. It belongs in the dev group, or it can go if the fixture is converted to JSON.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyyaml declared and not imported"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "the only 'import yaml' in the repository is in this test"
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-e50a3722",
+          "validator": []
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.011,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 3,
+      "error": "the answer is not a JSON list of findings: Expecting value: line 1 column 1 (char 0)",
+      "answer": "The signal is partly wrong: only a test imports yaml. So pyyaml is a dev-only dependency, not an unused one.\n\n[\n{\"target\":\"pyproject.toml:6\",\"category\":\"redundant_dependency\",\"claim\":\"pyyaml is declared as a runtime dependency but only tests/test_price_fixtures.py imports it, so it could move to the dev group. Nothing under src uses it.\",\"evidence\":[{\"source\":\"signal\",\"ref\":\"S-2316ed69\",\"detail\":\"pyyaml declared, no module imports it by that name\"},{\"source\":\"grep\",\"ref\":\"tests/test_price_fixtures.py:5\",\"detail\":\"the only 'import yaml' in the repo is in a test\"}],\"protected\":false,\"chesterton_checked\":true,\"test_safety\":\"characterization_exists\",\"proposed_action\":\"flag_only\",\"traceability\":\"none found\",\"reversal_risk\":\"low\"}\n]"
+    },
+    {
+      "cost_usd": 0.0118,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 3,
+      "recall": 0.143,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dependency-only-a-test-imports": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 1,
+      "rejected": [],
+      "lowered": 0,
+      "answer": [
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "pyyaml is declared as a runtime dependency but only tests/test_price_fixtures.py imports it, so it can leave `dependencies` and, if still wanted, go in the dev group.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-2316ed69",
+              "detail": "pyyaml is declared and no module named pyyaml is imported"
+            },
+            {
+              "source": "grep",
+              "ref": "tests/test_price_fixtures.py:5",
+              "detail": "'import yaml' appears only in this test file; nothing under src imports it"
+            },
+            {
+              "source": "read",
+              "ref": "pyproject.toml:6",
+              "detail": "The project sets `package = false` and `uv sync` installs only the dev tools, so a runtime dependency list has no consumer."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "characterization_exists",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-4c5c1bf0",
+          "validator": []
+        }
+      ]
+    }
+  ],
+  "rescored_utc": "2026-10-07T17:10:20Z"
+}
