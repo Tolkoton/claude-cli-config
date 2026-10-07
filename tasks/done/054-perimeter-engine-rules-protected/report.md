@@ -35,7 +35,7 @@ python3 evals/run_hook_scenarios.py --engine-ref HEAD \
 - **`.engine/rule-proposals.md` лишається відкритим** для запису: `promote` звіряє sha256 тексту з вашою відповіддю на task board.
 
 ## Commit-и
-`fea8307` (шаблон, тести, golden-сценарії, документи) і commit закриття задачі після нього, гілка `unattended/work`. Push не робився.
+`742808d` (шаблон, тести, golden-сценарії, документи) і commit закриття задачі після нього, гілка `unattended/work`. Push не робився.
 
 ## Рішення, які я ухвалив сам
 - **Окремий suite, а не доповнення `test_shell_protected_paths.py`:** файл стереже обидва hooks, і перевірка обох в одному місці читається простіше.
