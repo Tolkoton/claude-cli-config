@@ -5,7 +5,7 @@
     python3 evals/run_simplifier_evals.py --score ANSWER.json                      # free: score a saved answer
     python3 evals/run_simplifier_evals.py --sandbox DIR                            # free: build the project, print the request
     python3 evals/run_simplifier_evals.py --rescore RESULTS.json                   # free: count recorded answers again
-    … --set hard                                                                   # the harder set, with any of the three
+    … --set hard | --set traps                                                     # another set, with any of the four
 
 The project is evals/reference-project with evals/scenarios/simplifier/project/ laid over it:
 six kinds of planted excess (an abstraction with one implementation, dead code, an unused
@@ -21,6 +21,12 @@ already keeps, a requirement and a slice that cite a goal which does not ask for
 there are ten traps, each a neighbour of something planted (a rare error at the boundary, two
 security checks, a field another service reads, an old data format, a requirement and a slice
 that look like the planted ones and are needed).
+
+`--set traps` takes evals/scenarios/simplifier-traps/ (board 729): the harder project with six
+more traps laid over it, of kinds the agent's definition does not list under «Is it a trap?» — an
+idempotency key, a retry with a pause, a file lock, a kill switch nothing in the repository sets,
+a write order kept for recovery after a crash, a rounding the law asks for. It answers one
+question: does the simplifier leave alone what nobody told it to leave alone.
 
 One run = one fresh headless session of the `simplifier` agent (its own definition, its own
 model, Read / Grep / Glob only) with the request `simplifier.py request` prints. The answer goes
@@ -78,7 +84,7 @@ import environment
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "simplifier"
-SETS = {"basic": FIXTURE, "hard": HERE / "scenarios" / "simplifier-hard"}
+SETS = {"basic": FIXTURE, "hard": HERE / "scenarios" / "simplifier-hard", "traps": HERE / "scenarios" / "simplifier-traps"}
 LENSES = ("code", "requirements", "architecture")
 RUN_TIMEOUT_S = 1200
 SANDBOX_ENV = 'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\nCOMPLEXITY_GATE="warn"\n'
@@ -143,13 +149,16 @@ def over_limit(spent: float, next_cost: float, limit: float | None) -> str | Non
 
 
 def build_sandbox(target: Path, fixture: Path = FIXTURE) -> Path:
-    """The reference project, the overlay on top, the agent's definition, one commit."""
+    """The reference project, the overlay on top (first the set its expected.json names in `over`,
+    when it names one), the agent's definition, one commit."""
     reference = HERE / "reference-project"
     tracked = subprocess.run(["git", "-C", str(reference), "ls-files", "."], capture_output=True, text=True, check=True)
     for rel in tracked.stdout.splitlines():
         (target / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(reference / rel, target / rel)
-    shutil.copytree(fixture / "project", target, dirs_exist_ok=True)
+    under = json.loads((fixture / "expected.json").read_text(encoding="utf-8")).get("over")
+    for layer in ([fixture.parent / under] if under else []) + [fixture]:
+        shutil.copytree(layer / "project", target, dirs_exist_ok=True)
     (target / "uv.lock").unlink(missing_ok=True)   # the lock of the project before the overlay
     manifest = target / "pyproject.toml"           # the engine's own gate note is not the project's
     manifest.write_text("".join(line for line in manifest.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -336,7 +345,7 @@ def summary(runs: list[JsonObj]) -> JsonObj:
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--runs", type=int, default=3)
-    parser.add_argument("--set", choices=sorted(SETS), default="basic", help="which project: basic (board 010) or hard (board 059)")
+    parser.add_argument("--set", choices=sorted(SETS), default="basic", help="which project: basic (board 010), hard (board 059) or traps (board 729)")
     parser.add_argument("--out", type=environment.out_path, help="a baseline goes to evals/baseline/@env/")
     parser.add_argument("--score", type=Path, help="score a saved answer (a JSON list of findings) and stop; free")
     parser.add_argument("--rescore", type=Path, help="count a results file's recorded answers again by the present expected.json; free")

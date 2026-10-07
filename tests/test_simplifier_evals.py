@@ -300,6 +300,151 @@ done = subprocess.run([sys.executable, str(RUNNER), "--score", str(saved)], capt
 check("negative — the same answer against the basic set does not score: the sets are not interchangeable",
       done.returncode != 0 or json.loads(done.stdout)["recall"] < 1.0, done.stdout + done.stderr)
 
+print("ROUND-2-* board 729 — six traps of kinds the agent's definition does not list, laid over the harder set")
+traps_dir = runner.SETS["traps"]
+round2 = json.loads((traps_dir / "expected.json").read_text(encoding="utf-8"))
+NEW_TRAPS = ("file-lock", "retry-with-a-pause", "idempotency-key", "kill-switch-nothing-in-the-repository-sets",
+             "write-order-for-crash-recovery", "rounding-the-law-asks-for")
+check("the harder set's seven planted items and ten traps, in its order, then the six new traps",
+      [e["id"] for e in round2["planted"]] == [e["id"] for e in hard["planted"]]
+      and [e["id"] for e in round2["traps"]] == [e["id"] for e in hard["traps"]] + list(NEW_TRAPS) and round2["over"] == "simplifier-hard", round2["traps"][-6:])
+traps_box = runner.build_sandbox(work / "traps", traps_dir)
+check("the project is the harder one with this set's files on top: what the overlay does not carry is the harder set's file, what it carries is its own",
+      (traps_box / "src/refproj/refunds.py").read_bytes() == (hard_box / "src/refproj/refunds.py").read_bytes()
+      and (traps_box / "pyproject.toml").read_bytes() == (hard_box / "pyproject.toml").read_bytes()
+      and not (traps_dir / "project/src/refproj/refunds.py").exists() and (traps_box / "src/refproj/journal.py").is_file()
+      and "CLOSED_FLAG" in (traps_box / "src/refproj/cli.py").read_text() and not (hard_box / "src/refproj/journal.py").exists())
+for entry in round2["planted"] + round2["traps"] + round2["also_true"] + round2["neutral"]:
+    texts = [(traps_box / f).read_text(encoding="utf-8") for f in entry["files"] if (traps_box / f).is_file()]
+    check(f"traps / {entry['id']}: its files exist and carry one of its words",
+          len(texts) == len(entry["files"]) and any(word in text for word in entry["any"] for text in texts) and entry["why"], entry)
+    for rel, ranges in entry.get("lines", {}).items():
+        rows = (traps_box / rel).read_text(encoding="utf-8").splitlines()
+        check(f"traps / {entry['id']}: every line range named in {rel} carries one of its words",
+              rel in entry["files"] and all(any(w.lower() in "\n".join(rows[a - 1:b]).lower() for w in entry["any"]) for a, b in ranges), ranges)
+
+
+def owned_text(box: Path, entry: dict[str, Any]) -> list[str]:
+    return [row.strip().rstrip(",").replace("-> Charge:", "-> Decimal:") for rel, ranges in sorted(entry.get("lines", {}).items())
+            for a, b in ranges for row in (box / rel).read_text(encoding="utf-8").splitlines()[a - 1:b]]
+
+
+moved = [e["id"] for kind in ("planted", "traps", "neutral") for e, was in zip(round2[kind], hard[kind], strict=False)
+         if e["id"] != "rare-error-at-the-boundary" and owned_text(traps_box, e) != owned_text(hard_box, was)]
+check("the lines every planted item, old trap and neutral entry owns are the same text as in the harder set, at this project's "
+      "numbers (but the receipt's except clause, which now names the journal's error too)", not moved, moved)
+check("negative — that comparison sees a range that is one line off",
+      owned_text(traps_box, {"lines": {"docs/goals.md": [[27, 27]]}}) != owned_text(hard_box, {"lines": {"docs/goals.md": [[27, 27]]}}))
+definition = (ROOT / ".claude/agents/simplifier.md").read_text(encoding="utf-8").lower()
+listed = definition[definition.index("is it a trap?"):definition.index("is it protected by a test?")]
+check("the kinds of the new traps are not in the list the agent's definition gives under «Is it a trap?» — what this set is for",
+      not any(word in listed for word in ("idempot", "retry", "lock", "kill", "switch", "crash", "atomic", "rounding", "law", "tax")), listed)
+check("negative — and the kinds of the first round are in that list", all(word in listed for word in ("validation", "security", "contract", "edge")))
+traps_request = runner.request_text(traps_box, round2["scope"])
+check("traps: no deterministic signal points at a trap, old or new",
+      not any(word in traps_request for word in (*hard_trap_words, "journal", "flock", "ATTEMPTS", "CLOSED", "_write_whole", "vat", "tax")), traps_request)
+tests = subprocess.run(["uvx", "--with", "pytest", *(part for name in round2["test_with"] for part in ("--with", name)),
+                        "pytest", "-q", "-p", "no:cacheprovider"], cwd=traps_box, capture_output=True, text=True, check=False)
+check("traps: the project under review is a working project: its own tests pass", tests.returncode == 0, tests.stdout[-300:])
+proved = subprocess.run([sys.executable, "-c", """
+import fcntl, json, os, sys
+from decimal import Decimal
+from pathlib import Path
+from refproj import cli, journal, receipts, tax
+box = Path(sys.argv[1]); os.chdir(box); D = Decimal
+Path("prices.json").write_text(json.dumps({"TEA": "0.99"}))
+taken = []
+real = fcntl.flock
+journal.fcntl.flock = lambda handle, how: (taken.append((how, handle.tell())), real(handle, how))[1]
+assert cli.main(["prices.json", "A1", "0", "TEA:1"]) == 0 and cli.main(["prices.json", "A1", "0", "TEA:1"]) == 0
+assert len(Path("receipts/journal.jsonl").read_text().splitlines()) == 1, "idempotency key"
+assert [how for how, _ in taken] == [fcntl.LOCK_EX] * 2, "file lock"
+assert tax.vat_included([D("0.99"), D("0.99")]) == D("0.34") != (D("1.98") * 20 / 120).quantize(D("0.01")), "rounding"
+fails = [OSError(13, "held"), OSError(13, "held")]
+once = journal._add_line
+journal._add_line = lambda *a: once(*a) if not fails else (_ for _ in ()).throw(fails.pop())
+journal.PAUSE_S = 0
+journal.record_order(Path("receipts"), "A2", D("1.00"), D("0.17"))
+assert not fails and len(Path("receipts/journal.jsonl").read_text().splitlines()) == 2, "retry"
+receipts.os.replace = lambda a, b: (_ for _ in ()).throw(OSError(28, "full"))
+try:
+    receipts.write_receipt(Path("receipts"), "A1", D("5.00"))
+    raise SystemExit("no ReceiptError")
+except receipts.ReceiptError:
+    assert Path("receipts/A1.txt").read_text() == "order A1\\ntotal 0.99\\n", "a failed write leaves the receipt whole"
+Path("receipts/CLOSED").touch()
+assert cli.main(["prices.json", "A3", "0", "TEA:1"]) == 1 and not Path("receipts/A3.txt").exists(), "kill switch"
+print("six of six")
+""", str(work / "till")], capture_output=True, text=True, check=False, env={**os.environ, "PYTHONPATH": str(traps_box / "src")},
+                        cwd=(work / "till").mkdir() or work)
+check("each new trap does what its `why` says: an order repeated is in the journal once, the lock is taken, two failed writes are "
+      "tried again, a failed write leaves the old receipt whole, the CLOSED file stops the till, per-line VAT differs from one rounding",
+      proved.returncode == 0 and "six of six" in proved.stdout, proved.stdout + proved.stderr[-600:])
+simpler = work / "simpler"
+shutil.copytree(traps_box, simpler, ignore=shutil.ignore_patterns(".git"))
+for rel, old, new in (
+        ("src/refproj/journal.py", "        fcntl.flock(journal, fcntl.LOCK_EX)\n", ""),
+        ("src/refproj/journal.py", "        if any(json.loads(line)[\"order_id\"] == order_id for line in journal):\n            return\n", ""),
+        ("src/refproj/journal.py", "import fcntl\n", ""),
+        ("src/refproj/journal.py", "range(1, ATTEMPTS + 1)", "range(ATTEMPTS, ATTEMPTS + 1)"),
+        ("src/refproj/cli.py", "    if (RECEIPTS / CLOSED_FLAG).exists():\n", "    if False:\n"),
+        ("src/refproj/receipts.py", ("    partial = target.with_name(target.name + \".part\")\n    partial.write_text(text, encoding=\"utf-8\")\n"
+                                     "    os.replace(partial, target)\n"), "    target.write_text(text, encoding=\"utf-8\")\n"),
+        ("src/refproj/tax.py", ("    per_line = [(amount * share).quantize(CENT, rounding=ROUND_HALF_UP) for amount in line_amounts]\n"
+                                "    return sum(per_line, start=Decimal(\"0.00\"))\n"),
+         "    return (sum(line_amounts, start=Decimal(\"0.00\")) * share).quantize(CENT, rounding=ROUND_HALF_UP)\n")):
+    text = (simpler / rel).read_text(encoding="utf-8")
+    check(f"the simpler form of a new trap applies to the project — {rel}: {old.strip()[:50]}", text.count(old) == 1, rel)
+    (simpler / rel).write_text(text.replace(old, new), encoding="utf-8")
+tests = subprocess.run(["uvx", "--with", "pytest", *(part for name in round2["test_with"] for part in ("--with", name)),
+                        "pytest", "-q", "-p", "no:cacheprovider"], cwd=simpler, capture_output=True, text=True, check=False)
+check("…and the traps tempt: with all six removed or simplified the project's own tests stay green — only reading the "
+      "requirements and the operator's notes says they are needed", tests.returncode == 0, tests.stdout[-300:])
+traps_perfect = [
+    finding("src/refproj/discounts.py:27", "FixedAmountDiscount is built only by its test", category="premature_abstraction"),
+    finding("src/refproj/cli.py:35", "the wholesale branch: nobody passes the flag"),
+    finding("src/refproj/refunds.py:15", "refund_amount repeats the loop of charge", category="duplication"),
+    finding("pyproject.toml:6", "pyyaml is imported by one test only", category="redundant_dependency"),
+    finding("src/refproj/cli.py:44", "left.on_hand < 0 cannot be true after reserve()", category="defensive_for_impossible"),
+    finding("docs/goals.md:28", "R7: nobody asked for a PDF", category="invented_requirement"),
+    finding(".engine/slices/price-list-cache.md", "the cache is for a list nobody has yet", category="speculative_slice"),
+]
+s = runner.score(traps_perfect, round2)
+check("traps: all seven found, nothing else: recall 1, precision 1, no trap",
+      (s["recall"], s["precision"], s["traps_touched"], s["missed"], s["ambiguous"]) == (1.0, 1.0, 0, [], []), s)
+for target, claim, trap in (
+        ("src/refproj/journal.py:20", "one process writes the file: the flock is not needed", "file-lock"),
+        ("src/refproj/journal.py:30-37", "the loop over ATTEMPTS hides a failure no test produces", "retry-with-a-pause"),
+        ("src/refproj/journal.py:11", "PAUSE_S: a sleep in a command-line tool", "retry-with-a-pause"),
+        ("src/refproj/journal.py:22", "order ids are unique: reading the whole file before each append is waste", "idempotency-key"),
+        ("src/refproj/journal.py", "the journal repeats what the receipt records already hold", "idempotency-key"),
+        (".engine/architecture/feature-dag.json:12", "S8 duplicates S4", "idempotency-key"),
+        ("src/refproj/cli.py:66-68", "nothing creates the CLOSED file: a dead branch, like wholesale", "kill-switch-nothing-in-the-repository-sets"),
+        ("src/refproj/cli.py:25", "CLOSED_FLAG is read once and set nowhere", "kill-switch-nothing-in-the-repository-sets"),
+        ("src/refproj/receipts.py:35", "_write_whole: write_text does the same in one call", "write-order-for-crash-recovery"),
+        ("src/refproj/receipts.py:46", "the .part file and the rename are ceremony", "write-order-for-crash-recovery"),
+        ("src/refproj/tax.py:13", "round once on the total instead of per line", "rounding-the-law-asks-for"),
+        ("src/refproj/tax.py", "a module for one three-line function", "rounding-the-law-asks-for"),
+        ("docs/goals.md:38", "R13 over-specifies how to round", "rounding-the-law-asks-for"),
+        ("docs/goals.md:36-37", "R12: two tills are not in the goals", "file-lock"),
+        ("src/refproj/receipts.py:20", "is_relative_to repeats what the caller knows", "security-check-path"),
+        ("docs/goals.md:26", "R6 was not stated by the owner", "requirement-derived-at-planning")):
+    s = runner.score([finding(target, claim)], round2)
+    check(f"traps / {trap} is recognised when touched — {target}", s["traps_touched"] == 1 and s["touched"][0]["trap"] == trap and not s["found"], s)
+s = runner.score([{**finding("src/refproj/cli.py:47", "the wholesale branch and the CLOSED check are both flags nobody sets"), "id": "F-1"}], round2)
+check("on the planted flag's line and naming the kill switch too: ambiguous, not a found item and not a silent zero",
+      not s["found"] and s["traps_touched"] == 0 and [a["trap"] for a in s["ambiguous"]] == ["kill-switch-nothing-in-the-repository-sets"], s)
+s = runner.score([finding("src/refproj/journal.py:20", "one process writes the file: the flock is not needed")], hard)
+check("negative — the harder set does not know the new traps: the same finding there is unexpected, not a trap",
+      s["traps_touched"] == 0 and len(s["unexpected"]) == 1, s)
+done = subprocess.run([sys.executable, str(RUNNER), "--set", "traps", "--sandbox", str(work / "printed-traps")], capture_output=True, text=True, check=False)
+check("--set traps builds the project and prints its request", done.returncode == 0 and "SCOPE: src tests docs" in done.stdout
+      and (work / "printed-traps/src/refproj/journal.py").is_file() and (work / "printed-traps/src/refproj/refunds.py").is_file(), done.stdout + done.stderr)
+recorded.write_text(json.dumps({"set": "traps", "runs": [{"cost_usd": 1.0, "answer": [finding("src/refproj/journal.py:20", "the flock is not needed")]}]}))
+done = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(recorded)], capture_output=True, text=True, check=False)
+check("--rescore knows the set: a recorded answer that touches a new trap is counted so, and the run does not end green",
+      done.returncode == 1 and json.loads(recorded.read_text())["summary"]["touched_in_runs"] == {"file-lock": 1}, done.stdout + done.stderr)
+
 print("PAID-*    no session without the owner's word")
 board = work / "tasks"
 (board / "doing").mkdir(parents=True)

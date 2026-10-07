@@ -1,0 +1,14 @@
+{
+  "feature": "shop-counter",
+  "note": "Goals and requirements: docs/goals.md.",
+  "nodes": [
+    {"id": "S1", "title": "price arithmetic: discount, total", "goals": ["G1"], "deps": [], "status": "done"},
+    {"id": "S2", "title": "stock reservation", "goals": ["G2"], "deps": ["S1"], "status": "done"},
+    {"id": "S3", "title": "order lines from the command line, price list from JSON", "goals": ["G1"], "deps": ["S1"], "status": "done"},
+    {"id": "S4", "title": "receipt files and the receipt record", "goals": ["G3", "G5"], "deps": ["S3"], "status": "done"},
+    {"id": "S5", "title": "refund note behind the manager's PIN", "goals": ["G4"], "deps": ["S3"], "status": "done"},
+    {"id": "S6", "title": "stock levels from the counted-stock file", "goals": ["G2"], "deps": ["S2"], "status": "todo"},
+    {"id": "S7", "title": "price list cache with invalidation", "goals": ["G1"], "deps": ["S3"], "status": "todo"},
+    {"id": "S8", "title": "day journal with VAT, one for both tills", "goals": ["G6"], "deps": ["S4"], "status": "done"}
+  ]
+}
