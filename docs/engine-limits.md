@@ -33,18 +33,29 @@ at top level and runs untouched from a two-line script). Two consequences:
 
 - a script the agent writes is a hole through every hook, so a guard the policy depends on
   must live inside the script too — `commit_checkpoint.sh` re-checks the branch itself;
-- the hook scans the **whole command text**, including quoted strings and heredoc bodies.
-  Writing documentation that mentions a root delete or a force push through a shell heredoc
-  is refused as if the command were being run. This is deliberate (a false positive is a
-  nuisance, a false negative is a breach) and the hook is not weakened for it. The
-  canonical ways around it:
-  - **a commit whose message mentions a dangerous command**: write the message to a file
-    and commit with `git commit -F <file>` — the hook sees `git commit -F path`, never the
-    message text. Writing the message inline (`-m "…"` or a heredoc) puts the text in the
-    command and is refused;
-  - documentation or tests that quote such a command: write the file with the Edit/Write
-    tool (not scanned), or run a helper script from a file instead of a heredoc; in a
-    Python test split the literal (`"git push " + "--force"`).
+- the hook judges the command text, and since board 738 **not the text nothing runs**.
+  `shell_text.py` empties it before any check reads the command, when all three hold:
+  - it stands where a known command takes text and never runs it: the arguments of `echo`
+    and `printf`; the message of `git commit`, `git tag`, `git stash` (`-m`, a heredoc on
+    stdin, `-m "$(cat <<'EOF' … EOF)"`); the body of a heredoc for a `cat` without
+    arguments; the pattern of `grep`; a sed script that is only `s/…/…/` without the `e` and
+    `w` flags; `--title`, `--what`, `--question`, `--do` of `board.py open-item`;
+  - it is quoted and holds no substitution: `'…'`, or `"…"` without `$`, a backtick or a
+    backslash; a heredoc with a quoted delimiter, or a bare one and none of the three;
+  - nothing in the whole command could run it: every simple command is a passive one (`cat`,
+    `cp`, `ls`, `grep`, `tee`, `rm`, `mv`, `mkdir`…, and the git subcommands that start no
+    program), with no shell, interpreter, script, `xargs`, substitution, subshell, group,
+    keyword, function or assignment anywhere.
+
+  In every other case the whole text is judged, as before: `bash -c '…'`, `python3 - <<EOF`,
+  `echo '…' | sh`, a heredoc written and run in the same command, anything the script does
+  not recognise for certain. The bias has not moved (a false positive is a nuisance, a false
+  negative is a breach). For a command refused over what it only mentions:
+  - write the file with the Edit/Write tool, or the message to a file and `git commit -F <file>`;
+  - in a Python test split the literal (`"git push " + "--force"`).
+
+  Not seen, as before board 738: text written to a file by one command and run by a LATER
+  one — an edit tool does the same.
 
 ### A protected path in a shell command
 

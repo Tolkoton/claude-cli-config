@@ -244,12 +244,198 @@
     },
     {
       "id": "bd-dangerous-text-inside-quotes",
-      "why": "Deliberate false positive (hook header): a quoted mention is blocked like a real call.",
+      "why": "Board 738: text that echo only prints is not a call. Was the deliberate false positive of the hook header (block) until the hook learned to tell text from a command.",
       "input": {
         "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
         "tool_input": {
           "command": "echo \"never run rm -rf ~ on this machine\""
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-quoted-text-piped-into-shell",
+      "why": "Board 738: the same text piped into a shell is a command, judged whole.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo \"never run rm -rf ~ on this machine\" | sh"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-quoted-text-after-bash-c",
+      "why": "Board 738: the same text after bash -c is a command, judged whole.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "bash -c \"never run rm -rf ~ on this machine\""
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-text-commit-message",
+      "why": "Board 738: a commit message that mentions a forced push is text; the commit itself is legal on the run's branch.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "unattended/2026-10-07"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m 'refuse git push --force in any spelling'"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-text-commit-message-heredoc-idiom",
+      "why": "Board 738: the message handed over as a quoted heredoc through cat is text too.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "unattended/2026-10-07"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m \"$(cat <<'EOF'\nguard .claude/settings.json from a shell write\nEOF\n)\""
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-text-heredoc-to-file",
+      "why": "Board 738: a heredoc cat writes to a file is text: a list of test cases.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cat > /tmp/cases.txt <<'EOF'\ngit push --force\nprintf x > .claude/settings.json\nEOF"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-text-heredoc-to-file-then-run",
+      "why": "Board 738: written and run in one command, the heredoc is a command.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cat > /tmp/x.sh <<'EOF'\ngit push --force\nEOF\nbash /tmp/x.sh"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-text-heredoc-fed-to-shell",
+      "why": "Board 738: a heredoc fed to a shell runs its body.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "bash <<'EOF'\ngit push --force\nEOF"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-text-heredoc-fed-to-python",
+      "why": "Board 738: a heredoc fed to an interpreter runs its body.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "python3 - <<'PY'\nopen('.claude/settings.json', 'w').write('{}')\nPY"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-text-in-substitution",
+      "why": "Board 738: a substitution inside double quotes runs.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo \"$(git push --force)\""
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-text-grep-pattern",
+      "why": "Board 738: a grep pattern is text.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "grep -rn 'git push --force' docs/ | head -5"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-text-board-item",
+      "why": "Board 738: the texts of a board item are text.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "python3 .claude/unattended/board.py open-item --to todo --title 'a hook item' --what 'printf x > .claude/settings.json was refused' --do 'see the hook'"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "bd-text-target-still-judged",
+      "why": "Board 738: the text is emptied, the target of the redirection is not.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo 'a line of text' > .claude/settings.json"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "bd-text-commit-still-a-commit",
+      "why": "Board 738: with its message emptied a commit is still a commit — refused on a feature branch.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git commit -m 'mentions git push --force'"
         }
       },
       "expect": "block"

@@ -20,9 +20,10 @@ What is refused:
 What it cannot see, and does not pretend to: a path held in a variable or built at run time, a
 write made by a script the command only starts, `cd dir && rm file`, a path whose parts stand
 in separate strings (the caller hands over only a command one of whose words is a whole path). The text of a command is
-all a PreToolUse hook has; quotes are not parsed, so a write that is merely QUOTED in a message
-is refused as well (the standing choice of block-dangerous.sh: a false positive is a nuisance,
-a false negative a breach).
+all a PreToolUse hook has. Quotes are not parsed HERE: the caller hands over the command with the
+text nothing runs already emptied (shell_text.py, board 738), and what is left — the text after
+`bash -c`, inline code — is judged quoted or not (a false positive is a nuisance, a false
+negative a breach).
 """
 
 from __future__ import annotations

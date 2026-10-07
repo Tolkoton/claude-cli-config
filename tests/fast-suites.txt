@@ -96,3 +96,4 @@ test_onboard.py
 test_manager_evals.py
 test_owner_terms.py
 test_audit_noise.py
+# Board 738: test_shell_text 35 s stays out (about three hundred and fifty runs of the real block-dangerous.sh).
