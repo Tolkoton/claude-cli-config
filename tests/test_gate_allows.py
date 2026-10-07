@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -558,6 +559,88 @@ state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("board.py missing beside the hooks: the escalation is still recorded and parked, and the gate says so",
       len(state["open"]) == 1 and "PARKED" in (r / ".engine/overseer/parked.md").read_text()
       and "not put on the task board" in proc.stderr and "GATE ESCALATION" in proc.stdout, proc.stderr)
+
+
+print("no board file while a rebase or a merge is in progress (board 065)")
+
+
+def boarded() -> Path:
+    root = new_repo()
+    (root / "tasks" / "blocked").mkdir(parents=True)
+    (root / "tasks" / "blocked" / ".gitkeep").touch()
+    (root / ".claude" / "project.env").write_text('CODE_EXTENSIONS="py"\nLINT_CMD="false"\nGATE_MAX_BLOCKS="1"\n')
+    commit(root, "board")
+    return root
+
+
+def in_progress(root: Path, marker: str, on: bool) -> None:
+    """Put or remove what git leaves in its directory while a rebase or a merge is under way."""
+    path = root / sh(root, "git", "rev-parse", "--git-path", marker).stdout.strip()
+    if not on:
+        path.unlink() if path.is_file() else path.rmdir()
+    elif marker == "MERGE_HEAD":
+        path.write_text(sh(root, "git", "rev-parse", "HEAD").stdout)
+    else:
+        path.mkdir()
+
+
+def questions(root: Path) -> list[str]:
+    return sorted(p.name for p in (root / "tasks/blocked").glob("*.md"))
+
+
+def journal(root: Path) -> str:
+    path = root / "tasks/ANOMALIES.md"
+    return path.read_text(encoding="utf-8") if path.is_file() else ""
+
+
+for marker, word in (("rebase-merge", "rebase"), ("rebase-apply", "rebase"), ("MERGE_HEAD", "merge")):
+    r = boarded()
+    in_progress(r, marker, True)
+    (r / "mod.py").write_text("x = 1\ny = 2\nq = 9\n")
+    proc = run(GATE, r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
+    state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+    entry = state["open"][-1] if state["open"] else {}
+    message = str(json.loads(proc.stdout or "{}").get("systemMessage", ""))
+    check(f"{marker}: the escalation is open, and no file is written to tasks/blocked/",
+          len(state["open"]) == 1 and questions(r) == [] and "task" not in entry and entry.get("waiting", {}).get("for") == word, (state, questions(r)))
+    check(f"{marker}: the escalation is in the anomaly journal, which says why the owner is not asked yet",
+          str(entry.get("stamp")) in journal(r) and f"триває {word}" in journal(r) and "tasks/blocked/" not in journal(r), journal(r))
+    check(f"{marker}: nothing goes to the log parked.md, and the session is told the question comes later",
+          not (r / ".engine/overseer/parked.md").exists() and message.startswith("GATE ESCALATION") and word in message and "tasks/blocked/" not in message, message)
+    (r / "mod.py").write_text("x = 1\ny = 2\n")
+    run(GATE, r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
+    check(f"{marker}: a later turn that is still inside the {word} asks nothing either", questions(r) == [], questions(r))
+    in_progress(r, marker, False)
+    proc = run(GATE, r, "--ask-waiting") if marker == "rebase-apply" else run(GATE, r, "--layer", "stop", "--hook", stdin={"session_id": "s2"})
+    state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+    entry = state["open"][-1]
+    asked = questions(r)
+    text = (r / "tasks/blocked" / asked[0]).read_text(encoding="utf-8") if asked else ""
+    check(f"{marker} gone: the question is asked — one file, the escalation's own stamp, the file and the count the gate blocked on",
+          len(asked) == 1 and asked[0].startswith("900-gate-escalation-") and f"Ескалація gates: {entry['stamp']}" in text
+          and "mod.py" in text and "1 раз" in text and "last-report.json" in text, (asked, text, proc.stderr))
+    check(f"{marker} gone: the state names the task and waits no more; the journal says the question is asked",
+          bool(asked) and entry.get("task") == f"tasks/blocked/{asked[0]}" and "waiting" not in entry and f"`tasks/blocked/{asked[0]}`" in journal(r), (entry, journal(r)))
+    run(GATE, r, "--ask-waiting")
+    check(f"{marker} gone: asked once", questions(r) == asked and journal(r).count("питання власникові поставлено") == 1, journal(r))
+r = boarded()
+first = escalate(r)
+in_progress(r, "rebase-merge", True)
+sh(r, "git", "stash", "-u")   # as a rebase does: the first question is not in the working tree
+time.sleep(1.1)   # a stamp is a second: two escalations within one would be one escalation
+second = escalate(r)
+in_progress(r, "rebase-merge", False)
+sh(r, "git", "stash", "pop")
+run(GATE, r, "--ask-waiting")
+check("the case of 2026-10-07 — a second escalation during a rebase that hid the first question: two questions, two numbers",
+      first != second and [name[:3] for name in questions(r)] == ["900", "901"], questions(r))
+r = new_repo()
+in_progress(r, "rebase-merge", True)
+escalate(r)
+state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+check("negative — no board in the project: a rebase changes nothing, the escalation is parked in the log as before",
+      "waiting" not in state["open"][-1] and "PARKED" in (r / ".engine/overseer/parked.md").read_text() and not (r / "tasks").exists(), state)
+check("--ask-waiting with nothing waiting: exit 0, nothing written", run(GATE, r, "--ask-waiting").returncode == 0 and not (r / "tasks").exists())
 
 print()
 print(f"{'PASS' if FAIL == 0 else 'FAIL'}: {PASS}/{PASS + FAIL}")

@@ -366,6 +366,8 @@ sync_branch() {
 publish_gate_questions() {
   local -a fresh=()
   local path
+  # An escalation opened during a rebase or a merge has no question yet (board 065): ask it now.
+  CLAUDE_PROJECT_DIR="$PROJECT_ROOT" python3 "$GATE_PY" --ask-waiting >> "$STATE/logs/gate.log" 2>&1 || true
   while IFS= read -r path; do
     case "$path" in tasks/blocked/[0-9]*-gate-escalation-*.md) fresh+=("$path") ;; esac
   done < <(git ls-files --others --exclude-standard -- tasks/blocked)

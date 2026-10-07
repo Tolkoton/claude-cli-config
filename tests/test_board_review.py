@@ -537,6 +537,19 @@ check("the debt run at its event leaves the list", "### Борги тестув�
 print("the command and the manual")
 command = (ROOT / ".claude/commands/owner-review.md").read_text(encoding="utf-8")
 check("/owner-review exists and runs the review", "board.py review" in command and command.startswith("---\ndescription:"), command[:200])
+# --- board 065: two files with one number in a column -----------------------------------------
+print("two files with one number (board 065)")
+check("no duplicate numbers: the review shows no such error", "ПОМИЛКА" not in section(doc, "Стан зараз"), section(doc, "Стан зараз"))
+git(top, "clone", "-q", "-b", BRANCH, str(origin), str(top / "twins"))
+write(top / "twins", "tasks/blocked/900-gate-escalation-20260301T000000Z.md", GATE)
+git(top / "twins", "add", "-A")
+git(top / "twins", "commit", "-q", "-m", "a second 900", date="2026-03-03T00:00:00Z")
+git(top / "twins", "push", "-q", "origin", BRANCH)
+r = cli(top / "elsewhere")
+check("two files with one number in blocked/: an error in «Стан зараз», with both names",
+      "**ПОМИЛКА: один номер 900 у двох файлах у blocked/: 900-gate-escalation-20260101T000000Z.md, 900-gate-escalation-20260301T000000Z.md" in section(r.stdout, "Стан зараз"),
+      section(r.stdout, "Стан зараз") + r.stderr)
+
 check("/owner-review names the inbox: BOARD_INBOX, by default ~/engine-ops/tasks-inbox", "BOARD_INBOX" in command and "~/engine-ops/tasks-inbox" in command)
 check("/owner-review never writes there itself (board 056): files under /tmp, one command for the owner's own hand",
       "/tmp/owner-review-" in command and "Do not write into the inbox" in command and "! mkdir -p ~/engine-ops/tasks-inbox && cp /tmp/owner-review-" in command

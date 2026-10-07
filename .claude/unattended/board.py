@@ -52,6 +52,7 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      one entry in tasks/ANOMALIES.md; WHO wrote it: runner
                                      (the default), агент, gates, hook <name>
     board.py summary                 the board in a dozen lines, for the owner
+    board.py check                   two files with one number in a column: the errors, exit 1 (board 065)
     board.py review [--since <commit|date>] [--offline]
                                      the owner's review: one markdown document about the work
                                      branch in origin; changes nothing (board_review.py)
@@ -197,6 +198,7 @@ ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILI
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 # Both markers are read in the wording before board 053 too: a question already asked keeps working.
 GATE = re.compile(r"^Ескалація (?:gates|воріт):\s*(\S+)", re.MULTILINE)
+COUNT_WORDS = {2: "двох", 3: "трьох"}
 GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
 CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
@@ -487,6 +489,11 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
               in the inbox.
     A file taken is REMOVED from the inbox: a copy left behind would come back as a new task
     after the real one reached done/.
+
+    TWO FILES WITH ONE NUMBER in the column (board 065) are an error of the board, and the number
+    no longer says which of them is meant: the inbox file then stands for the one with its exact
+    name, and replaces that one only. No such name — skipped, nothing is deleted, and the anomaly
+    journal says so (once for a file that stays in the inbox).
     """
     lines: list[str] = []
     if not inbox.is_dir():
@@ -501,14 +508,22 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
         if busy:
             lines.append(f"{source.name} skipped: {number:03d} is in {busy}/")
             continue
+        todo = [] if blocked else board.with_number("todo", number)
+        twins = blocked or todo
+        if len(twins) > 1:
+            twins = [p for p in twins if p.name == source.name]
+            blocked, todo = (twins, []) if blocked else ([], twins)
+            if not twins:
+                lines.append(f"{source.name} skipped: {number:03d} is the number of several files in one column and none has this name")
+                _ambiguous(board, source.name, board.with_number("blocked", number) or board.with_number("todo", number))
+                continue
         if blocked:
             if not parse(content.decode("utf-8", "replace")).answered:
                 lines.append(f"{source.name} skipped: {number:03d} is in blocked/ and this copy does not answer every question")
                 continue
             column, verb, old = "blocked", "answered", blocked
         else:
-            old = board.with_number("todo", number)
-            column, verb = "todo", "replaced" if old else "imported"
+            column, verb, old = "todo", "replaced" if todo else "imported", todo
         for path in old:
             path.unlink()
         target = board.tasks / column / source.name
@@ -517,6 +532,38 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
         source.unlink()
         lines.append(f"{source.name} {verb}: tasks/{column}/{source.name}")
     return lines
+
+
+def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
+    """The journal entry of an inbox file that names none of several same-numbered files."""
+    column = twins[0].parent.name
+    what = (f"файл `{name}` з inbox має номер, який у `{column}/` носять кілька файлів ({', '.join(f'`{p.name}`' for p in twins)}), "
+            "і жоден з них не має такої самої назви")
+    journal = _text(board.tasks / ANOMALIES)
+    if " ".join(what.split()) not in journal:
+        anomaly(board, "-", what, "нічого не видалено й не замінено; файл лишився в inbox. Назвіть його точно так, як файл у task board, "
+                "якого він стосується, а однакові номери розведіть (`board.py check`)", "task board (import-inbox)")
+
+
+def duplicate_lines(columns: dict[str, list[str]]) -> list[str]:
+    """TWO FILES WITH ONE NUMBER in one column (board 065), one line per number. `columns` maps a
+    column to the names in it. The number is how the inbox, the dependencies and the owner name a
+    task, so this is an error of the board — shown by `summary`, `check` and the review."""
+    lines: list[str] = []
+    for column, names in columns.items():
+        groups: dict[int, list[str]] = {}
+        for name in sorted(names):
+            number = number_of(name)
+            if number is not None:
+                groups.setdefault(number, []).append(name)
+        lines += [f"ПОМИЛКА: один номер {number:03d} у {COUNT_WORDS.get(len(group), 'кількох')} файлах у {column}/: {', '.join(group)} — "
+                  "перенумеруйте всі, крім одного: відповідь через inbox і залежності знаходять задачу за номером"
+                  for number, group in sorted(groups.items()) if len(group) > 1]
+    return lines
+
+
+def duplicates(board: Board) -> list[str]:
+    return duplicate_lines({c: [p.name for p in (board.done() if c == "done" else board.files(c))] for c in COLUMNS})
 
 
 def unblock(board: Board) -> list[str]:
@@ -1096,7 +1143,7 @@ def first_open_question(task: Task) -> str:
 def summary(board: Board) -> list[str]:
     todo, doing, blocked, done = board.files("todo"), board.files("doing"), board.files("blocked"), board.done()
     known = {n for column in COLUMNS for n in board.numbers(column)}
-    lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}"]
+    lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}", *duplicates(board)]
     lines += [f"в роботі з власником: {p.name}" if read(p).attended else f"в роботі: {p.name}" for p in doing]
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
@@ -1178,6 +1225,7 @@ def main() -> int:
     item_parser.add_argument("--key", default="", help="the item's own name: a second call with it returns the task still open")
     item_parser.add_argument("--source", default="агент", help="who writes: агент (default), hook <name>, overseer")
     commands.add_parser("summary")
+    commands.add_parser("check")
     review_parser = commands.add_parser("review")
     review_parser.add_argument("--since", default=None, help="a commit or a date; default: the newest version tag")
     review_parser.add_argument("--offline", action="store_true", help="do not ask origin; show the state this clone saw last")
@@ -1275,6 +1323,10 @@ def main() -> int:
             print(f"paid audit not allowed: {refusal}")
             return 1
         return 0
+    if args.command == "check":
+        found = duplicates(board)
+        print("\n".join(found), end="\n" if found else "")
+        return 1 if found else 0
     print("\n".join(summary(board)))
     return 0
 

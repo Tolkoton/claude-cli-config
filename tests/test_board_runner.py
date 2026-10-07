@@ -675,6 +675,20 @@ check("…by the runner: no agent was started at all", w.calls() == [] and f"esc
 check("…and nothing waits any more: idle", r.returncode == 0 and "state=idle" in w.status(), w.status())
 check("the uncommitted work the gate blocked on was not touched", (w.repo / "mod.py").read_text() == "x = 1\nq = 9\n")
 
+print("board 065: an escalation opened during a rebase gets its question from the runner")
+w = World("")
+marker = w.repo / sh(w.repo, "git", "rev-parse", "--git-path", "rebase-merge").stdout.strip()
+marker.mkdir()
+stamp, name = escalate(w)
+marker.rmdir()
+check("during the rebase the gate wrote no question", name == "" and "waiting" in escalations(w)["open"][-1], escalations(w))
+r = w.run()
+names = sorted(p.name for p in (w.repo / "tasks/blocked").glob("9*-gate-escalation-*.md"))
+check("the rebase is over: the runner has the question asked, commits it and pushes it",
+      len(names) == 1 and stamp in (w.repo / "tasks/blocked" / names[0]).read_text(encoding="utf-8")
+      and "board: the gate asks the owner — 1 question(s) in blocked/" in w.log("-4") and w.origin_head() == w.head()
+      and "waiting" not in escalations(w)["open"][-1], (names, w.log("-4"), escalations(w)))
+
 print("board 005: the answer through the inbox")
 w = World("")
 stamp, name = escalate(w)
