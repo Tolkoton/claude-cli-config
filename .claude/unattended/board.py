@@ -189,6 +189,9 @@ AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
 # fails closed, so a refusal needs no list of its words.
 PAID = re.compile(r"^Платні прогони:[ \t]*(.*)$", re.MULTILINE)
 PAID_YES = re.compile(r"так(?:[\s,;:—–-]+(?:(?:до|не більше|не понад)\s+)?(?<![-–—])(\d+(?:[.,]\d+)?)\s*(?:долар\w*|\$|USD))?[.!]?", re.IGNORECASE)
+# A dollar sum written anywhere in that line binds whatever run another word opened («Аудит потрібен:
+# так», --owner-approved), leave or not: the owner's number is never dropped silently.
+PAID_SUM = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:долар|\$|USD)", re.IGNORECASE)
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
@@ -232,6 +235,7 @@ class Task:
     attended: bool = False
     paid: bool = False
     paid_ceiling: float | None = None
+    paid_sum: float | None = None
 
     @property
     def answered(self) -> bool:
@@ -317,6 +321,7 @@ def parse(text: str) -> Task:
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
         paid=paid,
         paid_ceiling=ceiling,
+        paid_sum=min((float(n.replace(",", ".")) for line in PAID.findall(header) for n in PAID_SUM.findall(line)), default=None),
     )
 
 
@@ -947,9 +952,10 @@ def paid_refusal(tasks: Path) -> str | None:
 
 
 def paid_ceiling(tasks: Path) -> float | None:
-    """The dollar ceiling the owner wrote in that line, if any; None is no ceiling."""
+    """The smallest dollar sum the owner wrote in that line, if any; None is no ceiling. It binds
+    also when the line itself is no leave and the run was opened by another word."""
     doing = own(tasks)
-    return read(doing[0]).paid_ceiling if len(doing) == 1 else None
+    return read(doing[0]).paid_sum if len(doing) == 1 else None
 
 
 ANOMALIES = "ANOMALIES.md"

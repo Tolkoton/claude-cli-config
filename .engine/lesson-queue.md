@@ -47,3 +47,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | parked | 059-dependency-signal-import-name-and-tests-only | 059-dependency-signal-import-name-and-tests-only: Сигнал unused-dependency: ім'я пакета проти імені імпорту, і залежність, яку імпортує лише тест #c3140430
 - 2026-10-07 | parked | attended-session-task-numbers-600-699 | attended-session-task-numbers-600-699: Tasks, які створює сесія з власником, отримують номери з окремого діапазону 600–699 #047638c9
 - 2026-10-07 | parked | stop-gate-no-escalation-while-awaiting-owner | stop-gate-no-escalation-while-awaiting-owner: Stop gate не рахує блокування в escalation, поки сесія явно чекає відповіді власника #f27b5b5d
+- 2026-10-07 | overseer | - | BLOCK no.4 masked test gap — the new rule itself is right and tightly held (158/0 and 38/0 reproduce, the quoted RED of 29 and 4 reproduces on the previous guard, 20 of my 22 mutants die), but two thi #fd4f7e35

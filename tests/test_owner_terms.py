@@ -137,7 +137,7 @@ for value in ("не треба", "ніколи", "не дозволяю", "за�
     check(f"negative — «{value}» is not «так»: no leave", paid(value) == (False, None), paid(value))
 # «так» is the line's FIRST WORD: not a word further on, not the beginning of another word.
 for value in ("мабуть, так", "мабуть, так не варто", "чи так?", "також прогони simplifier-а", "такий дозвіл дам пізніше", "таки дозволяю", "такого дозволу я дам",
-              "до 5 доларів, так", "yes — так"):
+              "до 5 доларів, так", "yes — так", "також", "таки", "Такий.", "так5 доларів", "так,5доларів!!"):
     check(f"negative — «{value}»: «так» is not the first word", paid(value) == (False, None), paid(value))
 # Anything after «так» that is not a sum refuses — with a word of refusal in it or without one
 # (the overseer's second BLOCK and what its list of negations still let through).
@@ -156,6 +156,16 @@ for value in ("прогони simplifier-а на новому наборі — �
     check(f"negative — «{value}»: no «так», no leave", paid(value) == (False, None), paid(value))
 for value in ("так, 0 доларів", "так, до 0 доларів", "так, 0,0 $"):
     check(f"negative — «{value}»: a ceiling of zero is no leave", paid(value) == (False, None), paid(value))
+# A sum in a line that is no leave is not dropped: board.paid_ceiling hands it to a run another word opened.
+def bound(header: str) -> float | None:
+    return board.parse(f"# x\n\n{header}\n\n## Що зробити\n- до 1 долара\n").paid_sum
+for line, ceiling in (("до 5 доларів", 5.0), ("так, до 5 доларів на audit", 5.0), ("ні, навіть не 3 долари", 3.0), ("так, до 30 доларів, для audit-у до 10 доларів", 10.0),
+                      ("так, до 12,5 $", 12.5), ("ліміт 9 USD", 9.0)):
+    check(f"«{line}»: the sum binds, leave or not", bound(f"Платні прогони: {line}") == ceiling, bound(f"Платні прогони: {line}"))
+check("two lines: the smaller sum of both binds", bound("Платні прогони: до 7 доларів\nПлатні прогони: так, до 4 доларів") == 4.0)
+for line in ("так", "ні", "скільки потрібно", "до 5 прогонів", "п'ять доларів"):
+    check(f"negative — «{line}»: no sum, no ceiling invented (a sum in the task's body is not the line's)", bound(f"Платні прогони: {line}") is None)
+check("negative — no line at all: no ceiling", bound("Аудит потрібен: так") is None)
 check("negative — a task without the line: no leave", not board.parse("# x\n\nАудит потрібен: ні\n\n## Що зробити\n").paid)
 check("negative — the line quoted inside a sentence is not the line",
       not board.parse("# x\n\n## Що зробити\n- Захист приймає рядок «Платні прогони: так» без числа.\n").paid)
@@ -201,7 +211,9 @@ for rel in ("tasks/README.md", "templates/project/tasks/README.md", "docs/OWNER-
 for rel in ("tasks/README.md", "templates/project/tasks/README.md"):
     flat = " ".join((ROOT / rel).read_text(encoding="utf-8").split())
     check(f"{rel}: says the rule the guard applies — only «так», a sum after it is the ceiling, anything else refuses",
-          "Згода — лише слово «так» на початку рядка" in flat and "Будь-що інше в рядку — відмова" in flat and "три формулювання" not in flat)
+          "Згода — лише слово «так» на початку рядка" in flat and "Будь-що інше в рядку — відмова" in flat and "три формулювання" not in flat
+          and "можна дописати" not in flat and "ствердно" not in flat and "Після «так» можна написати лише суму в доларах" in flat
+          and "Сума діє й тоді, коли сам рядок згодою не є" in flat)
     check(f"{rel}: its own examples read as it says", paid("так, до 30 доларів") == (True, 30.0) and all(
         f"«{refused}»" in flat and paid(refused) == (False, None) for refused in ("так, але не для audit-у", "так, лише прогони simplifier-а", "скільки потрібно", "до 5 доларів")))
 for rel in ("tasks/TEMPLATE.md", "templates/project/tasks/TEMPLATE.md"):
