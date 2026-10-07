@@ -24,6 +24,16 @@ any project with one command; the steps after that tailor it. The whole setup ta
 
 ---
 
+## Where it runs
+
+Linux and macOS. On Windows the engine runs inside WSL2 (Ubuntu), where it behaves as on any
+Linux; native Windows (Git Bash, PowerShell) is not supported. `docs/WINDOWS.md` sets a Windows
+machine up from nothing, step by step. The machine needs `git`, `python3` and, preferably, `jq`;
+the session-start check `env-check.sh` names what is missing and, under WSL, the two usual
+traps — a project on a Windows disk (`/mnt/c/...`) and git rewriting line endings.
+
+---
+
 ## Step 1 — Install the engine
 
 ```bash
