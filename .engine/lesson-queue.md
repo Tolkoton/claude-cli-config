@@ -51,3 +51,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | overseer | - | BLOCK no.4 masked test gap — the fix of the fourth BLOCK is real for the spelling it was tested with (176/0 and 42/0 reproduce, the quoted RED reproduces), but the unit's claim «a dollar sum in the li #37962db5
 - 2026-10-07 | overseer | - | BLOCK no.4 masked test gap — the fix of the fifth BLOCK is real and the turn's figures reproduce (210/0, 58/0, RED 40/18 and the AttributeError on 8d28537), but the turn's claim «line_unread refuses E #023dbae7
 - 2026-10-07 | parked | 720-second-opinion-remove-build | 720-second-opinion-remove-build: Прибрати з двигуна другу думку Gemini (відповідь власника «так» у задачі 720) #8e924112
+- 2026-10-07 | parked | 076-maintain-build-rule-proposals-line-untested | 076-maintain-build/rule-proposals-line-untested: Звіт догляду: рядки про пропозиції правил і прибирання пам'яті без перевірки значення #2257d428
