@@ -45,6 +45,37 @@ owner's «Платні прогони: так» line, or the owner runs this by 
 does not count inside a Claude Code session). No dollar number is required; one in that line, or
 --max-usd, is a ceiling (the smaller of the two) the runs stop before.
 
+THE PROPERTY SET (board 063, the spike of the design of board 048): `--set property`.
+
+    python3 evals/run_tester_evals.py --set property [--out FILE] [--scenes …] [--arms c] [--repeat 3]    # PAID
+    python3 evals/run_tester_evals.py --set property --dry-run DIR                                       # free
+    python3 evals/run_tester_evals.py --set property --score FILE --scene conserve --arm c               # free
+    python3 evals/run_tester_evals.py --table FILE [FILE …]                                              # free: scene × arm × repeat
+
+Do an «Invariants» section in the slice contract and a property-based testing library catch more
+than examples? Five scenes (evals/scenarios/tester-property/scenes/), one per form of rule and a
+control. The trap here is not a line of the contract but AN INPUT THE CONTRACT DOES NOT LIST,
+though its rule covers it; the wrong implementation passes every example the contract gives.
+
+    roundtrip    a printed price reads back the same     conserve   the shares add up to the bill
+    idempotent   normalizing twice is normalizing once   bound      nothing on the shelf goes negative
+    none         the control: a thin wrapper, no invariant
+
+Three arms, the same tester prompt (arm-tester.md), the contract and the skeleton; only tests are written:
+
+    a  the contract without the «Invariants» section; example tests
+    b  the contract with the section; example tests — there is no library
+    c  the contract with the section; Hypothesis, brought by `uvx` (nothing is installed)
+
+The two contracts of a scene differ by the section alone: contract.md, and invariants.md put in
+before «Exit criterion». The script counts as above; arm C is run with `--hypothesis-seed=0`, so
+the count is the same every time. It also records, per run: the number of tests; `trap_calls` —
+calls of the slice's functions on which the wrong implementation differs from the right one
+(the suite REACHED the trap, caught or not); in arm C `search` — on how many of five other
+seeds the suite fails on the wrong implementation — the lines of the file that make the
+generator, and whether health checks are suppressed. The control has no wrong implementation:
+`clean` or `fails_on_right`, and `invented_invariant` (a `test_I…` or the library in the file).
+
 Standard library only, Python 3.12+; the scoring runs pytest through `uvx`.
 """
 
@@ -53,6 +84,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -76,6 +108,12 @@ REFERENCE_TESTS = "tests/test_reference_of_the_scene.py"
 PYTEST = ("uvx", "--with", "pytest", "pytest", "-q", "-p", "no:cacheprovider")
 TOOLS = ("Read", "Grep", "Glob", "Write", "Edit", "Bash")
 RUN_TIMEOUT_S = 900
+PROPERTY = HERE / "scenarios" / "tester-property"
+PROPERTY_SCENES = ("roundtrip", "conserve", "idempotent", "bound", "none")
+# arm: (its contract has the «Invariants» section, the library is there, the paragraph its prompt gets)
+PROPERTY_ARMS = {"a": (False, False, None), "b": (True, False, "arm-b-invariants.md"), "c": (True, True, "arm-c-invariants.md")}
+HYPOTHESIS = ("uvx", "--with", "pytest", "--with", "hypothesis", "pytest", "-q", "-p", "no:cacheprovider")
+SEED, SEARCH_SEEDS = 0, (1, 2, 3, 4, 5)
 OUTCOMES = {(False, True): "caught", (True, True): "missed", (False, False): "fails_on_both", (True, False): "mirrors_bug"}
 
 JsonObj = dict[str, Any]
@@ -83,6 +121,30 @@ JsonObj = dict[str, Any]
 
 def fixture(name: str) -> str:
     return (FIXTURE / name).read_text(encoding="utf-8")
+
+
+def scenes_of(kind: str) -> JsonObj:
+    """The scenes of a set; a scene of the property set is marked, and everything below asks the scene."""
+    if kind == "property":
+        return {name: entry | {"property": True} for name, entry in json.loads((PROPERTY / "expected.json").read_text(encoding="utf-8")).items()}
+    return dict(json.loads(fixture("expected.json")))
+
+
+def scene_file(name: str, scene: JsonObj, rel: str) -> Path:
+    return (PROPERTY if scene.get("property") else FIXTURE) / "scenes" / name / rel
+
+
+def contract_text(name: str, scene: JsonObj, invariants: bool = False) -> str:
+    """The scene's contract; with `invariants`, the same text with the section put in before «Exit criterion»."""
+    text = scene_file(name, scene, "contract.md").read_text(encoding="utf-8")
+    if not invariants:
+        return text
+    head, mark, tail = text.partition("## Exit criterion")
+    return head + scene_file(name, scene, "invariants.md").read_text(encoding="utf-8") + "\n" + mark + tail
+
+
+def pytest_command(scene: JsonObj, arm: str) -> tuple[str, ...]:
+    return HYPOTHESIS if scene.get("property") and PROPERTY_ARMS[arm][1] else PYTEST
 
 
 def test_path(scene: JsonObj) -> str:
@@ -96,39 +158,87 @@ def module_path(scene: JsonObj) -> str:
 # ------------------------------------------------------------------ sandboxes and prompts
 
 
-def build_sandbox(target: Path, name: str, scene: JsonObj, implementation: str) -> Path:
+def build_sandbox(target: Path, name: str, scene: JsonObj, implementation: str, invariants: bool = False) -> Path:
     """The reference project with the slice's contract and one of its three modules: skeleton, wrong, right."""
     tracked = subprocess.run(["git", "-C", str(REFERENCE), "ls-files", "."], capture_output=True, text=True, check=True)
     for rel in tracked.stdout.splitlines():
         (target / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REFERENCE / rel, target / rel)
-    shutil.copy2(FIXTURE / "scenes" / name / f"{implementation}.py", target / module_path(scene))
+    shutil.copy2(scene_file(name, scene, f"{implementation}.py"), target / module_path(scene))
     (target / ".engine/slices").mkdir(parents=True)
-    shutil.copy2(FIXTURE / "scenes" / name / "contract.md", target / f".engine/slices/{scene['slug']}.md")
+    (target / f".engine/slices/{scene['slug']}.md").write_text(contract_text(name, scene, invariants), encoding="utf-8")
     return target
 
 
 def prompt(scene: JsonObj, arm: str) -> str:
+    run = " ".join((*pytest_command(scene, arm), test_path(scene)))
+    if scene.get("property"):
+        rules = PROPERTY_ARMS[arm][2]
+        return (PROPERTY / "arm-tester.md").read_text(encoding="utf-8").format(
+            contract=f".engine/slices/{scene['slug']}.md", module_path=module_path(scene), functions=", ".join(f"`{f}`" for f in scene["functions"]),
+            test_path=test_path(scene), run=run, invariants=(PROPERTY / rules).read_text(encoding="utf-8") if rules else "")
     return fixture(ARMS[arm][1]).format(contract=f".engine/slices/{scene['slug']}.md", module_path=module_path(scene),
-                                        function=scene["function"], test_path=test_path(scene), run=" ".join((*PYTEST, test_path(scene))))
+                                        function=scene["function"], test_path=test_path(scene), run=run)
 
 
 # ------------------------------------------------------------------ scoring (free, deterministic)
 
 
-def pytest_verdict(project: Path, *selection: str) -> JsonObj:
-    proc = subprocess.run([*PYTEST, *selection], cwd=project, capture_output=True, text=True, check=False)
+def pytest_verdict(project: Path, *selection: str, runner: tuple[str, ...] = PYTEST, env: dict[str, str] | None = None) -> JsonObj:
+    proc = subprocess.run([*runner, *selection], cwd=project, capture_output=True, text=True, check=False, env=env)
     lines = proc.stdout.strip().splitlines()
     return {"passed": proc.returncode == 0, "empty": proc.returncode == 5, "last_line": lines[-1] if lines else proc.stderr.strip()[-200:]}
 
 
-def run_suite(tests: str, name: str, scene: JsonObj, implementation: str, work: Path) -> JsonObj:
+def run_suite(tests: str, name: str, scene: JsonObj, implementation: str, work: Path, runner: tuple[str, ...] = PYTEST) -> JsonObj:
     """pytest's verdict on `tests` against one implementation: passed, and whether anything was collected."""
     project = build_sandbox(work / f"{name}-{implementation}", name, scene, implementation)
     (project / test_path(scene)).write_text(tests, encoding="utf-8")
-    verdict = pytest_verdict(project, test_path(scene))
+    verdict = pytest_verdict(project, test_path(scene), runner=runner)
     shutil.rmtree(project)
     return verdict
+
+
+def trap_calls(tests: str, name: str, scene: JsonObj, work: Path, runner: tuple[str, ...]) -> JsonObj:
+    """How many calls of the slice's functions the suite makes, and on how many the wrong implementation differs."""
+    project = build_sandbox(work / f"{name}-watched", name, scene, "right")
+    with (project / module_path(scene)).open("a", encoding="utf-8") as module:
+        module.write((PROPERTY / "watch.py").read_text(encoding="utf-8"))
+    (project / test_path(scene)).write_text(tests, encoding="utf-8")
+    log = work / f"{name}-calls.log"
+    log.write_text("", encoding="utf-8")
+    watch = {"SCENE_WRONG": str(scene_file(name, scene, "wrong.py")), "SCENE_WATCH": ",".join(scene["functions"]), "SCENE_LOG": str(log)}
+    pytest_verdict(project, test_path(scene), runner=runner, env=os.environ | watch)
+    lines = log.read_text(encoding="utf-8").split()
+    shutil.rmtree(project)
+    log.unlink()
+    return {"calls": len(lines), "trap_calls": lines.count("trap")}
+
+
+def score_property(tests: str | None, name: str, scene: JsonObj, arm: str, work: Path) -> JsonObj:
+    """The property set's count: as `score`, with the library's seed fixed, and the facts the spike asks for."""
+    if tests is None:
+        return {"outcome": "no_tests", "caught": False, "observed": "the test file was not written"}
+    library = PROPERTY_ARMS[arm][1]
+    runner = (*HYPOTHESIS, f"--hypothesis-seed={SEED}") if library else PYTEST
+    right = run_suite(tests, name, scene, "right", work, runner)
+    facts: JsonObj = {"test_count": sum(int(n) for n in re.findall(r"(\d+) (?:passed|failed|errors?)\b", right["last_line"])),
+                      "invariant_tests": re.findall(r"^def (test_I\d\w*)", tests, re.M), "uses_library": "hypothesis" in tests}
+    if library:
+        facts |= {"health_checks_suppressed": "suppress_health_check" in tests,
+                  "generator": [line.strip() for line in tests.splitlines() if re.search(r"\bst\.|strategies|@given|@settings|@example|assume\(|\.filter\(|\.map\(", line)]}
+    if "wrong_does" not in scene:   # the control: there is no wrong implementation and no trap
+        outcome = "no_tests" if right["empty"] else "clean" if right["passed"] else "fails_on_right"
+        return {"outcome": outcome, "caught": False, "observed": f"right: {right['last_line']}",
+                "invented_invariant": bool(facts["invariant_tests"]) or facts["uses_library"]} | facts
+    wrong = run_suite(tests, name, scene, "wrong", work, runner)
+    outcome = "no_tests" if wrong["empty"] or right["empty"] else OUTCOMES[(wrong["passed"], right["passed"])]
+    row = {"outcome": outcome, "caught": outcome == "caught", "observed": f"wrong: {wrong['last_line']} | right: {right['last_line']}"} | facts
+    row |= trap_calls(tests, name, scene, work, runner)
+    if library:
+        found = sum(1 for seed in SEARCH_SEEDS if not run_suite(tests, name, scene, "wrong", work, (*HYPOTHESIS, f"--hypothesis-seed={seed}"))["passed"])
+        row["search"] = f"{found} of {len(SEARCH_SEEDS)}"
+    return row
 
 
 def judge_code(module: str, tests: str | None, name: str, scene: JsonObj, work: Path) -> JsonObj:
@@ -168,7 +278,10 @@ def plan(scenes: list[str], arms: list[str] | None = None, repeat: int = 1) -> l
 def shown(row: JsonObj) -> str:
     if "error" in row:
         return "error"
-    return row["outcome"] + (f"; code {row['code']}" + ("; SELF-DECEIVED" if row["self_deceived"] else "") if "code" in row else "")
+    notes = [f"code {row['code']}" + ("; SELF-DECEIVED" if row["self_deceived"] else "")] if "code" in row else []
+    notes += ["INVENTED INVARIANT"] if row.get("invented_invariant") else []
+    notes += ["HEALTH CHECKS SUPPRESSED"] if row.get("health_checks_suppressed") else []
+    return "; ".join([row["outcome"], *notes])
 
 
 def summary(runs: list[JsonObj]) -> JsonObj:
@@ -179,6 +292,16 @@ def summary(runs: list[JsonObj]) -> JsonObj:
     arms = [arm for arm in ARMS if any(r["arm"] == arm for r in runs)]
     caught = {arm: f"{sum(1 for r in runs if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in runs if r['arm'] == arm)}" for arm in arms}
     result: JsonObj = {"runs": len(runs), "caught": caught, "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
+    control = [r for r in runs if r["scene"] == "none"]
+    if any("test_count" in r for r in runs):   # the property set: the control is not a trap, and the arms are compared by more than the catch
+        trapped = [r for r in runs if r["scene"] != "none"]
+        result["caught"] = {arm: f"{sum(1 for r in trapped if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in trapped if r['arm'] == arm)}" for arm in arms}
+        result["by_arm"] = {arm: {
+            "fails_on_both": sum(1 for r in trapped if r["arm"] == arm and r.get("outcome") == "fails_on_both"),
+            "reached_the_trap": f"{sum(1 for r in trapped if r['arm'] == arm and r.get('trap_calls'))} of {sum(1 for r in trapped if r['arm'] == arm)}",
+            "control_clean": f"{sum(1 for r in control if r['arm'] == arm and r.get('outcome') == 'clean' and not r['invented_invariant'])} of {sum(1 for r in control if r['arm'] == arm)}",
+            "tests": sum(r.get("test_count", 0) for r in runs if r["arm"] == arm),
+            "cost_usd": round(sum(r["cost_usd"] for r in runs if r["arm"] == arm), 4)} for arm in arms}
     written = [r for r in runs if "code" in r]
     if written:
         result["code_written"] = {kind: sum(1 for r in written if r["code"] == kind) for kind in ("right", "trapped", "broken", "none")}
@@ -186,11 +309,26 @@ def summary(runs: list[JsonObj]) -> JsonObj:
     return result
 
 
+def table(runs: list[JsonObj]) -> str:
+    """Scene × arm × repeat as a markdown table: what the report of a spike shows."""
+    arms = [arm for arm in ARMS if any(r["arm"] == arm for r in runs)]
+    lines = ["| scene | " + " | ".join(arms) + " |", "|---|" + "---|" * len(arms)]
+    for name in dict.fromkeys(r["scene"] for r in runs):
+        cells = []
+        for arm in arms:
+            mine = [r for r in runs if r["scene"] == name and r["arm"] == arm]
+            cells.append("<br>".join(f"{n}. {shown(r)}" + (f" ({r['test_count']} tests, trap calls {r.get('trap_calls', '—')}" + (f", search {r['search']}" if "search" in r else "") + ")" if "test_count" in r else "")
+                                     for n, r in enumerate(mine, 1)))
+        lines.append(f"| `{name}` | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 # ------------------------------------------------------------------ the paid part
 
 
-def run_once(sandbox: Path, text: str, args: argparse.Namespace) -> JsonObj:
-    command = [args.claude, "-p", text, "--tools", *TOOLS, "--permission-mode", "acceptEdits", "--allowedTools", "Bash(uvx --with pytest pytest:*)",
+def run_once(sandbox: Path, text: str, args: argparse.Namespace, runner: tuple[str, ...] = PYTEST) -> JsonObj:
+    allowed = " ".join(runner).split(" -q")[0]   # uvx --with pytest pytest, or the same with the library
+    command = [args.claude, "-p", text, "--tools", *TOOLS, "--permission-mode", "acceptEdits", "--allowedTools", f"Bash({allowed}:*)",
                "--output-format", "json", "--strict-mcp-config", "--max-budget-usd", str(args.max_usd_per_run)]
     command += ["--model", args.model] if args.model else []
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "CLAUDE_UNATTENDED_SESSION")}
@@ -208,21 +346,35 @@ def run_once(sandbox: Path, text: str, args: argparse.Namespace) -> JsonObj:
     return row | {"answer": answer}
 
 
+def sees(scene: JsonObj, arm: str) -> tuple[str, bool]:
+    """The module an arm is given, and whether its contract has the «Invariants» section."""
+    return ("skeleton", PROPERTY_ARMS[arm][0]) if scene.get("property") else (ARMS[arm][0], False)
+
+
+def arm_says(kind: str, arm: str) -> str:
+    if kind == "property":
+        return ("the contract with the «Invariants» section" if PROPERTY_ARMS[arm][0] else "the contract without the «Invariants» section") + \
+               ("; Hypothesis through uvx" if PROPERTY_ARMS[arm][1] else "; example tests, no library") + "; sees the skeleton, writes tests only"
+    return f"sees the contract and the {ARMS[arm][0]} module" + ("; writes the implementation too" if arm in WRITES_CODE else "")
+
+
 def one_run(name: str, arm: str, scene: JsonObj, work: Path, args: argparse.Namespace) -> JsonObj:
     """One session in its own sandbox, then the file it wrote scored against both implementations."""
-    seen = ARMS[arm][0]
+    seen, invariants = sees(scene, arm)
     sandbox = work / f"{name}-{arm}"
     if sandbox.exists():   # --repeat: the same scene and arm again, in a fresh sandbox
         shutil.rmtree(sandbox)
-    sandbox = build_sandbox(sandbox, name, scene, seen)
-    row = {"scene": name, "arm": arm, "sees": seen} | run_once(sandbox, prompt(scene, arm), args)
+    sandbox = build_sandbox(sandbox, name, scene, seen, invariants)
+    row = {"scene": name, "arm": arm, "sees": seen} | run_once(sandbox, prompt(scene, arm), args, pytest_command(scene, arm))
     written = sandbox / test_path(scene)
     tests = written.read_text(encoding="utf-8") if written.is_file() else None
-    given = (FIXTURE / "scenes" / name / f"{seen}.py").read_text(encoding="utf-8")
+    given = scene_file(name, scene, f"{seen}.py").read_text(encoding="utf-8")
     module = (sandbox / module_path(scene)).read_text(encoding="utf-8")
     row |= {"tests": tests, "touched_module": module != given}
     if "error" in row:
         return row
+    if scene.get("property"):
+        return row | score_property(tests, name, scene, arm, work / "scoring")
     row |= score(tests, name, scene, work / "scoring")
     return row | {"module": module} | judge_code(module, tests, name, scene, work / "scoring") if arm in WRITES_CODE else row
 
@@ -230,12 +382,15 @@ def one_run(name: str, arm: str, scene: JsonObj, work: Path, args: argparse.Name
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--out", type=environment.out_path, help="a recording goes to evals/baseline/@env/")
-    parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
+    parser.add_argument("--set", choices=("planted", "property"), default="planted", help="planted: the four scenes of board 061; property: the five of board 063")
+    parser.add_argument("--scenes", nargs="+", help="default: every scene of the set")
     parser.add_argument("--arms", nargs="+", choices=list(ARMS), default=list(ARMS))
     parser.add_argument("--repeat", type=int, default=1, help="sessions per scene and arm")
     parser.add_argument("--dry-run", type=Path, help="build every sandbox here, write every prompt beside them and stop; free")
     parser.add_argument("--score", type=Path, help="score this ready test file against --scene and stop; free")
-    parser.add_argument("--scene", choices=SCENES, help="the scene --score is for")
+    parser.add_argument("--scene", help="the scene --score is for")
+    parser.add_argument("--arm", choices=list(ARMS), default="c", help="the property set: the arm --score counts as (c brings the library)")
+    parser.add_argument("--table", nargs="+", type=Path, help="print scene × arm × repeat and the summary of these recordings together and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
     parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before the runs together cost more (default: none)")
@@ -243,19 +398,27 @@ def main() -> int:
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
     parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
     args = parser.parse_args()
-    expected = json.loads(fixture("expected.json"))
-    todo = plan(args.scenes, args.arms, args.repeat)
+    if args.table:
+        runs = [run for path in args.table for run in json.loads(path.read_text(encoding="utf-8"))["runs"]]
+        print(table(runs) + "\n\n" + json.dumps({k: v for k, v in summary(runs).items() if k != "table"}, indent=2, ensure_ascii=False))
+        return 0
+    expected = scenes_of(args.set)
+    unknown = [name for name in [*(args.scenes or []), *([args.scene] if args.scene else [])] if name not in expected]
+    if unknown:
+        parser.error(f"not a scene of the set «{args.set}»: {', '.join(unknown)} (it has {', '.join(expected)})")
+    todo = plan(args.scenes or list(expected), args.arms, args.repeat)
 
     if args.score:
         if not args.scene:
             parser.error("--score needs --scene")
         with tempfile.TemporaryDirectory(prefix="engine-tester-eval-") as tmp:
-            result = score(args.score.read_text(encoding="utf-8"), args.scene, expected[args.scene], Path(tmp))
-        print(f"{args.scene}: {result['outcome']} — {result['observed']}")
-        return 0 if result["caught"] else 1
+            tests, scene = args.score.read_text(encoding="utf-8"), expected[args.scene]
+            result = score_property(tests, args.scene, scene, args.arm, Path(tmp)) if scene.get("property") else score(tests, args.scene, scene, Path(tmp))
+        print(f"{args.scene}: {shown(result)} — {result['observed']}" + (f" | {json.dumps({k: v for k, v in result.items() if k not in ('outcome', 'caught', 'observed')}, ensure_ascii=False)}" if scene.get("property") else ""))
+        return 0 if result["caught"] or result["outcome"] == "clean" else 1
     if args.dry_run:
         for name, arm in dict.fromkeys(todo):
-            build_sandbox(args.dry_run / f"{name}-{arm}", name, expected[name], ARMS[arm][0])
+            build_sandbox(args.dry_run / f"{name}-{arm}", name, expected[name], *sees(expected[name], arm))
             (args.dry_run / f"prompt-{name}-{arm}.txt").write_text(prompt(expected[name], arm), encoding="utf-8")
         print(f"{len(dict.fromkeys(todo))} prompts and sandboxes in {args.dry_run}; nothing was run")
         return 0
@@ -274,11 +437,12 @@ def main() -> int:
             row = one_run(name, arm, expected[name], Path(tmp), args)
             runs.append(row)
             line = row.get("error") or f"{shown(row)} — {row['observed']}" + (f" | {row['code_observed']}" if "code" in row else "")
+            line += f" | {row['test_count']} tests, trap calls {row.get('trap_calls', '—')}" + (f", search {row['search']}" if "search" in row else "") if "test_count" in row else ""
             print(f"{name} {arm}: {line}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})", flush=True)
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-        "limit_usd": limit, "planned": [f"{s}/{a}" for s, a in todo], "arms": {arm: f"sees the contract and the {ARMS[arm][0]} module" + ("; writes the implementation too" if arm in WRITES_CODE else "") for arm in args.arms},
+        "limit_usd": limit, "planned": [f"{s}/{a}" for s, a in todo], "set": args.set, "arms": {arm: arm_says(args.set, arm) for arm in args.arms},
         "scenes": {name: entry["what"] for name, entry in expected.items()}, "summary": summary(runs), "runs": runs,
     }
     print("\n" + json.dumps(report["summary"], indent=2, ensure_ascii=False))

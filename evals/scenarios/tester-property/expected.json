@@ -1,0 +1,30 @@
+{
+  "roundtrip": {
+    "what": "there and back: a printed price reads back as the same price",
+    "slug": "price-text", "module": "pricing", "functions": ["format_price", "parse_price"],
+    "wrong_does": "parse_price accepts one comma only: every price from 1,000,000.00 (two commas) is refused, although format_price prints it",
+    "trap_input": "a price from 1,000,000.00; the contract's examples stop at 1,234.50"
+  },
+  "conserve": {
+    "what": "conservation: the shares of a bill add up to the bill",
+    "slug": "split-bill", "module": "pricing", "functions": ["split_bill"],
+    "wrong_does": "rounds the share half up and hands out only a positive remainder: when amount / people has a fraction of half a cent or more, everyone pays the rounded-up share and the sum is too large",
+    "trap_input": "an amount that does not divide evenly and whose share rounds up (200.00 / 3, 0.01 / 2); the contract's example 100.00 / 3 rounds down and passes"
+  },
+  "idempotent": {
+    "what": "a repeat changes nothing: normalizing a normalized article number gives the same text",
+    "slug": "sku-normalize", "module": "inventory", "functions": ["normalize_sku"],
+    "wrong_does": "collapses hyphens and underscores first and whitespace second: a space or tab next to a hyphen or underscore inside the text leaves several hyphens, which a second pass shortens",
+    "trap_input": "two kinds of separator in a row inside the text (`ab - 12`, `ab_ 12`); the contract's examples have runs of one kind"
+  },
+  "bound": {
+    "what": "a bound never crossed: nothing on the shelf goes below zero through holds and releases",
+    "slug": "shelf-holds", "module": "inventory", "functions": ["hold", "release"],
+    "wrong_does": "release checks the quantity against what is held only when something is held: on a shelf with nothing held any release goes through and `held` goes negative",
+    "trap_input": "a release on a shelf with nothing held; the contract's example releases too much from a shelf that holds 3"
+  },
+  "none": {
+    "what": "the control: a thin wrapper with no invariant — is one invented, and does the suite fail on the right implementation",
+    "slug": "shelf-value", "module": "inventory", "functions": ["shelf_value"]
+  }
+}
