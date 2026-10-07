@@ -318,6 +318,14 @@ check("…and the refusal asks for «Платні прогони: так», not 
 check("the old line's number is a ceiling: the smaller of it and --max-usd", (board / "doing" / "010-x.md").write_text(
     "# 010\n\nПлатні прогони: так, не більше 30 доларів.\n") and runner.dollar_limit(board, None) == 30.0
     and runner.dollar_limit(board, 50.0) == 30.0 and runner.dollar_limit(board, 4.0) == 4.0)
+for unread in ("до $5", "USD 5", "п'ять доларів", "скільки потрібно", "так, до 5 доларів на audit"):
+    (board / "doing" / "010-x.md").write_text(f"# 010\n\nПлатні прогони: {unread}\n")
+    check(f"negative — «{unread}» is neither leave nor a plain «ні»: --owner-approved in the owner's terminal is refused too, and the line is named (the overseer's sixth BLOCK)",
+          "neither the owner's leave nor a plain «ні»" in str(runner.paid_run_refusal(board, True, False)) and "010-x.md" in str(runner.paid_run_refusal(board, True, False)),
+          runner.paid_run_refusal(board, True, False))
+    check("…and without the flag, inside a session: refused", runner.paid_run_refusal(board, False, True) is not None)
+(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні\n")
+check("beside a plain «ні» the owner's flag in the owner's terminal still passes", runner.paid_run_refusal(board, True, False) is None, runner.paid_run_refusal(board, True, False))
 (board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так\n")
 check("board 053 — «Платні прогони: так» without a number: allowed", runner.paid_run_refusal(board, False, True) is None, runner.paid_run_refusal(board, False, True))
 check("…and there is no ceiling: nothing stops the runs but the runner's own guard", runner.dollar_limit(board, None) is None)
