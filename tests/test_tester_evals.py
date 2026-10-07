@@ -91,7 +91,7 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--owner-approved"], capture_output=True, text=True, env=env, check=False)
     check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
           r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/061-x.md").write_text("# 061\n\nПлатні прогони: вісім прогонів, ліміт 10 доларів.\n", encoding="utf-8")
+    (tasks / "doing/061-x.md").write_text("# 061\n\nПлатні прогони: так, до 10 доларів.\n", encoding="utf-8")
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--max-usd", "0.5"], capture_output=True, text=True, env=env, check=False)
     check("with the line, a limit smaller than one run starts nothing", "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
     shim.write_text(f"#!/bin/sh\necho started >> {tmp}/started\necho '{{\"total_cost_usd\": 6, \"result\": \"done\"}}'\n", encoding="utf-8")

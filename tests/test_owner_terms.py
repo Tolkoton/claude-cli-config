@@ -123,42 +123,39 @@ def paid(value: str) -> tuple[bool, float | None]:
     return task.paid, task.paid_ceiling
 
 
-# Leave has three wordings and no other. The long lines are the owner's own, from tasks 057–059, 010, 062 and 063.
-for value in ("так", "Так.", "ТАК", "**так**", "так — два повні audit-и", "так, прогони simplifier-а на новому наборі",
-              "прогони simplifier-а на новому наборі — скільки потрібно; від зациклення стереже запобіжник runner-а.",
-              "два повні audit-и — скільки потрібно; від зациклення стереже запобіжник runner-а.", "нічні прогони, скільки треба"):
+# Leave has one wording (the owner's answer on board 053): the word «так», and after it only a sum.
+for value in ("так", "Так.", "ТАК", "**так**", "так!", "  так  "):
     check(f"«{value}»: leave, no ceiling", paid(value) == (True, None), paid(value))
-for value, ceiling in (("так, не більше 30 доларів", 30.0), ("так, до 12,5 $", 12.5), ("так, 40 USD", 40.0), ("до 50 USD", 50.0), ("не більше 30 доларів", 30.0),
-                       ("не понад 20 $", 20.0), ("ліміт 9 USD", 9.0), ("лімітом 9 доларів", 9.0), ("запобіжник 60 доларів", 60.0),
-                       ("запобіжник від зациклення 60 доларів", 60.0), ("так, до 30 доларів, для audit-у до 10 доларів", 10.0), ("лише евалуація, ліміт 12,5 $", 12.5), ("ліміт 7 доларів, а краще до 5 доларів", 5.0),
-                       ("лише проба моделі (пункт 0) і евалуація (пункт 7), разом не більше 30 доларів.", 30.0),
-                       ("тринадцять сцен рішень менеджера тестування (короткі прогони лише з читанням), ліміт 5 доларів.", 5.0),
-                       ("сорок п'ять коротких сесій spike і повтори на спірних сценах; запобіжник від циклу 50 доларів — не бюджет.", 50.0)):
+for value, ceiling in (("так, не більше 30 доларів", 30.0), ("так, до 12,5 $", 12.5), ("так, 40 USD", 40.0), ("Так — до 5 доларів.", 5.0),
+                       ("так 7 доларів", 7.0), ("так, не понад 20 $", 20.0), ("так; 2.5 долари", 2.5), ("ТАК, ДО 9 USD", 9.0)):
     check(f"«{value}»: leave, and the number is the ceiling", paid(value) == (True, ceiling), paid(value))
 for value in ("ні", "Ні.", "ні, не треба", "немає", "—", "-", "", "  "):
     check(f"negative — «{value}»: no leave", paid(value) == (False, None), paid(value))
-# The guard fails closed (the overseer's two BLOCKs): leave is recognised, a refusal need not be.
+# The guard fails closed: leave is recognised, a refusal need not be.
 for value in ("не треба", "ніколи", "не дозволяю", "заборонено", "поки ні", "— ні", "(ні)", "без платних прогонів", "not allowed", "none", "?", "н/д",
               "не запускались", "потрібні два audit-и, дозвольте", "тільки безплатні", "дозволяю", "yes", "ok", "0 доларів"):
-    check(f"negative — «{value}» is none of the three wordings: no leave", paid(value) == (False, None), paid(value))
+    check(f"negative — «{value}» is not «так»: no leave", paid(value) == (False, None), paid(value))
 # «так» is the line's FIRST WORD: not a word further on, not the beginning of another word.
-for value in ("мабуть, так", "мабуть, так не варто", "чи так?", "також прогони simplifier-а", "такий дозвіл дам пізніше", "таки дозволяю", "такого дозволу я дам"):
+for value in ("мабуть, так", "мабуть, так не варто", "чи так?", "також прогони simplifier-а", "такий дозвіл дам пізніше", "таки дозволяю", "такого дозволу я дам",
+              "до 5 доларів, так", "yes — так"):
     check(f"negative — «{value}»: «так» is not the first word", paid(value) == (False, None), paid(value))
-# A negation anywhere takes the leave back — after «так», beside «скільки потрібно», beside a limit.
-for value in ("Так. Не для audit-у", "ТАК, АЛЕ БЕЗ AUDIT-У", "так. Ніколи для audit-у", "так, Not the audit", "так, але ні для audit-у", "так, але не для audit-у", "так, але без audit-у", "так, тільки не audit", "так не можна", "так? не впевнений",
-              "так чи ні?", "так, але нічого дорогого", "так, жодного audit-у", "так, audit заборонено", "yes — так, but not the audit", "так, never the audit",
-              "не знаю, скільки потрібно", "без прогонів — скільки потрібно б не було", "ніяких прогонів, скільки треба б не було",
-              "не треба, навіть до 5 доларів", "заборонено, навіть до 5 доларів", "ніколи, навіть ліміт 5 доларів", "без прогонів, ліміт 5 доларів",
-              "відмова, до 5 доларів", "жодних прогонів, не більше 5 доларів", "never, ліміт 5 USD", "нема потреби, до 5 доларів", "ні, навіть до 5 доларів"):
-    check(f"negative — «{value}»: a negation takes the leave back", paid(value) == (False, None), paid(value))
-for word in ("ні", "не", "без", "нема", "немає", "ніколи", "ніяких", "ніде", "ніщо", "нічого", "жодного", "заборонено", "заборона", "відмова",
-             "відмовляю", "нет", "no", "not", "none", "never", "don't", "dont", "nothing"):
-    check(f"negative — «так, {word} audit»: each negation the guard knows refuses after «так»", paid(f"так, {word} audit") == (False, None))
-# A sum is leave only as a limit: a limit word, then the sum, above zero.
-for value in ("5 доларів", "витрачено 3 долари", "відмова 5 доларів", "заборонено, навіть 5 доларів", "ніколи, навіть за 5 доларів",
-              "ніяких прогонів дорожчих за 5 доларів", "never, 5 USD", "don't, 5 USD", "1e3 доларів", "$1.17 за сесію", "прогони по 2 долари",
-              "так, 0 доларів", "так, до 0 доларів", "ліміт 0 доларів", "до 5 доларів і 0 доларів на audit", "ліміт: п'ять доларів", "до 5 прогонів"):
-    check(f"negative — «{value}»: not a limit with a sum above zero", paid(value) == (False, None), paid(value))
+# Anything after «так» that is not a sum refuses — with a word of refusal in it or without one
+# (the overseer's second BLOCK and what its list of negations still let through).
+for value in ("Так. Не для audit-у", "ТАК, АЛЕ БЕЗ AUDIT-У", "так, але не для audit-у", "так, тільки не audit", "так не можна", "так? не впевнений",
+              "так чи ні?", "так, audit заборонено", "так, never the audit", "так, крім audit-у", "так, але спершу спитайте", "так, лише прогони simplifier-а",
+              "так — два повні audit-и", "так, скільки потрібно", "так, до 30 доларів, для audit-у до 10 доларів", "так, до 5 доларів, але не audit",
+              "так, до 5 доларів і до 3 доларів", "так так", "так, до", "так, до 5", "так, 5 прогонів", "так, п'ять доларів", "так, до 1e3 доларів",
+              "так, -5 доларів", "так, приблизно 5 доларів", "так, $5", "так,5 доларів за сесію", "так\tні"):
+    check(f"negative — «{value}»: only a sum may follow «так»", paid(value) == (False, None), paid(value))
+# The wordings that were leave before the owner's answer — «скільки потрібно», a limit without «так» — refuse:
+# the tasks written that way (062, 063) stop once with a question.
+for value in ("прогони simplifier-а на новому наборі — скільки потрібно; від зациклення стереже запобіжник runner-а.", "нічні прогони, скільки треба",
+              "до 50 USD", "не більше 30 доларів", "ліміт 9 USD", "запобіжник від зациклення 60 доларів", "лише евалуація, ліміт 12,5 $", "5 доларів",
+              "тринадцять сцен рішень менеджера тестування (короткі прогони лише з читанням), ліміт 5 доларів.",
+              "сорок п'ять коротких сесій spike і повтори на спірних сценах; запобіжник від циклу 50 доларів — не бюджет."):
+    check(f"negative — «{value}»: no «так», no leave", paid(value) == (False, None), paid(value))
+for value in ("так, 0 доларів", "так, до 0 доларів", "так, 0,0 $"):
+    check(f"negative — «{value}»: a ceiling of zero is no leave", paid(value) == (False, None), paid(value))
 check("negative — a task without the line: no leave", not board.parse("# x\n\nАудит потрібен: ні\n\n## Що зробити\n").paid)
 check("negative — the line quoted inside a sentence is not the line",
       not board.parse("# x\n\n## Що зробити\n- Захист приймає рядок «Платні прогони: так» без числа.\n").paid)
@@ -201,6 +198,12 @@ for rel in ("tasks/README.md", "templates/project/tasks/README.md", "docs/OWNER-
           "Якість понад ціну" in text and "BOARD_MAX_USD" in text and "Технічні терміни — англійською" in text and all(t in " ".join(text.split()) for t in TERMS),
           [t for t in TERMS if t not in " ".join(text.split())])
     check(f"{rel}: no dollar limit is asked of a task", "лімітом у доларах" not in text and "Платні прогони: так" in text)
+for rel in ("tasks/README.md", "templates/project/tasks/README.md"):
+    flat = " ".join((ROOT / rel).read_text(encoding="utf-8").split())
+    check(f"{rel}: says the rule the guard applies — only «так», a sum after it is the ceiling, anything else refuses",
+          "Згода — лише слово «так» на початку рядка" in flat and "Будь-що інше в рядку — відмова" in flat and "три формулювання" not in flat)
+    check(f"{rel}: its own examples read as it says", paid("так, до 30 доларів") == (True, 30.0) and all(
+        f"«{refused}»" in flat and paid(refused) == (False, None) for refused in ("так, але не для audit-у", "так, лише прогони simplifier-а", "скільки потрібно", "до 5 доларів")))
 for rel in ("tasks/TEMPLATE.md", "templates/project/tasks/TEMPLATE.md"):
     text = (ROOT / rel).read_text(encoding="utf-8")
     check(f"{rel}: «Платні прогони: ні» by default, and no dollar sum anywhere",

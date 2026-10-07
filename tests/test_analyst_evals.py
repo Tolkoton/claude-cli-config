@@ -63,14 +63,14 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--owner-approved"], capture_output=True, text=True, env=env, check=False)
     check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
           r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: чотири сцени, ліміт 10 доларів.\n", encoding="utf-8")
+    (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: так, до 10 доларів.\n", encoding="utf-8")
     (tasks / "doing/report-028-left-behind.md").write_text("# a report a parked task left in doing/\n", encoding="utf-8")
     check("a report left in doing/ is not a second task: the gate still opens",
           evals.paid.paid_run_refusal(tasks, False, True) is None, evals.paid.paid_run_refusal(tasks, False, True))
     check("the limit is the task's number when more is asked", evals.dollar_limit(tasks, 50.0) == 10.0)
     check("…and what was asked when that is less", evals.dollar_limit(tasks, 4.0) == 4.0)
     # board 712: the owner's session's task beside the runner's — each side reads its own
-    (tasks / "doing/040-owner.md").write_text("# 040\n\nПотрібна присутність власника: так\nПлатні прогони: до 3 доларів.\n", encoding="utf-8")
+    (tasks / "doing/040-owner.md").write_text("# 040\n\nПотрібна присутність власника: так\nПлатні прогони: так, до 3 доларів.\n", encoding="utf-8")
     kept = os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
     try:
         os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
@@ -88,14 +88,14 @@ with tempfile.TemporaryDirectory() as tmp:
         if kept is not None:
             os.environ["CLAUDE_UNATTENDED_SESSION"] = kept
         (tasks / "doing/040-owner.md").unlink()
-        (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: чотири сцени, ліміт 10 доларів.\n", encoding="utf-8")
+        (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: так, до 10 доларів.\n", encoding="utf-8")
     (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: так\n", encoding="utf-8")
     check("board 053 — «Платні прогони: так» without a number opens the gate, and there is no ceiling",
           evals.paid.paid_run_refusal(tasks, False, True) is None and evals.dollar_limit(tasks, None) is None, evals.dollar_limit(tasks, None))
     check("…--max-usd is then the only ceiling", evals.dollar_limit(tasks, 4.0) == 4.0)
     (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: ні\n", encoding="utf-8")
     check("negative — «Платні прогони: ні» opens nothing", evals.paid.paid_run_refusal(tasks, False, True) is not None)
-    (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: чотири сцени, ліміт 10 доларів.\n", encoding="utf-8")
+    (tasks / "doing/051-x.md").write_text("# 051\n\nПлатні прогони: так, до 10 доларів.\n", encoding="utf-8")
     check("a number in the line is the ceiling when --max-usd is not given", evals.dollar_limit(tasks, None) == 10.0)
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--max-usd", "0.5"], capture_output=True, text=True, env=env, check=False)
     check("a limit smaller than one run starts nothing", "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)

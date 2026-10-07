@@ -308,7 +308,7 @@ check("no task in doing/: refused", runner.paid_run_refusal(board, False, True) 
 check("a task without the line: refused", runner.paid_run_refusal(board, False, True) is not None)
 check("--owner-approved inside a session does not count", "does not count" in str(runner.paid_run_refusal(board, True, True)))
 check("--owner-approved in the owner's terminal: allowed", runner.paid_run_refusal(board, True, False) is None)
-(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: лише евалуація, не більше 30 доларів.\n")
+(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так, не більше 30 доларів.\n")
 check("the task's «Платні прогони» line with a dollar limit: allowed", runner.paid_run_refusal(board, False, True) is None)
 (board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні.\n")
 check("negative — the line says «ні»: refused", runner.paid_run_refusal(board, False, True) is not None)
@@ -316,7 +316,7 @@ check("…and the refusal asks for «Платні прогони: так», not 
       "«Платні прогони: так»" in str(runner.paid_run_refusal(board, False, True)) and "no dollar number is needed" in str(runner.paid_run_refusal(board, False, True)),
       runner.paid_run_refusal(board, False, True))
 check("the old line's number is a ceiling: the smaller of it and --max-usd", (board / "doing" / "010-x.md").write_text(
-    "# 010\n\nПлатні прогони: лише евалуація, не більше 30 доларів.\n") and runner.dollar_limit(board, None) == 30.0
+    "# 010\n\nПлатні прогони: так, не більше 30 доларів.\n") and runner.dollar_limit(board, None) == 30.0
     and runner.dollar_limit(board, 50.0) == 30.0 and runner.dollar_limit(board, 4.0) == 4.0)
 (board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так\n")
 check("board 053 — «Платні прогони: так» without a number: allowed", runner.paid_run_refusal(board, False, True) is None, runner.paid_run_refusal(board, False, True))

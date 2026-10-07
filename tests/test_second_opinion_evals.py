@@ -144,7 +144,7 @@ def measure(*args: str, key: str | None = KEY) -> subprocess.CompletedProcess[st
 done = measure("--runs", "1")
 check("a task without the «Платні прогони» line: refused, nothing started",
       done.returncode == 2 and "refusing to start paid sessions" in done.stderr and Gemini.calls == 0 and not (work / "started").exists(), done.stderr)
-(board / "doing" / "013-x.md").write_text("# 013\n\nПлатні прогони: лише разовий вимір, до 15 доларів.\n", encoding="utf-8")
+(board / "doing" / "013-x.md").write_text("# 013\n\nПлатні прогони: так, до 15 доларів.\n", encoding="utf-8")
 done = measure("--runs", "1", key=None)
 check("the line is there but the key is not: refused before either judge is asked — the control included",
       done.returncode == 2 and "GEMINI_API_KEY_SIMPLIFIER" in done.stderr and Gemini.calls == 0 and not (work / "started").exists(), done.stderr)

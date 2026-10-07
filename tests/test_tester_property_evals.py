@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([*base, "--owner-approved"], capture_output=True, text=True, env=env, check=False)
     check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
           r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/063-x.md").write_text("# 063\n\nПлатні прогони: сорок п'ять сесій; запобіжник від циклу 50 доларів — не бюджет.\n", encoding="utf-8")
+    (tasks / "doing/063-x.md").write_text("# 063\n\nПлатні прогони: так, до 50 доларів.\n", encoding="utf-8")
     ready = Path(tmp) / "ready.py"
     ready.write_text(HEAD["conserve"] + OBVIOUS["conserve"] + "\n" + TRAP["conserve"], encoding="utf-8")
     shim.write_text(f"#!/bin/sh\necho \"$*\" | tr '\\n' ' ' >> {tmp}/argv; echo >> {tmp}/argv\ngrep -c Invariants .engine/slices/split-bill.md >> {tmp}/sections\n"

@@ -138,7 +138,7 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([*base, "--owner-approved"], capture_output=True, text=True, env=env, check=False)
     check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
           r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/062-x.md").write_text("# 062\n\nПлатні прогони: тринадцять сцен, ліміт 5 доларів.\n", encoding="utf-8")
+    (tasks / "doing/062-x.md").write_text("# 062\n\nПлатні прогони: так, до 5 доларів.\n", encoding="utf-8")
     r = subprocess.run([*base, "--max-usd", "0.5"], capture_output=True, text=True, env=env, check=False)
     check("with the line, a limit smaller than one run starts nothing", "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
     answer = json.dumps(ideal("discount-threshold") | {"reason": "a ratified threshold"})
