@@ -45,3 +45,5 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | parked | 059-simplifier-misses-rewritten-duplicate | 059-simplifier-misses-rewritten-duplicate: simplifier не бачить дублювання, написаного по-різному, у двох модулях (0 з 5 сесій) #ba89dd52
 - 2026-10-07 | parked | 059-traps-outside-the-agents-list | 059-traps-outside-the-agents-list: Складніший evaluation set: жодна пастка не спрацювала — чи робити другий раунд пасток #016d7d59
 - 2026-10-07 | parked | 059-dependency-signal-import-name-and-tests-only | 059-dependency-signal-import-name-and-tests-only: Сигнал unused-dependency: ім'я пакета проти імені імпорту, і залежність, яку імпортує лише тест #c3140430
+- 2026-10-07 | parked | attended-session-task-numbers-600-699 | attended-session-task-numbers-600-699: Tasks, які створює сесія з власником, отримують номери з окремого діапазону 600–699 #047638c9
+- 2026-10-07 | parked | stop-gate-no-escalation-while-awaiting-owner | stop-gate-no-escalation-while-awaiting-owner: Stop gate не рахує блокування в escalation, поки сесія явно чекає відповіді власника #f27b5b5d
