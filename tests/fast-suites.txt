@@ -51,6 +51,7 @@
 # hook uses it; in-process, plus four throwaway repositories and three runs of block-dangerous.sh).
 # Board 062: test_testing 26 s stays out (about a hundred runs of testing.py on synthetic projects, each hand-in running its tests).
 # Board 062: test_manager_evals 0.7 s is in (offline: the scenes against the validator, the scoring, the paid gate).
+# Board 058: test_audit_noise 2 s is in (offline: about twenty runs of compare_audits.py on small result files).
 test_deny_gaps.py
 test_hook_env.py
 test_root_delete_deny.py
@@ -85,3 +86,4 @@ test_analyst_evals.py
 test_onboard.py
 test_manager_evals.py
 test_owner_terms.py
+test_audit_noise.py

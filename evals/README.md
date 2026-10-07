@@ -25,7 +25,7 @@ by Claude Code, wired into `settings.json`, or copied into a target project.
 | `needs_audit.py` | `python3 evals/needs_audit.py <ref>`: has any text the model reads changed since `<ref>`, and which files. Exit 0 = no audit due. |
 | `settings_parity.py` | The settings in force from the files Claude Code reads (user + project + local, by the documented merge rules), and a `compare` of two set-ups. The parity check for the shared/personal split. |
 | `permission_rules.py` | A reference matcher for Bash permission rules as the docs state them (`*` any text, `:*`, exact, compound commands). What a deny list refuses, before it is applied. |
-| `baseline/` | Recorded results, one folder per environment. `linux-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `linux-ubuntu-26.04/` holds the v0.8.0–v0.9.0 runs and the home-hooks run; `macos-14/` the packages recorded on macOS (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json`; `linux-ubuntu-22.04/` everything since: `results-package-7.json` (96), then `results-package-memory.json` (105), then `results-package-costs.json` (114 scenarios); then `results-task-010.json` (118: those plus the simplifier's four, board 010); then `results-task-020.json` (119: plus `vs-bypass-without-marker`, board 020); then `results-task-018.json` (141: plus the 22 scenarios of the overseer as a separate agent — `osf-*` the Stop hook on a recorded verdict, `ovg-*` the guard, `ovr-*` the verdict writer; the 23 `os-*` scenarios now pin the former protocol, board 018); then `results-task-025.json` (148: plus seven `vs-bypass-*` scenarios for `PROJECT_MARKER` and `CODE_EXTENSIONS` under the bypass guard, board 025); then `results-task-033.json` (138: the former protocol is removed and its 23 `os-*` scenarios with it; 11 of their situations stay as `osf-*` under the one protocol and 2 show a project without the handlers, board 033); the everyday reference now is `results-task-039.json` (135: the DAG supervisor is retired, and the three `osf-*` scenarios of the Stop hook's continue guard with it, board 039), `gate-evals-package-7.json` the gate script's results, `audit-v0.12.0.json` the release audit of package costs (11 scenes), `audit-task-041.json` the release audit before v0.12.0 at the tip of `unattended/work` (12 scenes, 36 of 36, board 041); in `macos-14/`, `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
+| `baseline/` | Recorded results, one folder per environment. `linux-ubuntu-24.04/` was recorded on a machine with none of the author's tooling; `linux-ubuntu-26.04/` holds the v0.8.0–v0.9.0 runs and the home-hooks run; `macos-14/` the packages recorded on macOS (`results-package-3b.json`, `results-package-3b-finish.json`, then `results-package-3c.json`; `linux-ubuntu-22.04/` everything since: `results-package-7.json` (96), then `results-package-memory.json` (105), then `results-package-costs.json` (114 scenarios); then `results-task-010.json` (118: those plus the simplifier's four, board 010); then `results-task-020.json` (119: plus `vs-bypass-without-marker`, board 020); then `results-task-018.json` (141: plus the 22 scenarios of the overseer as a separate agent — `osf-*` the Stop hook on a recorded verdict, `ovg-*` the guard, `ovr-*` the verdict writer; the 23 `os-*` scenarios now pin the former protocol, board 018); then `results-task-025.json` (148: plus seven `vs-bypass-*` scenarios for `PROJECT_MARKER` and `CODE_EXTENSIONS` under the bypass guard, board 025); then `results-task-033.json` (138: the former protocol is removed and its 23 `os-*` scenarios with it; 11 of their situations stay as `osf-*` under the one protocol and 2 show a project without the handlers, board 033); the everyday reference now is `results-task-039.json` (135: the DAG supervisor is retired, and the three `osf-*` scenarios of the Stop hook's continue guard with it, board 039), `gate-evals-package-7.json` the gate script's results, `audit-v0.12.0.json` the release audit of package costs (11 scenes), `audit-task-041.json` the release audit before v0.12.0 at the tip of `unattended/work` (12 scenes, 36 of 36, board 041); `audit-task-058-noise-1.json` and `-2.json` two full audits of one commit and `audit-noise.json` the noise record computed from them (board 058, "The noise of the audit"); in `macos-14/`, `audit-pre-3c.json` is the audit run before the move (the post-move run was never recorded); `audit-v0.11.0.json` / `audit-post-2b.json` are package 2b's pair, `audit-v0.11.0-run1-broken-instrument.json` the stopped run that exposed the instrument). |
 
 ## Quick start
 
@@ -211,7 +211,43 @@ session the runner builds one throwaway sandbox and checks that every path
 `fixtures/PROGRESS.fixture.md` names exists in it — package 3c moved the overseer's contract
 path to `.engine/slices/` but not the fixture, and every audit session at v0.11.0 reported the
 contract missing. Comparing two result files: `python3 evals/compare_audits.py --before A.json
---after B.json --noise N1.json N2.json --must-fix 01-clean-pass,08-chat-only-design`.
+--after B.json --must-fix 01-clean-pass,08-chat-only-design` (the noise it judges by: next section).
+
+### The noise of the audit (board 058)
+
+A verdict is a model's, so a difference between two audits means something only when it is larger
+than what two audits of the SAME engine disagree by. That was measured once and is kept as a record:
+
+- `baseline/linux-ubuntu-22.04/audit-noise.json` — threshold **0.00**: two full audits of one commit
+  (`cdda02e`, 2026-10-07, `audit-task-058-noise-1.json` and `-2.json`, 72 sessions, $27.85) gave the
+  same verdict in every session of every scene — 36 of 36 matched in each, the check number included.
+  No scene's match rate moved and no scene's verdict varied.
+
+```bash
+python3 evals/compare_audits.py --measure-noise N1.json N2.json --out-record evals/baseline/@env/audit-noise.json
+```
+
+measures it again (two or more complete result files of one commit, environment, model and
+settings; anything else is refused): the verdicts of every session, the match rate of every run, and per scene the
+noise — the largest minus the smallest match rate among the runs. The threshold is the largest noise
+of any scene. `compare_audits.py` reads the record that lies beside its `--before` file and names it
+in the header (`--noise-record FILE` for another, `--noise-record none` for none; two `--noise`
+files given by hand still win). The bound of a scene is the larger of its own noise and the
+threshold; a difference that is not zero and not larger than the bound is **«у межах шуму»** — not
+"better", not WORSE, and it fails nothing. With no record the header says `noise: NOT MEASURED`.
+The rates are compared as exact fractions: in floats one session of three is not one size
+(1 − 2/3 > 2/3 − 1/3), and a difference equal to the noise would read as larger than it.
+
+What the threshold 0.00 does and does not say. With three sessions a scene the smallest difference
+there is, is one session of three (0.33), and at this threshold it is real: a scene that goes from
+3/3 to 2/3 is WORSE. The ground is that no session of 72 on this commit — and none of the 108 in the
+three full audits before it (`audit-task-014`, `-018`, `-041`) — answered differently from its
+scene's expectation. It is not proof that a session never will: 72 sessions without a miss bound the
+chance of one at about 4 % a session (95 %), and at that rate a 36-session audit would show a stray
+miss more often than not. So a single one-session difference is a reason to run that scene again
+(`--runs 3 --only NN`, about a dollar), not yet a finding; the same miss twice is. Measure the noise
+again when the model or Claude Code changes, or a scene is added — the record names what it was
+measured on, and a scene it does not have is bound by the threshold. `tests/test_audit_noise.py`.
 
 **Older result files carry `echo: refused` runs.** Until board 018 a scene began with a session
 asked to relay the scripted turn, and a session that reads the engine's rules sometimes refused
