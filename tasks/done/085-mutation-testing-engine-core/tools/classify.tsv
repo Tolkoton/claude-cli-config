@@ -1,0 +1,160 @@
+engine	*	BitOr_BitAnd@annotation	E	анотація типу (`X | None`): під `from __future__ import annotations` не обчислюється
+engine	194	Lt_LtE	E	вік heartbeat — float від поточного часу; рівність рівно 900.0 с недосяжна
+engine	507	*	E	запобіжник від обірваного виводу `git log -z`: у справжньому виводі після рядка `:meta` завжди є шлях
+engine	583	Gt_GtE	E	begin і end — індекси двох різних рядків-маркерів (`# >>> engine:` і `# <<< engine`), рівними не бувають
+engine	889	NumberReplacer	E	`split(script, 1)[1]` і `split(script, 2)[1]` різняться лише коли назва скрипта стоїть у команді двічі
+engine	932	NumberReplacer	E	група завжди має рівно один handler (так її будує overseer_groups), `[0]` і `[-1]` — той самий елемент
+engine	637	NumberReplacer	C	довжина короткого hash у тексті повідомлення
+engine	1334	NumberReplacer	C	довжина короткого hash у тексті повідомлення
+engine	1491	NumberReplacer	C	довжина короткого hash у тексті повідомлення
+engine	1496	NumberReplacer	C	який абзац docstring показує `--help`
+engine	794	ContinueWithBreak	N	цикл приміток «запис старої копії двигуна»: потрібен проєкт із файлом зі старої версії двигуна
+engine	934	FalseWithTrue	N	не-ASCII у settings.json проєкту під час дописування handlers overseer-а
+engine	1403	ExceptionReplacer	N	release: needs-audit повернув JSON без ключа
+engine	1418	*	N	release: запис у журнал аномалій не вдався (--without-audit)
+engine	1474	TrueWithFalse	N	release: push не вдався, а журналу до того не було
+gate	*	BitOr_BitAnd@annotation	E	анотація типу: під `from __future__ import annotations` не обчислюється
+gate	1031	NumberReplacer	E	`sys.path.insert(0|1, hooks)`: модуль simplify_signals є лише в теці hooks, знаходиться з будь-якої позиції
+gate	604	*	C	хвіст «and N more» у тексті знахідки про послаблений snapshot
+gate	743	NumberReplacer	C	скільки рядків «гірше, ніж snapshot» показано в тексті причини (20)
+gate	770	NumberReplacer	C	відступ у JSON-файлі звіту
+gate	923	NumberReplacer	C	скільки файлів потрапляє в текст питання gates (20)
+gate	1067	*	C	тривалість кроку в мілісекундах (телеметрія звіту)
+gate	1157	NumberReplacer	C	тривалість кроку в мілісекундах (телеметрія звіту)
+gate	1018	ExceptionReplacer	N	захисний перелік винятків навколо lesson_queue: жоден тест не кидає OSError звідти
+gate	1039	ExceptionReplacer	N	захисний перелік винятків навколо simplify_signals: AttributeError там ніхто не кидає
+board	638	TrueWithFalse	E	`parents=True` для tasks/blocked: tasks/ на цей момент існує (без неї функція вже повернула None)
+board	*	BitOr_BitAnd@annotation	E	анотація типу: під `from __future__ import annotations` не обчислюється
+board	236	FalseWithTrue	E	типове значення поля Task.paid: єдиний конструктор (`read`) завжди передає `paid=` явно
+board	711	NumberReplacer	E	`split(sep, 1)[0]` і `split(sep, 2)[0]` — той самий перший шматок
+board	715	NumberReplacer	E	діапазон на один довший: `next()` бере перший вільний номер, який є в обох
+board	732	TrueWithFalse	E	тека done/<номер>-open-item-… має щойно обраний вільний номер, тож ще не існує
+board	313	NumberReplacer	N	задача з двома рядками дії: діє останній
+board	437	NumberReplacer	N	дві задачі в doing/ (runner-а й «з присутнім власником»): яку показано
+board	460	NumberReplacer	N	дві задачі в doing/: чию назву названо у відмові
+board	994	NumberReplacer	N	дві задачі в doing/: з якої читається дозвіл на платні прогони
+board	847	OrWithAnd	N	action_done для задачі з уже вирішеною дією
+board	856	TrueWithFalse	N	tasks/done/ ще не існує, коли правило переноситься в done/
+gate	942	AddNot	K2	вбиває tests/test_gate_allows.py (не запускався через межу часу на мутанта)
+gate	1236	AddNot	K2	вбиває tests/test_lesson_queue.py (не запускався через межу часу на мутанта)
+gate	281	*	N	added_lines: файл, якого ще немає в HEAD, на шарі stop з --diff
+gate	944	NumberReplacer	N	лічильник поставлених питань починається з 1: зайвий перезапис файлу ескалацій і число, яке ніхто не читає
+gate	962	ExceptionReplacer	N	захисний перелік винятків навколо запису питання на task board
+gate	1243	*	N	чи друкується підсумок у stderr, коли всі знахідки — лише `log`
+board	238	FalseWithTrue	E	типове значення поля Task.paid_unread: єдиний конструктор завжди передає його явно
+board	315	NumberReplacer	E	`group(0)` — увесь рядок «Залежить від: …»: цифри в ньому ті самі, що й у групі 1
+board	446	FalseWithTrue	E	типове значення `attended` у cmd_start: єдиний виклик передає аргумент явно
+board	983	NumberReplacer	E	рядком вище перевірено, що в doing рівно одна задача: `[0]` і `[-1]` — вона сама
+board	1124	TrueWithFalse	E	`parents=True` для tasks/blocked: tasks/ існує, бо з неї щойно прочитано задачу
+board	523	ContinueWithBreak	N	inbox із кількома файлами, перший з яких не відповідає на всі питання
+board	884	NumberReplacer	N	номер власної задачі runner-а, коли номери до 800 зайняті
+board	1180	NumberReplacer	N	типовий --root (тека репозиторію над board.py), коли --root не передано
+board	890	*	K2	вбиває tests/test_maintain.py (не запускався через межу часу на мутанта)
+board	920	OrWithAnd	K2	вбиває tests/test_cleanup.py (не запускався через межу часу на мутанта)
+board	1201	OrWithAnd	K2	вбиває tests/test_cleanup.py (не запускався через межу часу на мутанта)
+gate	104	NumberReplacer	C	скільки останніх рядків виводу тестів потрапляє в причину (40)
+gate	360	GtE_Gt	C	скільки діагностик одного кроку стає знахідками (20 чи 21)
+gate	582	AddNot	C	текст «файл:рядок» у причині delete guard
+gate	861	NumberReplacer	C	довжина рядка причини в записі ескалації (200)
+gate	922	NumberReplacer	C	довжина рядка причини в питанні gates (200)
+gate	979	NumberReplacer	C	скільки причин показано в повідомленні про ескалацію (5)
+gate	1261	NumberReplacer	C	який абзац docstring показує `--help`
+engine	301	NumberReplacer	E	початкове значення `last` завжди перезаписується до першого читання (разом зі `start`)
+engine	792	ZeroIterationForLoop	N	цикл приміток «запис старої копії двигуна»: потрібен проєкт із файлом зі старої версії двигуна
+engine	793	AddNot	N	цикл приміток «запис старої копії двигуна»: потрібен проєкт із файлом зі старої версії двигуна
+engine	899	ExceptionReplacer	N	settings.json у ref двигуна — не JSON
+engine	994	TrueWithFalse	N	теки .claude/ ще немає в момент запису lock-файла
+engine	1285	ZeroIterationForLoop	N	`status` друкує примітки плану
+engine	1473	AddNot	N	release: push не вдався, а журналу до того не було
+engine	1480	TrueWithFalse	N	release: назва поточної гілки після релізу
+engine	1487	ExceptionReplacer	N	release: повернення на гілку після релізу не вдалося
+engine	457	TrueWithFalse	C	вивід `git merge-base` не перехоплено: зайвий текст у терміналі, відповідь та сама
+gate	422	ContinueWithBreak	N	кілька slice-контрактів, перший із яких не запечатаний
+gate	730	NumberReplacer	C	тривалість кроку в мілісекундах (телеметрія звіту)
+gate	858	Eq_NotEq	N	які файли названо в записі ескалації, коли є і блокуючі, і неблокуючі знахідки
+gate	869	ExceptionReplacer	N	запис ескалації не вдався (OSError)
+gate	954	ContinueWithBreak	N	кілька відкладених ескалацій, перша з яких уже має питання
+gate	1059	Delete_Not	N	крок форматування, коли поточна тека — не корінь проєкту
+gate	1086	AddNot	N	попередження кроку форматування
+gate	1107	NumberReplacer	N	FORMAT_CMD, у якому `{file}` стоїть двічі
+overseer_verdict	491	NumberReplacer	C	текст помилки «evidence cites …»
+overseer_verdict	643	NumberReplacer	C	хвіст «and N more» у причині BLOCK
+overseer_verdict	652	NumberReplacer	C	текст причини BLOCK про відкриту ескалацію gates
+overseer_verdict	694	ExceptionReplacer	N	захисний перелік винятків навколо запису на task board
+overseer_verdict	750	ExceptionReplacer	N	захисний перелік винятків навколо запису на task board
+overseer_verdict	634	NumberReplacer	N	запис очікування без лічильника schema_errors
+overseer_verdict	785	TrueWithFalse	N	ручний запит аудиту без --turn-file
+overseer_verdict	108	ExceptionReplacer	N	git не запускається (OSError) під час пошуку кореня проєкту
+overseer_verdict	579	ExceptionReplacer	N	захисний перелік винятків навколо lesson_queue
+gate	746	TrueWithFalse	N	judge_step: крок, гірший за snapshot, не зупиняє наступні кроки (тести після червоного lint)
+gate	761	OrWithAnd	N	run_checks зі snapshot: червоний крок не зупиняє тести
+gate	208	AndWithOr	E	`git rev-parse --show-toplevel` або вдається й друкує шлях, або не вдається з порожнім stdout: інших поєднань немає
+engine	248	Delete_USub	N	prune_old_dirs: порядок вкладених порожніх старих тек (найглибші першими)
+engine	425	TrueWithFalse	E	`frozen=True` у dataclass Entry: жоден рядок коду не присвоює його полям
+engine	715	IsNot_Is	N	lock після «keep»: для зміненого в проєкті файлу лишається попередній id двигуна
+engine	996	Eq_NotEq	N	prune_old_dirs викликається й без переміщень: порожніх старих тек тоді немає
+engine	1012	NumberReplacer	C	лічильники в підсумковому рядку `total` плану
+engine	1377	ExceptionReplacer	N	release: файл результатів аудиту — не JSON
+engine	1421	NumberReplacer	C	довжина уривка stderr у тексті помилки (300)
+overseer_stop	757	AddNot	E	обидві гілки закінчуються тим самим `_passthrough()`
+overseer_stop	769	*	E	обидві гілки закінчуються тим самим `_passthrough()`
+overseer_stop	776	NumberReplacer	E	`sys.argv[0]` — шлях до скрипта, він не дорівнює `--dry-run`
+overseer_stop	114	NumberReplacer	C	timeout виклику git (5 с чи 4 с)
+overseer_stop	741	NumberReplacer	C	текст про відкриту ескалацію gates у запиті аудиту
+overseer_stop	411	ExceptionReplacer	N	захисний перелік винятків
+overseer_stop	559	ExceptionReplacer	N	захисний перелік винятків
+overseer_stop	628	ExceptionReplacer	N	захисний перелік винятків
+overseer_verdict	150	NumberReplacer	C	timeout виклику git
+overseer_verdict	152	NumberReplacer	C	timeout виклику git
+overseer_verdict	314	TrueWithFalse	N	тека стану ще не існує, коли пишеться перший рядок verdicts.jsonl
+overseer_verdict	360	NumberReplacer	E	`sys.path.insert(0|1, …)`: модуль board є лише в теці unattended
+overseer_verdict	450	NumberReplacer	N	лічильник запусків overseer-а в записі очікування без поля launched
+overseer_verdict	525	NumberReplacer	C	довжина абзацу devil's advocate в ledger (1200)
+overseer_verdict	558	ExceptionReplacer	N	захисний перелік винятків
+overseer_verdict	642	NumberReplacer	C	скільки змінених файлів названо в причині (12)
+overseer_stop	386	*	C	текст «raised in slice …» у повідомленні
+overseer_stop	744	NumberReplacer	C	текст про відкриту ескалацію gates
+overseer_stop	423	ExceptionReplacer	N	захисний перелік винятків
+overseer_stop	598	ExceptionReplacer	N	захисний перелік винятків
+overseer_stop	685	OrWithAnd	N	ключ, під яким юніт відкладається після третьої відмови
+overseer_stop	691	NumberReplacer	N	лічильник schema_errors у записі очікування після повторного запиту
+overseer_verdict	522	NumberReplacer	N	рядок Action у ledger для запису без номера спроби
+lesson_queue	314	NumberReplacer	E	типове значення в `isinstance(state.get("passes", …), int)`: і 0, і -1 — цілі, результат той самий
+lesson_queue	559	NumberReplacer	E	`ln[3:].strip()` і `ln[2:].strip()` для рядка «## дата …» дають той самий текст
+lesson_queue	323	NumberReplacer	C	скільки кандидатів показано в нагадуванні (12)
+lesson_queue	636	NumberReplacer	C	довжина уривка в тексті «застряг» (90)
+lesson_queue	707	NumberReplacer	C	який абзац docstring показує `--help`
+overseer_verdict	269	NumberReplacer	C	довжина уривка prompt у доказах (60)
+overseer_verdict	406	TrueWithFalse	N	тека запиту вже існує під час повторного запиту
+overseer_verdict	530	NumberReplacer	N	рядок Request у ledger для запису без номера спроби
+overseer_verdict	571	ExceptionReplacer	N	захисний перелік винятків
+overseer_verdict	643	Gt_LtE	C	хвіст «and N more» у причині
+overseer_verdict	719	ExceptionReplacer	N	захисний перелік винятків
+overseer_verdict	754	NumberReplacer	C	текст про відкриту ескалацію gates
+overseer_verdict	773	NumberReplacer	C	скільки останніх вердиктів показує `status` (5)
+overseer_verdict	797	NumberReplacer	N	код виходу однієї з команд CLI
+overseer_verdict	739	ExceptionReplacer	N	файл ходу для ручного запиту не читається (OSError)
+overseer_verdict	105	NumberReplacer	C	timeout виклику git
+overseer_verdict	124	NumberReplacer	C	відступ у JSON-файлах стану
+overseer_verdict	364	ExceptionReplacer	N	захисний перелік винятків
+overseer_verdict	518	NumberReplacer	C	довжина рядка evidence в ledger (200)
+overseer_verdict	744	NumberReplacer	N	код виходу ручного запиту, коли файл ходу не читається (2)
+lesson_queue	218	NumberReplacer	C	скільки блокуючих знахідок gates стає кандидатами (3)
+lesson_queue	222	NumberReplacer	N	число, яке повертає collect_gate (скільки додано)
+lesson_queue	254	NumberReplacer	N	число, яке повертає collect_parked (скільки додано)
+lesson_queue	324	Sub_Add	C	хвіст «and N more» у нагадуванні
+lesson_queue	378	NumberReplacer	E	`sys.path.insert(0|-1, …)`: модуль board є лише в теці unattended
+lesson_queue	419	NumberReplacer	N	кілька записів черги з тим самим номером
+lesson_queue	424	NumberReplacer	C	довжина заголовка запису в MEMORY.md (90)
+lesson_queue	440	NumberReplacer	C	довжина заголовка запису у feedback (90)
+lesson_queue	562	NumberReplacer	C	скільки останніх записів пам'яті показано в дайджесті (4)
+lesson_queue	620	ExceptionReplacer	N	захисний перелік винятків
+lesson_queue	697	OrWithAnd	N	stdin — термінал (hook запущено руками)
+lesson_queue	773	*	N	OSError під час команди: код виходу для hook-команд і решти
+lesson_queue	520	NumberReplacer	N	відхилення пропозиції, яка вже закрита
+lesson_queue	282	Add_Sub	N	число, яке повертає collect (сума доданого з трьох джерел)
+lesson_queue	324	NumberReplacer	C	хвіст «and N more» у нагадуванні
+lesson_queue	431	NumberReplacer	N	текст правила з кількох рядків: у пропозицію йде перший
+lesson_queue	642	AddNot	N	note_success, коли лічильника невдач немає
+lesson_queue	668	NumberReplacer	C	довжина уривка команди в тексті невдачі (80)
+lesson_queue	630	NumberReplacer	E	файл stuck.json завжди пишеться з полем count; без файлу ключ не збігається і типове значення не читається

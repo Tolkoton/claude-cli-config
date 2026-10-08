@@ -61,6 +61,8 @@
 # Board 055: test_overseer_readonly stays out (about a hundred and sixty runs of the two real deny hooks, most of
 # them starting python3 for shell_readonly.py).
 # Board 056: test_owner_perimeter stays out (about a hundred runs of the two real deny hooks).
+# Board 085: test_core_units 2.5 s is in (in-process: the cases a mutation run found unpinned in gate.py, overseer_verdict.py,
+# overseer_stop.py, board.py, engine.py and lesson_queue.py; a dozen throwaway repositories, no hook started).
 test_deny_gaps.py
 test_hook_env.py
 test_root_delete_deny.py
@@ -96,3 +98,4 @@ test_onboard.py
 test_manager_evals.py
 test_owner_terms.py
 test_audit_noise.py
+test_core_units.py
