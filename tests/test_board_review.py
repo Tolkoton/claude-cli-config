@@ -215,7 +215,8 @@ def state_files(top: Path, status: str) -> Path:
     }}))
     # board 035: the records the tools leave about their own runs
     write(state, "health/tests-full.json", json.dumps({"what": "tests/run_all.sh", "mode": "full", "recorded_utc": "2026-02-03T04:05:06Z",
-          "commit": "abcdef0123456789", "dirty": True, "suites": 60, "green": 58, "red": ["tests/test_червоний.py", "tests/test_other.py"]}))
+          "commit": "abcdef0123456789", "dirty": True, "suites": 60, "green": 58, "red": ["tests/test_червоний.py", "tests/test_other.py"],
+          "seconds": 754.3, "jobs": 2}))   # board 087: the run's own time; the fast record below is an older one, without it
     write(state, "health/tests-fast.json", json.dumps({"what": "tests/run_all.sh", "mode": "fast", "recorded_utc": "2026-02-04T00:00:00Z",
           "commit": "1234567890abcdef", "dirty": False, "suites": 30, "green": 30, "red": []}))
     write(state, "health/golden.json", json.dumps({"what": "evals/run_hook_scenarios.py", "recorded_utc": "2026-02-05T00:00:00Z",
@@ -356,6 +357,9 @@ health = section(with_state, "Здоров'я")
 check("health (board 035): the full run from the machine record — time (UTC), commit, a dirty tree, green of all, the red ones by name",
       "2026-02-03 04:05 UTC" in health and "`abcdef0`" in health and "незакоміченими змінами" in health and "58 із 60 наборів" in health
       and "`tests/test_червоний.py`" in health and "ПРОГІН-ТЕСТІВ" not in health, health)
+full_line, fast_line = (next((line for line in health.splitlines() if words in line), "") for words in ("58 із 60 наборів", "30 із 30 наборів"))
+check("board 087: the full run's line says how long it took, from the record; a record without the time says nothing about it",
+      "тривав 12 хв 34 с" in full_line and "тривав" not in fast_line and fast_line != "", (full_line, fast_line))
 check("…the gate's fast run beside it, clean tree, nothing red", "30 із 30 наборів" in health and "`1234567`" in health
       and health.count("незакоміченими змінами") == 1, health)
 check("…and the golden set from its record, not from a results file: 137 of 138, compared, one difference", "137 із 138 сценаріїв" in health

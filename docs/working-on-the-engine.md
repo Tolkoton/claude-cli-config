@@ -12,12 +12,23 @@ The rule is in `AGENTS.md`: exercise the thing you changed and show the negative
 ```bash
 bash tests/run_all.sh                 # every suite, one line each (the pre-tag check)
 bash tests/run_all.sh --fast          # the Stop-gate subset
+bash tests/run_all.sh --jobs 1        # one suite at a time; the default is one per processor
 python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-22.04/results-task-086.json
 python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
 bash .claude/unattended/board-runner.sh --status
 python3 evals/hook_coverage.py run --data /tmp/cov-tests -- bash tests/run_all.sh    # about an hour: every suite, traced
 python3 evals/hook_coverage.py report /tmp/cov-tests --missing                       # what no suite ran, by function
 ```
+
+## The suites run in parallel
+
+`tests/run_all.sh` runs as many suites at once as the machine has processors (`--jobs N`,
+`ENGINE_TEST_JOBS`), and prints and records what a run one at a time would: one line per suite in
+the order of the list, the same exit code. A suite must therefore stand alone — its own throwaway
+directories (`tempfile.mkdtemp`), no fixed path under `/tmp`, no fixed port, nothing written into
+this repository — and must not measure a short time limit it could miss on a busy machine. The
+record (`.claude/state/health/tests-full.json`) carries the run's `seconds` and every suite's
+time; the next run starts the longest first. Do not edit `tests/run_all.sh` while it runs.
 
 ## A suite that runs a hook
 
