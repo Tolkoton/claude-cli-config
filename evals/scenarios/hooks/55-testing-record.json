@@ -1,0 +1,311 @@
+{
+  "hook": "testing.py",
+  "event": "SubagentStop of test-manager and slice-tester (the script records the answer; the agent never writes it)",
+  "args": [
+    "record"
+  ],
+  "scenarios": [
+    {
+      "id": "tr-no-request-is-silent",
+      "why": "An agent that stops with no request pending leaves no record and is not held.",
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"point\": \"a\", \"slice\": \"discount\", \"decision\": \"tester\", \"reason\": \"a hardest seam\"}\n```"
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": false
+    },
+    {
+      "id": "tr-another-agent-is-ignored",
+      "why": "The hook is wired for the two testing agents; any other agent's stop passes.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"a\", \"slice\": \"discount\", \"facts\": {\"point\": \"a\", \"slice\": \"discount\", \"hardest_seams\": [\"the rounding of a discounted price\"]}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "overseer",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"verdict\": \"PASS\"}\n```"
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": false
+    },
+    {
+      "id": "tr-decision-is-recorded",
+      "why": "A decision that fits the schema and the facts is written to the testing ledger by the script.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"a\", \"slice\": \"discount\", \"facts\": {\"point\": \"a\", \"slice\": \"discount\", \"hardest_seams\": [\"the rounding of a discounted price\"]}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"point\": \"a\", \"slice\": \"discount\", \"decision\": \"tester\", \"reason\": \"the contract names a hardest seam\"}\n```"
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "tr-answer-without-json-is-sent-back",
+      "why": "Prose is not a decision: the manager is held once and told what to answer with.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"a\", \"slice\": \"discount\", \"facts\": {\"point\": \"a\", \"slice\": \"discount\", \"hardest_seams\": [\"the rounding of a discounted price\"]}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "I think the builder can write these tests."
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "block",
+      "expect_detail_contains": "The decision is refused",
+      "expect_file_changed": false
+    },
+    {
+      "id": "tr-manager-cannot-cancel-a-mandatory-case",
+      "why": "The contract names a hardest seam (O1): «the builder» is refused whatever the reason given.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"a\", \"slice\": \"discount\", \"facts\": {\"point\": \"a\", \"slice\": \"discount\", \"hardest_seams\": [\"the rounding of a discounted price\"]}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"point\": \"a\", \"slice\": \"discount\", \"decision\": \"builder\", \"reason\": \"it is small\", \"small\": \"one function\", \"uniform\": \"one rule\"}\n```"
+      },
+      "detail_line": "O1",
+      "expect": "block",
+      "expect_detail_contains": "the tester is called, the manager cannot cancel it"
+    },
+    {
+      "id": "tr-second-refusal-is-written-by-the-script",
+      "why": "Refused twice, the manager is not asked a third time: the script records the cautious decision and says it did.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"a\", \"slice\": \"discount\", \"facts\": {\"point\": \"a\", \"slice\": \"discount\", \"hardest_seams\": [\"the rounding of a discounted price\"]}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"point\": \"a\", \"slice\": \"discount\", \"decision\": \"builder\", \"reason\": \"it is small\", \"small\": \"one function\", \"uniform\": \"one rule\"}\n```"
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "tr-point-b-integration-cannot-be-deferred",
+      "why": "The feature closes (O5): integration tests deferred once more are refused.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"b\", \"slice\": \"discount\", \"facts\": {\"point\": \"b\", \"slice\": \"discount\", \"closes_feature\": true, \"events_due\": [], \"mutation_cmd_set\": false}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"point\": \"b\", \"slice\": \"discount\", \"reason\": \"the feature closes with this slice\", \"checks\": {\"catch_up\": {\"when\": \"none\", \"reason\": \"the tester wrote the contract tests\"}, \"integration\": {\"when\": \"defer\", \"until\": \"feature-closed\", \"reason\": \"later\"}, \"mutation\": {\"when\": \"none\", \"reason\": \"MUTATION_CMD is empty\"}}}\n```"
+      },
+      "detail_line": "O5",
+      "expect": "block",
+      "expect_detail_contains": "`integration` is done now"
+    },
+    {
+      "id": "tr-point-b-decision-is-recorded",
+      "why": "Point (b) with every mandatory check «now» is recorded.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"b\", \"slice\": \"discount\", \"facts\": {\"point\": \"b\", \"slice\": \"discount\", \"closes_feature\": true, \"events_due\": [], \"mutation_cmd_set\": false}}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "last_assistant_message": "```json\n{\"point\": \"b\", \"slice\": \"discount\", \"reason\": \"the feature closes with this slice\", \"checks\": {\"catch_up\": {\"when\": \"none\", \"reason\": \"the tester wrote the contract tests\"}, \"integration\": {\"when\": \"now\", \"reason\": \"the last block of the feature is closed\"}, \"mutation\": {\"when\": \"none\", \"reason\": \"MUTATION_CMD is empty\"}}}\n```"
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "tr-tester-hand-in-without-json-is-sent-back",
+      "why": "The tester's hand-in is an object the script can check; prose is sent back once.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"slice-tester\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"slice-tester\", \"mode\": \"contract\", \"slice\": \"discount\"}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "slice-tester",
+        "agent_id": "a1",
+        "last_assistant_message": "The tests are written."
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "block",
+      "expect_detail_contains": "The hand-in is refused",
+      "expect_file_changed": false
+    },
+    {
+      "id": "tr-tester-refused-twice-is-not-accepted",
+      "why": "A second refusal ends this tester: the ledger says REFUSED and a fresh tester must be asked.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"slice-tester\", \"rejections\": 1}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"slice-tester\", \"mode\": \"contract\", \"slice\": \"discount\"}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "slice-tester",
+        "agent_id": "a1",
+        "last_assistant_message": "The tests are written."
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    },
+    {
+      "id": "tr-answer-handed-back-through-the-transcript",
+      "why": "The manager's decision arrives through `SubagentHandback` when the envelope carries no message: it is read from the agent's transcript and recorded.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        },
+        {
+          "write": {
+            "path": ".claude/state/testing/requests/20261008T120000Z-abc123/request.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"point\": \"a\", \"slice\": \"discount\", \"facts\": {\"point\": \"a\", \"slice\": \"discount\", \"hardest_seams\": [\"the rounding of a discounted price\"]}}\n"
+          }
+        }
+      ],
+      "transcript": [
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "name": "SubagentHandback",
+                "input": {
+                  "message": "```json\n{\"point\": \"a\", \"slice\": \"discount\", \"decision\": \"tester\", \"reason\": \"the contract names a hardest seam\"}\n```"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SubagentStop",
+        "agent_type": "test-manager",
+        "agent_id": "a1",
+        "agent_transcript_path": "{{TRANSCRIPT}}"
+      },
+      "check_file": ".engine/testing/ledger.md",
+      "expect": "allow",
+      "expect_file_changed": true
+    }
+  ]
+}

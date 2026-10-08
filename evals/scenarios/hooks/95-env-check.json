@@ -1,0 +1,92 @@
+{
+  "hook": "env-check.sh",
+  "event": "SessionStart (what this machine lacks; the WSL traps; the lesson digest)",
+  "scenarios": [
+    {
+      "id": "ec-nothing-missing-is-silent",
+      "why": "SessionStart output is paid for in every session: with every tool present and no lesson waiting the hook says nothing.",
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "ec-configured-linter-not-on-path",
+      "why": "pyproject.toml configures ruff and mypy, no lock file names a runner, and neither tool is on PATH: the Stop gate could only fail, so the session is told up front.",
+      "setup": [
+        {
+          "git": [
+            "rm",
+            "-q",
+            "uv.lock"
+          ]
+        }
+      ],
+      "env": {
+        "PATH": "/usr/bin:/bin"
+      },
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow",
+      "expect_detail_contains": "engine environment check — missing on this machine"
+    },
+    {
+      "id": "ec-wsl-project-on-a-windows-disk",
+      "why": "Under WSL a project on /mnt/<drive>/ loses the hooks' executable bit and runs many times slower: named at the start, not discovered later.",
+      "setup": [
+        {
+          "write": {
+            "path": "proc-version",
+            "content": "Linux version 5.15.153.1-microsoft-standard-WSL2 (gcc 11.2.0)\n"
+          }
+        }
+      ],
+      "env": {
+        "ENGINE_PROC_VERSION": "{{SANDBOX}}/proc-version",
+        "CLAUDE_PROJECT_DIR": "/mnt/c/Users/owner/project"
+      },
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow",
+      "expect_detail_contains": "engine environment check — WSL"
+    },
+    {
+      "id": "ec-wsl-in-the-linux-home-is-silent",
+      "why": "The same kernel with the project in the Linux home is an ordinary Linux machine: no warning.",
+      "setup": [
+        {
+          "write": {
+            "path": "proc-version",
+            "content": "Linux version 5.15.153.1-microsoft-standard-WSL2 (gcc 11.2.0)\n"
+          }
+        }
+      ],
+      "env": {
+        "ENGINE_PROC_VERSION": "{{SANDBOX}}/proc-version"
+      },
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "ec-carries-the-lesson-digest",
+      "why": "The lesson digest has no SessionStart wiring of its own: it reaches a session only because this hook calls it.",
+      "setup": [
+        {
+          "write": {
+            "path": ".engine/lesson-queue.md",
+            "content": "# Lesson queue\n\n- 2026-10-01 | agent | s1 | the cache key ignores the locale #0a1b2c3d\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "SessionStart"
+      },
+      "expect": "allow",
+      "expect_detail_contains": "## lessons"
+    }
+  ]
+}

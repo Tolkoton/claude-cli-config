@@ -5,7 +5,7 @@
     python3 evals/run_simplifier_evals.py --score ANSWER.json                      # free: score a saved answer
     python3 evals/run_simplifier_evals.py --sandbox DIR                            # free: build the project, print the request
     python3 evals/run_simplifier_evals.py --rescore RESULTS.json                   # free: count recorded answers again
-    … --set hard | --set traps                                                     # another set, with any of the four
+    … --set hard | --set traps | --set unwritten                                   # another set, with any of the four
 
 The project is evals/reference-project with evals/scenarios/simplifier/project/ laid over it:
 six kinds of planted excess (an abstraction with one implementation, dead code, an unused
@@ -27,6 +27,12 @@ more traps laid over it, of kinds the agent's definition does not list under «I
 idempotency key, a retry with a pause, a file lock, a kill switch nothing in the repository sets,
 a write order kept for recovery after a crash, a rounding the law asks for. It answers one
 question: does the simplifier leave alone what nobody told it to leave alone.
+
+`--set unwritten` takes evals/scenarios/simplifier-unwritten/ (board 745): that same project and
+code with the reason of each of the six written nowhere — no requirement, no operator's note, no
+comment. Here `flag_only` on one of the six is an honest question and `confirm` is the defect: the
+summary counts a touched trap by the action the agent asked for (`touched_proposed`) and by the one
+the validator left (`touched_after_validator`).
 
 One run = one fresh headless session of the `simplifier` agent (its own definition, its own
 model, Read / Grep / Glob only) with the request `simplifier.py request` prints. The answer goes
@@ -84,12 +90,14 @@ import environment
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "simplifier"
-SETS = {"basic": FIXTURE, "hard": HERE / "scenarios" / "simplifier-hard", "traps": HERE / "scenarios" / "simplifier-traps"}
+SETS = {"basic": FIXTURE, "hard": HERE / "scenarios" / "simplifier-hard", "traps": HERE / "scenarios" / "simplifier-traps",
+        "unwritten": HERE / "scenarios" / "simplifier-unwritten"}
 LENSES = ("code", "requirements", "architecture")
 RUN_TIMEOUT_S = 1200
 SANDBOX_ENV = 'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\nCOMPLEXITY_GATE="warn"\n'
 
 TARGET_LINES = re.compile(r"^[^:]+:(\d+)(?:-(\d+))?(?=$|:)")   # path:line, path:first-last, path:line:column
+LOWERED = re.compile(r"(\w+) -> \w+:")                          # the validator's note: confirm -> flag_only: why
 
 JsonObj = dict[str, Any]
 
@@ -148,17 +156,24 @@ def over_limit(spent: float, next_cost: float, limit: float | None) -> str | Non
     return f"cost limit: ${spent:.2f} spent, a run may cost ${next_cost:.2f}, the limit is ${limit:.2f} — stopping"
 
 
+def layers(fixture: Path) -> list[Path]:
+    """The set and every set under it (`over` in expected.json), the lowest first."""
+    under = json.loads((fixture / "expected.json").read_text(encoding="utf-8")).get("over")
+    return (layers(fixture.parent / under) if under else []) + [fixture]
+
+
 def build_sandbox(target: Path, fixture: Path = FIXTURE) -> Path:
-    """The reference project, the overlay on top (first the set its expected.json names in `over`,
-    when it names one), the agent's definition, one commit."""
+    """The reference project, the overlays on top (first the sets expected.json names in `over`,
+    the lowest first), less the files it names in `without`, the agent's definition, one commit."""
     reference = HERE / "reference-project"
     tracked = subprocess.run(["git", "-C", str(reference), "ls-files", "."], capture_output=True, text=True, check=True)
     for rel in tracked.stdout.splitlines():
         (target / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(reference / rel, target / rel)
-    under = json.loads((fixture / "expected.json").read_text(encoding="utf-8")).get("over")
-    for layer in ([fixture.parent / under] if under else []) + [fixture]:
+    for layer in layers(fixture):
         shutil.copytree(layer / "project", target, dirs_exist_ok=True)
+    for rel in json.loads((fixture / "expected.json").read_text(encoding="utf-8")).get("without", []):
+        (target / rel).unlink()                    # a file of a lower layer this set does not have
     (target / "uv.lock").unlink(missing_ok=True)   # the lock of the project before the overlay
     manifest = target / "pyproject.toml"           # the engine's own gate note is not the project's
     manifest.write_text("".join(line for line in manifest.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -202,6 +217,12 @@ def matches(finding: JsonObj, entry: JsonObj, pointed: bool = False) -> bool:
     return path in entry["files"] and any(word.lower() in text for word in entry["any"])
 
 
+def proposed(finding: JsonObj) -> str:
+    """The action the agent asked for: the validator only ever lowers, and says from what."""
+    lowered = [note for note in map(LOWERED.match, finding.get("validator") or []) if note]
+    return str(lowered[0][1] if lowered else finding["proposed_action"])
+
+
 def score(findings: list[JsonObj], expected: JsonObj, by_hand: JsonObj | None = None) -> JsonObj:
     """Each finding is counted once: a planted item first (of several it names, the one of its
     own category), then a trap, then a neutral entry (left out of precision), else unexpected.
@@ -239,7 +260,7 @@ def score(findings: list[JsonObj], expected: JsonObj, by_hand: JsonObj | None = 
         elif any(matches(finding, e) for e in expected.get("also_true", [])):
             also_true += 1
         elif trap:
-            touched.append({"trap": trap, **brief})
+            touched.append({"trap": trap, "proposed": proposed(finding), **brief})
         elif any(matches(finding, e, pointed) for e in expected.get("neutral", [])):
             neutral.append(brief)
         else:
@@ -338,6 +359,8 @@ def summary(runs: list[JsonObj]) -> JsonObj:
         "read_by_hand_total": sum(len(r["resolved"]) for r in good),
         "found_in_runs": tally(name for r in good for name in r["found"]),
         "touched_in_runs": tally(name for r in good for name in {t["trap"] for t in r["touched"]}),
+        "touched_proposed": tally(t["proposed"] for r in good for t in r["touched"]),
+        "touched_after_validator": tally(t["action"] for r in good for t in r["touched"]),
         "cost_usd": round(sum(r["cost_usd"] for r in runs), 4),
     }
 
@@ -345,7 +368,7 @@ def summary(runs: list[JsonObj]) -> JsonObj:
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--runs", type=int, default=3)
-    parser.add_argument("--set", choices=sorted(SETS), default="basic", help="which project: basic (board 010), hard (board 059) or traps (board 729)")
+    parser.add_argument("--set", choices=sorted(SETS), default="basic", help="which project: basic (board 010), hard (board 059), traps (board 729) or unwritten (board 745)")
     parser.add_argument("--out", type=environment.out_path, help="a baseline goes to evals/baseline/@env/")
     parser.add_argument("--score", type=Path, help="score a saved answer (a JSON list of findings) and stop; free")
     parser.add_argument("--rescore", type=Path, help="count a results file's recorded answers again by the present expected.json; free")

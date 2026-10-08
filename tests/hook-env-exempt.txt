@@ -16,14 +16,10 @@ test_board_runner.py                # by hand
 test_bugfix.py                      # runs bugfix.py with --root
 test_claude_md_update.py            # runs engine.py only; the hook paths are files of a synthetic engine
 test_cleanup.py                     # by hand
-test_commit_checkpoint.py           # by hand
-test_commit_policy.py               # by hand
 test_complexity_budget.py           # by hand
 test_contract_fingerprint.py        # by hand
 test_delete_guard.py                # by hand
 test_engine_install.py              # runs engine.py only; the hook paths are files of a synthetic engine
-test_env_check.py                   # by hand
-test_env_probe.py                   # by hand
 test_format_on_edit.py              # by hand
 test_gate.py                        # by hand
 test_gate_allows.py                 # by hand

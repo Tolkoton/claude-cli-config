@@ -38,6 +38,36 @@
         }
       },
       "expect": "allow-explicit"
+    },
+    {
+      "id": "aw-another-tool-is-not-decided",
+      "why": "The security boundary: asked about any tool but WebFetch and WebSearch the hook decides NOTHING (exit 1, the normal permission flow) — it never allows.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git status"
+        }
+      },
+      "expect": "error:1"
+    },
+    {
+      "id": "aw-unknown-event-still-allows",
+      "why": "Inside its remit the hook fails open: an event name it does not know must not leave an unattended run hanging on a prompt for a read-only fetch.",
+      "input": {
+        "hook_event_name": "SomethingNew",
+        "tool_name": "WebFetch",
+        "tool_input": {
+          "url": "https://docs.python.org/3/"
+        }
+      },
+      "expect": "allow-explicit"
+    },
+    {
+      "id": "aw-envelope-not-an-object-still-allows",
+      "why": "Recorded as it is: an envelope the hook cannot read is allowed too (fail open). Safe only while settings.json wires the hook to WebFetch|WebSearch alone — widen the matcher and this scenario is the first thing to revisit.",
+      "input": [],
+      "expect": "allow-explicit"
     }
   ]
 }

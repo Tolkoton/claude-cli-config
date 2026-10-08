@@ -32,6 +32,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import trace_env
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / ".claude/hooks/block-dangerous.sh"
 SETTINGS = (ROOT / ".claude/settings.json", ROOT / "docs/tasks/settings.json")
@@ -68,7 +70,7 @@ def with_cloud_policy(root: str, value: str) -> str:
 
 
 def run_hook(cmd: str, project_dir: str, cloud: bool = False) -> subprocess.CompletedProcess[str]:
-    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "CLAUDE_PROJECT_DIR": project_dir}
+    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "CLAUDE_PROJECT_DIR": project_dir, **trace_env()}
     if cloud:
         env["CLAUDE_CODE_REMOTE"] = "true"  # what a cloud session sets (code.claude.com/docs/en/env-vars)
     return subprocess.run(

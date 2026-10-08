@@ -98,7 +98,7 @@ check("a summary skips a failed run and adds its cost",
       == {"runs": 2, "scored": 1, "recall_mean": 1.0, "recall_range": [1.0, 1.0], "precision_mean": 1.0,
           "precision_range": [1.0, 1.0], "traps_touched_total": 0, "ambiguous_total": 0, "read_by_hand_total": 0,
           "found_in_runs": {e["id"]: 1 for e in sorted(expected["planted"], key=lambda e: e["id"])},
-          "touched_in_runs": {}, "cost_usd": 3.0})
+          "touched_in_runs": {}, "touched_proposed": {}, "touched_after_validator": {}, "cost_usd": 3.0})
 trap_run = perfect[:3] + [finding("src/refproj/receipts.py:11", "the is_relative_to check is redundant"),
                           finding("src/refproj/receipts.py:9", "receipt_path resolves twice")]
 s = runner.summary([{**runner.score(perfect, expected), "cost_usd": 1.0}, {**runner.score(trap_run, expected), "cost_usd": 1.0}])
@@ -444,6 +444,108 @@ recorded.write_text(json.dumps({"set": "traps", "runs": [{"cost_usd": 1.0, "answ
 done = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(recorded)], capture_output=True, text=True, check=False)
 check("--rescore knows the set: a recorded answer that touches a new trap is counted so, and the run does not end green",
       done.returncode == 1 and json.loads(recorded.read_text())["summary"]["touched_in_runs"] == {"file-lock": 1}, done.stdout + done.stderr)
+
+print("ROUND-3-* board 745 — the same six traps with their reason written nowhere: the code is the only witness")
+bare_dir = runner.SETS["unwritten"]
+round3 = json.loads((bare_dir / "expected.json").read_text(encoding="utf-8"))
+check("the same planted items and the same sixteen traps as board 729, in its order, laid over that set",
+      [e["id"] for e in round3["planted"]] == [e["id"] for e in round2["planted"]]
+      and [e["id"] for e in round3["traps"]] == [e["id"] for e in round2["traps"]] and round3["over"] == "simplifier-traps"
+      and round3["scope"] == round2["scope"], round3["over"])
+bare_box = runner.build_sandbox(work / "unwritten", bare_dir)
+same = [rel for rel in ("src/refproj/journal.py", "src/refproj/cli.py", "src/refproj/receipts.py", "src/refproj/tax.py",
+                        "src/refproj/refunds.py", "tests/test_counter.py", "tests/test_tax.py", "pyproject.toml")
+        if (bare_box / rel).read_bytes() != (traps_box / rel).read_bytes()]
+check("three layers: the code and the tests are board 729's, byte for byte — what was proved of the traps there holds here",
+      not same and not (bare_dir / "project/src").exists() and not (bare_dir / "project/tests").exists(), same)
+check("the operator's notes are not in the project (`without`), and they were in board 729's",
+      round3["without"] == ["docs/operations.md"] and not (bare_box / "docs/operations.md").exists() and (traps_box / "docs/operations.md").is_file())
+REASONS = ("both tills", "share", "repeated", "jammed", "CLOSED", "tries again", "antivirus", "backup", "whole or not at all",
+           "at any hour", "tax office", "rounded", "rounding", "R12", "R13", "operations.md", "lock", "retry", ".part")
+
+
+def written(box: Path) -> str:
+    """Everything of the project a reader may take for a reason, the code apart."""
+    listed = subprocess.run(["git", "-C", str(box), "ls-files"], capture_output=True, text=True, check=True).stdout.splitlines()
+    return "\n".join((box / rel).read_text(encoding="utf-8") for rel in listed
+                     if not rel.startswith(("src/", "tests/", ".claude/")) and rel != "uv.lock")
+
+
+check("no document of the project — goals, notes, the record's format, slices, the slice graph, the manifest — gives a reason for any of the six",
+      not [word for word in REASONS if word.lower() in written(bare_box).lower()], [word for word in REASONS if word.lower() in written(bare_box).lower()])
+check("negative — the same search finds the reasons in board 729's project", len([word for word in REASONS if word.lower() in written(traps_box).lower()]) >= 15,
+      [word for word in REASONS if word.lower() not in written(traps_box).lower()])
+check("no comment in the code of the six gives one either: the files carry no `#` line",
+      not [rel for rel in ("src/refproj/journal.py", "src/refproj/receipts.py", "src/refproj/tax.py", "src/refproj/cli.py")
+           if any(row.strip().startswith("#") for row in (bare_box / rel).read_text().splitlines())])
+goals3 = (bare_box / "docs/goals.md").read_text(encoding="utf-8")
+check("the journal itself is still asked for — G6 and R11 stay, so the whole module is not the excess; R1–R10 are board 729's text",
+      "**G6**" in goals3 and "**R11** (G6, owner)" in goals3 and "journal.jsonl" in goals3
+      and goals3.split("- **R11**")[0] == (traps_box / "docs/goals.md").read_text(encoding="utf-8").split("- **R11**")[0])
+for entry in round3["planted"] + round3["traps"] + round3["also_true"] + round3["neutral"]:
+    texts = [(bare_box / f).read_text(encoding="utf-8") for f in entry["files"] if (bare_box / f).is_file()]
+    check(f"unwritten / {entry['id']}: its files exist and carry one of its words",
+          len(texts) == len(entry["files"]) and any(word in text for word in entry["any"] for text in texts) and entry["why"], entry)
+    for rel, ranges in entry.get("lines", {}).items():
+        rows = (bare_box / rel).read_text(encoding="utf-8").splitlines()
+        check(f"unwritten / {entry['id']}: every line range named in {rel} carries one of its words",
+              rel in entry["files"] and all(any(w.lower() in "\n".join(rows[a - 1:b]).lower() for w in entry["any"]) for a, b in ranges), ranges)
+moved = [e["id"] for kind in ("planted", "traps", "neutral") for e, was in zip(round3[kind], round2[kind], strict=True)
+         if e["id"] not in NEW_TRAPS and (e.get("lines"), e["files"], e["any"]) != (was.get("lines"), was["files"], was["any"])]
+check("what is not one of the six is described exactly as in board 729", not moved, moved)
+check("the six name no document for their reason: only the journal's own requirement and slice stay with the idempotency key",
+      [sorted(f for f in e["files"] if not f.startswith("src/")) for e in round3["traps"] if e["id"] in NEW_TRAPS]
+      == [[], [], [".engine/architecture/feature-dag.json", "docs/goals.md"], [], [], []], [e["files"] for e in round3["traps"][-6:]])
+bare_request = runner.request_text(bare_box, round3["scope"])
+check("unwritten: no deterministic signal points at a trap, and the request is board 729's but for the project's path",
+      not any(word in bare_request for word in (*hard_trap_words, "journal", "flock", "ATTEMPTS", "CLOSED", "_write_whole", "vat", "tax"))
+      and bare_request.replace(str(bare_box), "") == traps_request.replace(str(traps_box), ""), bare_request)
+s = runner.score(traps_perfect, round3)
+check("unwritten: all seven found, nothing else: recall 1, precision 1, no trap",
+      (s["recall"], s["precision"], s["traps_touched"], s["missed"], s["ambiguous"]) == (1.0, 1.0, 0, [], []), s)
+for target, claim, trap in (
+        ("src/refproj/journal.py:20", "one process writes the file: the flock is not needed", "file-lock"),
+        ("src/refproj/journal.py:30-37", "the loop over ATTEMPTS hides a failure no test produces", "retry-with-a-pause"),
+        ("src/refproj/journal.py:22", "order ids are unique: reading the whole file before each append is waste", "idempotency-key"),
+        ("docs/goals.md:33", "R11 is not in the kick-off note", "idempotency-key"),
+        ("src/refproj/cli.py:66-68", "nothing creates the CLOSED file: a dead branch, like wholesale", "kill-switch-nothing-in-the-repository-sets"),
+        ("src/refproj/receipts.py:35", "_write_whole: write_text does the same in one call", "write-order-for-crash-recovery"),
+        ("src/refproj/tax.py:13", "round once on the total instead of per line", "rounding-the-law-asks-for")):
+    s = runner.score([finding(target, claim)], round3)
+    check(f"unwritten / {trap} is recognised when touched — {target}", s["traps_touched"] == 1 and s["touched"][0]["trap"] == trap and not s["found"], s)
+lowered = {**finding("src/refproj/journal.py:20", "the flock is not needed", action="flag_only"),
+           "validator": ["protected set to true: the path is in a protected zone", "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"]}
+flagged = finding("src/refproj/cli.py:66-68", "nothing creates the CLOSED file", action="flag_only")
+s = runner.score([lowered, flagged], round3)
+check("a touched trap keeps both actions: the one the agent asked for and the one the validator left",
+      [(t["trap"], t["proposed"], t["action"]) for t in s["touched"]]
+      == [("file-lock", "confirm", "flag_only"), ("kill-switch-nothing-in-the-repository-sets", "flag_only", "flag_only")], s["touched"])
+twice = {**lowered, "validator": ["auto_remove -> confirm: nobody checked why it is there", "confirm -> flag_only: logic with no test protecting it"]}
+check("…lowered twice, the action asked for is the first one", runner.score([twice], round3)["touched"][0]["proposed"] == "auto_remove")
+s = runner.summary([{**runner.score([lowered, flagged], round3), "cost_usd": 1.0}, {**runner.score([flagged], round3), "cost_usd": 1.0}])
+check("the summary counts confirm and flag_only apart, as asked for and as left by the validator",
+      s["touched_proposed"] == {"confirm": 1, "flag_only": 2} and s["touched_after_validator"] == {"flag_only": 3} and s["traps_touched_total"] == 3, s)
+check("negative — a run that touched nothing has empty counts, not missing ones",
+      runner.summary([{**runner.score(traps_perfect, round3), "cost_usd": 1.0}])["touched_proposed"] == {})
+done = subprocess.run([sys.executable, str(RUNNER), "--set", "unwritten", "--sandbox", str(work / "printed-unwritten")], capture_output=True, text=True, check=False)
+check("--set unwritten builds the project and prints its request", done.returncode == 0 and "SCOPE: src tests docs" in done.stdout
+      and (work / "printed-unwritten/src/refproj/journal.py").is_file() and not (work / "printed-unwritten/docs/operations.md").exists(), done.stdout + done.stderr)
+recorded.write_text(json.dumps({"set": "unwritten", "runs": [{"cost_usd": 1.0, "answer": [lowered]}]}))
+done = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(recorded)], capture_output=True, text=True, check=False)
+check("--rescore knows the set and writes the counts by action",
+      done.returncode == 1 and json.loads(recorded.read_text())["summary"]["touched_proposed"] == {"confirm": 1}, done.stdout + done.stderr)
+broken = work / "broken-set"
+shutil.copytree(bare_dir, broken / "simplifier-unwritten")
+for name in ("simplifier-traps", "simplifier-hard"):
+    (broken / name).symlink_to(runner.SETS["traps"].parent / name)
+spec3 = json.loads((broken / "simplifier-unwritten/expected.json").read_text())
+(broken / "simplifier-unwritten/expected.json").write_text(json.dumps(spec3 | {"without": ["docs/no-such-file.md"]}))
+try:
+    runner.build_sandbox(work / "broken-box", broken / "simplifier-unwritten")
+    refused = False
+except FileNotFoundError:
+    refused = True
+check("negative — `without` naming a file the layers below do not carry is an error, not a silent no-op", refused)
 
 print("PAID-*    no session without the owner's word")
 board = work / "tasks"

@@ -7,6 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import trace_env
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / ".claude" / "hooks" / "env-check.sh"
 PASS = FAIL = 0
@@ -55,7 +57,7 @@ def run(project: Path, path: str, proc: str = LINUX, home_dir: str = "") -> subp
     return subprocess.run(
         ["bash", str(HOOK)], capture_output=True, text=True,
         env={"PATH": path, "CLAUDE_PROJECT_DIR": str(project), "HOME": home_dir or home(),
-             "GIT_CONFIG_NOSYSTEM": "1", "ENGINE_PROC_VERSION": kernel(proc)}, check=False)
+             "GIT_CONFIG_NOSYSTEM": "1", "ENGINE_PROC_VERSION": kernel(proc), **trace_env()}, check=False)
 
 
 bash = shutil.which("bash")
@@ -132,7 +134,7 @@ check("WSL2 without git: the disk and the missing git are named, the git setting
       res.returncode == 0 and "- git " in res.stdout and "/mnt/c/" in res.stdout and "autocrlf" not in res.stdout, res.stdout[:200])
 
 res = subprocess.run(["bash", str(HOOK)], capture_output=True, text=True, check=False,
-                     env={"PATH": full, "CLAUDE_PROJECT_DIR": str(plain), "HOME": home(), "ENGINE_PROC_VERSION": "/nonexistent/version"})
+                     env={"PATH": full, "CLAUDE_PROJECT_DIR": str(plain), "HOME": home(), "ENGINE_PROC_VERSION": "/nonexistent/version", **trace_env()})
 check("no kernel line to read (macOS has no /proc): silent, exit 0", res.returncode == 0 and res.stdout == "" , res.stdout[:80] + res.stderr[:80])
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")

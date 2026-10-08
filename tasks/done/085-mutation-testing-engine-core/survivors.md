@@ -1,0 +1,761 @@
+# 085 — мутанти, що вижили: кожен із вердиктом
+
+Усі 314 мутантів, які пережили основний прохід (вибірка 1011 із 4033; метод — у `report.md`). Розділи — за тим, що з мутантом сталося далі.
+Рядки — за станом коду на commit `41b6cbc`. `-` — рядок оригіналу, `+` — рядок мутанта.
+
+## вбито новим тестом — 100
+
+- `.claude/unattended/board.py:292` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:313` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:475` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:475` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:868` AddNot — tests/test_core_units.py
+- `.claude/unattended/board.py:920` BinaryOperator_Div_Mul — tests/test_core_units.py
+- `.claude/unattended/board.py:1221` TrueWithFalse — tests/test_core_units.py
+- `.claude/unattended/board.py:1222` TrueWithFalse — tests/test_core_units.py
+- `.claude/unattended/board.py:1262` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:1266` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:1286` Numberr — tests/test_core_units.py
+- `.claude/unattended/board.py:1292` Numberr — tests/test_core_units.py
+- `engine.py:80` Numberr — tests/test_core_units.py
+- `engine.py:138` Numberr — tests/test_core_units.py
+- `engine.py:193` ContinueWithBreak — tests/test_core_units.py
+- `engine.py:206` AndWithOr — tests/test_core_units.py
+- `engine.py:269` OrWithAnd — tests/test_core_units.py
+- `engine.py:279` OrWithAnd — tests/test_core_units.py
+- `engine.py:302` Numberr — tests/test_core_units.py
+- `engine.py:307` ComparisonOperator_GtE_Gt — tests/test_core_units.py
+- `engine.py:308` Numberr — tests/test_core_units.py
+- `engine.py:308` Numberr — tests/test_core_units.py
+- `engine.py:310` Numberr — tests/test_core_units.py
+- `engine.py:335` OrWithAnd — tests/test_core_units.py
+- `engine.py:347` Numberr — tests/test_core_units.py
+- `engine.py:490` OrWithAnd — tests/test_core_units.py
+- `engine.py:557` Exceptionr — tests/test_core_units.py
+- `engine.py:572` Numberr — tests/test_core_units.py
+- `engine.py:687` OrWithAnd — tests/test_core_units.py
+- `engine.py:952` OrWithAnd — tests/test_core_units.py
+- `engine.py:1032` Numberr — tests/test_core_units.py
+- `engine.py:1109` Numberr — tests/test_core_units.py
+- `engine.py:1145` Numberr — tests/test_core_units.py
+- `engine.py:1145` Numberr — tests/test_core_units.py
+- `engine.py:1149` Numberr — tests/test_core_units.py
+- `engine.py:1149` FalseWithTrue — tests/test_core_units.py
+- `engine.py:1206` AddNot — tests/test_core_units.py
+- `engine.py:1497` TrueWithFalse — tests/test_core_units.py
+- `.claude/hooks/gate.py:94` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:208` ComparisonOperator_Eq_NotEq — tests/test_core_units.py
+- `.claude/hooks/gate.py:208` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:218` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:221` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:221` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:397` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:449` Exceptionr — tests/test_core_units.py
+- `.claude/hooks/gate.py:483` FalseWithTrue — tests/test_core_units.py
+- `.claude/hooks/gate.py:617` ContinueWithBreak — tests/test_core_units.py
+- `.claude/hooks/gate.py:636` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/gate.py:1195` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:1318` AddNot — tests/test_core_units.py
+- `.claude/hooks/gate.py:1324` Numberr — tests/test_core_units.py
+- `.claude/hooks/gate.py:1326` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:182` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:228` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:260` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:265` AddNot — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:346` UnaryOperator_Delete_Not — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:388` FalseWithTrue — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:460` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:463` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:463` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:467` BinaryOperator_Add_Sub — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:469` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:518` FalseWithTrue — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:577` AddNot — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:642` AddNot — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:653` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:654` Numberr — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:667` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/lesson_queue.py:708` TrueWithFalse — tests/test_core_units.py
+- `.claude/hooks/overseer_stop.py:153` AddNot — tests/test_core_units.py
+- `.claude/hooks/overseer_stop.py:154` UnaryOperator_Delete_Not — tests/test_core_units.py
+- `.claude/hooks/overseer_stop.py:173` AddNot — tests/test_core_units.py
+- `.claude/hooks/overseer_stop.py:445` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_stop.py:445` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:105` TrueWithFalse — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:106` ComparisonOperator_Eq_NotEq — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:106` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:159` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:173` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:201` Exceptionr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:211` UnaryOperator_Delete_USub — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:211` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:214` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:231` ComparisonOperator_Eq_NotEq — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:255` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:258` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:349` ContinueWithBreak — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:351` BreakWithContinue — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:463` Exceptionr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:474` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:477` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:477` Numberr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:480` OrWithAnd — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:480` AndWithOr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:498` ComparisonOperator_GtE_Gt — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:503` UnaryOperator_Delete_Not — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:567` AndWithOr — tests/test_core_units.py
+- `.claude/hooks/overseer_verdict.py:567` ComparisonOperator_Eq_NotEq — tests/test_core_units.py
+
+## вбиває наявний набір тестів, який не запускався через межу часу — 17
+
+- `.claude/unattended/board.py:890` ComparisonOperator_Eq_NotEq — tests/test_maintain.py
+  - `- if every == 0 or not (root / MAINTAIN_COMMAND).is_file() or not _due(board, MAINTAIN_NAME, today, every):`
+  - `+ if every != 0 or not (root / MAINTAIN_COMMAND).is_file() or not _due(board, MAINTAIN_NAME, today, every):`
+- `.claude/unattended/board.py:890` Numberr — tests/test_maintain.py
+  - `- if every == 0 or not (root / MAINTAIN_COMMAND).is_file() or not _due(board, MAINTAIN_NAME, today, every):`
+  - `+ if every == 1 or not (root / MAINTAIN_COMMAND).is_file() or not _due(board, MAINTAIN_NAME, today, every):`
+- `.claude/unattended/board.py:920` OrWithAnd — tests/test_maintain.py
+  - `- if every == 0 or not (root / CLEANUP_SCRIPT).is_file() or not _due(board, CLEANUP_NAME, today, every):`
+  - `+ if every == 0 and not (root / CLEANUP_SCRIPT).is_file() or not _due(board, CLEANUP_NAME, today, every):`
+- `.claude/unattended/board.py:1180` Numberr — tests/test_settings_proposal_install.py
+  - `- parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2],`
+  - `+ parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[ 3],`
+- `.claude/unattended/board.py:1201` OrWithAnd — tests/test_cleanup.py
+  - `- commands.add_parser("cleanup-task").add_argument("--today", default=os.environ.get("BOARD_TODAY") or None, help="YYYY-MM-DD (default: today, UTC)")`
+  - `+ commands.add_parser("cleanup-task").add_argument("--today", default=os.environ.get("BOARD_TODAY") and None, help="YYYY-MM-DD (default: today, UTC)")`
+- `.claude/hooks/gate.py:588` ComparisonOperator_Eq_NotEq — tests/test_delete_guard.py
+  - `- args = ["--cached"] if layer == "pre_commit" else [diff_ref or "HEAD"]`
+  - `+ args = ["--cached"] if layer != "pre_commit" else [diff_ref or "HEAD"]`
+- `.claude/hooks/gate.py:942` AddNot — tests/test_gate_allows.py
+  - `- if not waiting or git_busy(root):`
+  - `+ if not not waiting or git_busy(root):`
+- `.claude/hooks/gate.py:942` UnaryOperator_Delete_Not — tests/test_gate_allows.py
+  - `- if not waiting or git_busy(root):`
+  - `+ if  waiting or git_busy(root):`
+- `.claude/hooks/gate.py:1233` AddNot — tests/test_lesson_queue.py
+  - `- if report.blocked:`
+  - `+ if not report.blocked:`
+- `.claude/hooks/gate.py:1235` ComparisonOperator_Eq_NotEq — tests/test_lesson_queue.py
+  - `- f"{f.rule} {f.file} {f.message}" for f in report.findings if f.severity == "block")))`
+  - `+ f"{f.rule} {f.file} {f.message}" for f in report.findings if f.severity != "block")))`
+- `.claude/hooks/gate.py:1236` AddNot — tests/test_lesson_queue.py
+  - `- if stuck:`
+  - `+ if not stuck:`
+- `.claude/hooks/gate.py:1282` ComparisonOperator_Eq_NotEq — tests/test_gate_allows.py
+  - `- if args.layer == "stop":`
+  - `+ if args.layer != "stop":`
+- `.claude/hooks/overseer_stop.py:411` Exceptionr — tests/test_gate_allows.py
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+  - `+ except (ImportError, OSError, ValueError, CosmicRayTestingException, KeyError, AttributeError) as exc:`
+- `.claude/hooks/overseer_stop.py:411` Exceptionr — tests/test_gate_allows.py
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+  - `+ except (ImportError, OSError, ValueError, TypeError, KeyError, CosmicRayTestingException) as exc:`
+- `.claude/hooks/overseer_stop.py:559` Exceptionr — tests/test_gate_allows.py
+  - `- except (ImportError, OSError, ValueError, KeyError, TypeError):`
+  - `+ except (ImportError, OSError, ValueError, CosmicRayTestingException, TypeError):`
+- `.claude/hooks/overseer_stop.py:559` Exceptionr — tests/test_gate_allows.py
+  - `- except (ImportError, OSError, ValueError, KeyError, TypeError):`
+  - `+ except (ImportError, OSError, ValueError, KeyError, CosmicRayTestingException):`
+- `.claude/hooks/overseer_verdict.py:364` Exceptionr — tests/test_gate_allows.py
+  - `- except (ImportError, OSError, ValueError, AttributeError):`
+  - `+ except (CosmicRayTestingException, OSError, ValueError, AttributeError):`
+
+## рівнозначний оригіналу — 54
+
+- `.claude/unattended/board.py:236` FalseWithTrue — типове значення поля Task.paid: єдиний конструктор (`read`) завжди передає `paid=` явно
+  - `- paid: bool = False`
+  - `+ paid: bool = True`
+- `.claude/unattended/board.py:238` FalseWithTrue — типове значення поля Task.paid_unread: єдиний конструктор завжди передає його явно
+  - `- paid_unread: bool = False`
+  - `+ paid_unread: bool = True`
+- `.claude/unattended/board.py:315` Numberr — `group(0)` — увесь рядок «Залежить від: …»: цифри в ньому ті самі, що й у групі 1
+  - `- depends=tuple(int(n) for n in re.findall(r"\d+", depends.group(1))) if depends else (),`
+  - `+ depends=tuple(int(n) for n in re.findall(r"\d+", depends.group( 0))) if depends else (),`
+- `.claude/unattended/board.py:336` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def number_of(name: str) -> int | None:`
+  - `+ def number_of(name: str) -> int & None:`
+- `.claude/unattended/board.py:420` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def attended_refusal(root: Path) -> str | None:`
+  - `+ def attended_refusal(root: Path) -> str & None:`
+- `.claude/unattended/board.py:446` FalseWithTrue — типове значення `attended` у cmd_start: єдиний виклик передає аргумент явно
+  - `- def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> int:`
+  - `+ def cmd_start(board: Board, root: Path, given: str, attended: bool = True) -> int:`
+- `.claude/unattended/board.py:638` TrueWithFalse — `parents=True` для tasks/blocked: tasks/ на цей момент існує (без неї функція вже повернула None)
+  - `- target.parent.mkdir(parents=True, exist_ok=True)`
+  - `+ target.parent.mkdir(parents=False, exist_ok=True)`
+- `.claude/unattended/board.py:711` Numberr — `split(sep, 1)[0]` і `split(sep, 2)[0]` — той самий перший шматок
+  - `- found = ITEM.search(path.read_text(encoding="utf-8").split("\n## ", 1)[0])`
+  - `+ found = ITEM.search(path.read_text(encoding="utf-8").split("\n## ", 2)[0])`
+- `.claude/unattended/board.py:715` Numberr — діапазон на один довший: `next()` бере перший вільний номер, який є в обох
+  - `- number = next(n for n in range(ITEM_FIRST, ITEM_FIRST + len(taken) + 1) if n not in taken)`
+  - `+ number = next(n for n in range(ITEM_FIRST, ITEM_FIRST + len(taken) + 2) if n not in taken)`
+- `.claude/unattended/board.py:732` TrueWithFalse — тека done/<номер>-open-item-… має щойно обраний вільний номер, тож ще не існує
+  - `- folder.mkdir(parents=True, exist_ok=True)`
+  - `+ folder.mkdir(parents=True, exist_ok=False)`
+- `.claude/unattended/board.py:810` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def action_task(board: Board, name: str) -> Path | None:`
+  - `+ def action_task(board: Board, name: str) -> Path & None:`
+- `.claude/unattended/board.py:983` Numberr — рядком вище перевірено, що в doing рівно одна задача: `[0]` і `[-1]` — вона сама
+  - `- if not (read(doing[0]).audit or read(doing[0]).paid):`
+  - `+ if not (read(doing[0]).audit or read(doing[ -1]).paid):`
+- `.claude/unattended/board.py:999` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def paid_ceiling(tasks: Path) -> float | None:`
+  - `+ def paid_ceiling(tasks: Path) -> float & None:`
+- `.claude/unattended/board.py:1060` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def note(root: Path, source: str, what: str, done: str) -> Path | None:`
+  - `+ def note(root: Path, source: str, what: str, done: str) -> Path & None:`
+- `.claude/unattended/board.py:1070` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def blocks_of(marker: Path | None) -> tuple[str, list[str]]:`
+  - `+ def blocks_of(marker: Path & None) -> tuple[str, list[str]]:`
+- `.claude/unattended/board.py:1124` TrueWithFalse — `parents=True` для tasks/blocked: tasks/ існує, бо з неї щойно прочитано задачу
+  - `- target.parent.mkdir(parents=True, exist_ok=True)`
+  - `+ target.parent.mkdir(parents=False, exist_ok=True)`
+- `engine.py:170` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def legacy_path_of(path: str) -> str | None:`
+  - `+ def legacy_path_of(path: str) -> str & None:`
+- `engine.py:194` ComparisonOperator_Lt_LtE — вік heartbeat — float від поточного часу; рівність рівно 900.0 с недосяжна
+  - `- if age < STALL_TIMEOUT_S:`
+  - `+ if age <= STALL_TIMEOUT_S:`
+- `engine.py:301` Numberr — початкове значення `last` завжди перезаписується до першого читання (разом зі `start`)
+  - `- last = 0`
+  - `+ last = -1`
+- `engine.py:301` Numberr — початкове значення `last` завжди перезаписується до першого читання (разом зі `start`)
+  - `- last = 0`
+  - `+ last = 1`
+- `engine.py:425` TrueWithFalse — `frozen=True` у dataclass Entry: жоден рядок коду не присвоює його полям
+  - `- @dataclass(frozen=True)`
+  - `+ @dataclass(frozen=False)`
+- `engine.py:507` AndWithOr — запобіжник від обірваного виводу `git log -z`: у справжньому виводі після рядка `:meta` завжди є шлях
+  - `- if token.startswith(b":") and i + 1 < len(tokens):`
+  - `+ if token.startswith(b":") or i + 1 < len(tokens):`
+- `engine.py:507` ComparisonOperator_Lt_LtE — запобіжник від обірваного виводу `git log -z`: у справжньому виводі після рядка `:meta` завжди є шлях
+  - `- if token.startswith(b":") and i + 1 < len(tokens):`
+  - `+ if token.startswith(b":") and i + 1 <= len(tokens):`
+- `engine.py:546` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def read_lock(project: Path) -> Lock | None:`
+  - `+ def read_lock(project: Path) -> Lock & None:`
+- `engine.py:583` ComparisonOperator_Gt_GtE — begin і end — індекси двох різних рядків-маркерів (`# >>> engine:` і `# <<< engine`), рівними не бувають
+  - `- if begin is not None and end is not None and end > begin:`
+  - `+ if begin is not None and end is not None and end >= begin:`
+- `engine.py:889` Numberr — `split(script, 1)[1]` і `split(script, 2)[1]` різняться лише коли назва скрипта стоїть у команді двічі
+  - `- subcommand = command.split(OVERSEER_SCRIPT, 1)[1].strip(" \"'")`
+  - `+ subcommand = command.split(OVERSEER_SCRIPT, 2)[1].strip(" \"'")`
+- `engine.py:932` Numberr — група завжди має рівно один handler (так її будує overseer_groups), `[0]` і `[-1]` — той самий елемент
+  - `- added = "; ".join(f"{event} [{group.get('matcher', '')}] {group['hooks'][0]['command']}" for event, group in missing)`
+  - `+ added = "; ".join(f"{event} [{group.get('matcher', '')}] {group['hooks'][ -1]['command']}" for event, group in missing)`
+- `engine.py:1039` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def config_home(explicit: str | None) -> Path:`
+  - `+ def config_home(explicit: str & None) -> Path:`
+- `engine.py:1370` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def last_full_audit(src: EngineSource) -> tuple[str, str] | None:`
+  - `+ def last_full_audit(src: EngineSource) -> tuple[str, str] & None:`
+- `engine.py:1570` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def main(argv: list[str] | None = None) -> int:`
+  - `+ def main(argv: list[str] & None = None) -> int:`
+- `.claude/hooks/gate.py:208` AndWithOr — `git rev-parse --show-toplevel` або вдається й друкує шлях, або не вдається з порожнім stdout: інших поєднань немає
+  - `- return Path(out.stdout.strip()) if out.returncode == 0 and out.stdout.strip() else Path.cwd()`
+  - `+ return Path(out.stdout.strip()) if out.returncode == 0 or out.stdout.strip() else Path.cwd()`
+- `.claude/hooks/gate.py:292` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def old_text(root: Path, layer: str, rel: str, diff_ref: str | None) -> str | None:`
+  - `+ def old_text(root: Path, layer: str, rel: str, diff_ref: str & None) -> str | None:`
+- `.claude/hooks/gate.py:374` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def comment_map(text: str) -> dict[int, str] | None:`
+  - `+ def comment_map(text: str) -> dict[int, str] & None:`
+- `.claude/hooks/gate.py:493` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def changed_keys(old: str | None, new: str | None, keys: tuple[str, ...]) -> list[str]:`
+  - `+ def changed_keys(old: str & None, new: str | None, keys: tuple[str, ...]) -> list[str]:`
+- `.claude/hooks/gate.py:499` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def scope_values(text: str | None) -> dict[str, str]:`
+  - `+ def scope_values(text: str & None) -> dict[str, str]:`
+- `.claude/hooks/gate.py:508` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def guard_scope_keys(rel: str, old: str | None, new: str | None, allowed: dict[str, tuple[str, str]], report: Report) -> None:`
+  - `+ def guard_scope_keys(rel: str, old: str & None, new: str | None, allowed: dict[str, tuple[str, str]], report: Report) -> None:`
+- `.claude/hooks/gate.py:586` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def deleted_code(root: Path, layer: str, diff_ref: str | None, env: dict[str, str]) -> list[str]:`
+  - `+ def deleted_code(root: Path, layer: str, diff_ref: str & None, env: dict[str, str]) -> list[str]:`
+- `.claude/hooks/gate.py:593` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def guard_baseline(root: Path, rel: str, old: str | None, new: str | None, report: Report) -> None:`
+  - `+ def guard_baseline(root: Path, rel: str, old: str | None, new: str & None, report: Report) -> None:`
+- `.claude/hooks/gate.py:696` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def load_snapshot(root: Path, report: Report) -> dict[str, Any] | None:`
+  - `+ def load_snapshot(root: Path, report: Report) -> dict[str, Any] & None:`
+- `.claude/hooks/gate.py:784` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- result: str | None = None) -> Path:`
+  - `+ result: str & None = None) -> Path:`
+- `.claude/hooks/gate.py:817` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def active_slice(root: Path) -> str | None:`
+  - `+ def active_slice(root: Path) -> str & None:`
+- `.claude/hooks/gate.py:901` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def git_busy(root: Path) -> str | None:`
+  - `+ def git_busy(root: Path) -> str & None:`
+- `.claude/hooks/gate.py:967` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> tuple[str | None, str | None]:`
+  - `+ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> tuple[str & None, str | None]:`
+- `.claude/hooks/gate.py:1031` Numberr — `sys.path.insert(0|1, hooks)`: модуль simplify_signals є лише в теці hooks, знаходиться з будь-якої позиції
+  - `- sys.path.insert(0, str(Path(__file__).resolve().parent))`
+  - `+ sys.path.insert( 1, str(Path(__file__).resolve().parent))`
+- `.claude/hooks/lesson_queue.py:314` Numberr — типове значення в `isinstance(state.get("passes", …), int)`: і 0, і -1 — цілі, результат той самий
+  - `- passes = int(state.get("passes", 0)) if isinstance(state.get("passes", 0), int) else 0`
+  - `+ passes = int(state.get("passes", 0)) if isinstance(state.get("passes", -1), int) else 0`
+- `.claude/hooks/lesson_queue.py:314` Numberr — типове значення в `isinstance(state.get("passes", …), int)`: і 0, і -1 — цілі, результат той самий
+  - `- passes = int(state.get("passes", 0)) if isinstance(state.get("passes", 0), int) else 0`
+  - `+ passes = int(state.get("passes", 0)) if isinstance(state.get("passes", 0), int) else -1`
+- `.claude/hooks/lesson_queue.py:378` Numberr — `sys.path.insert(0|-1, …)`: модуль board є лише в теці unattended
+  - `- sys.path.insert(0, str(folder))`
+  - `+ sys.path.insert( -1, str(folder))`
+- `.claude/hooks/lesson_queue.py:559` Numberr — `ln[3:].strip()` і `ln[2:].strip()` для рядка «## дата …» дають той самий текст
+  - `- memory = [ln[3:].strip() for ln in read(root / MEMORY_REL).splitlines() if re.match(r"^## \d{4}-\d{2}-\d{2}", ln)]`
+  - `+ memory = [ln[ 2:].strip() for ln in read(root / MEMORY_REL).splitlines() if re.match(r"^## \d{4}-\d{2}-\d{2}", ln)]`
+- `.claude/hooks/lesson_queue.py:630` Numberr — файл stuck.json завжди пишеться з полем count; без файлу ключ не збігається і типове значення не читається
+  - `- previous = state.get("count", 0)`
+  - `+ previous = state.get("count", -1)`
+- `.claude/hooks/overseer_stop.py:757` AddNot — обидві гілки закінчуються тим самим `_passthrough()`
+  - `- if _phase_is_plan(project_dir):`
+  - `+ if not _phase_is_plan(project_dir):`
+- `.claude/hooks/overseer_stop.py:776` Numberr — `sys.argv[0]` — шлях до скрипта, він не дорівнює `--dry-run`
+  - `- if "--dry-run" in sys.argv[1:]:`
+  - `+ if "--dry-run" in sys.argv[ 0:]:`
+- `.claude/hooks/overseer_verdict.py:171` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def fingerprint_diff(before: JsonObj | None, after: JsonObj | None) -> list[str]:`
+  - `+ def fingerprint_diff(before: JsonObj & None, after: JsonObj | None) -> list[str]:`
+- `.claude/hooks/overseer_verdict.py:360` Numberr — `sys.path.insert(0|1, …)`: модуль board є лише в теці unattended
+  - `- sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))`
+  - `+ sys.path.insert( 1, str(Path(__file__).resolve().parent.parent / "unattended"))`
+- `.claude/hooks/overseer_verdict.py:681` BinaryOperator_BitOr_BitAnd — анотація типу: під `from __future__ import annotations` не обчислюється
+  - `- def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | None:`
+  - `+ def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str & None:`
+
+## лише текст повідомлення, межа показу чи телеметрія — 59
+
+- `engine.py:457` TrueWithFalse — вивід `git merge-base` не перехоплено: зайвий текст у терміналі, відповідь та сама
+  - `- capture_output=True,`
+  - `+ capture_output=False,`
+- `engine.py:637` Numberr — довжина короткого hash у тексті повідомлення
+  - `- f"{ref} ({commit[:7]}) has no {OWNERSHIP}: it predates installation by engine.py. "`
+  - `+ f"{ref} ({commit[: 6]}) has no {OWNERSHIP}: it predates installation by engine.py. "`
+- `engine.py:1012` Numberr — лічильники в підсумковому рядку `total` плану
+  - `- counts[action.verb] = counts.get(action.verb, 0) + 1`
+  - `+ counts[action.verb] = counts.get(action.verb, 0) + 2`
+- `engine.py:1334` Numberr — довжина короткого hash у тексті повідомлення
+  - `- f"{name} ({commit[:7]}) is not an ancestor of HEAD ({head[:7]}): moving it would not be a "`
+  - `+ f"{name} ({commit[:7]}) is not an ancestor of HEAD ({head[: 6]}): moving it would not be a "`
+- `engine.py:1421` Numberr — довжина уривка stderr у тексті помилки (300)
+  - `- raise EngineError(f"--without-audit could not be written into {RELEASE_JOURNAL}; nothing was released\n  {res.stderr.strip()[:300]}")`
+  - `+ raise EngineError(f"--without-audit could not be written into {RELEASE_JOURNAL}; nothing was released\n  {res.stderr.strip()[: 301]}")`
+- `engine.py:1491` Numberr — довжина короткого hash у тексті повідомлення
+  - `- print(f"released {version} ({head[:7]}): {', '.join(RELEASE_BRANCHES)} and the tag point at it, here and on {remote}")`
+  - `+ print(f"released {version} ({head[: 8]}): {', '.join(RELEASE_BRANCHES)} and the tag point at it, here and on {remote}")`
+- `engine.py:1496` Numberr — який абзац docstring показує `--help`
+  - `- parser = argparse.ArgumentParser(prog="engine.py", description=(__doc__ or "").split("\n\n")[0])`
+  - `+ parser = argparse.ArgumentParser(prog="engine.py", description=(__doc__ or "").split("\n\n")[ -1])`
+- `.claude/hooks/gate.py:104` Numberr — скільки останніх рядків виводу тестів потрапляє в причину (40)
+  - `- TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 40}`
+  - `+ TAIL_LINES = {"lint": 30, "typecheck": 30, "tests": 41}`
+- `.claude/hooks/gate.py:360` ComparisonOperator_GtE_Gt — скільки діагностик одного кроку стає знахідками (20 чи 21)
+  - `- if seen >= 20:`
+  - `+ if seen > 20:`
+- `.claude/hooks/gate.py:582` AddNot — текст «файл:рядок» у причині delete guard
+  - `- where = f"{finding.file}:{finding.line}" if finding.line else str(finding.file)`
+  - `+ where = f"{finding.file}:{finding.line}" if not finding.line else str(finding.file)`
+- `.claude/hooks/gate.py:604` AddNot — хвіст «and N more» у тексті знахідки про послаблений snapshot
+  - `- shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) > 5 else "")`
+  - `+ shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if not len(looser) > 5 else "")`
+- `.claude/hooks/gate.py:604` ComparisonOperator_Gt_GtE — хвіст «and N more» у тексті знахідки про послаблений snapshot
+  - `- shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) > 5 else "")`
+  - `+ shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) >= 5 else "")`
+- `.claude/hooks/gate.py:604` ComparisonOperator_Gt_LtE — хвіст «and N more» у тексті знахідки про послаблений snapshot
+  - `- shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) > 5 else "")`
+  - `+ shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) <= 5 else "")`
+- `.claude/hooks/gate.py:604` Numberr — хвіст «and N more» у тексті знахідки про послаблений snapshot
+  - `- shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) > 5 else "")`
+  - `+ shown = "; ".join(looser[:5]) + (f"; and {len(looser) - 5} more" if len(looser) > 4 else "")`
+- `.claude/hooks/gate.py:730` Numberr — тривалість кроку в мілісекундах (телеметрія звіту)
+  - `- report.steps_ms[kind] = report.steps_ms.get(kind, 0) + ms`
+  - `+ report.steps_ms[kind] = report.steps_ms.get(kind, 1) + ms`
+- `.claude/hooks/gate.py:743` Numberr — скільки рядків «гірше, ніж snapshot» показано в тексті причини (20)
+  - `- listed = "\n".join(f"  {file + ': ' if file else ''}{message}" for file, message in worse[:20])`
+  - `+ listed = "\n".join(f"  {file + ': ' if file else ''}{message}" for file, message in worse[: 19])`
+- `.claude/hooks/gate.py:770` Numberr — відступ у JSON-файлі звіту
+  - `- tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")`
+  - `+ tmp.write_text(json.dumps(payload, indent= 1, ensure_ascii=False) + "\n", encoding="utf-8")`
+- `.claude/hooks/gate.py:861` Numberr — довжина рядка причини в записі ескалації (200)
+  - `- "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]}`
+  - `+ "head": head, "reasons": [r.splitlines()[0][: 199] for r in report.reasons[:5]]}`
+- `.claude/hooks/gate.py:922` Numberr — довжина рядка причини в питанні gates (200)
+  - `- reasons = [r.splitlines()[0][:200] for r in report.reasons[:5]]`
+  - `+ reasons = [r.splitlines()[0][: 201] for r in report.reasons[:5]]`
+- `.claude/hooks/gate.py:923` Numberr — скільки файлів потрапляє в текст питання gates (20)
+  - `- task = None if busy else board.gate_question(board.Board(root / "tasks"), stamp, blocks, active_slice(root) or NO_SLICE, files[:20], reasons, evidence`
+  - `+ task = None if busy else board.gate_question(board.Board(root / "tasks"), stamp, blocks, active_slice(root) or NO_SLICE, files[: 21], reasons, evidenc`
+- `.claude/hooks/gate.py:979` Numberr — скільки причин показано в повідомленні про ескалацію (5)
+  - `- top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])`
+  - `+ top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[: 4])`
+- `.claude/hooks/gate.py:1067` BinaryOperator_Mul_FloorDiv — тривалість кроку в мілісекундах (телеметрія звіту)
+  - `- report.steps_ms["format"] = int((time.perf_counter() - started) * 1000)`
+  - `+ report.steps_ms["format"] = int((time.perf_counter() - started) // 1000)`
+- `.claude/hooks/gate.py:1067` Numberr — тривалість кроку в мілісекундах (телеметрія звіту)
+  - `- report.steps_ms["format"] = int((time.perf_counter() - started) * 1000)`
+  - `+ report.steps_ms["format"] = int((time.perf_counter() - started) * 999)`
+- `.claude/hooks/gate.py:1157` Numberr — тривалість кроку в мілісекундах (телеметрія звіту)
+  - `- report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 1000)`
+  - `+ report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 1001)`
+- `.claude/hooks/gate.py:1157` Numberr — тривалість кроку в мілісекундах (телеметрія звіту)
+  - `- report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 1000)`
+  - `+ report.steps_ms["bypass_guard"] = int((time.perf_counter() - started) * 999)`
+- `.claude/hooks/gate.py:1261` Numberr — який абзац docstring показує `--help`
+  - `- parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])`
+  - `+ parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[ 1])`
+- `.claude/hooks/lesson_queue.py:218` Numberr — скільки блокуючих знахідок gates стає кандидатами (3)
+  - `- for finding in [f for f in report.get("findings", []) if f.get("severity") == "block"][:3]:`
+  - `+ for finding in [f for f in report.get("findings", []) if f.get("severity") == "block"][: 4]:`
+- `.claude/hooks/lesson_queue.py:323` Numberr — скільки кандидатів показано в нагадуванні (12)
+  - `- shown = "\n".join(f"  #{e['id']}  {e['date']}  [{e['source']}] {e['slice']}: {e['essence'][:110]}" for e in queue[:12])`
+  - `+ shown = "\n".join(f"  #{e['id']}  {e['date']}  [{e['source']}] {e['slice']}: {e['essence'][:110]}" for e in queue[: 13])`
+- `.claude/hooks/lesson_queue.py:324` BinaryOperator_Sub_Add — хвіст «and N more» у нагадуванні
+  - `- more = f"\n  … and {len(queue) - 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""`
+  - `+ more = f"\n  … and {len(queue) + 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""`
+- `.claude/hooks/lesson_queue.py:324` Numberr — хвіст «and N more» у нагадуванні
+  - `- more = f"\n  … and {len(queue) - 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""`
+  - `+ more = f"\n  … and {len(queue) - 11} more (`lesson_queue.py list`)" if len(queue) > 12 else ""`
+- `.claude/hooks/lesson_queue.py:424` Numberr — довжина заголовка запису в MEMORY.md (90)
+  - `- append(root / MEMORY_REL, f"\n## {today()} — {text.splitlines()[0][:90]}\n\n{text}\n\nCited: {'; '.join(cite)}. Origin: {origin}.\n")`
+  - `+ append(root / MEMORY_REL, f"\n## {today()} — {text.splitlines()[0][: 89]}\n\n{text}\n\nCited: {'; '.join(cite)}. Origin: {origin}.\n")`
+- `.claude/hooks/lesson_queue.py:440` Numberr — довжина заголовка запису у feedback (90)
+  - `- append(root / FEEDBACK_REL, f"\n## {today()} — {text.splitlines()[0][:90]}\n\n{text}\n\nFrom: {origin}.\n",`
+  - `+ append(root / FEEDBACK_REL, f"\n## {today()} — {text.splitlines()[0][: 89]}\n\n{text}\n\nFrom: {origin}.\n",`
+- `.claude/hooks/lesson_queue.py:562` Numberr — скільки останніх записів пам'яті показано в дайджесті (4)
+  - `- lines.append("Project memory (.engine/overseer/MEMORY.md), latest: " + " · ".join(m[:70] for m in memory[-4:]))`
+  - `+ lines.append("Project memory (.engine/overseer/MEMORY.md), latest: " + " · ".join(m[:70] for m in memory[- 5:]))`
+- `.claude/hooks/lesson_queue.py:636` Numberr — довжина уривка в тексті «застряг» (90)
+  - `- return STUCK_TEXT.format(n=count, what=clean_essence(text)[:90])`
+  - `+ return STUCK_TEXT.format(n=count, what=clean_essence(text)[: 91])`
+- `.claude/hooks/lesson_queue.py:668` Numberr — довжина уривка команди в тексті невдачі (80)
+  - `- return f"{tool} {stable(command)[:80]} :: {stable(detail)[:160]}"`
+  - `+ return f"{tool} {stable(command)[: 79]} :: {stable(detail)[:160]}"`
+- `.claude/hooks/lesson_queue.py:707` Numberr — який абзац docstring показує `--help`
+  - `- parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])`
+  - `+ parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[ -1])`
+- `.claude/hooks/overseer_stop.py:114` Numberr — timeout виклику git (5 с чи 4 с)
+  - `- capture_output=True, text=True, timeout=5, check=False,`
+  - `+ capture_output=True, text=True, timeout= 4, check=False,`
+- `.claude/hooks/overseer_stop.py:386` AddNot — текст «raised in slice …» у повідомленні
+  - `- where = f"raised in slice `{raised_in}`" if raised_in != NO_SLICE else "raised outside any slice"`
+  - `+ where = f"raised in slice `{raised_in}`" if not raised_in != NO_SLICE else "raised outside any slice"`
+- `.claude/hooks/overseer_stop.py:386` ComparisonOperator_NotEq_Eq — текст «raised in slice …» у повідомленні
+  - `- where = f"raised in slice `{raised_in}`" if raised_in != NO_SLICE else "raised outside any slice"`
+  - `+ where = f"raised in slice `{raised_in}`" if raised_in == NO_SLICE else "raised outside any slice"`
+- `.claude/hooks/overseer_stop.py:741` Numberr — текст про відкриту ескалацію gates у запиті аудиту
+  - `- gate_escalation=f"{escalation[0]}: {escalation[1]}" if escalation else "")`
+  - `+ gate_escalation=f"{escalation[0]}: {escalation[ 0]}" if escalation else "")`
+- `.claude/hooks/overseer_stop.py:744` Numberr — текст про відкриту ескалацію gates
+  - `- text += GATE_OPEN_NOTICE.format(stamp=escalation[0], scope=escalation[1])`
+  - `+ text += GATE_OPEN_NOTICE.format(stamp=escalation[0], scope=escalation[ 0])`
+- `.claude/hooks/overseer_verdict.py:105` Numberr — timeout виклику git
+  - `- out = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5, check=False)`
+  - `+ out = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout= 6, check=False)`
+- `.claude/hooks/overseer_verdict.py:124` Numberr — відступ у JSON-файлах стану
+  - `- tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")`
+  - `+ tmp.write_text(json.dumps(payload, indent= 1, ensure_ascii=False) + "\n", encoding="utf-8")`
+- `.claude/hooks/overseer_verdict.py:150` Numberr — timeout виклику git
+  - `- capture_output=True, timeout=30, check=False)`
+  - `+ capture_output=True, timeout= 29, check=False)`
+- `.claude/hooks/overseer_verdict.py:152` Numberr — timeout виклику git
+  - `- capture_output=True, text=True, timeout=10, check=False)`
+  - `+ capture_output=True, text=True, timeout= 9, check=False)`
+- `.claude/hooks/overseer_verdict.py:269` Numberr — довжина уривка prompt у доказах (60)
+  - `- out.append(f"{number}. — an overseer audit ran here (`{str(tool_input.get('prompt', ''))[:60]}`) —")`
+  - `+ out.append(f"{number}. — an overseer audit ran here (`{str(tool_input.get('prompt', ''))[: 59]}`) —")`
+- `.claude/hooks/overseer_verdict.py:491` Numberr — текст помилки «evidence cites …»
+  - `- errors.append(f"evidence cites `{found.group(1)}:{found.group(2)}`, and there is no such file")`
+  - `+ errors.append(f"evidence cites `{found.group( 0)}:{found.group(2)}`, and there is no such file")`
+- `.claude/hooks/overseer_verdict.py:491` Numberr — текст помилки «evidence cites …»
+  - `- errors.append(f"evidence cites `{found.group(1)}:{found.group(2)}`, and there is no such file")`
+  - `+ errors.append(f"evidence cites `{found.group( 2)}:{found.group(2)}`, and there is no such file")`
+- `.claude/hooks/overseer_verdict.py:518` Numberr — довжина рядка evidence в ledger (200)
+  - `- evidence = "; ".join(one_line(e, 200) for e in (obj or {}).get("evidence") or []) or "—"`
+  - `+ evidence = "; ".join(one_line(e, 199) for e in (obj or {}).get("evidence") or []) or "—"`
+- `.claude/hooks/overseer_verdict.py:525` Numberr — довжина абзацу devil's advocate в ledger (1200)
+  - `- lines.append(f"- Devil's advocate: {one_line(obj['devils_advocate'], 1200)}")`
+  - `+ lines.append(f"- Devil's advocate: {one_line(obj['devils_advocate'], 1199)}")`
+- `.claude/hooks/overseer_verdict.py:525` Numberr — довжина абзацу devil's advocate в ledger (1200)
+  - `- lines.append(f"- Devil's advocate: {one_line(obj['devils_advocate'], 1200)}")`
+  - `+ lines.append(f"- Devil's advocate: {one_line(obj['devils_advocate'], 1201)}")`
+- `.claude/hooks/overseer_verdict.py:642` Numberr — скільки змінених файлів названо в причині (12)
+  - `- finish(INVALID, "tree changed during audit: " + ", ".join(changed[:12])`
+  - `+ finish(INVALID, "tree changed during audit: " + ", ".join(changed[: 11])`
+- `.claude/hooks/overseer_verdict.py:642` Numberr — скільки змінених файлів названо в причині (12)
+  - `- finish(INVALID, "tree changed during audit: " + ", ".join(changed[:12])`
+  - `+ finish(INVALID, "tree changed during audit: " + ", ".join(changed[: 13])`
+- `.claude/hooks/overseer_verdict.py:643` Numberr — хвіст «and N more» у причині BLOCK
+  - `- + (f" and {len(changed) - 12} more" if len(changed) > 12 else ""), obj, changed=changed[:50])`
+  - `+ + (f" and {len(changed) - 13} more" if len(changed) > 12 else ""), obj, changed=changed[:50])`
+- `.claude/hooks/overseer_verdict.py:643` ComparisonOperator_Gt_LtE — хвіст «and N more» у причині
+  - `- + (f" and {len(changed) - 12} more" if len(changed) > 12 else ""), obj, changed=changed[:50])`
+  - `+ + (f" and {len(changed) - 12} more" if len(changed) <= 12 else ""), obj, changed=changed[:50])`
+- `.claude/hooks/overseer_verdict.py:643` Numberr — хвіст «and N more» у причині BLOCK
+  - `- + (f" and {len(changed) - 12} more" if len(changed) > 12 else ""), obj, changed=changed[:50])`
+  - `+ + (f" and {len(changed) - 12} more" if len(changed) > 13 else ""), obj, changed=changed[:50])`
+- `.claude/hooks/overseer_verdict.py:652` Numberr — текст причини BLOCK про відкриту ескалацію gates
+  - `- finish("BLOCK", f"gate escalation {escalation[0]} open ({escalation[1]}): the audit found no failing check, "`
+  - `+ finish("BLOCK", f"gate escalation {escalation[0]} open ({escalation[ 0]}): the audit found no failing check, "`
+- `.claude/hooks/overseer_verdict.py:754` Numberr — текст про відкриту ескалацію gates
+  - `- gate_escalation=f"{escalation[0]}: {escalation[1]}" if escalation else "")`
+  - `+ gate_escalation=f"{escalation[0]}: {escalation[ 0]}" if escalation else "")`
+- `.claude/hooks/overseer_verdict.py:773` Numberr — скільки останніх вердиктів показує `status` (5)
+  - `- for row in rows(root)[-5:]:`
+  - `+ for row in rows(root)[- 4:]:`
+
+## не вбито: тест не написано — 84
+
+- `.claude/unattended/board.py:437` Numberr — дві задачі в doing/ (runner-а й «з присутнім власником»): яку показано
+  - `- print(board.shown(doing[0]))`
+  - `+ print(board.shown(doing[ -1]))`
+- `.claude/unattended/board.py:460` Numberr — дві задачі в doing/: чию назву названо у відмові
+  - `- print(f"board: tasks/doing/ already holds {doing[0].name} — one task at a time", file=sys.stderr)`
+  - `+ print(f"board: tasks/doing/ already holds {doing[ -1].name} — one task at a time", file=sys.stderr)`
+- `.claude/unattended/board.py:523` ContinueWithBreak — inbox із кількома файлами, перший з яких не відповідає на всі питання
+  - `- continue`
+  - `+ break`
+- `.claude/unattended/board.py:847` OrWithAnd — action_done для задачі з уже вирішеною дією
+  - `- action = task.decided or task.action`
+  - `+ action = task.decided and task.action`
+- `.claude/unattended/board.py:856` TrueWithFalse — tasks/done/ ще не існує, коли правило переноситься в done/
+  - `- target.mkdir(parents=True, exist_ok=True)`
+  - `+ target.mkdir(parents=False, exist_ok=True)`
+- `.claude/unattended/board.py:884` Numberr — номер власної задачі runner-а, коли номери до 800 зайняті
+  - `- return number if number < ITEM_FIRST else next(n for n in range(1, ITEM_FIRST) if n not in taken)`
+  - `+ return number if number < ITEM_FIRST else next(n for n in range( 0, ITEM_FIRST) if n not in taken)`
+- `.claude/unattended/board.py:884` Numberr — номер власної задачі runner-а, коли номери до 800 зайняті
+  - `- return number if number < ITEM_FIRST else next(n for n in range(1, ITEM_FIRST) if n not in taken)`
+  - `+ return number if number < ITEM_FIRST else next(n for n in range( 2, ITEM_FIRST) if n not in taken)`
+- `.claude/unattended/board.py:994` Numberr — дві задачі в doing/: з якої читається дозвіл на платні прогони
+  - `- if not read(doing[0]).paid:`
+  - `+ if not read(doing[ -1]).paid:`
+- `engine.py:248` UnaryOperator_Delete_USub — prune_old_dirs: порядок вкладених порожніх старих тек (найглибші першими)
+  - `- for root in sorted(roots, key=lambda p: -len(p.parts)):`
+  - `+ for root in sorted(roots, key=lambda p: len(p.parts)):`
+- `engine.py:715` ComparisonOperator_IsNot_Is — lock після «keep»: для зміненого в проєкті файлу лишається попередній id двигуна
+  - `- if base is not None:`
+  - `+ if base is None:`
+- `engine.py:792` ZeroIterationForLoop — цикл приміток «запис старої копії двигуна»: потрібен проєкт із файлом зі старої версії двигуна
+  - `- for path in sorted(history):`
+  - `+ for path in []:`
+- `engine.py:793` AddNot — цикл приміток «запис старої копії двигуна»: потрібен проєкт із файлом зі старої версії двигуна
+  - `- if path in seeded_targets or owned(path) != "project" or not path.startswith(".claude/"):`
+  - `+ if not path in seeded_targets or owned(path) != "project" or not path.startswith(".claude/"):`
+- `engine.py:794` ContinueWithBreak — цикл приміток «запис старої копії двигуна»: потрібен проєкт із файлом зі старої версії двигуна
+  - `- continue`
+  - `+ break`
+- `engine.py:899` Exceptionr — settings.json у ref двигуна — не JSON
+  - `- except ValueError:`
+  - `+ except CosmicRayTestingException:`
+- `engine.py:934` FalseWithTrue — не-ASCII у settings.json проєкту під час дописування handlers overseer-а
+  - `- plan.contents["wire:" + SETTINGS] = (json.dumps(current, indent=2, ensure_ascii=False) + "\n").encode("utf-8")`
+  - `+ plan.contents["wire:" + SETTINGS] = (json.dumps(current, indent=2, ensure_ascii=True) + "\n").encode("utf-8")`
+- `engine.py:994` TrueWithFalse — теки .claude/ ще немає в момент запису lock-файла
+  - `- lock_path.parent.mkdir(parents=True, exist_ok=True)`
+  - `+ lock_path.parent.mkdir(parents=False, exist_ok=True)`
+- `engine.py:996` ComparisonOperator_Eq_NotEq — prune_old_dirs викликається й без переміщень: порожніх старих тек тоді немає
+  - `- if any(a.verb == "move" for a in plan.actions):`
+  - `+ if any(a.verb != "move" for a in plan.actions):`
+- `engine.py:1285` ZeroIterationForLoop — `status` друкує примітки плану
+  - `- for note in plan.notes:`
+  - `+ for note in []:`
+- `engine.py:1377` Exceptionr — release: файл результатів аудиту — не JSON
+  - `- except (OSError, ValueError):`
+  - `+ except (OSError, CosmicRayTestingException):`
+- `engine.py:1403` Exceptionr — release: needs-audit повернув JSON без ключа
+  - `- except (ValueError, KeyError, TypeError):`
+  - `+ except (ValueError, CosmicRayTestingException, TypeError):`
+- `engine.py:1418` TrueWithFalse — release: запис у журнал аномалій не вдався (--without-audit)
+  - `- cwd=src.root, capture_output=True, text=True, check=False,`
+  - `+ cwd=src.root, capture_output=True, text=False, check=False,`
+- `engine.py:1418` FalseWithTrue — release: запис у журнал аномалій не вдався (--without-audit)
+  - `- cwd=src.root, capture_output=True, text=True, check=False,`
+  - `+ cwd=src.root, capture_output=True, text=True, check=True,`
+- `engine.py:1473` AddNot — release: push не вдався, а журналу до того не було
+  - `- if gap and journal_before is None:`
+  - `+ if not gap and journal_before is None:`
+- `engine.py:1474` TrueWithFalse — release: push не вдався, а журналу до того не було
+  - `- journal.unlink(missing_ok=True)`
+  - `+ journal.unlink(missing_ok=False)`
+- `engine.py:1480` TrueWithFalse — release: назва поточної гілки після релізу
+  - `- ["git", "-C", str(src.root), "symbolic-ref", "--short", "-q", "HEAD"], capture_output=True, text=True, check=False`
+  - `+ ["git", "-C", str(src.root), "symbolic-ref", "--short", "-q", "HEAD"], capture_output=True, text=False, check=False`
+- `engine.py:1487` Exceptionr — release: повернення на гілку після релізу не вдалося
+  - `- except EngineError as exc:`
+  - `+ except CosmicRayTestingException as exc:`
+- `.claude/hooks/gate.py:281` AndWithOr — added_lines: файл, якого ще немає в HEAD, на шарі stop з --diff
+  - `- new_in_head = layer != "pre_commit" and not diff_ref and has_head(root)`
+  - `+ new_in_head = layer != "pre_commit" or not diff_ref and has_head(root)`
+- `.claude/hooks/gate.py:281` AndWithOr — added_lines: файл, якого ще немає в HEAD, на шарі stop з --diff
+  - `- new_in_head = layer != "pre_commit" and not diff_ref and has_head(root)`
+  - `+ new_in_head = layer != "pre_commit" and not diff_ref or has_head(root)`
+- `.claude/hooks/gate.py:422` ContinueWithBreak — кілька slice-контрактів, перший із яких не запечатаний
+  - `- continue`
+  - `+ break`
+- `.claude/hooks/gate.py:746` TrueWithFalse — judge_step: крок, гірший за snapshot, не зупиняє наступні кроки (тести після червоного lint)
+  - `- return True`
+  - `+ return False`
+- `.claude/hooks/gate.py:761` OrWithAnd — run_checks зі snapshot: червоний крок не зупиняє тести
+  - `- failed = judge_step(report, base, kind, command, rc, out, ms, full) or failed`
+  - `+ failed = judge_step(report, base, kind, command, rc, out, ms, full) and failed`
+- `.claude/hooks/gate.py:858` ComparisonOperator_Eq_NotEq — які файли названо в записі ескалації, коли є і блокуючі, і неблокуючі знахідки
+  - `- files = sorted({f.file for f in report.findings if f.severity == "block" and f.file}) or sorted(report.files)`
+  - `+ files = sorted({f.file for f in report.findings if f.severity != "block" and f.file}) or sorted(report.files)`
+- `.claude/hooks/gate.py:869` Exceptionr — запис ескалації не вдався (OSError)
+  - `- except OSError as exc:`
+  - `+ except CosmicRayTestingException as exc:`
+- `.claude/hooks/gate.py:944` Numberr — лічильник поставлених питань починається з 1: зайвий перезапис файлу ескалацій і число, яке ніхто не читає
+  - `- asked = 0`
+  - `+ asked = 1`
+- `.claude/hooks/gate.py:954` ContinueWithBreak — кілька відкладених ескалацій, перша з яких уже має питання
+  - `- continue`
+  - `+ break`
+- `.claude/hooks/gate.py:962` Exceptionr — захисний перелік винятків навколо запису питання на task board
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+  - `+ except (ImportError, OSError, ValueError, TypeError, CosmicRayTestingException, AttributeError) as exc:`
+- `.claude/hooks/gate.py:1018` Exceptionr — захисний перелік винятків навколо lesson_queue: жоден тест не кидає OSError звідти
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, CosmicRayTestingException, ValueError, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/gate.py:1018` Exceptionr — захисний перелік винятків навколо lesson_queue: жоден тест не кидає OSError звідти
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, CosmicRayTestingException, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/gate.py:1018` Exceptionr — захисний перелік винятків навколо lesson_queue: жоден тест не кидає OSError звідти
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, CosmicRayTestingException, KeyError, AttributeError):`
+- `.claude/hooks/gate.py:1018` Exceptionr — захисний перелік винятків навколо lesson_queue: жоден тест не кидає OSError звідти
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, TypeError, KeyError, CosmicRayTestingException):`
+- `.claude/hooks/gate.py:1039` Exceptionr — захисний перелік винятків навколо simplify_signals: AttributeError там ніхто не кидає
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+  - `+ except (ImportError, OSError, ValueError, TypeError, KeyError, CosmicRayTestingException) as exc:`
+- `.claude/hooks/gate.py:1059` UnaryOperator_Delete_Not — крок форматування, коли поточна тека — не корінь проєкту
+  - `- path = root / rel if not Path(rel).is_absolute() else Path(rel)`
+  - `+ path = root / rel if  Path(rel).is_absolute() else Path(rel)`
+- `.claude/hooks/gate.py:1086` AddNot — попередження кроку форматування
+  - `- if warns:`
+  - `+ if not warns:`
+- `.claude/hooks/gate.py:1107` Numberr — FORMAT_CMD, у якому `{file}` стоїть двічі
+  - `- quiet_run(["bash", "-c", fmt.replace("{file}", shlex.quote(str(path)), 1)])`
+  - `+ quiet_run(["bash", "-c", fmt.replace("{file}", shlex.quote(str(path)), 2)])`
+- `.claude/hooks/gate.py:1243` AndWithOr — чи друкується підсумок у stderr, коли всі знахідки — лише `log`
+  - `- if report.findings and any(f.severity != "log" for f in report.findings):`
+  - `+ if report.findings or any(f.severity != "log" for f in report.findings):`
+- `.claude/hooks/gate.py:1243` ComparisonOperator_NotEq_Eq — чи друкується підсумок у stderr, коли всі знахідки — лише `log`
+  - `- if report.findings and any(f.severity != "log" for f in report.findings):`
+  - `+ if report.findings and any(f.severity == "log" for f in report.findings):`
+- `.claude/hooks/lesson_queue.py:222` Numberr — число, яке повертає collect_gate (скільки додано)
+  - `- added += 1`
+  - `+ added += 0`
+- `.claude/hooks/lesson_queue.py:254` Numberr — число, яке повертає collect_parked (скільки додано)
+  - `- added += 1`
+  - `+ added += 2`
+- `.claude/hooks/lesson_queue.py:282` BinaryOperator_Add_Sub — число, яке повертає collect (сума доданого з трьох джерел)
+  - `- return (collect_gate(root, slice_name) + collect_parked(root)`
+  - `+ return (collect_gate(root, slice_name) - collect_parked(root)`
+- `.claude/hooks/lesson_queue.py:419` Numberr — кілька записів черги з тим самим номером
+  - `- entry = found[0]`
+  - `+ entry = found[ -1]`
+- `.claude/hooks/lesson_queue.py:431` Numberr — текст правила з кількох рядків: у пропозицію йде перший
+  - `- append(root / PROPOSALS_REL, f"\n## RP-{ident} — {today()} — PROPOSED\n- Rule: {text.splitlines()[0]}\n- Why: {' '.join(why.split())}\n- From: {origin`
+  - `+ append(root / PROPOSALS_REL, f"\n## RP-{ident} — {today()} — PROPOSED\n- Rule: {text.splitlines()[ -1]}\n- Why: {' '.join(why.split())}\n- From: {orig`
+- `.claude/hooks/lesson_queue.py:520` Numberr — відхилення пропозиції, яка вже закрита
+  - `- return False, f"RP-{ident} is already {found[0]['state']}"`
+  - `+ return False, f"RP-{ident} is already {found[ 1]['state']}"`
+- `.claude/hooks/lesson_queue.py:620` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, TypeError, CosmicRayTestingException):`
+- `.claude/hooks/lesson_queue.py:697` OrWithAnd — stdin — термінал (hook запущено руками)
+  - `- if sys.stdin is None or sys.stdin.isatty():`
+  - `+ if sys.stdin is None and sys.stdin.isatty():`
+- `.claude/hooks/lesson_queue.py:773` Numberr — OSError під час команди: код виходу для hook-команд і решти
+  - `- return 0 if args.command in hook_commands else 1`
+  - `+ return -1 if args.command in hook_commands else 1`
+- `.claude/hooks/lesson_queue.py:773` AddNot — OSError під час команди: код виходу для hook-команд і решти
+  - `- return 0 if args.command in hook_commands else 1`
+  - `+ return 0 if not args.command in hook_commands else 1`
+- `.claude/hooks/overseer_stop.py:423` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, CosmicRayTestingException, KeyError, AttributeError):`
+- `.claude/hooks/overseer_stop.py:598` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, CosmicRayTestingException, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/overseer_stop.py:598` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, CosmicRayTestingException, KeyError, AttributeError):`
+- `.claude/hooks/overseer_stop.py:628` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (CosmicRayTestingException, OSError, ValueError, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/overseer_stop.py:628` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, CosmicRayTestingException, ValueError, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/overseer_stop.py:685` OrWithAnd — ключ, під яким юніт відкладається після третьої відмови
+  - `- ov.park(project_dir, str(waiting.get("unit_key") or request_id),`
+  - `+ ov.park(project_dir, str(waiting.get("unit_key") and request_id),`
+- `.claude/hooks/overseer_stop.py:691` Numberr — лічильник schema_errors у записі очікування після повторного запиту
+  - `- ov.write_json(project_dir / ov.PENDING_REL, dict(waiting) | {"asks": asks + 1, "schema_errors": 0})`
+  - `+ ov.write_json(project_dir / ov.PENDING_REL, dict(waiting) | {"asks": asks + 1, "schema_errors": -1})`
+- `.claude/hooks/overseer_verdict.py:108` Exceptionr — git не запускається (OSError) під час пошуку кореня проєкту
+  - `- except (OSError, subprocess.TimeoutExpired):`
+  - `+ except (CosmicRayTestingException, subprocess.TimeoutExpired):`
+- `.claude/hooks/overseer_verdict.py:314` TrueWithFalse — тека стану ще не існує, коли пишеться перший рядок verdicts.jsonl
+  - `- path.parent.mkdir(parents=True, exist_ok=True)`
+  - `+ path.parent.mkdir(parents=False, exist_ok=True)`
+- `.claude/hooks/overseer_verdict.py:406` TrueWithFalse — тека запиту вже існує під час повторного запиту
+  - `- folder.mkdir(parents=True, exist_ok=True)`
+  - `+ folder.mkdir(parents=True, exist_ok=False)`
+- `.claude/hooks/overseer_verdict.py:450` Numberr — лічильник запусків overseer-а в записі очікування без поля launched
+  - `- write_json(root / PENDING_REL, waiting | {"launched": int(waiting.get("launched", 0)) + 1})`
+  - `+ write_json(root / PENDING_REL, waiting | {"launched": int(waiting.get("launched", -1)) + 1})`
+- `.claude/hooks/overseer_verdict.py:522` Numberr — рядок Action у ledger для запису без номера спроби
+  - `- f"- Action: {ACTIONS[verdict].format(attempt=row.get('attempt', 1), limit=MAX_BLOCKS)}",`
+  - `+ f"- Action: {ACTIONS[verdict].format(attempt=row.get('attempt', 2), limit=MAX_BLOCKS)}",`
+- `.claude/hooks/overseer_verdict.py:530` Numberr — рядок Request у ledger для запису без номера спроби
+  - `- lines += [f"- Request: {row['request']} (attempt {row.get('attempt', 1)}, {row.get('origin', 'hook')})",`
+  - `+ lines += [f"- Request: {row['request']} (attempt {row.get('attempt', 0)}, {row.get('origin', 'hook')})",`
+- `.claude/hooks/overseer_verdict.py:558` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (CosmicRayTestingException, OSError, ValueError, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/overseer_verdict.py:558` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, CosmicRayTestingException, ValueError, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/overseer_verdict.py:558` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, TypeError, CosmicRayTestingException, AttributeError):`
+- `.claude/hooks/overseer_verdict.py:571` Exceptionr — захисний перелік винятків
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, CosmicRayTestingException, KeyError, AttributeError):`
+- `.claude/hooks/overseer_verdict.py:579` Exceptionr — захисний перелік винятків навколо lesson_queue
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, ValueError, TypeError, KeyError, CosmicRayTestingException):`
+- `.claude/hooks/overseer_verdict.py:634` Numberr — запис очікування без лічильника schema_errors
+  - `- if int(waiting.get("schema_errors", 0)) == 0:`
+  - `+ if int(waiting.get("schema_errors", -1)) == 0:`
+- `.claude/hooks/overseer_verdict.py:694` Exceptionr — захисний перелік винятків навколо запису на task board
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):`
+  - `+ except (ImportError, OSError, CosmicRayTestingException, TypeError, KeyError, AttributeError):`
+- `.claude/hooks/overseer_verdict.py:719` Exceptionr — захисний перелік винятків
+  - `- except (ValueError, OSError):`
+  - `+ except (ValueError, CosmicRayTestingException):`
+- `.claude/hooks/overseer_verdict.py:739` Exceptionr — файл ходу для ручного запиту не читається (OSError)
+  - `- except OSError as exc:`
+  - `+ except CosmicRayTestingException as exc:`
+- `.claude/hooks/overseer_verdict.py:744` Numberr — код виходу ручного запиту, коли файл ходу не читається (2)
+  - `- return 2`
+  - `+ return 1`
+- `.claude/hooks/overseer_verdict.py:744` Numberr — код виходу ручного запиту, коли файл ходу не читається (2)
+  - `- return 2`
+  - `+ return 3`
+- `.claude/hooks/overseer_verdict.py:750` Exceptionr — захисний перелік винятків навколо запису на task board
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+  - `+ except (CosmicRayTestingException, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+- `.claude/hooks/overseer_verdict.py:750` Exceptionr — захисний перелік винятків навколо запису на task board
+  - `- except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:`
+  - `+ except (ImportError, OSError, CosmicRayTestingException, TypeError, KeyError, AttributeError) as exc:`
+- `.claude/hooks/overseer_verdict.py:785` TrueWithFalse — ручний запит аудиту без --turn-file
+  - `- manual.add_argument("--turn-file", type=Path, required=True, help="the file holding the turn to audit, verbatim")`
+  - `+ manual.add_argument("--turn-file", type=Path, required=False, help="the file holding the turn to audit, verbatim")`
+- `.claude/hooks/overseer_verdict.py:797` Numberr — код виходу однієї з команд CLI
+  - `- return 0`
+  - `+ return 1`

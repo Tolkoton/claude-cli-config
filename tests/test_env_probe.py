@@ -18,6 +18,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import trace_env
+
 ROOT = Path(__file__).resolve().parent.parent
 PROBE = ROOT / ".claude/unattended/env-probe.sh"
 SECRET = "sk-ant-THIS-VALUE-MUST-NEVER-BE-PRINTED-0123456789"
@@ -45,7 +47,7 @@ class Checks:
 
 
 def probe(project: Path, extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/"), "CLAUDE_PROJECT_DIR": str(project)}
+    env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/"), "CLAUDE_PROJECT_DIR": str(project), **trace_env()}
     env.update(extra)
     return subprocess.run(["bash", str(PROBE)], capture_output=True, text=True, env=env, check=False, cwd=project if project.is_dir() else None)
 
