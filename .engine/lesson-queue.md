@@ -54,3 +54,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-07 | parked | 076-maintain-build-rule-proposals-line-untested | 076-maintain-build/rule-proposals-line-untested: Звіт догляду: рядки про пропозиції правил і прибирання пам'яті без перевірки значення #2257d428
 - 2026-10-07 | parked | paid-consent-written-in-an-answer | paid-consent-written-in-an-answer: Згода на платні прогони, написана у відповіді, нічого не відкриває — двічі за день #cb276cfe
 - 2026-10-07 | parked | 729-traps-with-no-written-reason | 729-traps-with-no-written-reason: 729: жодна пастка не зачеплена — але в кожної причина записана в документах проєкту #f88b9d6e
+- 2026-10-08 | parked | 745-kill-switch-confirmed-without-a-written-reason | 745-kill-switch-confirmed-without-a-written-reason: 745: simplifier двічі з п'яти запропонував confirm на kill switch, причина якого не записана ніде #0cac7c83
