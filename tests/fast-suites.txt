@@ -63,6 +63,8 @@
 # Board 056: test_owner_perimeter stays out (about a hundred runs of the two real deny hooks).
 # Board 085: test_core_units 2.5 s is in (in-process: the cases a mutation run found unpinned in gate.py, overseer_verdict.py,
 # overseer_stop.py, board.py, engine.py and lesson_queue.py; a dozen throwaway repositories, no hook started).
+# Board 086: test_hook_coverage 3.8 s stays out (a traced run of a synthetic project; coverage.py comes through uvx);
+# test_refusal_branches 4.5 s stays out (about sixty runs of hooks and scripts on throwaway repositories, one of them a 1 s time limit).
 test_deny_gaps.py
 test_hook_env.py
 test_root_delete_deny.py

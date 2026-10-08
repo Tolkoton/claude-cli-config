@@ -1556,6 +1556,77 @@
         }
       },
       "expect": "block"
+    },
+    {
+      "id": "bd-push-dash-C-subdirectory-on-main",
+      "why": "`git -C <dir> push` sends the branch checked out THERE: a relative directory is read from where the command runs, and main stays refused.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git -C src push"
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "push"
+    },
+    {
+      "id": "bd-push-dash-C-absolute-on-main",
+      "why": "The same with an absolute directory.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git -C {{SANDBOX}} push"
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "push"
+    },
+    {
+      "id": "bd-push-long-flag-before-main",
+      "why": "A long option the hook does not know is stepped over, not taken for the remote: the refspec after it is still read.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push --verbose origin main"
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "push"
+    },
+    {
+      "id": "bd-push-option-value-is-not-a-refspec",
+      "why": "The word after `--push-option` is that option's value, as git itself reads it: the remote is the NEXT word and the refspec after it — here a feature branch. Read without the step over the value, the words would shift by one and `main` would be taken for the refspec.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push --push-option origin main feat/pricing"
+        }
+      },
+      "expect": "allow"
     }
   ]
 }

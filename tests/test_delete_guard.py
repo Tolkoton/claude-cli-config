@@ -220,6 +220,27 @@ r = project()
 (r / "deploy.sh").write_text("".join(f"echo step {i}\n" for i in range(5)))
 hit = found(r, "delete/untested") if gate(r).returncode == 2 else []
 check("not Python: 25 lines removed from a script with no test — block by the count of lines", len(hit) == 1 and "25 lines" in hit[0]["message"], hit)
+# Board 086: the whole-file path for code with no names to go by was run by no suite.
+r = project()
+(r / "deploy.sh").unlink()
+done = gate(r)
+hit = found(r, "delete/untested")
+check("not Python: the whole script deleted — block, named as the file", done.returncode == 2 and len(hit) == 1 and hit[0]["file"] == "deploy.sh"
+      and "the file" in hit[0]["message"], (done.stderr, hit))
+r = project()
+(r / "hook.sh").write_text("echo one\necho two\n")
+(r / "limits.py").write_text("MAX_RETRIES = 3\nTIMEOUT_S = 30\n")
+commit(r, "two small files")
+(r / "hook.sh").unlink()
+hit = found(r, "delete/untested") if gate(r).returncode == 2 else []
+check("a script of two lines deleted whole: block — the threshold counts lines inside a file, not a file", len(hit) == 1 and hit[0]["file"] == "hook.sh", hit)
+sh(r, "git", "checkout", "-q", "--", "hook.sh")
+(r / "limits.py").unlink()
+hit = found(r, "delete/untested") if gate(r).returncode == 2 else []
+check("a Python file with no function or class (constants) deleted: block, as the file", len(hit) == 1 and hit[0]["file"] == "limits.py"
+      and "the file" in hit[0]["message"], hit)
+sh(r, "git", "checkout", "-q", "--", "limits.py")
+check("(both restored: passes)", passed(r), found(r, "delete/untested"))
 check("threshold(): unset, empty and garbage are the default; a number is itself",
       [delete_guard.threshold(e) for e in ({}, {"DELETE_GUARD_LINES": ""}, {"DELETE_GUARD_LINES": "many"}, {"DELETE_GUARD_LINES": "5"})] == [20, 20, 20, 5])
 

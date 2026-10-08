@@ -5,6 +5,7 @@
     subprocess.run(["bash", str(HOOK)], input=..., env=hook_env())             # a fresh empty directory
     subprocess.run(["bash", str(HOOK)], input=..., env=hook_env(main_repo()))  # a repository on `main`
     subprocess.run([...], env=hook_env(root, PATH=shims))                      # the suite's own project
+    subprocess.run([...], env={"PATH": ..., "CLAUDE_PROJECT_DIR": ..., **trace_env()})   # an environment from nothing
 
 WHY. The Stop gate runs TEST_CMD with CLAUDE_PROJECT_DIR naming this repository; by hand the
 variable is unset. A suite that lets a hook inherit it answers differently from the gate than
@@ -47,6 +48,15 @@ def main_repo(branch: str = "main") -> str:
     git("commit", "-qm", "init")
     git("branch", "-M", branch)
     return root
+
+
+def trace_env() -> dict[str, str]:
+    """What a traced run (`evals/hook_coverage.py run`) put into the environment — for a suite that
+    builds a hook's environment from nothing: without these the hook it starts is not traced, and
+    the suite's work reads as code no test runs (board 086). Empty outside a traced run."""
+    if not os.environ.get("HOOKCOV_DIR"):
+        return {}
+    return {name: os.environ[name] for name in ("HOOKCOV_DIR", "BASH_ENV", "PYTHONPATH") if name in os.environ}
 
 
 def hook_env(project: str | os.PathLike[str] | None = None, **extra: str) -> dict[str, str]:

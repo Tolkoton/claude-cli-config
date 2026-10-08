@@ -132,6 +132,203 @@
     "last_assistant_message": "{\"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}"
    },
    "expect": "allow"
+  },
+  {
+   "id": "ovr-verdict-word-outside-the-schema",
+   "why": "A verdict is one of four words; «looks good» in the verdict field is not a PASS.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/requests/20261003T120000Z-abc123/request.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit\": \"3\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"contract\": null, \"passes_in_a_row\": 0, \"tree\": null}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "SubagentStop",
+    "agent_type": "overseer",
+    "agent_id": "a1",
+    "last_assistant_message": "{\"verdict\": \"LGTM\", \"check\": null, \"reason\": \"every claim has its evidence\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}"
+   },
+   "expect": "block",
+   "detail_line": "`verdict`",
+   "expect_detail_contains": "`verdict` must be one of PASS, BLOCK, ADR_REQUIRED, ESCALATE"
+  },
+  {
+   "id": "ovr-adr-required-carries-its-draft",
+   "why": "ADR_REQUIRED without the draft leaves the builder nothing to write the record from.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/requests/20261003T120000Z-abc123/request.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit\": \"3\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"contract\": null, \"passes_in_a_row\": 0, \"tree\": null}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "SubagentStop",
+    "agent_type": "overseer",
+    "agent_id": "a1",
+    "last_assistant_message": "{\"verdict\": \"ADR_REQUIRED\", \"check\": null, \"reason\": \"a new storage engine was chosen in passing\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}"
+   },
+   "expect": "block",
+   "detail_line": "ADR_REQUIRED",
+   "expect_detail_contains": "ADR_REQUIRED carries the draft"
+  },
+  {
+   "id": "ovr-escalate-carries-its-question",
+   "why": "An ESCALATE with no question is a stop with nothing for the owner to answer.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/requests/20261003T120000Z-abc123/request.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit\": \"3\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"contract\": null, \"passes_in_a_row\": 0, \"tree\": null}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "SubagentStop",
+    "agent_type": "overseer",
+    "agent_id": "a1",
+    "last_assistant_message": "{\"verdict\": \"ESCALATE\", \"check\": null, \"reason\": \"the threshold is the owner's to set\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}"
+   },
+   "expect": "block",
+   "detail_line": "ESCALATE",
+   "expect_detail_contains": "ESCALATE carries the question"
+  },
+  {
+   "id": "ovr-unknown-category-is-refused",
+   "why": "The category routes the lesson; an invented one routes it nowhere.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/requests/20261003T120000Z-abc123/request.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit\": \"3\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"contract\": null, \"passes_in_a_row\": 0, \"tree\": null}\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "SubagentStop",
+    "agent_type": "overseer",
+    "agent_id": "a1",
+    "last_assistant_message": "{\"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"style\"}"
+   },
+   "expect": "block",
+   "detail_line": "`category`",
+   "expect_detail_contains": "`category` must be one of"
+  },
+  {
+   "id": "ovr-second-answer-changes-nothing",
+   "why": "One request, one verdict: after a BLOCK is recorded, a second agent's PASS for the same request is not written anywhere.",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/requests/20261003T120000Z-abc123/request.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit\": \"3\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"contract\": null, \"passes_in_a_row\": 0, \"tree\": null}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/verdicts.jsonl",
+      "content": "{\"utc\": \"2026-10-03T12:05:00Z\", \"request\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"agent_id\": \"a0\", \"verdict\": \"BLOCK\", \"reason\": \"masked test gap\", \"check\": 4}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".engine/overseer/ledger.md",
+      "content": "# Overseer ledger\n"
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "SubagentStop",
+    "agent_type": "overseer",
+    "agent_id": "a1",
+    "last_assistant_message": "```json\n{\"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}\n```"
+   },
+   "check_file": ".engine/overseer/ledger.md",
+   "expect": "allow",
+   "expect_file_changed": false
+  },
+  {
+   "id": "ovr-answer-handed-back-through-the-transcript",
+   "why": "An agent that used a tool hands its answer back through `SubagentHandback`, and the envelope carries no message: the verdict is read from the agent's own transcript (board 705).",
+   "setup": [
+    {
+     "write": {
+      "path": ".claude/state/overseer/pending.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"unit_key\": \"-|-|unit 3\", \"asks\": 1, \"schema_errors\": 0, \"launched\": 1}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".claude/state/overseer/requests/20261003T120000Z-abc123/request.json",
+      "content": "{\"id\": \"20261003T120000Z-abc123\", \"origin\": \"hook\", \"slice\": \"unknown\", \"unit\": \"3\", \"unit_key\": \"-|-|unit 3\", \"attempt\": 1, \"contract\": null, \"passes_in_a_row\": 0, \"tree\": null}\n"
+     }
+    },
+    {
+     "write": {
+      "path": ".engine/overseer/ledger.md",
+      "content": "# Overseer ledger\n"
+     }
+    }
+   ],
+   "transcript": [
+    {
+     "type": "assistant",
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "type": "tool_use",
+        "name": "SubagentHandback",
+        "input": {
+         "message": "```json\n{\"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}\n```"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "input": {
+    "hook_event_name": "SubagentStop",
+    "agent_type": "overseer",
+    "agent_id": "a1",
+    "agent_transcript_path": "{{TRANSCRIPT}}"
+   },
+   "check_file": ".engine/overseer/ledger.md",
+   "expect": "allow",
+   "expect_file_changed": true
   }
  ]
 }

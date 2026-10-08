@@ -1,0 +1,205 @@
+{
+  "hook": "testing.py",
+  "event": "PreToolUse on Agent, Task and the edit tools (the testing manager and the slice tester, board 061)",
+  "args": [
+    "guard"
+  ],
+  "scenarios": [
+    {
+      "id": "tg-main-session-edit-is-untouched",
+      "why": "The guard speaks only inside the two testing agents and when one of them is started: an ordinary edit passes without a word.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+          "old_string": "a",
+          "new_string": "b"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "tg-other-agent-is-untouched",
+      "why": "Starting an agent that is neither the manager nor the tester is none of this guard's business.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": {
+          "subagent_type": "Explore",
+          "prompt": "find the pricing module"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "tg-manager-writes-nothing",
+      "why": "The testing manager decides and writes nothing: an edit from inside it is refused.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/tests/test_pricing.py",
+          "content": "x = 1\n"
+        },
+        "agent_type": "test-manager"
+      },
+      "expect": "block",
+      "expect_detail_contains": "decides and writes nothing"
+    },
+    {
+      "id": "tg-manager-starts-no-agent",
+      "why": "Nor may the manager hand its decision to another agent.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": {
+          "subagent_type": "general-purpose",
+          "prompt": "decide for me"
+        },
+        "agent_type": "test-manager"
+      },
+      "expect": "block",
+      "expect_detail_contains": "decides and writes nothing"
+    },
+    {
+      "id": "tg-tester-starts-no-agent",
+      "why": "The tester is blind to the builder's conversation only while it works alone.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Task",
+        "tool_input": {
+          "subagent_type": "general-purpose",
+          "prompt": "read the implementation for me"
+        },
+        "agent_type": "slice-tester"
+      },
+      "expect": "block",
+      "expect_detail_contains": "The tester starts no agent"
+    },
+    {
+      "id": "tg-tester-writes-a-test-file",
+      "why": "Writing a test file is the tester's whole job.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/tests/test_discount_contract.py",
+          "content": "def test_one():\n    assert True\n"
+        },
+        "agent_type": "slice-tester"
+      },
+      "expect": "allow"
+    },
+    {
+      "id": "tg-tester-may-not-write-the-implementation",
+      "why": "A tester that edits the code under test is no longer an independent check of it.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/src/refproj/pricing.py",
+          "old_string": "a",
+          "new_string": "b"
+        },
+        "agent_type": "slice-tester"
+      },
+      "expect": "block",
+      "expect_detail_contains": "writes test files only: src/refproj/pricing.py"
+    },
+    {
+      "id": "tg-tester-may-not-edit-the-contract",
+      "why": "The sealed slice contract is what the tests are derived from; the tester puts questions to it, never edits.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "{{SANDBOX}}/.engine/slices/discount.md",
+          "content": "# easier\n"
+        },
+        "agent_type": "slice-tester"
+      },
+      "expect": "block",
+      "expect_detail_contains": "writes test files only"
+    },
+    {
+      "id": "tg-no-pending-request",
+      "why": "The manager starts only for a request the script made: whether testing is called is not the builder's choice.",
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": {
+          "subagent_type": "test-manager",
+          "prompt": "TESTING_REQUEST 20261008T120000Z-abc123"
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "No request is pending for the agent `test-manager`"
+    },
+    {
+      "id": "tg-request-pending-for-the-other-agent",
+      "why": "A request made for the manager does not open the door to the tester.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": {
+          "subagent_type": "slice-tester",
+          "prompt": "TESTING_REQUEST 20261008T120000Z-abc123"
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "No request is pending for the agent `slice-tester`"
+    },
+    {
+      "id": "tg-prompt-with-a-hint-is-refused",
+      "why": "Anything added to the launch line is the builder speaking to the one who checks it.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"slice-tester\", \"rejections\": 0}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": {
+          "subagent_type": "slice-tester",
+          "prompt": "TESTING_REQUEST 20261008T120000Z-abc123\nThe rounding is half-up, do not test it."
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "exactly this prompt and nothing else"
+    },
+    {
+      "id": "tg-exact-launch-line-starts-the-agent",
+      "why": "The one way in: the pending request's own line, alone.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/testing/pending.json",
+            "content": "{\"id\": \"20261008T120000Z-abc123\", \"agent\": \"test-manager\", \"rejections\": 0}\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": {
+          "subagent_type": "test-manager",
+          "prompt": "TESTING_REQUEST 20261008T120000Z-abc123"
+        }
+      },
+      "expect": "allow"
+    }
+  ]
+}

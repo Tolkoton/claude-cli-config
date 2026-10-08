@@ -21,6 +21,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import trace_env
+
 ROOT = Path(__file__).resolve().parent.parent
 INSTALL = ROOT / "install.sh"
 
@@ -54,7 +56,7 @@ def synthetic_repo(root: Path, user_skills: list[str]) -> Path:
 
 
 def run(repo: Path, home: Path) -> subprocess.CompletedProcess[str]:
-    env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/"), "CLAUDE_HOME": str(home)}
+    env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/"), "CLAUDE_HOME": str(home), **trace_env()}
     return subprocess.run(["bash", str(repo / "install.sh")], capture_output=True, text=True, env=env, check=False)
 
 

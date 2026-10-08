@@ -91,6 +91,24 @@
         }
       },
       "expect": "allow"
+    },
+    {
+      "id": "pa-unattended-call-without-a-command",
+      "why": "Nothing to judge is not a reason to refuse: the hook only ever turns a prompt into a park.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/overseer/mode",
+            "content": "unattended\n"
+          }
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {}
+      },
+      "expect": "allow"
     }
   ]
 }

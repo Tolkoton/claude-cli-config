@@ -23,6 +23,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from hook_env import trace_env
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / ".claude/unattended/commit_checkpoint.sh"
 
@@ -63,7 +65,7 @@ def repo_on(branch: str, cloud_policy: str | None = None) -> Path:
 
 
 def checkpoint(root: Path, *args: str, cloud: bool = False) -> subprocess.CompletedProcess[str]:
-    env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/"), "CLAUDE_PROJECT_DIR": str(root)}
+    env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/"), "CLAUDE_PROJECT_DIR": str(root), **trace_env()}
     env["GIT_AUTHOR_NAME"] = env["GIT_COMMITTER_NAME"] = "t"
     env["GIT_AUTHOR_EMAIL"] = env["GIT_COMMITTER_EMAIL"] = "t@t"
     if cloud:
