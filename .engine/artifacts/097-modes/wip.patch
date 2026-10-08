@@ -1,0 +1,1449 @@
+diff --git a/.claude/agents/overseer.md b/.claude/agents/overseer.md
+index 335cc41..987f9de 100644
+--- a/.claude/agents/overseer.md
++++ b/.claude/agents/overseer.md
+@@ -33,7 +33,9 @@ everything you need is in the request package and in the repository.
+    contract's path and sha256, `gate_allows` (every gate exemption the work
+    adds that no accepted PASS has covered; empty means none), `gate_escalation`
+    (when not empty the Stop gate's escalation is open and a PASS will not be
+-   accepted — audit as usual and say what you found), `passes_in_a_row`.
++   accepted — audit as usual and say what you found), `passes_in_a_row`, `mode`
++   (the task's mode as `mode.py show` prints it: in «соло» a missing slice contract is
++   no finding; in «конвеєр» every slice has a sealed one, and its absence is #1).
+ 
+ Then the state:
+ 
+diff --git a/.claude/hooks/bugfix.py b/.claude/hooks/bugfix.py
+index 38d73ee..3f0d004 100755
+--- a/.claude/hooks/bugfix.py
++++ b/.claude/hooks/bugfix.py
+@@ -193,6 +193,13 @@ def refused(reason: str, *runs: tuple[str, Run]) -> int:
+ 
+ 
+ def cmd_prove(root: Path, args: argparse.Namespace) -> int:
++    sys.path.insert(0, str(Path(__file__).resolve().parent))
++    import mode  # the task's mode (board 097): a fix is never made in quarantine
++
++    forbidden = mode.refusal(root, "bugfix")
++    if forbidden:
++        print(f"REFUSED: {forbidden}")
++        return 1
+     sha = resolve_base(root, args.base, args.record)
+     tests = test_files(root, args.test)
+     fix = the_fix(root, sha, tests)
+diff --git a/.claude/hooks/goals.py b/.claude/hooks/goals.py
+index 029fd34..d8c138a 100755
+--- a/.claude/hooks/goals.py
++++ b/.claude/hooks/goals.py
+@@ -52,12 +52,14 @@ from collections.abc import Callable, Iterable
+ from dataclasses import dataclass
+ from pathlib import Path
+ 
++sys.path.insert(0, str(Path(__file__).resolve().parent))
++import mode as mode_reader  # the one reader of «nobody is watching» (board 097)
++
+ GOALS_REL = ".engine/goals.md"
+ PROPOSED_REL = ".engine/goals/proposed.md"
+ REVIEW_REL = ".engine/goals/to-review.md"
+ REQUESTS_PREFIX = ".engine/goals/requests/"
+ STATE_REL = Path(".claude") / "state" / "goals" / "goals.sha256"
+-MODE_REL = Path(".claude") / "state" / "overseer" / "mode"
+ EXIT_OK, EXIT_USAGE, EXIT_REFUSED, EXIT_NONE = 0, 2, 3, 4
+ 
+ KINDS = "GPNCDQ"
+@@ -294,8 +296,7 @@ STATE_EXIT = {"absent": EXIT_NONE, "unsealed": EXIT_NONE, "sealed": EXIT_OK, "ch
+ 
+ 
+ def unattended(root: Path) -> bool:
+-    mode = root / MODE_REL
+-    return os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1" or (mode.is_file() and mode.read_text(encoding="utf-8").strip() == "unattended")
++    return mode_reader.unattended(root)[0]
+ 
+ 
+ def write_seal(root: Path) -> str:
+diff --git a/.claude/hooks/hotfix.py b/.claude/hooks/hotfix.py
+index 3d016ab..c8d6de9 100755
+--- a/.claude/hooks/hotfix.py
++++ b/.claude/hooks/hotfix.py
+@@ -35,7 +35,6 @@ wrong: who declares, the name, the files); 3 a question for the owner. Standard
+ from __future__ import annotations
+ 
+ import argparse
+-import os
+ import re
+ import sys
+ from dataclasses import dataclass
+@@ -44,6 +43,7 @@ from pathlib import Path
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+ import complexity_budget as budget  # the measurement and the project root live there
++import mode as mode_reader  # the task's mode and «nobody is watching» (board 097)
+ 
+ TERM_DAYS = 7
+ MAX_OPEN = 3
+@@ -104,8 +104,8 @@ def today() -> date:
+ 
+ 
+ def unattended(root: Path) -> bool:
+-    """Nobody is watching: the runner's environment says so, or the mode file does (as board.py reads it)."""
+-    return os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1" or read(root / ".claude/state/overseer/mode").strip() == "unattended"
++    """Nobody is watching: the runner's environment says so, or the mode file does (mode.py reads both)."""
++    return mode_reader.unattended(root)[0]
+ 
+ 
+ def refuse(code: int, why: str) -> int:
+@@ -161,6 +161,9 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
+     if isinstance(declared, str):
+         return refuse(2, declared)
+     words, task_text = declared
++    forbidden = mode_reader.refusal(root, "hotfix", root / args.task if args.task else None)
++    if forbidden:
++        return refuse(2, forbidden)
+     open_debts = [d for d in debts(read(root / DEBT_REL)) if d.open]
+     answer = (args.owner_answer or "").strip()
+     if len(open_debts) >= MAX_OPEN:
+diff --git a/.claude/hooks/mode.py b/.claude/hooks/mode.py
+new file mode 100755
+index 0000000..c18281b
+--- /dev/null
++++ b/.claude/hooks/mode.py
+@@ -0,0 +1,314 @@
++#!/usr/bin/env python3
++"""mode.py — the one reader of a task's mode (board 097; the approved design is board 080).
++
++    python3 .claude/hooks/mode.py show [--task FILE]      one line: the mode, the accompaniment,
++                                                         «without supervision», the work type —
++                                                         each with where it was read; writes nothing
++    python3 .claude/hooks/mode.py raise <mode> --why "…"  the agent raises the mode of its task in doing/
++    python3 .claude/hooks/mode.py unattended              `unattended env|mode-file` (exit 0) or `attended` (exit 1)
++
++THREE MODES, a property of the TASK: ескіз (an answer to one question, code only in quarantine),
++соло (one builder, the gates, the overseer), конвеєр (a feature architect, a sealed slice contract
++on every slice). The owner writes the line `Режим: ескіз|соло|конвеєр` under the task's title; a
++task without it is соло. A value that names no mode (or two such lines) is nobody's clear word:
++the board does not take that task (board.py) and says why.
++
++RAISING. The agent goes up by itself and never down: a lighter mode lifts checks, and nobody lifts
++checks for themselves (the constitution, article 3). `raise` appends to the session's task in
++doing/ the section `## Режим піднято`, one line per raise — when, from which mode to which, why.
++The mode in force is the higher of the owner's line and the last raise. There is no state file:
++the raise lives in the task file and moves to done/ with it, so the next task starts from its own
++line or from соло. Only the owner undoes a raise, by deleting that section from the task file.
++
++WHAT A MODE FORBIDS (`refusal`). A fix is never made in quarantine: /hotfix and /bugfix are
++refused in ескіз. An urgent fix is small by definition: /hotfix is refused in конвеєр. hotfix.py
++start and bugfix.py prove ask here.
++
++«WITHOUT SUPERVISION» is a property of the SESSION: the runner's variable
++CLAUDE_UNATTENDED_SESSION=1, or `.claude/state/overseer/mode` saying `unattended`. It was computed
++in five places, each its own way (board.py, env-probe.sh, goals.py, hotfix.py, park-ask-gated.py);
++they all ask `unattended` here.
++
++THE ACCOMPANIMENT is a fact about the project: it has the snapshot `.engine/baseline.json` and the
++profile `.engine/onboard/profile.md`. THE WORK TYPE belongs to the card: `type:` of the bug record
++that `.engine/PROGRESS.md` marks IN PROGRESS.
++
++A mode says which roles run and how strictly; it never says who runs them, and nothing here
++names one (tests/test_model_roles.py). Standard library only. Exit: 0 done; 1 attended
++(`unattended` only); 2 refused.
++"""
++
++from __future__ import annotations
++
++import argparse
++import os
++import re
++import subprocess
++import sys
++from dataclasses import dataclass
++from datetime import UTC, datetime
++from pathlib import Path
++from typing import Any
++
++MODES = ("ескіз", "соло", "конвеєр")  # in the order of their ceremony: a raise goes rightwards only
++DEFAULT = "соло"
++LINE = re.compile(r"^Режим:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
++RAISED = "## Режим піднято"
++RAISED_HEADING = re.compile(r"^##\s+Режим піднято\s*$", re.MULTILINE)
++RAISE_LINE = re.compile(r"^- (\S+) — (\S+) → (\S+): (.+)$", re.MULTILINE)
++QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
++HEADING = re.compile(r"^##\s", re.MULTILINE)
++COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
++ENV = "CLAUDE_UNATTENDED_SESSION"
++MODE_FILE = ".claude/state/overseer/mode"
++SOURCES = {"env": f"змінна runner-а {ENV}=1", "mode-file": f"файл {MODE_FILE}"}
++BASELINE, PROFILE = ".engine/baseline.json", ".engine/onboard/profile.md"
++TYPE_LINE = re.compile(r"^type:[ \t]*(\S+)", re.MULTILINE)
++FORBIDDEN = {
++    ("ескіз", "hotfix"): "a fix is never made in quarantine: /hotfix is refused in the mode «ескіз»",
++    ("ескіз", "bugfix"): "a fix is never made in quarantine: /bugfix is refused in the mode «ескіз»",
++    ("конвеєр", "hotfix"): "an urgent fix is small by definition: /hotfix is refused in the mode «конвеєр»",
++}
++EXIT_OK, EXIT_ATTENDED, EXIT_REFUSED = 0, 1, 2
++
++
++@dataclass(frozen=True)
++class Raise:
++    utc: str
++    before: str
++    after: str
++    why: str
++
++
++@dataclass(frozen=True)
++class Mode:
++    """What a task file says about its mode: the owner's line and the raises."""
++
++    line: str | None  # the owner's value as written; None when the task has no `Режим:` line
++    raises: tuple[Raise, ...] = ()
++    error: str = ""  # why the line names no mode; "" when it does or is absent
++
++    @property
++    def owner(self) -> str:
++        """The owner's mode: the line, else соло."""
++        return _normal(self.line) if self.line is not None and not self.error else DEFAULT
++
++    @property
++    def current(self) -> str:
++        """The mode in force: the higher of the owner's line and the last raise."""
++        if self.error:
++            return ""
++        last = self.raises[-1].after if self.raises else self.owner
++        return max(self.owner, last, key=MODES.index)
++
++    def shown(self) -> str:
++        """The mode with where it was read, for a person: `соло (рядка «Режим:» немає → соло)`."""
++        if self.error:
++            return f"невідомий ({self.error}; task board таку задачу не бере)"
++        said = f"рядок «Режим: {self.line}»" if self.line is not None else f"рядка «Режим:» немає → {DEFAULT}"
++        raised = "; ".join(f"піднято {r.utc} з {r.before} на {r.after} — {r.why}" for r in self.raises)
++        return f"{self.current} ({said}" + (f"; {raised}" if raised else "") + ")"
++
++
++def _normal(value: str) -> str:
++    return value.strip().strip("*_.!").strip().lower()
++
++
++def parse(text: str) -> Mode:
++    """The mode of a task file. The line is read in the header only (above the first `## `)."""
++    text = COMMENT.sub("", text)
++    first = HEADING.search(text)
++    lines = LINE.findall(text[: first.start()] if first else text)
++    raises = tuple(Raise(*m.groups()) for m in RAISE_LINE.finditer(_raised_section(text))
++                   if m.group(2) in MODES and m.group(3) in MODES)
++    if not lines:
++        return Mode(None, raises)
++    if len(lines) > 1:
++        return Mode(lines[0], raises, "рядків «Режим:» два або більше — незрозуміло, котрий чинний")
++    if _normal(lines[0]) not in MODES:
++        return Mode(lines[0], raises, f"«Режим: {lines[0]}» — такого режиму немає: {', '.join(MODES)}")
++    return Mode(lines[0], raises)
++
++
++def _raised_section(text: str) -> str:
++    found = RAISED_HEADING.search(text)
++    if not found:
++        return ""
++    rest = text[found.end():]
++    following = HEADING.search(rest)
++    return rest[: following.start()] if following else rest
++
++
++# ------------------------------------------------------------------ the session
++
++
++def unattended(root: Path) -> tuple[bool, str]:
++    """(nobody is watching, where that was read: `env` or `mode-file`; "" when attended)."""
++    if os.environ.get(ENV) == "1":
++        return True, "env"
++    try:
++        said = (root / MODE_FILE).read_text(encoding="utf-8")
++    except (OSError, ValueError):
++        said = ""
++    return (True, "mode-file") if _normal(said) == "unattended" else (False, "")
++
++
++def _board() -> Any:
++    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unattended"))
++    import board  # here, not at the top: board.py imports this module
++
++    return board
++
++
++def own_task(root: Path) -> list[Path]:
++    """The session's tasks in doing/ (board.py `own`): one, or none when there is no board task."""
++    tasks = root / "tasks"
++    return list(_board().own(tasks)) if (tasks / "doing").is_dir() else []
++
++
++def accompaniment(root: Path) -> tuple[bool, str]:
++    missing = [p for p in (BASELINE, PROFILE) if not (root / p).is_file()]
++    return (False, "немає " + " і ".join(missing)) if missing else (True, f"{BASELINE} і {PROFILE}")
++
++
++def work_type(root: Path) -> tuple[str, str]:
++    """(`type:` of the card IN PROGRESS, where it was read) — `—` when there is no such card."""
++    try:
++        sys.path.insert(0, str(Path(__file__).resolve().parent))
++        import complexity_budget
++
++        card = complexity_budget.active_contract(root)
++    except (ImportError, OSError, ValueError):
++        card = None
++    if card is None:
++        return "—", "у .engine/PROGRESS.md немає картки IN PROGRESS"
++    found = TYPE_LINE.search(card.read_text(encoding="utf-8"))
++    shown = card.relative_to(root).as_posix() if card.is_relative_to(root) else str(card)
++    return (found.group(1), shown) if found else ("—", f"{shown} без рядка type:")
++
++
++def show_line(root: Path, task: Path | None = None) -> str:
++    """The one line `show` prints: the task given, else the session's task in doing/."""
++    if task is None:
++        mine = own_task(root)
++        task = mine[0] if len(mine) == 1 else None
++    if task is None:
++        mode = "— (у tasks/doing/ немає задачі цієї сесії: без задачі task board режим задає команда власника)"
++    else:
++        name = task.parent.name if task.name == "task.md" else task.stem
++        mode = f"{parse(task.read_text(encoding='utf-8')).shown()}, задача {name}"
++    with_owner, said = accompaniment(root)
++    alone, where = unattended(root)
++    kind, card = work_type(root)
++    return (f"режим: {mode} · супровід: {'так' if with_owner else 'ні'} ({said}) · "
++            f"без нагляду: {'так (' + SOURCES[where] + ')' if alone else 'ні (ні змінної runner-а, ні файла режиму)'} · "
++            f"тип роботи: {kind} ({card})")
++
++
++def refusal(root: Path, command: str, task: Path | None = None) -> str | None:
++    """Why `command` (hotfix, bugfix) may not run in the mode of `task` — the task file given, else
++    the session's task in doing/. None when it may, or when there is no board task."""
++    if task is None:
++        mine = own_task(root)
++        task = mine[0] if len(mine) == 1 else None
++    try:
++        text = task.read_text(encoding="utf-8") if task else ""
++    except OSError:
++        text = ""
++    current = parse(text).current if text else ""
++    reason = FORBIDDEN.get((current, command))
++    return f"{reason} (task {task.name if task else '-'}, python3 .claude/hooks/mode.py show)" if reason else None
++
++
++# ------------------------------------------------------------------ raise
++
++
++def raise_mode(path: Path, target: str, why: str, now: str) -> str | None:
++    """Append the raise to the task file; the reason it is refused, or None when it is written."""
++    text = path.read_text(encoding="utf-8")
++    mode = parse(text)
++    why = " ".join(why.replace("<!--", "<! --").split())
++    if mode.error:
++        return f"the task's own line names no mode ({mode.error}); only the owner can say which one is meant"
++    if target not in MODES:
++        return f"«{target}» is no mode: {', '.join(MODES)}"
++    if MODES.index(target) <= MODES.index(mode.current):
++        return (f"the task is in «{mode.current}» already; a raise goes up only ({' → '.join(MODES)}) — "
++                "a lighter mode is set by the owner alone, in the task's line")
++    if not why:
++        return "--why is empty: a raise says why"
++    line = f"- {now} — {mode.current} → {target}: {why}"
++    path.write_text(_with_line(text, line), encoding="utf-8")
++    return None
++
++
++def _with_line(text: str, line: str) -> str:
++    """`text` with `line` at the end of the section `## Режим піднято`, made before the questions
++    (or at the end) the first time."""
++    text = text.rstrip("\n") + "\n"
++    found = RAISED_HEADING.search(text)
++    if found:
++        rest = text[found.end():]
++        following = HEADING.search(rest)
++        cut = found.end() + (following.start() if following else len(rest))
++        return text[:cut].rstrip("\n") + f"\n{line}\n" + ("\n" if following else "") + text[cut:]
++    questions = QUESTIONS.search(text)
++    if questions:
++        head, tail = text[: questions.start()], text[questions.start():]
++        return head.rstrip("\n") + f"\n\n{RAISED}\n{line}\n\n" + tail
++    return text + f"\n{RAISED}\n{line}\n"
++
++
++def cmd_raise(root: Path, target: str, why: str) -> int:
++    mine = own_task(root)
++    if len(mine) != 1:
++        print(f"REFUSED: tasks/doing/ holds {len(mine)} tasks of this session, not one: a raise is written into the task in hand",
++              file=sys.stderr)
++        return EXIT_REFUSED
++    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
++    reason = raise_mode(mine[0], target, why, now)
++    if reason:
++        print(f"REFUSED: {reason}", file=sys.stderr)
++        return EXIT_REFUSED
++    print(f"RAISED: {mine[0].relative_to(root).as_posix()} — {parse(mine[0].read_text(encoding='utf-8')).shown()}")
++    return EXIT_OK
++
++
++# ------------------------------------------------------------------ entry
++
++
++def project_root() -> Path:
++    given = os.environ.get("CLAUDE_PROJECT_DIR", "")
++    if given and Path(given).is_dir():
++        return Path(given)
++    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
++    return Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else Path.cwd()
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
++    parser.add_argument("--root", type=Path, default=None, help="the project (default: CLAUDE_PROJECT_DIR, else the git repository here)")
++    commands = parser.add_subparsers(dest="command", required=True)
++    commands.add_parser("show").add_argument("--task", type=Path, default=None, help="a task file (default: the session's task in doing/)")
++    raising = commands.add_parser("raise")
++    raising.add_argument("mode", help=" | ".join(MODES))
++    raising.add_argument("--why", required=True)
++    commands.add_parser("unattended")
++    args = parser.parse_args(argv)
++    root = (args.root or project_root()).resolve()
++    if args.command == "raise":
++        return cmd_raise(root, args.mode, args.why)
++    if args.command == "unattended":
++        alone, where = unattended(root)
++        print(f"unattended {where}" if alone else "attended")
++        return EXIT_OK if alone else EXIT_ATTENDED
++    task = args.task if args.task is None or args.task.is_absolute() else root / args.task
++    if task is not None and not task.is_file():
++        print(f"REFUSED: {args.task} is not a file", file=sys.stderr)
++        return EXIT_REFUSED
++    print(show_line(root, task))
++    return EXIT_OK
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/.claude/hooks/overseer_verdict.py b/.claude/hooks/overseer_verdict.py
+index fe746db..e5f03f8 100755
+--- a/.claude/hooks/overseer_verdict.py
++++ b/.claude/hooks/overseer_verdict.py
+@@ -17,7 +17,8 @@ the builder's conversation, under .claude/state/overseer/requests/<id>/:
+   evidence.md   the commands that really ran in that turn, in order, with the tail of their output,
+                 and the files that were edited; taken from the transcript, not from the message
+   request.json  id, unit, attempt, the contract and its sha256, the gate-allow list, the open gate
+-                escalation, PASS verdicts in a row on the slice, the fingerprint of the tree
++                escalation, PASS verdicts in a row on the slice, the task's mode (mode.py show,
++                board 097), the fingerprint of the tree
+ and names it in .claude/state/overseer/pending.json. The builder is told to launch the agent with
+ the prompt `OVERSEER_REQUEST <id>` and nothing else.
+ 
+@@ -366,6 +367,16 @@ def board_task(root: Path) -> str:
+     return names[0] if names else "-"
+ 
+ 
++def mode_line(root: Path) -> str:
++    """The session's task's mode as its one reader prints it (mode.py show, board 097); "" when it cannot be read."""
++    try:
++        import mode
++
++        return str(mode.show_line(root))
++    except (ImportError, OSError, ValueError):
++        return ""
++
++
+ def contract_of(root: Path, slice_name: str | None) -> JsonObj | None:
+     if not slice_name:
+         return None
+@@ -400,7 +411,7 @@ def make_request(root: Path, turn: str, *, origin: str, unit: str = "1", transcr
+         "contract": contract_of(root, slice_name),
+         "passes_in_a_row": passes_in_a_row(root, slice_name or "unknown"),
+         "gate_allows": gate_allows_text.strip(), "gate_escalation": gate_escalation.strip(),
+-        "tree": tree_fingerprint(root),
++        "mode": mode_line(root), "tree": tree_fingerprint(root),
+     }
+     folder = request_dir(root, request_id)
+     folder.mkdir(parents=True, exist_ok=True)
+diff --git a/.claude/hooks/park-ask-gated.py b/.claude/hooks/park-ask-gated.py
+index 13177c1..973acbf 100755
+--- a/.claude/hooks/park-ask-gated.py
++++ b/.claude/hooks/park-ask-gated.py
+@@ -98,14 +98,16 @@ def project_dir() -> Path:
+ 
+ 
+ def is_unattended(root: Path) -> bool:
+-    """True only when .claude/state/overseer/mode names the unattended mode.
+-    Absent or unreadable -> attended, which is the safe default: the normal
++    """True only when nobody is watching, as the one reader says (mode.py, board 097): the runner's
++    CLAUDE_UNATTENDED_SESSION=1, or .claude/state/overseer/mode saying `unattended`. Absent,
++    unreadable, or the reader missing -> attended, which is the safe default: the normal
+     permission prompt fires and a human decides."""
+     try:
+-        return "unattended" in (root / ".claude" / "state" / "overseer" / "mode").read_text(
+-            encoding="utf-8"
+-        ).lower()
+-    except OSError:
++        sys.path.insert(0, str(Path(__file__).resolve().parent))
++        import mode
++
++        return mode.unattended(root)[0]
++    except ImportError:
+         return False
+ 
+ 
+diff --git a/.claude/unattended/board-runner.sh b/.claude/unattended/board-runner.sh
+index 215dcb1..1ad61f6 100755
+--- a/.claude/unattended/board-runner.sh
++++ b/.claude/unattended/board-runner.sh
+@@ -646,6 +646,9 @@ run_task() {
+   local file="$1" stem place
+   stem=$(basename "$file" .md)
+   local first="You are working from the task board, unattended: nobody will answer a question in this conversation. Your task is the file $file. Read tasks/README.md (the section «Правила для агента») and follow it. If work on this task has already begun (see git log and the working tree), continue it instead of starting over. The task is finished only when you have moved it to tasks/done/$stem/ (task.md and report.md) or, if it cannot proceed without the owner, to tasks/blocked/ with your questions, and committed that. Do not push. If the usage limit runs out, just end the turn; you will be continued."
++  local mode
++  mode=$(python3 "$HERE/../hooks/mode.py" --root "$PROJECT_ROOT" show --task "$file" 2>/dev/null) || mode=""   # board 097: the task's mode, from its one reader
++  [ -z "$mode" ] || first+=" The task's mode, as python3 .claude/hooks/mode.py show reads it: $mode"
+   local again="Continue the task $file from where you stopped. It is finished only when it is in tasks/done/$stem/ (task.md and report.md) or in tasks/blocked/ with your questions, and that is committed."
+   while :; do
+     place=$(board where "$stem")
+diff --git a/.claude/unattended/board.py b/.claude/unattended/board.py
+index 096c5de..4fa8e28 100755
+--- a/.claude/unattended/board.py
++++ b/.claude/unattended/board.py
+@@ -3,8 +3,9 @@
+ 
+ The board is four directories under tasks/ — todo/, doing/, blocked/, done/. A task is one
+ file `NNN-name.md`; the number is its place in the queue. Under the title it carries plain
+-lines — `Залежить від:` (task numbers), `Аудит потрібен: так|ні` and, when the task may be worked
+-on only with the owner present, `Потрібна присутність власника: так` — and its last section,
++lines — `Залежить від:` (task numbers), `Аудит потрібен: так|ні`, when the task may be worked
++on only with the owner present, `Потрібна присутність власника: так`, and its mode, `Режим:` (read by
++.claude/hooks/mode.py, see A MODE) — and its last section,
+ `## Питання до власника`, holds questions, each with an `Відповідь:` line. A finished task is
+ a directory done/NNN-name/ with task.md and report.md. tasks/README.md is the manual.
+ 
+@@ -162,6 +163,12 @@ A gate question whose escalation was CLOSED ANOTHER WAY (board 035) — the owne
+ .claude/state/gate/escalations.json — and that nobody answered asks nothing any more:
+ `gate-closed` lists it and the runner moves it to done/ (`gate-done <name> elsewhere`).
+ 
++A MODE (board 097) is the task's: `Режим: ескіз|соло|конвеєр` under its title, соло without the
++line. The mode itself is read by .claude/hooks/mode.py — the one reader of the mode and of «nobody
++is watching»; here it decides one thing: a line that names no mode is nobody's clear word, so such a
++task is not taken — `import-inbox` leaves the file in the inbox (with an entry in the journal) and
++`next` passes it over (`summary` says why).
++
+ `--root DIR` names the repository (default: the one this file is installed in).
+ """
+ 
+@@ -178,6 +185,9 @@ from dataclasses import dataclass
+ from datetime import UTC, date, datetime
+ from pathlib import Path
+ 
++sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hooks"))
++import mode as mode_reader  # the one reader of the mode and of «nobody is watching» (board 097)
++
+ COLUMNS = ("todo", "doing", "blocked", "done")
+ FIRST = ".first"  # tasks/.first: the todo/ tasks the owner answered (THE OWNER'S ANSWERS FIRST)
+ TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
+@@ -236,6 +246,7 @@ class Task:
+     paid: bool = False
+     paid_ceiling: float | None = None
+     paid_unread: bool = False
++    mode_error: str = ""  # the `Режим:` line names no mode: the task is not taken (A MODE)
+ 
+     @property
+     def answered(self) -> bool:
+@@ -322,6 +333,7 @@ def parse(text: str) -> Task:
+         paid=paid,
+         paid_ceiling=ceiling,
+         paid_unread=not paid and any(line.strip(" \t*_.!").lower() not in PAID_PLAIN_NO for line in PAID.findall(header)),
++        mode_error=mode_reader.parse(text).error,
+     )
+ 
+ 
+@@ -391,7 +403,7 @@ class Board:
+         """The first task of the queue that can start: for an agent alone, never an attended one;
+         with attended=True (the owner's session), the first attended one."""
+         return next((p for p in self.queue() for task in [read(p)]
+-                     if task.attended == attended and not self.unmet(task)), None)
++                     if task.attended == attended and not self.unmet(task) and not task.mode_error), None)
+ 
+     def shown(self, path: Path) -> str:
+         return path.relative_to(self.tasks.parent).as_posix()
+@@ -401,11 +413,8 @@ class Board:
+ 
+ 
+ def unattended_session(root: Path) -> bool:
+-    """Nobody is watching: the runner's environment says so, or the mode file does."""
+-    if os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1":
+-        return True
+-    mode = root / ".claude/state/overseer/mode"
+-    return mode.is_file() and mode.read_text(encoding="utf-8").strip() == "unattended"
++    """Nobody is watching: the runner's environment says so, or the mode file does (mode.py reads both)."""
++    return mode_reader.unattended(root)[0]
+ 
+ 
+ def own(tasks: Path) -> list[Path]:
+@@ -503,6 +512,11 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
+         if number is None or not source.is_file():
+             continue
+         content = source.read_bytes()
++        wrong = parse(content.decode("utf-8", "replace")).mode_error
++        if wrong:
++            lines.append(f"{source.name} skipped: {wrong} — the board does not take it; the file stays in the inbox")
++            _unread_mode(board, source.name, wrong)
++            continue
+         busy = next((c for c in ("doing", "done") if number in board.numbers(c)), None)
+         blocked = board.with_number("blocked", number)
+         if busy:
+@@ -545,6 +559,14 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
+                 "якого він стосується, а однакові номери розведіть (`board.py check`)", "task board (import-inbox)")
+ 
+ 
++def _unread_mode(board: Board, name: str, wrong: str) -> None:
++    """The journal entry of an inbox file whose `Режим:` line names no mode (A MODE), once per file and line."""
++    what = f"файл `{name}` з inbox не взято: {wrong}"
++    if " ".join(what.split()) not in _text(board.tasks / ANOMALIES):
++        anomaly(board, "-", what, f"файл лишився в inbox. Виправте рядок на `Режим: {'|'.join(mode_reader.MODES)}` "
++                "(або приберіть його — тоді соло) і покладіть файл знову", "task board (import-inbox)")
++
++
+ def duplicate_lines(columns: dict[str, list[str]]) -> list[str]:
+     """TWO FILES WITH ONE NUMBER in one column (board 065), one line per number. `columns` maps a
+     column to the names in it. The number is how the inbox, the dependencies and the owner name a
+@@ -1151,6 +1173,8 @@ def summary(board: Board) -> list[str]:
+         waiting = read(path)
+         if waiting.attended:
+             lines.append(f"чекає на присутність власника: {path.name} — лише в інтерактивній сесії з власником")
++        if waiting.mode_error:
++            lines.append(f"не береться: {path.name} — {waiting.mode_error}")
+         unmet = board.unmet(waiting)
+         if unmet:
+             waits = ", ".join(f"{n:03d}" + ("" if n in known else " (такої задачі ніде немає)") for n in unmet)
+diff --git a/.claude/unattended/board_review.py b/.claude/unattended/board_review.py
+index f0f754d..4676617 100644
+--- a/.claude/unattended/board_review.py
++++ b/.claude/unattended/board_review.py
+@@ -52,6 +52,7 @@ import board_state
+ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+ import goals  # the goals document's reader lives with the hooks
+ import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
++import mode as mode_reader  # and the one reader of a task's mode (board 097)
+ import testing  # and the reader of the testing ledger (.engine/testing/ledger.md, board 062)
+ 
+ CONTEXT_BUDGET = 200
+@@ -177,6 +178,11 @@ def since(src: Source, given: str | None) -> Since:
+     return Since(f"від {stamp(moment)}", (f"--since={moment.isoformat()}", src.sha), moment)
+ 
+ 
++def mode_of(text: str) -> str:
++    """The task's mode as the one reader shows it (.claude/hooks/mode.py, board 097)."""
++    return mode_reader.parse(text).shown()
++
++
+ def stamp(moment: datetime | None) -> str:
+     return moment.strftime("%Y-%m-%d %H:%M UTC") if moment else "час невідомий"
+ 
+@@ -325,7 +331,7 @@ def now_section(src: Source, state: Path, now: datetime) -> list[str]:
+         text = src.show(path)
+         with_owner = " (**у роботі з власником** — runner її не чіпає і бере наступні)" if board.parse(text).attended else ""
+         lines.append(f"- У гілці в `doing/`: `{posixpath.basename(path)}` — {title_of(text, 'без назви')}{with_owner}; "
+-                     f"узято в роботу {stamp(moved)}" + (f", {elapsed(moved, now)} тому" if moved else "") + ".")
++                     f"узято в роботу {stamp(moved)}" + (f", {elapsed(moved, now)} тому" if moved else "") + f"; режим: {mode_of(text)}.")
+     if not doing:
+         unpushed = status is not None and status.group(2) != "-"
+         lines.append("- У гілці в `doing/` зараз порожньо" + (" (commit, яким задачу взято в роботу, ще не надіслано)." if unpushed else "."))
+@@ -377,7 +383,8 @@ def done_section(src: Source, stems: list[str], costs: dict[str, dict[str, Any]]
+     for stem in stems:
+         folder = f"tasks/done/{stem}"
+         report = src.show(f"{folder}/report.md")
+-        lines += [f"### {stem} — {title_of(src.show(f'{folder}/task.md'), stem)}", ""]
++        task = src.show(f"{folder}/task.md")
++        lines += [f"### {stem} — {title_of(task, stem)}", "", f"Режим: {mode_of(task)}."]
+         closed = src.log("-1", "--diff-filter=AR", "--format=%h%x09%cI%x09%s", src.sha, "--", f"{folder}/report.md", f"{folder}/task.md").split("\t")
+         if len(closed) == 3:
+             lines.append(f"Закрито {stamp(as_utc(closed[1]))}, commit `{closed[0]}` — {closed[2]}")
+@@ -424,7 +431,7 @@ def question_lines(src: Source, asked: list[Asked]) -> list[str]:
+         if not blocks:
+             continue
+         name = posixpath.basename(path)
+-        lines.append(f"### {name} — {title_of(text, name)}")
++        lines += [f"### {name} — {title_of(text, name)}", f"Режим: {mode_of(text)}."]
+         draft = f"tasks/blocked/report-{name}"
+         if draft in src.files:
+             lines.append(f"Що зроблено і чому питання — у чернетці звіту `{draft}`.")
+@@ -640,7 +647,10 @@ def plan_section(src: Source) -> list[str]:
+         unmet = [n for n in depends if place.get(n) != "done"]
+         line = f"{index}. `{posixpath.basename(path)}` — {title_of(text, 'без назви')}"
+         line += "; **першою — власник відповів**" if posixpath.basename(path) in first else ""
+-        if task.attended:
++        line += f"; режим: {mode_of(text)}"
++        if task.mode_error:
++            line += "; **не береться** — рядок «Режим:» не називає режиму"
++        elif task.attended:
+             line += "; **лише з присутнім власником** — runner не бере"
+             line += ("; чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)) if unmet else ""
+         elif unmet:
+diff --git a/.claude/unattended/env-probe.sh b/.claude/unattended/env-probe.sh
+index 6f1497b..00d4f79 100755
+--- a/.claude/unattended/env-probe.sh
++++ b/.claude/unattended/env-probe.sh
+@@ -42,14 +42,18 @@ out cwd "$(pwd)"
+ out probe_location "$HERE"
+ 
+ # --- what kind of session ---------------------------------------------------------------
++# Whether anybody is watching is the reader's answer (.claude/hooks/mode.py, board 097), not this file's.
++reader="$HERE/../hooks/mode.py"
+ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+   out session_kind cloud
+-elif [ -n "${CLAUDE_UNATTENDED_SESSION:-}" ]; then
+-  out session_kind unattended-supervised
+-elif [ -f "$PROJECT/.claude/state/overseer/mode" ] && grep -qx 'unattended' "$PROJECT/.claude/state/overseer/mode" 2>/dev/null; then
+-  out session_kind unattended-mode-file
++elif ! have python3 || [ ! -f "$reader" ]; then
++  out session_kind "unknown (no python3 or no $reader to ask)"
+ else
+-  out session_kind attended-local
++  case "$(python3 "$reader" --root "$PROJECT" unattended 2>/dev/null)" in
++    "unattended env") out session_kind unattended-supervised ;;
++    "unattended mode-file") out session_kind unattended-mode-file ;;
++    *) out session_kind attended-local ;;
++  esac
+ fi
+ for v in "${SAFE_VALUE_VARS[@]}"; do
+   if [ -n "${!v+x}" ]; then out "env.$v" "${!v}"; else out "env.$v" "<unset>"; fi
+diff --git a/docs/OWNER-GUIDE.md b/docs/OWNER-GUIDE.md
+index ea93ef5..0188a5d 100644
+--- a/docs/OWNER-GUIDE.md
++++ b/docs/OWNER-GUIDE.md
+@@ -19,6 +19,25 @@
+ 
+ Файл із номером, який уже є в `todo/`, замінює старий.
+ 
++## Як обрати режим
++
++Під назвою задачі можна написати рядок `Режим:` — скільки проєктування і скільки незалежних
++перевірок їй потрібно. Режим ставиться на задачу, а не на проєкт.
++
++- `Режим: ескіз` — коли треба лише дізнатися відповідь на одне питання («чи вкладеться бібліотека в
++  ліміт?»). Код живе тільки в `sketches/<назва>/` і робочим кодом не стає: перенести його — нова задача.
++  Ескіз обираєте лише ви.
++- `Режим: соло` — одна мала зміна робочого коду: builder, gates, overseer на кожен юніт. Це режим
++  задачі без рядка, і так task board працювала досі.
++- `Режим: конвеєр` — функція з кількох slice-ів: feature architect, sealed slice contract на кожен
++  slice, test manager і tester.
++
++Агент сам піднімає режим, якщо задача виявилась більшою, і пише у файлі задачі розділ
++`## Режим піднято` — коли й чому. Це діє лише до кінця цієї задачі: наступна починає зі свого рядка
++або із соло. Знизити режим можете лише ви, своїм рядком: агент режиму не знижує, а його підняття
++скасовуєте ви, видаливши той розділ. Рядок із чимось іншим (`Режим: абищо`) task board не бере і пише в журнал
++аномалій, чому. Докладно — `tasks/README.md`, «Режим задачі»; режим кожної задачі видно в огляді.
++
+ ## Два правила, на яких усе стоїть
+ 
+ - **Якість понад ціну.** Доларових меж у задачах немає: платні прогони — стільки, скільки потрібно
+diff --git a/evals/run_analyst_evals.py b/evals/run_analyst_evals.py
+index 61c760e..e7f12a5 100644
+--- a/evals/run_analyst_evals.py
++++ b/evals/run_analyst_evals.py
+@@ -108,7 +108,8 @@ def build_sandbox(target: Path, variant: str, ref: str) -> Path:
+             else:
+                 shutil.copy2(source, target / rel)
+         (target / ".claude/hooks").mkdir()
+-        shutil.copy2(ROOT / ".claude/hooks/goals.py", target / ".claude/hooks/goals.py")
++        for hook in ("goals.py", "mode.py"):   # goals.py asks mode.py whether anybody is watching (board 097)
++            shutil.copy2(ROOT / ".claude/hooks" / hook, target / ".claude/hooks" / hook)
+         (target / ".engine/goals/requests").mkdir(parents=True)
+         (target / ".engine/goals.md").write_text(fixture("goals.md"), encoding="utf-8")
+         (target / ".engine/goals/requests/001.md").write_text(fixture("d-request.md"), encoding="utf-8")
+diff --git a/tasks/README.md b/tasks/README.md
+index b613c6d..f4f9c64 100644
+--- a/tasks/README.md
++++ b/tasks/README.md
+@@ -18,6 +18,8 @@ Task board — це чотири теки. Власник кладе задач
+    - `Залежить від:` — номери задач, які мають бути в `done/` до початку цієї; `—`, якщо таких немає.
+    - `Потрібна присутність власника:` — `ні` (так само, якщо рядка немає) або `так`. Із `так` runner
+      задачу не бере ніколи: її роблять лише разом із вами («Задачі з присутнім власником» нижче).
++   - `Режим:` — `ескіз`, `соло` або `конвеєр`; без рядка — `соло`. Скільки проєктування і скільки
++     незалежних перевірок потрібно задачі — розділ «Режим задачі» нижче.
+    - `Аудит потрібен:` — `ні` або `так`. Це дозвіл на платний audit overseer-а; без `так` його не буде.
+    - `Платні прогони:` — `ні` або `так`. Це дозвіл на будь-які платні прогони задачі, audit теж. Числа
+      не треба: ваша згода — це «так». Після «так» можна написати лише суму в доларах — стелю
+@@ -27,6 +29,40 @@ Task board — це чотири теки. Власник кладе задач
+ 3. Покладіть файл у `todo/` (commit у робочу гілку) або в inbox на сервері —
+    runner сам перенесе його в `todo/`. Файл із номером, який уже є в `todo/`, замінює старий.
+ 
++## Режим задачі
++
++Режим — властивість задачі: скільки проєктування і скільки незалежних перевірок їй потрібно, перш ніж
++код потрапить у гілку. Рядок `Режим:` стоїть угорі задачі, під назвою, і пишете його ви.
++
++| Режим | Для чого | Що лишає по собі |
++|---|---|---|
++| `ескіз` | відповідь на одне питання; код лише в `sketches/<назва>/`, робочим кодом він не стає | запис ескізу і звіт |
++| `соло` | одна мала зміна: builder, gates, overseer на кожен юніт | PASS overseer-а на кожен commit із робочим кодом і звіт |
++| `конвеєр` | функція з кількох slice-ів: feature architect, sealed slice contract на кожен slice, test manager і tester | те саме, плюс артефакт функції і contract-и її slice-ів |
++
++Що лишає по собі кожен режим, runner перевірятиме при закритті задачі з задачі 098, карантин ескізу
++вмикає задача 099; до того рядок `Режим:` лише читається і показується.
++
++- **Без рядка — `соло`.** Так task board виконувала всі задачі досі.
++- **Вгору агент іде сам, униз — лише ви.** Якщо задача виявилась більшою (critic каже «не той обсяг»,
++  бюджет складності перевищено, зміна торкається кількох модулів), агент піднімає режим командою
++  `python3 .claude/hooks/mode.py raise конвеєр --why "…"`. Скрипт дописує у файл задачі розділ
++  `## Режим піднято`: коли, з якого режиму на який і чому. Чинний режим — вищий із вашого рядка й
++  останнього підняття. Униз скрипт не піднімає: легший режим знімає перевірки, а знімати їх собі
++  агент не може.
++- **Підняття діє лише до кінця цієї задачі.** Воно записане в самому файлі задачі й переїжджає з нею
++  в `done/`; іншого місця, де режим міг би лишитися, немає. Наступна задача починає зі свого рядка
++  або із `соло`.
++- **Скасувати підняття** можете лише ви: видаліть із файла задачі розділ `## Режим піднято` — у
++  гілці або копією файла через inbox, коли задача в `blocked/`.
++- **Недійсні поєднання скрипти відхиляють:** `/hotfix` і `/bugfix` у режимі `ескіз` (виправлення не
++  буває в карантині), `/hotfix` у режимі `конвеєр`.
++- **Рядок, що не називає режиму** (`Режим: абищо`, два рядки `Режим:`), — нічиє ясне слово, і task
++  board таку задачу не бере: з inbox файл не забирається (лишається там, а в журналі аномалій —
++  запис, чому), а задачу, що вже лежить у `todo/`, runner обходить (`board.py summary` каже чому).
++- **Подивитися режим задачі в роботі:** `python3 .claude/hooks/mode.py show` — режим, супровід,
++  «без нагляду» і тип роботи, кожне з джерелом. Огляд показує режим кожної задачі.
++
+ ## Два правила власника
+ 
+ **Якість понад ціну.** Основа системи — якість, а не ціна. Доларових меж у задачах не ставимо: платні
+@@ -211,7 +247,9 @@ python3 .claude/unattended/board.py review --since <дата> > review.md     #
+    щойно відповів, далі за номером), і перенеси її в `doing/` окремим commit-ом. У `doing/`
+    одночасно лише одна твоя задача; задача з присутнім власником, що лежить там, — не твоя, не чіпай її.
+ 2. **Як виконувати.** Через конвеєр двигуна: велике — через `/feature-architect`, мале — одним
+-   slice-ом. Задачу не переписуй: у її файл дописуються лише питання до власника.
++   slice-ом. Задачу не переписуй: у її файл дописуються лише питання до власника і розділ
++   `## Режим піднято` — його дописує тільки `python3 .claude/hooks/mode.py raise` (режим — вгору
++   сам, униз — лише власник; «Режим задачі» вище).
+ 3. **Дрібні рішення ухвалюй сам** і записуй у звіт розділом «Рішення, які я ухвалив сам».
+ 4. **Якщо без власника не обійтися** — допиши питання в розділ `## Питання до власника` (кожне
+    з порожнім рядком `Відповідь:` під ним), перенеси задачу в `blocked/`, закоміть і берись за
+diff --git a/tasks/TEMPLATE.md b/tasks/TEMPLATE.md
+index 18cada2..34f8a29 100644
+--- a/tasks/TEMPLATE.md
++++ b/tasks/TEMPLATE.md
+@@ -2,6 +2,7 @@
+ 
+ Залежить від: —
+ Потрібна присутність власника: ні
++Режим: соло <!-- ескіз | соло | конвеєр; без рядка — соло (tasks/README.md, «Режим задачі») -->
+ Аудит потрібен: ні
+ Платні прогони: ні
+ 
+diff --git a/templates/project/tasks/README.md b/templates/project/tasks/README.md
+index 52a2598..53a7d11 100644
+--- a/templates/project/tasks/README.md
++++ b/templates/project/tasks/README.md
+@@ -18,6 +18,8 @@ Task board — це чотири теки. Власник кладе задач
+    - `Залежить від:` — номери задач, які мають бути в `done/` до початку цієї; `—`, якщо таких немає.
+    - `Потрібна присутність власника:` — `ні` (так само, якщо рядка немає) або `так`. Із `так` runner
+      задачу не бере ніколи: її роблять лише разом із вами («Задачі з присутнім власником» нижче).
++   - `Режим:` — `ескіз`, `соло` або `конвеєр`; без рядка — `соло`. Скільки проєктування і скільки
++     незалежних перевірок потрібно задачі — розділ «Режим задачі» нижче.
+    - `Аудит потрібен:` — `ні` або `так`. Це дозвіл на платний audit overseer-а; без `так` його не буде.
+    - `Платні прогони:` — `ні` або `так`. Це дозвіл на будь-які платні прогони задачі, audit теж. Числа
+      не треба: ваша згода — це «так». Після «так» можна написати лише суму в доларах — стелю
+@@ -27,6 +29,40 @@ Task board — це чотири теки. Власник кладе задач
+ 3. Покладіть файл у `todo/` (commit у робочу гілку) або в inbox на сервері —
+    runner сам перенесе його в `todo/`. Файл із номером, який уже є в `todo/`, замінює старий.
+ 
++## Режим задачі
++
++Режим — властивість задачі: скільки проєктування і скільки незалежних перевірок їй потрібно, перш ніж
++код потрапить у гілку. Рядок `Режим:` стоїть угорі задачі, під назвою, і пишете його ви.
++
++| Режим | Для чого | Що лишає по собі |
++|---|---|---|
++| `ескіз` | відповідь на одне питання; код лише в `sketches/<назва>/`, робочим кодом він не стає | запис ескізу і звіт |
++| `соло` | одна мала зміна: builder, gates, overseer на кожен юніт | PASS overseer-а на кожен commit із робочим кодом і звіт |
++| `конвеєр` | функція з кількох slice-ів: feature architect, sealed slice contract на кожен slice, test manager і tester | те саме, плюс артефакт функції і contract-и її slice-ів |
++
++Що лишає по собі кожен режим, runner перевірятиме при закритті задачі з задачі 098, карантин ескізу
++вмикає задача 099; до того рядок `Режим:` лише читається і показується.
++
++- **Без рядка — `соло`.** Так task board виконувала всі задачі досі.
++- **Вгору агент іде сам, униз — лише ви.** Якщо задача виявилась більшою (critic каже «не той обсяг»,
++  бюджет складності перевищено, зміна торкається кількох модулів), агент піднімає режим командою
++  `python3 .claude/hooks/mode.py raise конвеєр --why "…"`. Скрипт дописує у файл задачі розділ
++  `## Режим піднято`: коли, з якого режиму на який і чому. Чинний режим — вищий із вашого рядка й
++  останнього підняття. Униз скрипт не піднімає: легший режим знімає перевірки, а знімати їх собі
++  агент не може.
++- **Підняття діє лише до кінця цієї задачі.** Воно записане в самому файлі задачі й переїжджає з нею
++  в `done/`; іншого місця, де режим міг би лишитися, немає. Наступна задача починає зі свого рядка
++  або із `соло`.
++- **Скасувати підняття** можете лише ви: видаліть із файла задачі розділ `## Режим піднято` — у
++  гілці або копією файла через inbox, коли задача в `blocked/`.
++- **Недійсні поєднання скрипти відхиляють:** `/hotfix` і `/bugfix` у режимі `ескіз` (виправлення не
++  буває в карантині), `/hotfix` у режимі `конвеєр`.
++- **Рядок, що не називає режиму** (`Режим: абищо`, два рядки `Режим:`), — нічиє ясне слово, і task
++  board таку задачу не бере: з inbox файл не забирається (лишається там, а в журналі аномалій —
++  запис, чому), а задачу, що вже лежить у `todo/`, runner обходить (`board.py summary` каже чому).
++- **Подивитися режим задачі в роботі:** `python3 .claude/hooks/mode.py show` — режим, супровід,
++  «без нагляду» і тип роботи, кожне з джерелом. Огляд показує режим кожної задачі.
++
+ ## Два правила власника
+ 
+ **Якість понад ціну.** Основа системи — якість, а не ціна. Доларових меж у задачах не ставимо: платні
+@@ -211,7 +247,9 @@ python3 .claude/unattended/board.py review --since <дата> > review.md     #
+    щойно відповів, далі за номером), і перенеси її в `doing/` окремим commit-ом. У `doing/`
+    одночасно лише одна твоя задача; задача з присутнім власником, що лежить там, — не твоя, не чіпай її.
+ 2. **Як виконувати.** Через конвеєр двигуна: велике — через `/feature-architect`, мале — одним
+-   slice-ом. Задачу не переписуй: у її файл дописуються лише питання до власника.
++   slice-ом. Задачу не переписуй: у її файл дописуються лише питання до власника і розділ
++   `## Режим піднято` — його дописує тільки `python3 .claude/hooks/mode.py raise` (режим — вгору
++   сам, униз — лише власник; «Режим задачі» вище).
+ 3. **Дрібні рішення ухвалюй сам** і записуй у звіт розділом «Рішення, які я ухвалив сам».
+ 4. **Якщо без власника не обійтися** — допиши питання в розділ `## Питання до власника` (кожне
+    з порожнім рядком `Відповідь:` під ним), перенеси задачу в `blocked/`, закоміть і берись за
+diff --git a/templates/project/tasks/TEMPLATE.md b/templates/project/tasks/TEMPLATE.md
+index 18cada2..34f8a29 100644
+--- a/templates/project/tasks/TEMPLATE.md
++++ b/templates/project/tasks/TEMPLATE.md
+@@ -2,6 +2,7 @@
+ 
+ Залежить від: —
+ Потрібна присутність власника: ні
++Режим: соло <!-- ескіз | соло | конвеєр; без рядка — соло (tasks/README.md, «Режим задачі») -->
+ Аудит потрібен: ні
+ Платні прогони: ні
+ 
+diff --git a/tests/fast-suites.txt b/tests/fast-suites.txt
+index 170452c..7cdf5dc 100644
+--- a/tests/fast-suites.txt
++++ b/tests/fast-suites.txt
+@@ -105,4 +105,7 @@ test_manager_evals.py
+ test_owner_terms.py
+ test_audit_noise.py
+ test_core_units.py
++test_mode.py
+ # Board 738: test_shell_text 35 s stays out (about three hundred and fifty runs of the real block-dangerous.sh).
++# Board 097: test_mode 4.9 s is in (the one reader of the mode and of «nobody is watching», which five places, the park hook
++# among them, now ask; a dozen synthetic projects, three runs of hotfix.py and one of bugfix.py, env-probe.sh four times).
+diff --git a/tests/test_board_review.py b/tests/test_board_review.py
+index 2d01d05..1c5ad6c 100755
+--- a/tests/test_board_review.py
++++ b/tests/test_board_review.py
+@@ -157,7 +157,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
+     git(work, "switch", "-q", "-c", BRANCH)
+     commits = {}
+ 
+-    write(work, "tasks/done/001-first/task.md", task("001 — Перша"))
++    write(work, "tasks/done/001-first/task.md", task("001 — Перша") + "\n## Режим піднято\n- 2026-01-01T00:00:00Z — соло → конвеєр: ОБСЯГ-ЗРІС\n")
+     write(work, "tasks/done/001-first/report.md", report("001-first"))
+     git(work, "add", "-A")
+     git(work, "commit", "-q", "-m", "board: 001-first → done", date="2026-01-01T00:00:00Z")
+@@ -175,6 +175,8 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
+     write(work, "tasks/todo/040-attended.md", task("040 — ЗАДАЧА-З-ВЛАСНИКОМ").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
+     write(work, "tasks/doing/045-with-owner.md", task("045 — ВЕДЕ-ВЛАСНИК").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
+     write(work, "tasks/todo/950-answered.md", task("950 — ВЛАСНИК-ВІДПОВІВ"))
++    write(work, "tasks/todo/060-pipeline.md", task("060 — Конвеєрна").replace("Аудит потрібен:", "Режим: конвеєр\nАудит потрібен:"))
++    write(work, "tasks/todo/070-bad-mode.md", task("070 — Без режиму").replace("Аудит потрібен:", "Режим: абищо\nАудит потрібен:"))
+     write(work, "tasks/.first", "950-answered.md\n007-gone.md\n")
+     write(work, "docs/tasks/settings.json", '{"proposal": true}\n')
+     write(work, ".claude/settings.json", '{"proposal": false}\n')
+@@ -243,6 +245,9 @@ check("without --since the newest version tag is the start: both finished tasks"
+ check("a finished task shows what changed, the demo, the decisions, the cost, the commits", all(
+     f"{word}-002-second" in done_part for word in ("ЗМІНА", "$ demo", "РІШЕННЯ", "ВИТРАТИ", "COMMITS")) and commits["second"][:7] in done_part, done_part)
+ check("a `## ` line inside a code block of a report is not taken for a heading", "## not a heading\n```" in done_part, done_part)
++check("board 097: a finished task says the mode it was closed in, the raise and its reason included",
++      "Режим: конвеєр (рядка «Режим:» немає → соло; піднято 2026-01-01T00:00:00Z з соло на конвеєр — ОБСЯГ-ЗРІС)." in done_part
++      and "Режим: соло (рядка «Режим:» немає → соло)." in done_part, done_part)
+ 
+ # --- nothing is changed ---------------------------------------------------------------------
+ print("read-only")
+@@ -292,6 +297,7 @@ check("the document has every unfilled one, and the gate's", all(f"ПИТАНН
+ check("a filled answer and the template's hint are not asked again", "ПИТАННЯ-ДВА" not in waiting and "Питання-з-коментаря" not in waiting, waiting)
+ check("the count is said: six unfilled answers in three tasks", any("відповідей: 6, у задачах: 3" in line for line in waiting.splitlines()[:4]) and "008-asks.md" in waiting and "900-gate-escalation" in waiting, waiting.splitlines()[:4])
+ check("the draft report of a blocked task is pointed at", "tasks/blocked/report-008-asks.md" in waiting, waiting)
++check("board 097: a blocked task says its mode under its title", "— Питає\nРежим: соло (рядка «Режим:» немає → соло)." in waiting, waiting)
+ check("a settings proposal that waits for «так» is named as one, and that it differs from the live file", "apply-settings" in waiting
+       and "docs/tasks/settings.json" in waiting and "відрізняється" in waiting, waiting)
+ check("the gate's question is named as one", "20260101T000000Z" in waiting and "відповідь `так` (рівно це слово) закриє її" in waiting and "закрити`" not in waiting, waiting)
+@@ -340,6 +346,11 @@ check("…and the one that can start is not said to stand", "стоїть" not i
+ line_040 = next(line for line in plan.splitlines() if "040-attended.md" in line)
+ check("…an attended task is in the plan as one the runner does not take, never as «наступна»", "лише з присутнім власником" in line_040
+       and "наступна" not in line_040, line_040)
++line_060, line_070 = (next(line for line in plan.splitlines() if name in line) for name in ("060-pipeline.md", "070-bad-mode.md"))
++check("board 097: every task of the plan says its mode and where it was read", "режим: соло (рядка «Режим:» немає → соло)" in line_020
++      and "режим: конвеєр (рядок «Режим: конвеєр»)" in line_060, (line_020, line_060))
++check("…a line that names no mode: the plan says the runner does not take it, never «наступна»", "**не береться**" in line_070
++      and "«Режим: абищо» — такого режиму немає" in line_070 and "наступна" not in line_070 and "стоїть" not in line_070, line_070)
+ check("board 049: a task the owner answered heads the plan, whatever its number, and says why", plan.find("950-answered.md") != -1
+       and plan.find("950-answered.md") < plan.find("020-free.md") and "власник відповів" in next(line for line in plan.splitlines() if "950-answered.md" in line)
+       and "власник відповів" not in line_020 and "007-gone" not in plan, plan)
+@@ -392,6 +403,7 @@ check("a runner that is not working has no attempt in hand, whatever the log's l
+       "Спроба, що триває" not in section(cli(clone, state=state_files(top, "state=stalled task=009-in-work since=2026-02-01T00:00:00Z reason=no-commit")).stdout, "Стан зараз"))
+ now = section(doc, "Стан зараз")
+ check("without the state files: from git — the task in doing/ and since when", "009-in-work.md" in now and "2026-02-01" in now and "git" in now, now)
++check("board 097: the task in doing/ says its mode", "режим: соло (рядка «Режим:» немає → соло)" in next(line for line in now.splitlines() if "009-in-work.md" in line), now)
+ line_045 = next((line for line in now.splitlines() if "045-with-owner.md" in line), "")
+ line_009 = next((line for line in now.splitlines() if "009-in-work.md" in line), "")
+ check("board 049: an attended task in doing/ is shown as worked on with the owner; the runner's own task is not",
+diff --git a/tests/test_board_runner.py b/tests/test_board_runner.py
+index dcb48fe..5d34ff9 100755
+--- a/tests/test_board_runner.py
++++ b/tests/test_board_runner.py
+@@ -284,6 +284,9 @@ check("claude was called once, with -p and the three flags the owner named",
+       and a[a.index("--permission-mode") + 1] == "auto" and a[a.index("--output-format") + 1] == "json", a)
+ check("a fresh conversation: no --resume, no -c", "--resume" not in a and "-c" not in a and "--continue" not in a, a)
+ check("the prompt names the task file and the manual", "tasks/doing/001-first.md" in a[1] and "tasks/README.md" in a[1], a[1])
++check("…and carries the task's mode, as its one reader prints it (board 097)",
++      "The task's mode, as python3 .claude/hooks/mode.py show reads it: режим: соло (рядка «Режим:» немає → соло), задача 001-first" in a[1]
++      and "без нагляду: так (змінна runner-а CLAUDE_UNATTENDED_SESSION=1)" in a[1], a[1])
+ check("no budget flag unless a cap is set", "--max-budget-usd" not in a, a)
+ check("it ran in the repository", w.calls()[0]["cwd"] == str(w.repo))
+ check("status: idle, todo empty", w.status().startswith("state=idle task=- since=") and "reason=todo-empty" in w.status(), w.status())
+diff --git a/tests/test_mode.py b/tests/test_mode.py
+new file mode 100644
+index 0000000..e4aa96a
+--- /dev/null
++++ b/tests/test_mode.py
+@@ -0,0 +1,380 @@
++#!/usr/bin/env python3
++"""The mode of a task and its one reader, .claude/hooks/mode.py (board 097; design: board 080).
++
++WHAT IS CHECKED, the negative cases first
++  - `Режим: абищо` (and two `Режим:` lines) is not taken from the inbox: the file stays there, the
++    journal says why once, and such a task already in todo/ is passed over by `next`;
++  - `mode.py raise` refuses to go down or sideways (соло on a task in конвеєр), without a task of
++    the session in doing/, on a line that names no mode, and without a reason;
++  - /hotfix is refused with `Режим: ескіз` and with `Режим: конвеєр`, /bugfix (`bugfix.py prove`)
++    with `Режим: ескіз`; соло lets both through;
++  - a raise is written into the task file itself and lasts until the task is closed: the next task,
++    without a line, is соло again — there is no state file to inherit from;
++  - every task file of this board reads as before: no line is соло, and nothing on the board is
++    refused for its mode;
++  - «nobody is watching» has one reader: board.py, goals.py, hotfix.py, park-ask-gated.py and
++    env-probe.sh answer as mode.py does for the runner's variable, the mode file and neither, and
++    none of them reads the variable or the file itself any more;
++  - the overseer's request carries the mode line.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import json
++import os
++import re
++import shutil
++import subprocess
++import sys
++import tempfile
++from pathlib import Path
++from types import ModuleType
++
++from hook_env import hook_env
++
++ROOT = Path(__file__).resolve().parent.parent
++HOOKS = ROOT / ".claude/hooks"
++MODE = HOOKS / "mode.py"
++BOARD = ROOT / ".claude/unattended/board.py"
++PASS = FAIL = 0
++
++
++def check(name: str, ok: bool, detail: object = "") -> None:
++    global PASS, FAIL
++    PASS, FAIL = (PASS + 1, FAIL) if ok else (PASS, FAIL + 1)
++    print(f"  {'ok  ' if ok else 'FAIL'} {name}{'' if ok else '   ' + str(detail)[:600]}")
++
++
++def load(name: str, path: Path) -> ModuleType:
++    spec = importlib.util.spec_from_file_location(name, path)
++    assert spec is not None and spec.loader is not None, path
++    module = importlib.util.module_from_spec(spec)
++    sys.modules[name] = module
++    spec.loader.exec_module(module)
++    return module
++
++
++sys.path.insert(0, str(HOOKS))
++mode = load("mode", MODE)
++board = load("board", BOARD)
++
++TASK = "# {n} — Задача\n\nЗалежить від: —\n{line}Аудит потрібен: ні\n\n## Що зробити\n- щось\n\n## Готово, коли\n- готово\n\n## Питання до власника\n"
++roots: list[Path] = []
++
++
++def task(n: str = "010", line: str = "") -> str:
++    return TASK.format(n=n, line=f"{line}\n" if line else "")
++
++
++def project(git: bool = False) -> Path:
++    root = Path(tempfile.mkdtemp(prefix="mode-"))
++    roots.append(root)
++    for column in board.COLUMNS:
++        (root / "tasks" / column).mkdir(parents=True)
++    if git:
++        for args in (("init", "-q", "-b", "main"), ("config", "user.email", "t@t"), ("config", "user.name", "t")):
++            subprocess.run(["git", *args], cwd=root, check=True)
++        (root / ".gitignore").write_text(".claude/state/\n", encoding="utf-8")
++        subprocess.run(["git", "add", "-A"], cwd=root, check=True)
++        subprocess.run(["git", "commit", "-qm", "base", "--allow-empty"], cwd=root, check=True)
++    return root
++
++
++def put(root: Path, column: str, name: str, text: str) -> Path:
++    path = root / "tasks" / column / name
++    path.write_text(text, encoding="utf-8")
++    return path
++
++
++def run(script: Path, root: Path, *args: str, unattended: str = "") -> subprocess.CompletedProcess[str]:
++    return subprocess.run([sys.executable, str(script), *args], cwd=root, capture_output=True, text=True, check=False,
++                          env=hook_env(root, CLAUDE_UNATTENDED_SESSION=unattended))
++
++
++def said(r: subprocess.CompletedProcess[str]) -> str:
++    return f"exit {r.returncode}: {r.stdout} {r.stderr}"
++
++
++# ------------------------------------------------------------------ an unknown mode is not taken
++print("a line that names no mode is nobody's clear word")
++root = project()
++inbox = root / "inbox"
++inbox.mkdir()
++(inbox / "020-bad.md").write_text(task("020", "Режим: абищо"), encoding="utf-8")
++(inbox / "021-two.md").write_text(task("021", "Режим: соло\nРежим: конвеєр"), encoding="utf-8")
++(inbox / "022-good.md").write_text(task("022", "Режим: Конвеєр"), encoding="utf-8")
++r = run(BOARD, root, "--root", str(root), "import-inbox", str(inbox))
++check("negative — «Режим: абищо» is not taken from the inbox and the line says why",
++      "020-bad.md skipped: «Режим: абищо» — такого режиму немає" in r.stdout and (inbox / "020-bad.md").is_file()
++      and not (root / "tasks/todo/020-bad.md").exists(), said(r))
++check("negative — two «Режим:» lines are not taken either", "021-two.md skipped: рядків «Режим:» два" in r.stdout and (inbox / "021-two.md").is_file(), said(r))
++check("…a good line in another case is taken", "022-good.md imported" in r.stdout and (root / "tasks/todo/022-good.md").is_file(), said(r))
++journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++check("…the journal says why, once per file", journal.count("020-bad.md") == 1 and journal.count("021-two.md") == 1
++      and "Режим: ескіз|соло|конвеєр" in journal, journal)
++run(BOARD, root, "--root", str(root), "import-inbox", str(inbox))
++check("…and a second import writes no second entry", (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8") == journal)
++put(root, "todo", "005-bad-in-todo.md", task("005", "Режим: абищо"))
++r = run(BOARD, root, "--root", str(root), "next")
++check("negative — such a task already in todo/ is passed over by next", r.stdout.strip() == "tasks/todo/022-good.md", said(r))
++r = run(BOARD, root, "--root", str(root), "summary")
++check("…and summary says why", "не береться: 005-bad-in-todo.md — «Режим: абищо» — такого режиму немає" in r.stdout, said(r))
++check("a line under a heading is text, not the mode", mode.parse(task() + "Режим: абищо\n").error == ""
++      and mode.parse(task() + "Режим: абищо\n").current == "соло")
++check("a line in a comment is not read", mode.parse(task("010", "<!-- Режим: конвеєр -->")).current == "соло")
++check("**конвеєр** and «Соло.» are read as the mode", mode.parse(task("010", "Режим: **конвеєр**")).current == "конвеєр"
++      and mode.parse(task("010", "Режим: Соло.")).current == "соло")
++check("a model written into the line is no mode: the line names roles, never who runs them",
++      mode.parse(task("010", "Режим: конвеєр, opus")).error != "")
++
++# ------------------------------------------------------------------ raise: up only
++print("raise: up only, by the script, into the task file")
++root = project()
++pipeline = put(root, "doing", "030-pipeline.md", task("030", "Режим: конвеєр"))
++before = pipeline.read_text(encoding="utf-8")
++r = run(MODE, root, "--root", str(root), "raise", "соло", "--why", "менше роботи")
++check("negative — raise соло on a task in конвеєр is refused and the file is untouched",
++      r.returncode == 2 and "a raise goes up only" in r.stderr and pipeline.read_text(encoding="utf-8") == before, said(r))
++r = run(MODE, root, "--root", str(root), "raise", "конвеєр", "--why", "те саме")
++check("negative — a raise to the mode in force is refused too", r.returncode == 2 and pipeline.read_text(encoding="utf-8") == before, said(r))
++pipeline.rename(root / "tasks/todo" / pipeline.name)
++r = run(MODE, root, "--root", str(root), "raise", "конвеєр", "--why", "великий обсяг")
++check("negative — no task of the session in doing/: refused", r.returncode == 2 and "holds 0 tasks" in r.stderr, said(r))
++solo = put(root, "doing", "031-solo.md", task("031"))
++r = run(MODE, root, "--root", str(root), "raise", "конвеєр", "--why", "   ")
++check("negative — a raise without a reason is refused", r.returncode == 2 and "--why is empty" in r.stderr and "Режим піднято" not in solo.read_text(encoding="utf-8"), said(r))
++r = run(MODE, root, "--root", str(root), "raise", "ескіз", "--why", "лише питання")
++check("negative — соло → ескіз is down, refused", r.returncode == 2 and "Режим піднято" not in solo.read_text(encoding="utf-8"), said(r))
++r = run(MODE, root, "--root", str(root), "raise", "абищо", "--why", "x")
++check("negative — a raise to no mode is refused", r.returncode == 2 and "is no mode" in r.stderr, said(r))
++r = run(MODE, root, "--root", str(root), "raise", "конвеєр", "--why", "slice-planner critic: не той обсяг")
++text = solo.read_text(encoding="utf-8")
++check("соло → конвеєр is written: the section stands before the questions, one dated line",
++      r.returncode == 0 and re.search(r"\n## Режим піднято\n- \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — соло → конвеєр: slice-planner critic: не той обсяг\n\n## Питання до власника\n", text)
++      is not None, said(r) + text)
++check("…the task's own line is not touched (there is none) and the mode in force is конвеєр",
++      "Режим:" not in text.split("\n## ", 1)[0] and mode.parse(text).current == "конвеєр")
++raised_sketch = put(root, "todo", "038-raised-sketch.md", task("038", "Режим: ескіз"))
++mode.raise_mode(raised_sketch, "конвеєр", "кілька модулів", "2026-10-09T06:00:00Z")
++before_down = raised_sketch.read_text(encoding="utf-8")
++down = mode.raise_mode(raised_sketch, "соло", "менше роботи", "2026-10-09T06:00:01Z")
++check("negative — down from a mode that was itself raised: ескіз raised to конвеєр, then «raise соло» — refused, the file untouched",
++      "a raise goes up only" in (down or "") and raised_sketch.read_text(encoding="utf-8") == before_down
++      and mode.parse(before_down).current == "конвеєр", down)
++r = run(MODE, root, "--root", str(root), "show")
++check("show says конвеєр, with the line's absence and the raise as its sources",
++      r.returncode == 0 and r.stdout.startswith("режим: конвеєр (рядка «Режим:» немає → соло; піднято ") and "slice-planner critic" in r.stdout
++      and "задача 031-solo" in r.stdout, said(r))
++sketch = put(root, "todo", "032-sketch.md", task("032", "Режим: ескіз"))
++text = sketch.read_text(encoding="utf-8")
++one = mode.raise_mode(sketch, "соло", "потрібен робочий код", "2026-10-09T01:00:00Z")
++two = mode.raise_mode(sketch, "конвеєр", "кілька модулів", "2026-10-09T02:00:00Z")
++raised = mode.parse(sketch.read_text(encoding="utf-8"))
++check("two raises: two lines in one section, the last one in force", one is None and two is None and raised.current == "конвеєр"
++      and [r.after for r in raised.raises] == ["соло", "конвеєр"] and sketch.read_text(encoding="utf-8").count("## Режим піднято") == 1)
++check("the owner deletes the section: the owner's line is in force again",
++      mode.parse(text).current == "ескіз" and mode.parse(sketch.read_text(encoding="utf-8").replace("## Режим піднято", "## Інше")).current == "ескіз")
++check("…written as one list: the second line right under the first, a blank line before the next heading",
++      "\n\n## Режим піднято\n- 2026-10-09T01:00:00Z — ескіз → соло: потрібен робочий код\n"
++      "- 2026-10-09T02:00:00Z — соло → конвеєр: кілька модулів\n\n## Питання до власника\n" in sketch.read_text(encoding="utf-8"),
++      sketch.read_text(encoding="utf-8"))
++check("…and the second line starts from the mode in force, not from the owner's line",
++      "— соло → конвеєр: кілька модулів" in sketch.read_text(encoding="utf-8"), sketch.read_text(encoding="utf-8"))
++later = task("035", "Режим: конвеєр") + "\n## Режим піднято\n- 2026-10-09T00:00:00Z — ескіз → соло: давно\n"
++check("the owner's line written above an older raise is in force: the higher of the two, not the last raise",
++      mode.parse(later).current == "конвеєр" and mode.parse(later.replace("Режим: конвеєр", "Режим: ескіз")).current == "соло")
++odd = task("036") + "\n## Режим піднято\n- 2026-10-09T00:00:00Z — соло → абищо: x\n- 2026-10-09T00:00:01Z — абищо → конвеєр: y\n"
++check("negative — a raise line that names no mode counts for nothing", mode.parse(odd).current == "соло" and mode.parse(odd).raises == ())
++twolines = put(root, "todo", "037-why.md", task("037"))
++mode.raise_mode(twolines, "конвеєр", "перший рядок\nдругий   рядок", "2026-10-09T03:00:00Z")
++section = twolines.read_text(encoding="utf-8").split("## Режим піднято\n", 1)[1].split("\n\n", 1)[0]
++check("a reason over several lines is written as one line: the section stays one line per raise",
++      section == "- 2026-10-09T03:00:00Z — соло → конвеєр: перший рядок другий рядок", section)
++check("a raise line written into a comment counts for nothing",
++      mode.parse(task("033") + "\n<!--\n## Режим піднято\n- 2026-10-09T00:00:00Z — соло → конвеєр: x\n-->\n").current == "соло")
++bad = put(root, "todo", "034-bad.md", task("034", "Режим: абищо"))
++check("negative — a task whose line names no mode cannot be raised", "names no mode" in (mode.raise_mode(bad, "конвеєр", "x", "t") or ""))
++
++# ------------------------------------------------------------------ the raise lasts until the task is closed
++print("a raise lasts until the end of its task")
++folder = root / "tasks/done/031-solo"
++folder.mkdir()
++solo.rename(folder / "task.md")
++(folder / "report.md").write_text("# звіт\n", encoding="utf-8")
++put(root, "doing", "040-next.md", task("040"))
++r = run(MODE, root, "--root", str(root), "show")
++check("the raised task is closed; the next one without a line is соло", r.returncode == 0 and r.stdout.startswith("режим: соло (рядка «Режим:» немає → соло), задача 040-next"), said(r))
++check("…the closed task still says конвеєр, in done/", mode.parse((folder / "task.md").read_text(encoding="utf-8")).current == "конвеєр")
++check("…and nothing but the task files was written: no state of the mode to inherit", not (root / ".claude").exists(),
++      sorted(str(p) for p in (root / ".claude").rglob("*")) if (root / ".claude").exists() else "")
++r = run(MODE, root, "--root", str(root), "show", "--task", "tasks/done/031-solo/task.md")
++check("show --task reads a task anywhere on the board", "режим: конвеєр" in r.stdout and "задача 031-solo" in r.stdout, said(r))
++beside = project()
++put(beside, "doing", "060-with-owner.md", task("060", "Режим: ескіз").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
++put(beside, "doing", "061-runner.md", task("061"))
++r = run(MODE, beside, "--root", str(beside), "show", unattended="1")
++check("the owner's attended task beside the runner's: an unattended session reads its own task, not the owner's",
++      r.stdout.startswith("режим: соло (рядка «Режим:» немає → соло), задача 061-runner"), said(r))
++two = project()
++first_two = put(two, "doing", "062-a.md", task("062"))
++put(two, "doing", "063-b.md", task("063"))
++r = run(MODE, two, "--root", str(two), "raise", "конвеєр", "--why", "x")
++check("negative — two tasks of the session in doing/: a raise is refused, nothing is written",
++      r.returncode == 2 and "holds 2 tasks" in r.stderr and "Режим піднято" not in first_two.read_text(encoding="utf-8"), said(r))
++hidden = put(two, "todo", "064-comment.md", task("064"))
++mode.raise_mode(hidden, "конвеєр", "причина <!-- а далі нічого не видно", "2026-10-09T04:00:00Z")
++check("a reason that opens an HTML comment cannot hide the raise or the rest of the file",
++      mode.parse(hidden.read_text(encoding="utf-8")).current == "конвеєр" and "<!--" not in hidden.read_text(encoding="utf-8")
++      and board.parse(hidden.read_text(encoding="utf-8")).questions == "", hidden.read_text(encoding="utf-8"))
++first_raise = mode.raise_mode(put(two, "todo", "066-sketch.md", "# 066\n\nРежим: ескіз\n\n## Що зробити\n- щось\n"), "соло", "перше", "2026-10-09T05:00:00Z")
++second_raise = mode.raise_mode(two / "tasks/todo/066-sketch.md", "конвеєр", "друге", "2026-10-09T05:00:01Z")
++tail = (two / "tasks/todo/066-sketch.md").read_text(encoding="utf-8")
++check("a task without a questions section: the section is made at the end, and the next raise joins it",
++      first_raise is None and second_raise is None and tail.endswith("- щось\n\n## Режим піднято\n- 2026-10-09T05:00:00Z — ескіз → соло: перше\n"
++                                                                      "- 2026-10-09T05:00:01Z — соло → конвеєр: друге\n") and mode.parse(tail).current == "конвеєр", tail)
++r = run(MODE, two, "--root", str(two), "show", "--task", "tasks/todo/999-none.md")
++check("negative — show --task with no such file: refused, exit 2", r.returncode == 2 and "is not a file" in r.stderr, said(r))
++(two / ".engine").mkdir()
++(two / ".engine/baseline.json").write_text("{}\n", encoding="utf-8")
++half = mode.accompaniment(two)
++(two / ".engine/onboard").mkdir()
++(two / ".engine/onboard/profile.md").write_text("# profile\n", encoding="utf-8")
++check("the accompaniment needs both the snapshot and the profile: one of them is no accompaniment",
++      half == (False, "немає .engine/onboard/profile.md") and mode.accompaniment(two)[0] is True, (half, mode.accompaniment(two)))
++empty = project()
++r = run(MODE, empty, "--root", str(empty), "show")
++check("no task in doing/: show says so and exits 0", r.returncode == 0 and r.stdout.startswith("режим: — (у tasks/doing/ немає задачі цієї сесії"), said(r))
++
++# ------------------------------------------------------------------ the tasks there are
++print("the tasks there are read as before")
++real = [p for c in ("todo", "doing", "blocked") for p in (ROOT / "tasks" / c).glob("[0-9]*.md")] + list((ROOT / "tasks/done").glob("*/task.md"))
++refused = [p.name for p in real if board.read(p).mode_error]
++check(f"{len(real)} task files of this board: none is refused for its mode", len(real) > 50 and not refused, refused)
++check("…a task without the line is соло", all(mode.parse(p.read_text(encoding="utf-8")).current == "соло"
++                                            for p in real if "Режим:" not in p.read_text(encoding="utf-8")))
++template = (ROOT / "tasks/TEMPLATE.md").read_text(encoding="utf-8")
++check("the template carries the line, and it reads as соло", "Режим: соло" in template and mode.parse(template).current == "соло" and not board.parse(template).mode_error)
++
++# ------------------------------------------------------------------ what a mode forbids
++print("what a mode forbids: /hotfix and /bugfix")
++URGENT = "# 010 — Вхід падає\n\nЗалежить від: —\n{line}Аудит потрібен: ні\n\n## Що зробити\nЦе термінове виправлення: `/hotfix`.\n\n## Питання до власника\n"
++
++
++def urgent(line: str) -> Path:
++    root = project(git=True)
++    (root / ".claude").mkdir()
++    (root / ".claude/project.env").write_text('SOURCE_DIRS="app"\n', encoding="utf-8")
++    put(root, "doing", "010-urgent.md", URGENT.format(line=f"{line}\n" if line else ""))
++    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
++    subprocess.run(["git", "commit", "-qm", "task"], cwd=root, check=True)
++    return root
++
++
++for line, refused_ in (("Режим: ескіз", True), ("Режим: конвеєр", True), ("", False)):
++    root = urgent(line)
++    r = run(HOOKS / "hotfix.py", root, "start", "--name", "login-500", "--task", "tasks/doing/010-urgent.md")
++    cards = list((root / ".engine/bugs").glob("*.md")) if (root / ".engine/bugs").is_dir() else []
++    if refused_:
++        check(f"negative — /hotfix with «{line}» is refused and writes no card",
++              r.returncode == 2 and "is refused in the mode" in r.stdout and not cards, said(r))
++    else:
++        check("/hotfix in соло (no line) starts: the card is written", r.returncode == 0 and len(cards) == 1, said(r))
++        shown = run(MODE, root, "--root", str(root), "show").stdout
++        check("…and show names the work type from the card IN PROGRESS", "тип роботи: hotfix (.engine/bugs/001-login-500.md)" in shown, shown)
++root = urgent("Режим: ескіз")
++(root / "tasks/doing/010-urgent.md").rename(root / "tasks/todo/010-urgent.md")
++r = run(HOOKS / "hotfix.py", root, "start", "--name", "login-500", "--task", "tasks/todo/010-urgent.md")
++check("negative — the task named by --task decides, wherever it lies: ескіз in todo/, doing/ empty — refused",
++      r.returncode == 2 and "is refused in the mode «ескіз»" in r.stdout, said(r))
++(root / "tasks/todo/010-urgent.md").rename(root / "tasks/doing/010-urgent.md")
++r = run(HOOKS / "bugfix.py", root, "prove", "--test", "tests/test_x.py", "--cmd", "true")
++check("negative — /bugfix (bugfix.py prove) in ескіз is refused before anything runs",
++      r.returncode == 1 and "/bugfix is refused in the mode «ескіз»" in r.stdout, said(r))
++root = urgent("")
++r = run(MODE, root, "--root", str(root), "raise", "конвеєр", "--why", "кілька модулів")
++r = run(HOOKS / "hotfix.py", root, "start", "--name", "login-500", "--task", "tasks/doing/010-urgent.md")
++check("negative — the mode in force decides, not the owner's line: no line, raised to конвеєр — /hotfix refused, no card",
++      r.returncode == 2 and "is refused in the mode «конвеєр»" in r.stdout and not (root / ".engine/bugs").exists(), said(r))
++root = urgent("Режим: ескіз")
++run(MODE, root, "--root", str(root), "raise", "соло", "--why", "потрібне виправлення")
++r = run(HOOKS / "bugfix.py", root, "prove", "--test", "tests/test_x.py", "--cmd", "true")
++check("…and the other way: ескіз raised to соло — bugfix.py prove is not refused for its mode (it goes on to its own checks)",
++      "refused in the mode" not in r.stdout and "is not a file of this project" in r.stderr, said(r))
++check("…in соло and in конвеєр bugfix is allowed", mode.FORBIDDEN.get(("соло", "bugfix")) is None and mode.FORBIDDEN.get(("конвеєр", "bugfix")) is None)
++
++# ------------------------------------------------------------------ «nobody is watching»: one reader
++print("«nobody is watching» has one reader")
++root = project(git=True)
++probe = ROOT / ".claude/unattended/env-probe.sh"
++gated = HOOKS / "park-ask-gated.py"
++push = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push origin work"}})
++goals = load("goals_for_mode", HOOKS / "goals.py")
++hotfix = load("hotfix_for_mode", HOOKS / "hotfix.py")
++for label, env_value, file_text, expected, where, kind in (
++        ("the runner's variable", "1", None, True, "env", "unattended-supervised"),
++        ("the mode file", "", "unattended\n", True, "mode-file", "unattended-mode-file"),
++        ("neither", "", None, False, "", "attended-local"),
++        ("negative — the variable is 0, the file says attended", "0", "attended\n", False, "", "attended-local")):
++    state = root / ".claude/state/overseer/mode"
++    if file_text is None:
++        state.unlink(missing_ok=True)
++    else:
++        state.parent.mkdir(parents=True, exist_ok=True)
++        state.write_text(file_text, encoding="utf-8")
++    saved = dict(os.environ)
++    os.environ["CLAUDE_UNATTENDED_SESSION"] = env_value
++    try:
++        answers = {"mode.py": mode.unattended(root), "board.py": board.unattended_session(root), "goals.py": goals.unattended(root),
++                   "hotfix.py": hotfix.unattended(root)}
++    finally:
++        os.environ.clear()
++        os.environ.update(saved)
++    parked = subprocess.run([sys.executable, str(gated)], input=push, capture_output=True, text=True, check=False,
++                            env=hook_env(root, CLAUDE_UNATTENDED_SESSION=env_value)).stdout
++    kind_said = subprocess.run(["bash", str(probe)], capture_output=True, text=True, check=False,
++                               env=hook_env(root, CLAUDE_UNATTENDED_SESSION=env_value, CLAUDE_CODE_REMOTE="")).stdout
++    cli = run(MODE, root, "--root", str(root), "unattended", unattended=env_value)
++    check(f"{label}: all five places answer as the reader ({expected}, {where or 'attended'})",
++          answers["mode.py"] == (expected, where) and answers["board.py"] == expected and answers["goals.py"] == expected
++          and answers["hotfix.py"] == expected and ('"deny"' in parked) == expected and f"session_kind={kind}\n" in kind_said
++          and cli.returncode == (0 if expected else 1), (answers, parked[:80], [line for line in kind_said.splitlines() if "session_kind" in line], said(cli)))
++alone = project()
++(alone / ".claude/hooks").mkdir(parents=True)
++(alone / ".claude/unattended").mkdir(parents=True)
++shutil.copy2(gated, alone / ".claude/hooks/park-ask-gated.py")
++shutil.copy2(probe, alone / ".claude/unattended/env-probe.sh")
++(alone / ".claude/state/overseer").mkdir(parents=True)
++(alone / ".claude/state/overseer/mode").write_text("unattended\n", encoding="utf-8")
++lone_hook = subprocess.run([sys.executable, str(alone / ".claude/hooks/park-ask-gated.py")], input=push, capture_output=True, text=True,
++                           check=False, env=hook_env(alone, CLAUDE_UNATTENDED_SESSION="")).stdout
++lone_probe = subprocess.run(["bash", str(alone / ".claude/unattended/env-probe.sh")], capture_output=True, text=True, check=False,
++                            env=hook_env(alone, CLAUDE_UNATTENDED_SESSION="", CLAUDE_CODE_REMOTE="")).stdout
++check("negative — the reader missing: the park hook falls back to «attended» (the normal prompt), the probe says it cannot tell",
++      lone_hook == "" and "session_kind=unknown (no python3 or no " in lone_probe,
++      (lone_hook[:80], [line for line in lone_probe.splitlines() if "session_kind" in line]))
++# The ways the five decided it themselves; env-probe.sh still PRINTS the file's content as a fact, which decides nothing.
++for text, expected in (("not unattended\n", False), ("unattended later\n", False), ("Unattended\n", True), ("**unattended**\n", True)):
++    (root / ".claude/state/overseer/mode").write_text(text, encoding="utf-8")
++    check(f"the mode file says {text.strip()!r}: {'unattended' if expected else 'attended'} — the word itself, not a word inside a sentence",
++          mode.unattended(root)[0] == expected)
++own_reading = re.compile(r'environ\.get\("CLAUDE_UNATTENDED_SESSION"\)|"overseer" / "mode"|MODE_REL|CLAUDE_UNATTENDED_SESSION:-|grep -qx .unattended|== "unattended"|"unattended" in ')
++places = (".claude/unattended/board.py", ".claude/unattended/env-probe.sh", ".claude/hooks/goals.py", ".claude/hooks/hotfix.py", ".claude/hooks/park-ask-gated.py")
++readers = {rel: [line.strip() for line in (ROOT / rel).read_text(encoding="utf-8").splitlines() if own_reading.search(line)] for rel in places}
++check("none of the five reads the variable or the mode file itself any more", not any(readers.values()), readers)
++
++# ------------------------------------------------------------------ the overseer's request
++print("the overseer's request carries the mode")
++root = project(git=True)
++put(root, "doing", "050-x.md", task("050", "Режим: конвеєр"))
++verdict = load("overseer_verdict_for_mode", HOOKS / "overseer_verdict.py")
++request = verdict.make_request(root, "=== UNIT 1 COMPLETE ===", origin="test")
++check("request.json says the task's mode, as mode.py show prints it", request.get("mode", "").startswith("режим: конвеєр (рядок «Режим: конвеєр»)")
++      and json.loads((root / f".claude/state/overseer/requests/{request['id']}/request.json").read_text(encoding="utf-8"))["mode"] == request["mode"], request.get("mode"))
++check("the overseer's definition says what the field means", "`mode`" in (ROOT / ".claude/agents/overseer.md").read_text(encoding="utf-8")
++      and "«конвеєр»" in (ROOT / ".claude/agents/overseer.md").read_text(encoding="utf-8"))
++
++for path in roots:
++    shutil.rmtree(path, ignore_errors=True)
++print(f"\nPASS {PASS}   FAIL {FAIL}")
++sys.exit(0 if FAIL == 0 else 1)
+diff --git a/tests/test_model_roles.py b/tests/test_model_roles.py
+index f6b97db..f08cf39 100755
+--- a/tests/test_model_roles.py
++++ b/tests/test_model_roles.py
+@@ -19,6 +19,7 @@ Run:   python3 tests/test_model_roles.py       Exit: 0 all green, 1 otherwise.
+ 
+ from __future__ import annotations
+ 
++import importlib.util
+ import json
+ import re
+ import sys
+@@ -126,6 +127,22 @@ for rel in STRONGEST:
+     fields = frontmatter(CLAUDE / rel)
+     check(f"{rel}: has frontmatter and names no model", bool(fields) and "model" not in fields, fields)
+ 
++print("modes: a mode says which roles run and how strictly, never who runs them (board 097)")
++reader = (CLAUDE / "hooks" / "mode.py").read_text(encoding="utf-8")
++NAMED = re.compile(r"(?i)\b(sonnet|opus|haiku|fable)\b|claude-[a-z]+-\d|\bmodel\s*[:=]")
++check("mode.py names no model and has no model field", not NAMED.search(reader), NAMED.findall(reader))
++sys.path.insert(0, str(CLAUDE / "hooks"))
++spec = importlib.util.spec_from_file_location("mode", CLAUDE / "hooks" / "mode.py")
++assert spec is not None and spec.loader is not None
++mode = importlib.util.module_from_spec(spec)
++sys.modules["mode"] = mode
++spec.loader.exec_module(mode)
++for value in ("конвеєр, opus", "соло (sonnet)", "ескіз model: haiku"):
++    check(f"the line «Режим: {value}» is no mode: the board does not take it", bool(mode.parse(f"# x\n\nРежим: {value}\n").error))
++manual = (ROOT / "tasks" / "README.md").read_text(encoding="utf-8")
++section = manual[manual.index("## Режим задачі"):manual.index("\n## ", manual.index("## Режим задачі") + 1)]
++check("the manual's section on modes names no model", not NAMED.search(section), NAMED.findall(section))
++
+ print("/feature-architect: two critic rounds per plan")
+ text = (CLAUDE / "commands" / "feature-architect.md").read_text(encoding="utf-8")
+ check("the cap is stated", "at most two\ncritic rounds" in text or "at most two critic rounds" in text, "")
+diff --git a/tests/test_release.py b/tests/test_release.py
+index 5e8e201..93df183 100755
+--- a/tests/test_release.py
++++ b/tests/test_release.py
+@@ -24,7 +24,7 @@ from pathlib import Path
+ 
+ ROOT = Path(__file__).resolve().parent.parent
+ ENGINE_PY = ROOT / "engine.py"
+-COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py")
++COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
+ SKILL = ".claude/skills/demo/SKILL.md"
+ JOURNAL = "tasks/ANOMALIES.md"
+ PASS = FAIL = 0
+@@ -93,6 +93,7 @@ class Repo:
+             shutil.copy(ROOT / path, self.work / path)
+         write(self.work / SKILL, "the words a model reads\n")
+         write(self.work / "tasks/README.md", "the board\n")
++        write(self.work / ".gitignore", "__pycache__/\n")   # as in the engine's repository: board.py imports hooks/mode.py (board 097)
+         write(self.work / "tests/run_all.sh", RUN_ALL_STUB)
+         write(self.work / "evals/run_hook_scenarios.py", GOLDEN_STUB)
+         write(self.work / "evals/baseline/box/results-old.json", "{}\n")
+diff --git a/tests/test_settings_proposal_install.py b/tests/test_settings_proposal_install.py
+index edb5c26..1addbb8 100644
+--- a/tests/test_settings_proposal_install.py
++++ b/tests/test_settings_proposal_install.py
+@@ -102,6 +102,7 @@ with tempfile.TemporaryDirectory(prefix="settings-proposal-install-") as tmp:
+     git(eng, "tag", "v1.0.0")
+     write(eng / ".claude/ownership.txt", MAP_V2)
+     write(eng / ".claude/hooks/overseer_verdict.py", "import sys\nsys.exit(0)\n")
++    shutil.copy2(ROOT / ".claude/hooks/mode.py", eng / ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
+     (eng / ".claude/unattended").mkdir(parents=True)
+     for source in sorted((ROOT / ".claude/unattended").iterdir()):
+         if source.is_file() and source.suffix in (".py", ".sh"):
