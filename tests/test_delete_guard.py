@@ -241,6 +241,23 @@ check("a Python file with no function or class (constants) deleted: block, as th
       and "the file" in hit[0]["message"], hit)
 sh(r, "git", "checkout", "-q", "--", "limits.py")
 check("(both restored: passes)", passed(r), found(r, "delete/untested"))
+# Board 086: gate.py --diff <ref> — the gate judging what a branch COMMITTED, the working tree clean — was run by no suite.
+r = project()
+sh(r, "git", "switch", "-q", "-c", "feat/cleanup")
+(r / "legacy.py").unlink()
+commit(r, "drop legacy.py")
+check("deleted and committed on a branch: against HEAD the turn-end layer sees a clean tree and passes", passed(r), found(r, "delete/untested"))
+done = gate(r, "stop", "--diff", "main")
+hit = found(r, "delete/untested")
+check("...against main (--diff main) the same layer blocks the deletion", done.returncode == 2 and len(hit) == 1 and hit[0]["file"] == "legacy.py", (done.stderr, hit))
+done = gate(r, "ci", "--diff", "main")
+check("the ci layer does not carry this guard (gate.md: stop, pre_commit) — recorded, so that changing it is a decision",
+      done.returncode == 0 and not found(r, "delete/untested"), done.stderr)
+(r / "tests/test_legacy.py").write_text("from legacy import export_csv, Report, big\n\n\ndef test_all():\n    assert export_csv([]) == [] and Report() and big(0) == 0\n")
+sh(r, "git", "checkout", "-q", "main", "--", "legacy.py")
+commit(r, "keep legacy.py, with a test")
+done = gate(r, "stop", "--diff", "main")
+check("(the branch that keeps the file passes against main)", done.returncode == 0 and not found(r, "delete/untested"), done.stderr)
 check("threshold(): unset, empty and garbage are the default; a number is itself",
       [delete_guard.threshold(e) for e in ({}, {"DELETE_GUARD_LINES": ""}, {"DELETE_GUARD_LINES": "many"}, {"DELETE_GUARD_LINES": "5"})] == [20, 20, 20, 5])
 

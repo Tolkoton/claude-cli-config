@@ -12,9 +12,11 @@ The rule is in `AGENTS.md`: exercise the thing you changed and show the negative
 ```bash
 bash tests/run_all.sh                 # every suite, one line each (the pre-tag check)
 bash tests/run_all.sh --fast          # the Stop-gate subset
-python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-22.04/results-task-056.json
+python3 evals/run_hook_scenarios.py --engine-ref HEAD --compare evals/baseline/linux-ubuntu-22.04/results-task-086.json
 python3 .claude/hooks/overseer_stop.py --dry-run     # always emits a block
 bash .claude/unattended/board-runner.sh --status
+python3 evals/hook_coverage.py run --data /tmp/cov-tests -- bash tests/run_all.sh    # about an hour: every suite, traced
+python3 evals/hook_coverage.py report /tmp/cov-tests --missing                       # what no suite ran, by function
 ```
 
 ## A suite that runs a hook

@@ -615,5 +615,74 @@ done = script(HOOKS / "simplifier.py", r, "nightly")
 check("every night is recorded: three runs, three rows of history",
       done.returncode == 0 and len((r / ".claude/state/simplifier/metrics.jsonl").read_text(encoding="utf-8").splitlines()) == 3, done.stdout + done.stderr)
 
+# ---------------------------------------------------------------------------------------------
+print("engine.py — what an update does to a file the project deleted, a lost executable bit, and an engine that ships a link")
+eng = Path(sandbox_dir("refusal-engine-"))
+git(eng, "init", "-q", "-b", "main")
+OWNERSHIP = ("machine  .claude/state/\n"
+             "project  docs/guide.md  seed=templates/guide.md\n"
+             "engine   .claude/**\n"
+             "project  **\n")
+for rel, text, mode in ((".claude/ownership.txt", OWNERSHIP, 0o644), (".claude/hooks/a.sh", "echo a1\n", 0o755),
+                        (".claude/hooks/b.sh", "echo b1\n", 0o755), ("templates/guide.md", "# Guide\n", 0o644)):
+    (eng / rel).parent.mkdir(parents=True, exist_ok=True)
+    (eng / rel).write_text(text, encoding="utf-8")
+    (eng / rel).chmod(mode)
+git(eng, "add", "-A")
+git(eng, "commit", "-qm", "v1")
+git(eng, "tag", "v1.0.0")
+(eng / ".claude/hooks/a.sh").write_text("echo a2\n", encoding="utf-8")
+git(eng, "commit", "-qam", "v2")
+git(eng, "tag", "v2.0.0")
+(eng / ".claude/hooks/link.sh").symlink_to("a.sh")
+git(eng, "add", "-A")
+git(eng, "commit", "-qm", "v3: a link among the hooks")
+git(eng, "tag", "v3.0.0")
+git(eng, "rm", "-q", ".claude/hooks/link.sh", "templates/guide.md")
+git(eng, "commit", "-qm", "v4: the seed is gone")
+git(eng, "tag", "v4.0.0")
+shutil.copy2(ROOT / "engine.py", eng / "engine.py")
+PROJECTS = str(eng.parent / (eng.name + "-projects.txt"))
+
+
+def installer(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([sys.executable, str(eng / "engine.py"), *args], capture_output=True, text=True, check=False,
+                          env={**os.environ, "ENGINE_PROJECTS_FILE": PROJECTS})
+
+
+target = project("refusal-installed-")
+done = installer("install", str(target), "--ref", "v1.0.0")
+check("the positive case: v1 installs, with the executable bit and the seed",
+      done.returncode == 0 and os.access(target / ".claude/hooks/a.sh", os.X_OK) and (target / "docs/guide.md").read_text(encoding="utf-8") == "# Guide\n",
+      done.stdout + done.stderr)
+(target / ".claude/hooks/b.sh").unlink()
+(target / ".claude/hooks/a.sh").chmod(0o644)
+done = installer("update", str(target), "--ref", "v1.0.0")
+check("a file the project deleted is not brought back by an update — the update says so and asks for attention (exit 1)",
+      done.returncode == 1 and not (target / ".claude/hooks/b.sh").exists() and "deleted in the project" in done.stdout, done.stdout + done.stderr)
+check("a hook that lost its executable bit gets it back: a hook that cannot run enforces nothing",
+      os.access(target / ".claude/hooks/a.sh", os.X_OK) and "executable bit" in done.stdout, done.stdout + done.stderr)
+done = installer("update", str(target), "--ref", "v2.0.0")
+check("the next version still leaves the deleted file deleted, and updates the rest",
+      done.returncode == 1 and not (target / ".claude/hooks/b.sh").exists() and (target / ".claude/hooks/a.sh").read_text(encoding="utf-8") == "echo a2\n",
+      done.stdout + done.stderr)
+done = installer("update", str(target), "--ref", "v2.0.0", "--take", ".claude/hooks/b.sh")
+check("--take brings it back on request", done.returncode == 0 and (target / ".claude/hooks/b.sh").read_text(encoding="utf-8") == "echo b1\n", done.stdout + done.stderr)
+before = (target / ".claude/hooks/a.sh").read_text(encoding="utf-8")
+done = installer("update", str(target), "--ref", "v3.0.0")
+check("an engine version that holds a symbolic link among its files is refused whole: only files ship",
+      done.returncode != 0 and "only files ship" in done.stderr and not (target / ".claude/hooks/link.sh").exists()
+      and (target / ".claude/hooks/a.sh").read_text(encoding="utf-8") == before, done.stdout + done.stderr)
+done = installer("update", str(target), "--ref", "v4.0.0")
+check("an engine version whose ownership map names a seed it does not have is refused",
+      done.returncode != 0 and "seed templates/guide.md (for docs/guide.md) is missing" in done.stderr, done.stdout + done.stderr)
+done = installer("update")
+check("update with neither a project nor --all is refused", done.returncode != 0 and "give either a project directory or --all" in done.stderr, done.stdout + done.stderr)
+done = installer("install", "--personal", "--no-register", "--ref", "v1.0.0")
+check("--personal with a project install's flag is refused", done.returncode != 0 and "--no-register applies to a project install, not to --personal" in done.stderr,
+      done.stdout + done.stderr)
+done = installer("install", str(target), "--home", str(eng), "--ref", "v1.0.0")
+check("--home with a project install is refused", done.returncode != 0 and "--home applies to --personal only" in done.stderr, done.stdout + done.stderr)
+
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)
