@@ -15,6 +15,9 @@ Layers
                 lets the turn end and parks the item for a human (GATE_MAX_BLOCKS, default 3):
                 in a project with a task board the question is a task in tasks/blocked/, and
                 the owner's answer «так» there closes it; without a board, a parked.md entry.
+                During a rebase or a merge no file is written to the board (board 065): the
+                escalation goes to the anomaly journal, and its question is asked when that is
+                over — by the next stop run or by `gate.py --ask-waiting` (the board runner).
                 Also refuses to be passed by silencing: see "bypass guard".
     pre_commit  the full set on the staged change (what a git pre-commit hook runs).
     ci          the full set (what a pipeline runs). No workflow file ships; see
@@ -844,7 +847,8 @@ def read_escalations(root: Path) -> dict[str, Any]:
     return data
 
 
-def open_escalation(root: Path, stamp: str, report: Report, task: str | None = None) -> None:
+def open_escalation(root: Path, stamp: str, report: Report, task: str | None = None,
+                    waiting: dict[str, Any] | None = None) -> None:
     """Machine state beside the parked entry: overseer_stop.py refuses an OVERSEER_PASS while an
     escalation of the slice is open. In .claude/state/, which no agent tool may write — the park
     queue is the agent's own file and could not carry a lock on the agent."""
@@ -853,10 +857,12 @@ def open_escalation(root: Path, stamp: str, report: Report, task: str | None = N
     # "failed"), every file the gate looked at. The lock is keyed on these, not on a slice name.
     files = sorted({f.file for f in report.findings if f.severity == "block" and f.file}) or sorted(report.files)
     head = git(root, "rev-parse", "-q", "--verify", "HEAD").stdout.strip()
-    entry = {"stamp": stamp, "slice": active_slice(root) or NO_SLICE, "files": files,
+    entry: dict[str, Any] = {"stamp": stamp, "slice": active_slice(root) or NO_SLICE, "files": files,
              "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]}
     if task:
         entry["task"] = task
+    if waiting:
+        entry["waiting"] = waiting
     data["open"].append(entry)
     try:
         write_json(root / ESCALATIONS_REL, data)
@@ -892,38 +898,84 @@ def close_escalation(root: Path, which: str) -> int:
     return 0
 
 
-def board_question(root: Path, stamp: str, report: Report, evidence: str, blocks: int) -> str | None:
+def git_busy(root: Path) -> str | None:
+    """`rebase` or `merge` while git is in the middle of one, else None. The working tree then is
+    not the branch: files committed on it may be absent, so a number that looks free on the board
+    may be taken (board 065) — nothing is written to the board until it is over."""
+    for marker, word in (("rebase-merge", "rebase"), ("rebase-apply", "rebase"), ("MERGE_HEAD", "merge")):
+        found = git(root, "rev-parse", "--git-path", marker)
+        if found.returncode == 0 and found.stdout.strip() and (root / found.stdout.strip()).exists():
+            return word
+    return None
+
+
+def board_question(root: Path, stamp: str, report: Report, evidence: str, blocks: int, busy: str | None = None) -> str | None:
     """The escalation as a question on the task board (board.py, tasks/README.md): the path of the
-    task written to tasks/blocked/, or None — no board in this project, or it could not be
-    written. Best effort: a problem here never changes what the gate decides."""
+    task written to tasks/blocked/, or None — no board in this project, it could not be written,
+    or `busy` (a rebase or a merge is in progress: the journal entry only, `ask_waiting` asks
+    later). Best effort: a problem here never changes what the gate decides."""
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
         import board
 
         files = sorted({f.file for f in report.findings if f.severity == "block" and f.file}) or sorted(report.files)
         reasons = [r.splitlines()[0][:200] for r in report.reasons[:5]]
-        task = board.gate_question(board.Board(root / "tasks"), stamp, blocks, active_slice(root) or NO_SLICE, files[:20], reasons, evidence)
+        task = None if busy else board.gate_question(board.Board(root / "tasks"), stamp, blocks, active_slice(root) or NO_SLICE, files[:20], reasons, evidence)
         asked = task.relative_to(root).as_posix() if task else None
+        later = f"у репозиторії триває {busy}, тому питання власникові на task board поки не поставлено — його буде поставлено, щойно {busy} завершиться; " if busy else ""
         # Everything odd is in one journal (board 035); the board runner commits the entry.
         board.note(root, "gates (gate.py)", f"gates наприкінці ходу не пройшли {blocks} раз(и) поспіль і здалися (ескалація {stamp}): "
                    + (reasons[0] if reasons else "причину не записано"),
-                   "хід дозволено закінчити; " + (f"власника спитано в `{asked}`; " if asked else "") + "поки ескалацію не закрито, overseer не приймає роботу з цими файлами")
+                   "хід дозволено закінчити; " + (f"власника спитано в `{asked}`; " if asked else later) + "поки ескалацію не закрито, overseer не приймає роботу з цими файлами")
         return asked
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         print(f"gate: the escalation was not put on the task board: {exc}", file=sys.stderr)
         return None
 
 
-def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> str | None:
-    """Park the item; returns the board task that asks the owner, when there is a board. With
-    that task the item lives on the board and nowhere else (board 037); only a project without
-    a board gets an entry in the log .engine/overseer/parked.md."""
+def ask_waiting(root: Path) -> int:
+    """Put on the board the questions of the escalations that were opened during a rebase or a
+    merge (board 065), once it is over. Called by every Stop gate run and by the board runner
+    (`gate.py --ask-waiting`). Best effort, like `board_question`; returns how many were asked."""
+    data = read_escalations(root)
+    waiting = [e for e in data["open"] if isinstance(e, dict) and isinstance(e.get("waiting"), dict)]
+    if not waiting or git_busy(root):
+        return 0
+    asked = 0
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board
+
+        for entry in waiting:
+            was = entry["waiting"]
+            task = board.gate_question(board.Board(root / "tasks"), str(entry.get("stamp")), int(was.get("blocks") or 0), str(entry.get("slice") or NO_SLICE),
+                                       [str(f) for f in entry.get("files") or []][:20], [str(r) for r in entry.get("reasons") or []], str(was.get("evidence") or ""))
+            if task is None:
+                continue
+            entry["task"] = task.relative_to(root).as_posix()
+            del entry["waiting"]
+            asked += 1
+            board.note(root, "gates (gate.py)", f"{was.get('for')} завершився: ескалація gates {entry.get('stamp')} чекала на це",
+                       f"питання власникові поставлено в `{entry['task']}`")
+        if asked:
+            write_json(root / ESCALATIONS_REL, data)
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        print(f"gate: the waiting escalations were not put on the task board: {exc}", file=sys.stderr)
+    return asked
+
+
+def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) -> tuple[str | None, str | None]:
+    """Park the item; returns the board task that asks the owner, when there is a board, and
+    `rebase` or `merge` when the question waits for one to end (board 065: the journal entry
+    only, no file on the board). With that task the item lives on the board and nowhere else
+    (board 037); only a project without a board gets an entry in the log .engine/overseer/parked.md."""
     stamp = utc_now()
     evidence = str(report_path.relative_to(root) if report_path.is_relative_to(root) else report_path)
-    task = board_question(root, stamp, report, evidence, blocks)
-    open_escalation(root, stamp, report, task)
-    if task:
-        return task
+    busy = git_busy(root) if (root / "tasks").is_dir() else None
+    task = board_question(root, stamp, report, evidence, blocks, busy)
+    open_escalation(root, stamp, report, task, {"for": busy, "blocks": blocks, "evidence": evidence} if busy else None)
+    if task or busy:
+        return task, busy
     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
     entry = (
         f"\n## {stamp} — gate stop layer — PARKED\n"
@@ -947,7 +999,7 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
             handle.write(entry)
     except OSError as exc:
         print(f"gate: cannot park the escalation in {path}: {exc}", file=sys.stderr)
-    return task
+    return task, None
 
 
 def lessons(root: Path, action: str, text: str = "") -> str:
@@ -1151,9 +1203,12 @@ def finish_stop(report: Report, root: Path, session: str) -> tuple[str, dict[str
         return "block", {}
     write_count(root, session, 0)
     path = write_report(report, "escalated")
-    task = park_escalation(root, report, path, count)
+    task, busy = park_escalation(root, report, path, count)
     message = f"GATE ESCALATION: the Stop gate blocked {count} turns in a row. The turn may end; the item is "
-    if task:
+    if busy:
+        message += (f"in the anomaly journal only: a {busy} is in progress, and the question to the owner is put on the "
+                    f"task board when it is over (by the next Stop gate run or the board runner). Report: {REPORT_REL}")
+    elif task:
         message += (f"a question to the owner on the task board: {task} — leave its answer line empty; "
                     f"the board runner acts on the owner's answer. Report: {REPORT_REL}")
     else:
@@ -1207,6 +1262,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--layer", choices=LAYERS)
     parser.add_argument("--close-escalation", metavar="STAMP|all", default=None,
                         help="the owner's command: close a parked Stop-gate escalation")
+    parser.add_argument("--ask-waiting", action="store_true",
+                        help="put on the task board the questions that waited for a rebase or a merge to end")
     parser.add_argument("--files", nargs="*", default=None, help="files to check (default: the diff)")
     parser.add_argument("--diff", dest="diff_ref", default=None, help="diff base (default: HEAD)")
     parser.add_argument("--hook", action="store_true", help="speak Claude Code's hook protocol")
@@ -1214,11 +1271,16 @@ def main(argv: list[str] | None = None) -> int:
     root = project_root()
     if args.close_escalation:
         return close_escalation(root, args.close_escalation)
+    if args.ask_waiting:
+        ask_waiting(root)
+        return 0
     if not args.layer:
         parser.error("--layer is required")
     files: list[str] | None = args.files
     session = "cli"
     try:
+        if args.layer == "stop":
+            ask_waiting(root)
         if args.hook:
             envelope = read_envelope()
             session = str(envelope.get("session_id") or "cli")

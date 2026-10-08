@@ -79,6 +79,12 @@ in a row (default 3) the gate lets the turn end, puts its question to the owner 
 `.engine/overseer/parked.md` instead), says so in a `systemMessage`, and starts counting again. That
 is not the end of it: see "An open escalation refuses the PASS" below.
 
+While a rebase or a merge is in progress (git's `rebase-merge`, `rebase-apply` or `MERGE_HEAD`) the
+gate writes no file to the board: the working tree is not the branch then, and a number that looks
+free may be taken. The escalation is recorded as usual and entered in `tasks/ANOMALIES.md`; its
+question is put on the board by the first Stop gate run after the rebase or merge is over, or by
+the board runner (`gate.py --ask-waiting`).
+
 ## The bypass guard (stop, pre_commit)
 
 A block when the turn's diff **adds** a `# type: ignore`, a `# noqa`, `pytest.mark.skip` /

@@ -557,6 +557,60 @@ bare = Path(tempfile.mkdtemp(prefix="board-none-"))
 r = cli(bare, "open-item", "--to", "blocked", "--title", "Немає task board", "--what", "x", "--question", "Так?")
 check("negative — a project without tasks/: exit 1, nothing is created", r.returncode == 1 and not (bare / "tasks").exists(), r.stdout + r.stderr)
 
+# --- board 065: two files with one number in a column ------------------------------------------
+print("two files with one number (board 065)")
+root = new_board()
+b = board.Board(root / "tasks")
+inbox = root / "inbox"
+inbox.mkdir()
+GATE_Q = "Ескалація gates: {}\n\n## Питання до власника\n1. Закрити ескалацію?\n   Відповідь:{}\n"
+first = put(root, "blocked", "900-gate-escalation-20261006T212543Z.md", GATE_Q.format("2026-10-06T21:25:43Z", ""))
+second = put(root, "blocked", "900-gate-escalation-20261007T074013Z.md", GATE_Q.format("2026-10-07T07:40:13Z", ""))
+kept = second.read_text(encoding="utf-8")
+(inbox / first.name).write_text(GATE_Q.format("2026-10-06T21:25:43Z", " так"), encoding="utf-8")
+r = cli(root, "import-inbox", str(inbox))
+check("an answer to one of two same-numbered questions replaces that file only", f"{first.name} answered" in r.stdout
+      and "Відповідь: так" in first.read_text(encoding="utf-8") and not (inbox / first.name).exists(), r.stdout + r.stderr)
+check("…the other question with the same number is still there, untouched", second.is_file() and second.read_text(encoding="utf-8") == kept)
+stray = inbox / "900-gate-escalation.md"
+stray.write_text(GATE_Q.format("2026-10-07T07:40:13Z", " так"), encoding="utf-8")
+before = {q.name: q.read_text(encoding="utf-8") for q in b.files("blocked")}
+r = cli(root, "import-inbox", str(inbox))
+journal = (root / "tasks" / board.ANOMALIES).read_text(encoding="utf-8") if (root / "tasks" / board.ANOMALIES).is_file() else ""
+check("no exact name among two same-numbered files: nothing is deleted, the file stays in the inbox",
+      f"{stray.name} skipped" in r.stdout and stray.is_file() and {q.name: q.read_text(encoding="utf-8") for q in b.files("blocked")} == before, r.stdout + r.stderr)
+check("…and the anomaly journal names the file and both candidates", stray.name in journal and first.name in journal and second.name in journal
+      and "Хто записав: task board (import-inbox)" in journal, journal)
+cli(root, "import-inbox", str(inbox))
+check("…the same file left in the inbox is written to the journal once, not at every intake",
+      bool(journal) and (root / "tasks" / board.ANOMALIES).read_text(encoding="utf-8") == journal)
+stray.unlink()
+put(root, "todo", "020-one.md", "one\n")
+put(root, "todo", "020-two.md", "two\n")
+(inbox / "020-two.md").write_text("two, newer\n", encoding="utf-8")
+(inbox / "020-three.md").write_text("three\n", encoding="utf-8")
+r = cli(root, "import-inbox", str(inbox))
+check("todo/ with two files of one number: the exact name is replaced, another name replaces nothing",
+      (root / "tasks/todo/020-one.md").read_text(encoding="utf-8") == "one\n" and (root / "tasks/todo/020-two.md").read_text(encoding="utf-8") == "two, newer\n"
+      and not (root / "tasks/todo/020-three.md").exists() and (inbox / "020-three.md").is_file() and "020-three.md skipped" in r.stdout, r.stdout + r.stderr)
+r = cli(root, "summary")
+check("summary shows both duplicates as an error, with the column and the names",
+      f"ПОМИЛКА: один номер 900 у двох файлах у blocked/: {first.name}, {second.name}" in r.stdout
+      and "ПОМИЛКА: один номер 020 у двох файлах у todo/: 020-one.md, 020-two.md" in r.stdout, r.stdout)
+r = cli(root, "check")
+check("check exits 1 and prints the same errors", r.returncode == 1 and r.stdout.count("ПОМИЛКА") == 2, r.stdout + r.stderr)
+root = new_board()
+put(root, "todo", "020-one.md", task())
+put(root, "blocked", "020-one.md", task(questions=q_open))
+done(root, "020-one")
+done(root, "021-two")
+r = cli(root, "check")
+check("negative — one number in different columns is not this error: check exits 0, summary has no error line",
+      r.returncode == 0 and r.stdout == "" and "ПОМИЛКА" not in cli(root, "summary").stdout, r.stdout + r.stderr)
+done(root, "021-twin")
+r = cli(root, "check")
+check("done/ is a column too: two folders with one number", r.returncode == 1 and "у done/: 021-twin, 021-two" in r.stdout, r.stdout)
+
 # --- summary ------------------------------------------------------------------------------------
 print("summary")
 root = new_board()

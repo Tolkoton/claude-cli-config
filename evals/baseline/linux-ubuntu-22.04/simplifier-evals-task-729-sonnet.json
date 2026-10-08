@@ -1,0 +1,397 @@
+{
+  "recorded_utc": "2026-10-07T17:00:02Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "a65c8be722f6d414b1bc32de44fc544eb406fef4",
+  "set": "basic",
+  "model": "sonnet",
+  "planted": [
+    "abstraction-with-one-implementation",
+    "dead-code",
+    "unused-dependency",
+    "guard-against-impossible-state",
+    "slice-for-the-future",
+    "invented-requirement"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "security-check",
+    "contract-field-read-on-a-rare-path"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 3,
+    "recall_mean": 0.5,
+    "recall_range": [
+      0.5,
+      0.5
+    ],
+    "precision_mean": 1.0,
+    "precision_range": [
+      1.0,
+      1.0
+    ],
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {
+      "dead-code": 3,
+      "guard-against-impossible-state": 3,
+      "unused-dependency": 3
+    },
+    "touched_in_runs": {},
+    "cost_usd": 0.0601
+  },
+  "runs": [
+    {
+      "cost_usd": 0.022,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 4,
+      "recall": 0.5,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "flag_only"
+        ],
+        "unused-dependency": [
+          "confirm"
+        ],
+        "guard-against-impossible-state": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-with-one-implementation",
+        "slice-for-the-future",
+        "invented-requirement"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 3,
+      "rejected": [],
+      "lowered": 2,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24",
+          "category": "dead_code",
+          "claim": "`_legacy_total_v1` is a private float-based total that nothing calls; removing it changes no behaviour, because `total` is the Decimal version in use.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1'"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "The name appears only at its definition in the whole repository, including tests."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-9930f7a4",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "`requests` is declared as a runtime dependency, but no module imports it. Removing it leaves the code unchanged.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-20b93157",
+              "detail": "The dependency is declared and no module imports requests."
+            },
+            {
+              "source": "grep",
+              "ref": "pyproject.toml:6",
+              "detail": "The only match for 'requests' in the repository is the declaration itself."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-cb37339e",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/pricing.py:14-15",
+          "category": "defensive_for_impossible",
+          "claim": "The negative-factor RuntimeError can never fire. The check on line 11 limits percent to 0..100, so the factor is always between 0 and 1.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:11",
+              "detail": "Raises ValueError unless 0 <= percent <= 100, on every path that reaches line 14."
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:13",
+              "detail": "The factor is (100 - percent) / 100, which is never negative for percent in 0..100."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-6d81a73a",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.0188,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 4,
+      "recall": 0.5,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "flag_only"
+        ],
+        "unused-dependency": [
+          "confirm"
+        ],
+        "guard-against-impossible-state": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-with-one-implementation",
+        "slice-for-the-future",
+        "invented-requirement"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 3,
+      "rejected": [],
+      "lowered": 2,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24",
+          "category": "dead_code",
+          "claim": "`_legacy_total_v1` is a float-based total that nothing calls. Removing it changes no behaviour, because `total` already does the same job in exact decimals.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1'"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "The name appears only at its definition, with no use in code, tests or docs."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-cc08ddb7",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "The `requests` dependency is declared but never imported, so it can be dropped. The dependency list then becomes empty.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-20b93157",
+              "detail": "requests is declared and no module imports it."
+            },
+            {
+              "source": "grep",
+              "ref": "pyproject.toml:6",
+              "detail": "The only occurrence of 'requests' in the repository is the declaration."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-f592cb19",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/pricing.py:14-15",
+          "category": "defensive_for_impossible",
+          "claim": "The negative-factor `RuntimeError` can never fire. `percent` is already limited to 0..100 at line 11, so the factor is always between 0 and 1.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:11",
+              "detail": "The check raises `ValueError` unless 0 <= percent <= 100."
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:13",
+              "detail": "factor = (100 - percent) / 100, which is at least 0 for any percent that passed the check."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-81b59d19",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        }
+      ]
+    },
+    {
+      "cost_usd": 0.0193,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "turns": 4,
+      "recall": 0.5,
+      "precision": 1.0,
+      "traps_touched": 0,
+      "found": {
+        "dead-code": [
+          "flag_only"
+        ],
+        "unused-dependency": [
+          "confirm"
+        ],
+        "guard-against-impossible-state": [
+          "flag_only"
+        ]
+      },
+      "missed": [
+        "abstraction-with-one-implementation",
+        "slice-for-the-future",
+        "invented-requirement"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 3,
+      "rejected": [],
+      "lowered": 2,
+      "answer": [
+        {
+          "target": "src/refproj/pricing.py:24",
+          "category": "dead_code",
+          "claim": "`_legacy_total_v1` is a private float-based total that nothing calls. It can go, and `total` and `apply_discount` behave the same without it.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-805e5146",
+              "detail": "vulture: unused function '_legacy_total_v1'"
+            },
+            {
+              "source": "grep",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "The name appears only at its definition across the repository, including tests and docs."
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:24",
+              "detail": "The docstring only says it mirrors the first version. It gives no reason to keep it, and the module is described as exact decimals."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-bd5a46ea",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        },
+        {
+          "target": "pyproject.toml:6",
+          "category": "redundant_dependency",
+          "claim": "The `requests` dependency is declared but never imported. It can be removed from `dependencies`.",
+          "evidence": [
+            {
+              "source": "signal",
+              "ref": "S-20b93157",
+              "detail": "requests is declared and no module named requests is imported"
+            },
+            {
+              "source": "grep",
+              "ref": "pyproject.toml:6",
+              "detail": "The only occurrence of 'requests' in the repository is the declaration itself."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "confirm",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-043b1f57",
+          "validator": []
+        },
+        {
+          "target": "src/refproj/pricing.py:14-15",
+          "category": "defensive_for_impossible",
+          "claim": "The RuntimeError for a negative factor can never fire. `percent` is already checked to be within 0..100, so the factor lies in 0..1. Removing the guard changes nothing.",
+          "evidence": [
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:11",
+              "detail": "The edge validation rejects any percent outside 0..100 before the factor is computed."
+            },
+            {
+              "source": "read",
+              "ref": "src/refproj/pricing.py:13",
+              "detail": "The factor is (100-percent)/100, which is at least 0 for every percent that passes the check."
+            }
+          ],
+          "protected": false,
+          "chesterton_checked": true,
+          "test_safety": "none",
+          "proposed_action": "flag_only",
+          "traceability": "none found",
+          "reversal_risk": "low",
+          "id": "F-e9ddbd10",
+          "validator": [
+            "confirm -> flag_only: logic with no test protecting it is flagged, not acted on"
+          ]
+        }
+      ]
+    }
+  ]
+}

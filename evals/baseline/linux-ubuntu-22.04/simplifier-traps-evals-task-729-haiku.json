@@ -1,0 +1,121 @@
+{
+  "recorded_utc": "2026-10-07T17:02:10Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "a65c8be722f6d414b1bc32de44fc544eb406fef4",
+  "set": "traps",
+  "model": "haiku",
+  "planted": [
+    "abstraction-almost-used",
+    "dead-branch-behind-a-flag",
+    "duplication-with-small-differences",
+    "dependency-only-a-test-imports",
+    "guard-impossible-across-functions",
+    "requirement-with-a-borrowed-goal",
+    "slice-for-later-with-a-goal-tag"
+  ],
+  "traps": [
+    "input-validation-at-the-edge",
+    "error-handling-at-the-edge",
+    "rare-error-at-the-boundary",
+    "security-check-path",
+    "security-check-constant-time",
+    "contract-field-read-on-a-rare-path",
+    "contract-field-for-another-service",
+    "old-data-format",
+    "requirement-derived-at-planning",
+    "slice-a-goal-needs",
+    "file-lock",
+    "retry-with-a-pause",
+    "idempotency-key",
+    "kill-switch-nothing-in-the-repository-sets",
+    "write-order-for-crash-recovery",
+    "rounding-the-law-asks-for"
+  ],
+  "summary": {
+    "runs": 3,
+    "scored": 2,
+    "recall_mean": 0.0,
+    "recall_range": [
+      0.0,
+      0.0
+    ],
+    "precision_mean": null,
+    "precision_range": null,
+    "traps_touched_total": 0,
+    "ambiguous_total": 0,
+    "read_by_hand_total": 0,
+    "found_in_runs": {},
+    "touched_in_runs": {},
+    "cost_usd": 0.136
+  },
+  "runs": [
+    {
+      "cost_usd": 0.0774,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 29,
+      "recall": 0.0,
+      "precision": null,
+      "traps_touched": 0,
+      "found": {},
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "dependency-only-a-test-imports",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 0,
+      "rejected": [],
+      "lowered": 0,
+      "answer": []
+    },
+    {
+      "cost_usd": 0.0498,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 22,
+      "error": "the answer is not a JSON list of findings: Expecting value: line 1 column 1 (char 0)",
+      "answer": "Based on my analysis:\n\n1. **Found the users**: `import yaml` appears in `tests/test_price_fixtures.py` line 5, and `yaml.safe_load()` is used on line 13 to load the `prices.yaml` fixture file.\n\n2. **Verification**: The `yaml` module is provided by the `pyyaml` package declared in `pyproject.toml` line 6. The grep search confirms this usage exists in the codebase.\n\n3. **Signal evaluation**: The signal claims \"no module named pyyaml is imported,\" but this is factually incorrect. The `pyyaml` package IS imported and actively used via `import yaml` in the test file. The signal tool appears to be looking for a literal `import pyyaml` statement rather than recognizing that the `yaml` module comes from the `pyyaml` package.\n\nSince `pyyaml` is actually being used in the codebase, the signal represents a false positive and does not constitute a valid finding.\n\n```json\n[]\n```"
+    },
+    {
+      "cost_usd": 0.0088,
+      "models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "turns": 4,
+      "recall": 0.0,
+      "precision": null,
+      "traps_touched": 0,
+      "found": {},
+      "missed": [
+        "abstraction-almost-used",
+        "dead-branch-behind-a-flag",
+        "duplication-with-small-differences",
+        "dependency-only-a-test-imports",
+        "guard-impossible-across-functions",
+        "requirement-with-a-borrowed-goal",
+        "slice-for-later-with-a-goal-tag"
+      ],
+      "touched": [],
+      "unexpected": [],
+      "neutral": [],
+      "ambiguous": [],
+      "resolved": [],
+      "findings": 0,
+      "rejected": [],
+      "lowered": 0,
+      "answer": []
+    }
+  ],
+  "rescored_utc": "2026-10-07T17:10:20Z"
+}

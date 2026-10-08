@@ -331,6 +331,8 @@ def now_section(src: Source, state: Path, now: datetime) -> list[str]:
         lines.append("- У гілці в `doing/` зараз порожньо" + (" (commit, яким задачу взято в роботу, ще не надіслано)." if unpushed else "."))
     counts = "   ".join(f"{c}: {len(src.done() if c == 'done' else src.column(c))}" for c in board.COLUMNS)
     lines.append(f"- Task board: {counts}")
+    names = {c: src.done() if c == "done" else [posixpath.basename(p) for p in src.column(c)] for c in board.COLUMNS}
+    lines += [f"- **{line}**" for line in board.duplicate_lines(names)]
     return lines + debt_line(src, now)
 
 

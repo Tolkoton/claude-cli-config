@@ -48,6 +48,32 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   echo "Tell the user about the items above before relying on hook enforcement in this session."
 fi
 
+# Windows is supported through WSL2 only (the engine's docs/WINDOWS.md): inside it this is a
+# Linux machine and nothing above differs. Two things still come from the Windows side, and
+# neither is a missing tool. The kernel line is read from ENGINE_PROC_VERSION when set, so the
+# suite can supply one; no file to read (macOS) means not WSL.
+TRAPS=()
+KERNEL=""
+read -r KERNEL 2>/dev/null < "${ENGINE_PROC_VERSION:-/proc/version}" || true
+case "$KERNEL" in *[Mm]icrosoft*)
+  case "$ROOT/" in /mnt/[a-zA-Z]/*)
+    TRAPS+=("the project is on a Windows disk ($ROOT) — from WSL every git command and test run there is many times slower, and file permissions are not kept: hooks lose their executable bit and git shows files as changed. Move it into the Linux home (for example ~/projects/) and open it from there.") ;;
+  esac
+  if have git; then
+    case "$(cd "$ROOT" 2>/dev/null; git config --get core.autocrlf 2>/dev/null)" in true|True|TRUE|yes|on|1)
+      TRAPS+=("git core.autocrlf is on — git rewrites line endings to CRLF on checkout, and a hook script with CRLF does not run ('bash\\r: No such file or directory'). Set \`git config --global core.autocrlf input\`, then check the project out again.") ;;
+    esac
+  fi ;;
+esac
+
+if [ "${#TRAPS[@]}" -gt 0 ]; then
+  echo "## engine environment check — WSL"
+  for line in "${TRAPS[@]}"; do
+    echo "- $line"
+  done
+  echo "Tell the user about the items above: the engine's docs/WINDOWS.md has the steps."
+fi
+
 # Package B: a bounded digest of the project's lessons (memory headings, the queue's size, the
 # proposals waiting) and, when due, the proposal to run the clean-up protocol. Silent when there
 # is nothing to say. Carried here because this is the SessionStart hook already wired; it needs
