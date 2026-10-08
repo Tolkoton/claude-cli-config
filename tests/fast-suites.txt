@@ -63,6 +63,10 @@
 # Board 056: test_owner_perimeter stays out (about a hundred runs of the two real deny hooks).
 # Board 085: test_core_units 2.5 s is in (in-process: the cases a mutation run found unpinned in gate.py, overseer_verdict.py,
 # overseer_stop.py, board.py, engine.py and lesson_queue.py; a dozen throwaway repositories, no hook started).
+# Board 087: the suites run in parallel (one per processor). The times above are the author's machine at the time of
+# each note; on the board's server (one core, two threads) on 2026-10-08 this subset took 88 s one at a time and
+# 60-74 s with two jobs, the full set 42 min and 24-28 min. The cost is process starts: test_board is 132 runs of
+# board.py at 0.12 s each. The last measured time of every suite is `suite_seconds` in .claude/state/health/tests-*.json.
 # Board 086: test_hook_coverage 3.8 s stays out (a traced run of a synthetic project; coverage.py comes through uvx);
 # test_refusal_branches 4.5 s stays out (about sixty runs of hooks and scripts on throwaway repositories, one of them a 1 s time limit).
 test_deny_gaps.py

@@ -748,7 +748,9 @@ def test_run_lines(state: Path) -> list[str]:
                              f"`{command}` на машині, де його запущено.")
             continue
         red = [str(r) for r in record.get("red") or []]
+        took = record.get("seconds")   # the run's own wall time (board 087); an older record has none
         lines.append(f"- {title}, за машинним записом ({where}): {record.get('green')} із {record.get('suites')} наборів зелені"
+                     + (f"; тривав {int(took) // 60} хв {int(took) % 60} с" if isinstance(took, int | float) and not isinstance(took, bool) else "")
                      + (f"; червоні: {', '.join(f'`{r}`' for r in red[:10])}" if red else "") + ".")
     return lines
 
