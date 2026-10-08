@@ -160,12 +160,19 @@ for field, change, error in (("a target", {"target": "src/demo/loop.py"}, "not a
     except RuntimeError as crash:
         found = {"traceback": repr(crash)}
     check(f"{field} that is a symlink loop is rejected, not a traceback (board 716)", error in str(found.get("errors")), found)
+(repo / "src/demo/loopdir").symlink_to("loopdir")  # a directory that links to itself (board 602)
+for ref in ("src/demo/loop.py", "src/demo/loop.py:1", "src/demo/loopdir/x.py:1", "src/../src/demo/loop.py"):
+    check(f"_project_ref answers None for the symlink loop {ref}, on every Python version (board 602)",
+          simplifier._project_ref(repo, ref) is None, simplifier._project_ref(repo, ref))
+kept = (simplifier._project_ref(repo, "src/demo/../demo/missing.py:3"), simplifier._project_ref(repo, "src/demo/rules.md"))
+check("negative — a missing file and a link inside the project keep the path they resolve to (board 602)",
+      kept == ("src/demo/missing.py:3", ".claude/constitution.md"), kept)
 (repo / "absolute.json").write_text(json.dumps([GOOD | {"target": f"{repo}/.claude/constitution.md"}, GOOD | {"target": str(outside)}]))
 done = cli(repo, "validate", "absolute.json")
 check("through the command: the absolute protected target is confirm, the outside one rejected",
       '"proposed_action": "confirm"' in done.stdout and '"proposed_action": "auto_remove"' in done.stdout  # auto_remove: only in the rejected one, as written
       and "1 valid, 1 rejected, 1 lowered" in done.stderr, done.stdout + done.stderr)
-for name in ("absolute.json", "src/demo/link.py", "src/demo/rules.md", "src/demo/loop.py"):
+for name in ("absolute.json", "src/demo/link.py", "src/demo/rules.md", "src/demo/loop.py", "src/demo/loopdir"):
     (repo / name).unlink()
 shutil.rmtree(outside.parent)
 

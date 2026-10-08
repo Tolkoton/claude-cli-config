@@ -53,8 +53,10 @@ Standard library only; Python 3.11+.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
+import os
 import re
 import sys
 from collections import Counter
@@ -126,11 +128,21 @@ def parse_answer(text: str) -> list[Any]:
 
 def _project_ref(root: Path, ref: str) -> str | None:
     """`ref` with its path as the project sees it — relative to the root, links and `..` resolved,
-    the way the protected zones are written. None: not a reference, or it leads outside the project."""
+    the way the protected zones are written. None: not a reference, a symlink loop, or it leads outside the project."""
     match = REF_RE.match(ref.strip())
+    if not match:
+        return None
     try:
-        return (root / match["path"]).resolve().relative_to(root.resolve()).as_posix() + ref.strip()[match.end("path"):] if match else None
-    except (OSError, ValueError, RuntimeError):  # RuntimeError: a symlink loop, up to Python 3.12
+        # Not resolve(): up to Python 3.12 it is this realpath() and a stat() that turns ELOOP into RuntimeError,
+        # from 3.13 the stat() is gone and a loop comes back as an ordinary path. Both steps here answer alike everywhere.
+        path = Path(os.path.realpath(root / match["path"]))
+        try:
+            path.stat()
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:  # a symlink loop
+                return None
+        return path.relative_to(root.resolve()).as_posix() + ref.strip()[match.end("path"):]
+    except (OSError, ValueError, RuntimeError):  # RuntimeError: the root itself a symlink loop, up to Python 3.12
         return None
 
 
