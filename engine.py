@@ -1367,10 +1367,22 @@ def run_check(src: EngineSource, what: str, command: list[str], red: str) -> Non
         raise EngineError(f"{red}; nothing was released")
 
 
-def last_full_audit(src: EngineSource) -> tuple[str, str] | None:
-    """(record, audited commit) of the complete full-tier audit recorded last, or None. A smoke
-    run, a run that stopped half way and a record whose commit this repository lacks do not count."""
+def holds_no_verdict(record: dict[str, object]) -> bool:
+    """Every run of the record is there and not one of them gave a verdict: a broken instrument, not a
+    measurement (board 721). It is the rule evals/run_audit_scenarios.py writes down as the status
+    `no-verdicts` since board 014; a record made before that says `complete` all the same."""
+    scenarios = record.get("scenarios")
+    runs = [run for scenario in scenarios if isinstance(scenario, dict) for run in scenario.get("runs") or []
+            if isinstance(run, dict)] if isinstance(scenarios, list) else []
+    return bool(runs) and not any(run.get("marker") for run in runs)
+
+
+def full_audits(src: EngineSource) -> tuple[list[tuple[str, str, str]], list[tuple[str, str]]]:
+    """The complete full-tier audits as (recorded, record, audited commit), and as (recorded, record)
+    the records that say so but hold no verdict. A smoke run, a run that stopped half way and a
+    record whose commit this repository lacks are in neither list."""
     found: list[tuple[str, str, str]] = []
+    empty: list[tuple[str, str]] = []
     for path in sorted(src.root.glob(RELEASE_AUDITS)):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
@@ -1378,19 +1390,26 @@ def last_full_audit(src: EngineSource) -> tuple[str, str] | None:
             continue
         if not isinstance(record, dict) or record.get("tier") != "full" or record.get("status") != "complete":
             continue
+        if holds_no_verdict(record):
+            empty.append((str(record.get("recorded_utc") or ""), path.relative_to(src.root).as_posix()))
+            continue
         commit = ref_commit(src, str(record.get("engine_commit") or "-"))
         if commit:
             found.append((str(record.get("recorded_utc") or ""), path.relative_to(src.root).as_posix(), commit))
-    return max(found)[1:] if found else None
+    return found, empty
 
 
 def audit_gap(src: EngineSource) -> str | None:
     """Why this release is not covered by a full audit, or None when it is: nothing the model
     reads differs between the commit audited last and the work tree (evals/needs_audit.py)."""
-    audit = last_full_audit(src)
-    if audit is None:
-        return f"no complete full audit is recorded in this repository ({RELEASE_AUDITS})"
-    record, commit = audit
+    audits, empty = full_audits(src)
+    # The last full audit is the one recorded last; a record with no verdict is named only when it
+    # would have been that one.
+    since, record, commit = max(audits) if audits else (None, "", "")
+    skipped = [path for recorded, path in sorted(empty) if since is None or recorded > since]
+    unseen = f"; not counted, because no session in them gave a verdict: {', '.join(skipped)}" if skipped else ""
+    if since is None:
+        return f"no complete full audit is recorded in this repository ({RELEASE_AUDITS}){unseen}"
     res = subprocess.run(
         [sys.executable, RELEASE_NEEDS_AUDIT, commit, "--json"], cwd=src.root, capture_output=True, text=True, check=False
     )
@@ -1403,7 +1422,7 @@ def audit_gap(src: EngineSource) -> str | None:
     except (ValueError, KeyError, TypeError):
         return f"{RELEASE_NEEDS_AUDIT} could not compare with the last full audit, {record} ({commit[:7]}): {res.stderr.strip()[:300]}"
     listed = "".join(f"\n    {line}" for line in changed)
-    return f"{len(changed)} file(s) the model reads changed since the last full audit, {record} ({commit[:7]}):{listed}"
+    return f"{len(changed)} file(s) the model reads changed since the last full audit, {record} ({commit[:7]}){unseen}:{listed}"
 
 
 def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> None:
