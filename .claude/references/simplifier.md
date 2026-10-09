@@ -24,8 +24,8 @@ there against that growth; what it saves is a side effect. Three parts, strictly
    `architecture`.
 4. **The nightly cleanup** — `python3 .claude/hooks/simplifier.py nightly`: the full signals,
    one line of history, the reversal rate. It says whether the simplifier is called. No cron:
-   the board runner puts a cleanup task on the board when it has nothing else to take, not more
-   than once a day (`board.py cleanup-task`; `CLEANUP_EVERY_DAYS` in `.claude/project.env`, `0` —
+   the board runner puts a cleanup task on the board when it has nothing else to take and no task
+   lies in `doing/` (the owner's attended one included, board 723), not more than once a day (`board.py cleanup-task`; `CLEANUP_EVERY_DAYS` in `.claude/project.env`, `0` —
    never), and that task runs this command and one pass of the simplifier when it is called.
 
 No signal, no simplifier: it is never part of an ordinary turn. The nightly cleanup may also

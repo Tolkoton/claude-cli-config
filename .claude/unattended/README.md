@@ -62,11 +62,12 @@ Once a week the runner puts the maintenance task into `todo/` itself (`board.py 
 empty, or all that is left waits for the owner — it puts a cleanup task there instead of stopping
 (`board.py cleanup-task`: `NNN-cleanup-<date>.md`, a task to run `simplifier.py nightly` and act by the
 simplifier's rules), with an entry in the anomaly journal, in one commit — not more than once a day, never
-while one waits in `todo/`, `doing/` or `blocked/`, `CLEANUP_EVERY_DAYS` in `project.env` (empty: 1, `0`:
+while one waits in `todo/`, `doing/` or `blocked/`, never while any task lies in `doing/` (the owner's attended
+one too, board 723), `CLEANUP_EVERY_DAYS` in `project.env` (empty: 1, `0`:
 never); the pass after that task finds nothing due and stops as before. A task that says `Потрібна присутність
 власника: так` it never takes (`board.py next` does not offer one): such a task is done in an interactive
-session with the owner (`tasks/README.md`). Left in `doing/` it stops nothing: the runner leaves it as it is,
-takes the next tasks beside it, and the review shows it as «у роботі з власником». A task the owner has just
+session with the owner (`tasks/README.md`). Left in `doing/` it stops no task: the runner leaves it as it is,
+takes the next tasks beside it (only the cleanup task waits for it, board 723), and the review shows it as «у роботі з власником». A task the owner has just
 answered is taken first after the one in hand, whatever its number (`tasks/.first`, written by `board.py unblock`).
 It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.

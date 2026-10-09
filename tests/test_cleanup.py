@@ -198,6 +198,11 @@ try:
 
     check("NEGATIVE: a task that can start is in todo/ — the runner has work, no cleanup", World().task("todo", "010-work").cleanup("2026-10-05") == "")
     check("NEGATIVE: a task is in doing/ — no cleanup", World().task("doing", "010-work").cleanup("2026-10-05") == "")
+    check("board 723, the owner's answer: NEGATIVE — the owner's attended task is in doing/: no cleanup beside it",
+          World().task("doing", "010-with-owner", more=ATTENDED).cleanup("2026-10-05") == "")
+    beside = World().task("doing", "010-with-owner", more=ATTENDED)
+    beside.move("010-with-owner", "doing", "done")
+    check("…the same board once the owner's task is done: the cleanup is placed", beside.cleanup("2026-10-05") == "tasks/todo/011-cleanup-2026-10-05.md")
     waits = World().task("todo", "010-with-owner", more=ATTENDED).task("todo", "020-after", dep="010").task("blocked", "030-asked", ask="1. Що?\n   Відповідь:\n")
     check("all that is left waits for the owner — present, a dependency, an answer: the cleanup is placed after them",
           waits.cleanup("2026-10-05") == "tasks/todo/031-cleanup-2026-10-05.md" and waits.board("next").stdout.strip() == "tasks/todo/031-cleanup-2026-10-05.md")
@@ -253,8 +258,8 @@ try:
     check("…the cleanup task is placed and committed all the same, and done; the board did not stop",
           r.returncode == 0 and w.tasks("done") == ["010-work", name] and sum(PLACED in s for s in w.subjects()) == 1
           and w.said("nightly") == ["nightly"] and "state=idle" in w.status() and "reason=todo-empty" in w.status(), out(r) + log)
-    check("…and it says nothing else: the journal stands where it stood, nothing is left uncommitted",
-          (w.repo / "tasks/ANOMALIES.md").is_dir() and w.dirty() == "", w.dirty())
+    check("…and it says nothing else: one anomaly-failed event, the journal stands where it stood, nothing is left uncommitted",
+          log.count("anomaly-failed") == 1 and (w.repo / "tasks/ANOMALIES.md").is_dir() and w.dirty() == "", log + w.dirty())
 
     w = World().task("blocked", "030-asked", ask="1. Що?\n   Відповідь:\n")
     w.commit("a question waits")
@@ -269,6 +274,13 @@ try:
     check("todo/ holds only tasks that wait for the owner's presence: cleaned too, they stay where they were, the run ends waiting-owner",
           r.returncode == 0 and w.tasks("done") == ["021-cleanup-2026-10-05"] and w.tasks("todo") == ["010-with-owner.md", "020-after.md"]
           and w.said("nightly") == ["nightly"] and "state=waiting-owner" in w.status(), out(r))
+
+    w = World().task("doing", "010-with-owner", more=ATTENDED)
+    w.commit("the owner works on a task with an agent")
+    r = w.runner("2026-10-05")
+    check("board 723: the owner's attended task in doing/ and nothing to take — the runner places no cleanup, starts no agent and stops idle",
+          r.returncode == 0 and w.said("calls") == [] and w.said("nightly") == [] and not any(PLACED in s for s in w.subjects())
+          and w.tasks("doing") == ["010-with-owner.md"] and w.tasks("todo") == [] and "state=idle" in w.status(), out(r) + str(w.subjects()))
 
     w = World(env='CLEANUP_EVERY_DAYS="0"\n')
     r = w.runner("2026-10-05")

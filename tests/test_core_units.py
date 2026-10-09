@@ -496,6 +496,10 @@ def stop_cases() -> None:
     check("CHECK_CMDS replaces the built-in check commands, without a warning; unset, the built-in ones stand",
           bool(own.search("npx vitest run")) and not own.search("pytest -q") and bool(broad.search("pytest -q")) and err.getvalue() == "",
           (own.pattern, err.getvalue()))
+    engine = stop._build_check_cmd_re(stop._load_project_env(ROOT))
+    check("this repository's own runner counts as a verification run: `bash tests/run_all.sh` asks for the audit (board 723)",
+          bool(engine.search("bash tests/run_all.sh --fast 2>&1 | tail -1")) and bool(engine.search("python3 -m pytest -q")), engine.pattern)
+    check("NEGATIVE — a command that only names the tests is no verification run", not engine.search("git add tests/test_cleanup.py"), engine.pattern)
     code: object = None
     with contextlib.redirect_stdout(io.StringIO()) as out:
         try:

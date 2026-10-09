@@ -20,7 +20,8 @@
 #                       owner has just answered is the first, whatever its number (board 049:
 #                       `board.py unblock` writes tasks/.first, `board.py next` reads it). A task
 #                       that needs the owner present is never taken, and one left in doing/ by
-#                       the owner's session stops nothing: it stays as it is, beside the runner's own task
+#                       the owner's session stops no task: it stays as it is, beside the runner's own task
+#                       (only the cleanup task waits for it, board 723)
 #   while it is open    a session that ended with the task still in doing/ is continued
 #                       (--resume); a usage-limit notice waits 15 minutes and is not an attempt
 #   the task is closed  when the agent moved it to done/ or blocked/. Then: the working tree is
@@ -123,7 +124,8 @@
 # .claude/project.env (empty: 7; 0: never); BOARD_TODAY names another day (the tests).
 #
 # THE CLEANUP TASK (board 045). When nothing can be taken — todo/ is empty, or all that is left
-# waits for the owner — the runner asks `board.py cleanup-task` before it stops: not more than once
+# waits for the owner — the runner asks `board.py cleanup-task` before it stops: never while a task
+# lies in doing/, the owner's attended one included (board 723), and not more than once
 # a day it puts NNN-cleanup-<date>.md into todo/ — a task to run `simplifier.py nightly` and act by
 # the simplifier's rules — writes that into the anomaly journal, commits both in one commit and
 # takes the task. The next pass finds nothing due and stops as before. CLEANUP_EVERY_DAYS in

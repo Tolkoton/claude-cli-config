@@ -895,7 +895,7 @@ def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
     every = _every(root, "CLEANUP_EVERY_DAYS", CLEANUP_DAYS)
     if every == 0 or not (root / CLEANUP_SCRIPT).is_file() or not _due(board, CLEANUP_NAME, today, every):
         return None
-    if board.in_hand() or board.eligible() is not None:
+    if board.files("doing") or board.eligible() is not None:   # the owner's attended task too (board 723, the owner's answer)
         return None
     number, often = _own_number(board), "раз на добу" if every == 1 else f"раз на {every} діб"
     path = board.tasks / "todo" / f"{number:03d}-cleanup-{today.isoformat()}.md"
