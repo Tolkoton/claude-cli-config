@@ -254,12 +254,13 @@ rules = engine_module.parse_ownership(text(ROOT / ".claude/ownership.txt"))
 check("the proposal is the project's, named by a rule of its own", engine_module.owner_of(rules, PROPOSAL) == "project"
       and any(r.pattern == PROPOSAL and r.seed is None for r in rules))
 check("the check and the action are the engine's", engine_module.owner_of(rules, CHECK) == "engine" and engine_module.owner_of(rules, ACTION) == "engine")
-# Board 062: a proposal may be waiting for the owner's «так» — the two handlers of testing.py. Then the
-# shipped check says the proposal is sound and names exactly those two places; any other difference fails.
+# A proposal may be waiting for the owner's «так» — since board 603 the push rules leaving the ask list and
+# the web tools joining the allow list (board 062's two testing handlers are applied). Then the shipped
+# check says the proposal is sound and names exactly those two places; any other difference fails.
 applied = subprocess.run([sys.executable, str(ROOT / CHECK), "--applied"], capture_output=True, text=True, check=False)
 waiting = subprocess.run([sys.executable, str(ROOT / CHECK)], capture_output=True, text=True, check=False)
-check("here the live file is the proposal — or the proposal waits with the two testing handlers only — and the shipped check says so",
-      applied.returncode == 0 or (waiting.returncode == 0 and "differs from .claude/settings.json in: hooks.PreToolUse, hooks.SubagentStop\n" in waiting.stdout),
+check("here the live file is the proposal — or the proposal waits with board 603's two lists only — and the shipped check says so",
+      applied.returncode == 0 or (waiting.returncode == 0 and "differs from .claude/settings.json in: permissions.allow, permissions.ask\n" in waiting.stdout),
       applied.stdout + applied.stderr + waiting.stdout)
 
 print(f"\n{PASS} passed, {FAIL} failed")
