@@ -144,3 +144,13 @@
 - Що сталося: три BLOCK overseer-а поспіль на юніт 1 (запити 20261008T204533Z-278819, 20261008T211443Z-db1e9d, 20261008T213659Z-039e64); задачу відклав агент хмарної сесії, а не runner (у записі вище board.py пише «runner»)
 - Що зроблено: незакомічену роботу збережено patch-ем .engine/artifacts/097-modes/wip.patch (і в git stash цього контейнера); чернетка звіту — tasks/blocked/report-097-modes-reader-and-line.md; задачі 098–100 чекають на 097; агент узяв наступну задачу черги (742)
 - Хто записав: агент
+
+## 2026-10-09T00:11:39Z — 744-open-item-paid-consent-written-in-an-answer
+- Що сталося: overseer тричі поспіль відхилив один юніт (-|744-open-item-paid-consent-written-in-an-answer|unit 1).
+- Що зроблено: задачу перенесено в `blocked/` з розділом «Чому зупинилась» і питанням до власника; runner узяв наступну задачу.
+- Хто записав: runner
+
+## 2026-10-09T00:11:58Z — 744-open-item-paid-consent-written-in-an-answer
+- Що сталося: три BLOCK overseer-а поспіль на юніт 1 (запити 20261008T222941Z-ab3426, 20261008T230546Z-9340e7, 20261008T234702Z-1473c0); задачу відклав агент хмарної сесії, а не runner
+- Що зроблено: незакомічену роботу збережено patch-ем .engine/artifacts/744-paid-answer/wip.patch (і в git stash контейнера); чернетка звіту — tasks/blocked/report-744-open-item-paid-consent-written-in-an-answer.md; агент узяв наступну задачу (743)
+- Хто записав: агент
