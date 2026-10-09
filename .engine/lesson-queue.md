@@ -79,3 +79,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-09 | escalation | - | CAPABILITY_GRANT harness self-repair #ce3ba4a1
 - 2026-10-09 | escalation | - | FINDING decana dry run exits 1 for a reason outside this round #053967a2
 - 2026-10-09 | escalation | - | FINDING decana carries the old rules inline, partly edited #d0ea75d8
+- 2026-10-09 | parked | ruff-target-version-after-748 | ruff-target-version-after-748: 107: ruff судить код двигуна з --target-version мінімального Python #4b6c62db
