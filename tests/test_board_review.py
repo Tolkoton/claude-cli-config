@@ -33,7 +33,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 
@@ -365,6 +365,11 @@ check("…the gate's fast run beside it, clean tree, nothing red", "30 із 30 �
 check("…and the golden set from its record, not from a results file: 137 of 138, compared, one difference", "137 із 138 сценаріїв" in health
       and "`fedcba9`" in health and "results-task-033.json" in health and "відмінностей: 1" in health and "results-b.json" not in health, health)
 check("health: the costs of the period (all three tasks since the tag)", "$4.25" in health, health)
+day = datetime.now(UTC).date()
+check("board 106: the costs by UTC day — the day in progress and the seven before it, a day with nothing spent at zero, the older ones together",
+      "- Витрати за добу (UTC), за записами runner-а — темп; межі на добу немає:" in health
+      and f"  - доба {day.isoformat()} (UTC, триває): 0.00 USD" in health and f"  - доба {(day - timedelta(days=7)).isoformat()} (UTC): 0.00 USD" in health
+      and f"  - раніше за {(day - timedelta(days=7)).isoformat()}: 4.25 USD" in health, health)
 health = section(cli(clone, "--since", "2026-01-15", state=state).stdout, "Здоров'я")
 check("…and of a shorter period only what was spent in it", "$2.75" in health and "$4.25" not in health, health)
 

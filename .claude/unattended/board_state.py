@@ -20,20 +20,29 @@ a row made no commit, and what every attempt reported as its cost.
                                                              | left (cap minus what was spent since
                                                              the last rebudget, two decimals)
     board_state.py <state-dir> finish <task> <outcome>       done | blocked: close the entry
-    board_state.py <state-dir> report                        one line per task and the total
+    board_state.py <state-dir> report                        one line per task, the total, and what every
+                                                             UTC day cost: the day in progress and the seven
+                                                             before it (BOARD_TODAY=YYYY-MM-DD names "today")
 
 COST. `total_cost_usd` of a continued conversation is taken to be that conversation's running
 total (premise PR-board-02: seen in the operator's log, not provable without a paid call), so a
 task costs the sum, over its conversations, of the highest figure each one reported. Every
 attempt's raw figure is stored next to its session id: the other reading can be recomputed.
+
+THE DAYS (board 106, the owner's answer 5 to board 083: no limit, but show the pace). An attempt
+cost what its conversation's running total grew by, and that is put on the UTC day of the attempt's
+own `utc`; the days of every task add up to the tasks' costs. A day with nothing spent is shown as
+0.00, not left out. An attempt with no time (a record older than the field) is not put on any day:
+it is a line of its own. Nothing stops and nothing warns: BOARD_MAX_USD per task stays as it is.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -154,13 +163,59 @@ def get(found: JsonObj, field: str, cap: str) -> str:
     raise SystemExit(f"board_state: unknown field {field!r}")
 
 
-def report(data: JsonObj) -> list[str]:
+def spending(tasks: JsonObj) -> tuple[dict[str, float], float]:
+    """(UTC day → what the attempts of that day cost, what attempts with no time cost) — THE DAYS."""
+    days: dict[str, float] = {}
+    untimed = 0.0
+    for found in tasks.values():
+        highest: dict[str, float] = {}
+        attempts = found.get("attempts") if isinstance(found, dict) else None
+        for index, attempt in enumerate(attempts if isinstance(attempts, list) else []):
+            if not isinstance(attempt, dict):
+                continue
+            key = str(attempt.get("session_id") or f"(no session {index})")
+            reported = attempt.get("reported_usd", 0.0)
+            figure = float(reported) if isinstance(reported, (int, float)) else 0.0
+            grew = max(0.0, figure - highest.get(key, 0.0))
+            highest[key] = max(highest.get(key, 0.0), figure)
+            try:
+                day = datetime.strptime(str(attempt.get("utc")), STAMP).replace(tzinfo=UTC).date().isoformat()
+            except ValueError:
+                untimed += grew
+                continue
+            days[day] = days.get(day, 0.0) + grew
+    return days, untimed
+
+
+def daily(tasks: JsonObj, today: date, before: int = 7) -> list[str]:
+    """The day in progress and the `before` days before it, newest first, each with what it cost;
+    then what was spent earlier, later (a clock ahead) and with no time, when there is any (THE DAYS)."""
+    days, untimed = spending(tasks)
+    shown = [(today - timedelta(days=n)).isoformat() for n in range(before + 1)]
+    lines = [f"доба {day} (UTC{', триває' if day == shown[0] else ''}): {days.get(day, 0.0):.2f} USD" for day in shown]
+    earlier = sum(cost for day, cost in days.items() if day < shown[-1])
+    later = sum(cost for day, cost in days.items() if day > shown[0])   # a clock that was ahead: said, not lost
+    if earlier:
+        lines.append(f"раніше за {shown[-1]}: {earlier:.2f} USD")
+    if later:
+        lines.append(f"пізніше за {shown[0]} (годинник ішов уперед?): {later:.2f} USD")
+    if untimed:
+        lines.append(f"без часу запису (старий запис), не приписано жодній добі: {untimed:.2f} USD")
+    return lines
+
+
+def today_utc() -> date:
+    given = os.environ.get("BOARD_TODAY", "")
+    return date.fromisoformat(given) if given else datetime.now(UTC).date()
+
+
+def report(data: JsonObj, today: date | None = None) -> list[str]:
     lines = []
     for name, found in sorted(data["tasks"].items()):
         lines.append(f"{name}: {float(found.get('cost_usd', 0.0)):.2f} USD, {len(found.get('attempts', []))} attempt(s), "
                      f"{found.get('outcome', 'in work')}")
     lines.append(f"total: {float(data.get('total_cost_usd', 0.0)):.2f} USD")
-    return lines
+    return lines + daily(data["tasks"], today or today_utc())
 
 
 def main(argv: list[str]) -> int:
