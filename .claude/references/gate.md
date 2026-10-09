@@ -20,6 +20,11 @@ the same schema. Settings live in `.claude/project.env` and nowhere else.
 | `pre_commit` | `git commit` | the staged diff: bypass guard, then the full set | yes |
 | `ci` | pipeline | the whole project: `ruff check .`, `mypy .`, `TEST_CMD_FULL` else `TEST_CMD` | yes |
 
+The default `ruff` and `mypy` run at the versions `.claude/hooks/tool_versions.py` pins (board 107) unless the
+project pins its own: `uv run` / `poetry run` with a lockfile, a tool in its virtual environment, or the
+command it set. Only another version at hand blocks `stop` with `tools/version` and the reason; in
+`post_write` such a ruff neither formats nor lints (a `log` finding says why). pytest is always the project's.
+
 Order inside a layer: bypass guard, delete guard (`stop`, `pre_commit`), lint, types, tests — tests only after a clean lint and types;
 then, unless `COMPLEXITY_GATE` is off, the simplifier's signals (`simplify_signals.py`) as `warn`
 findings with rule `simplify/<kind>` — the changed files at `stop`, the whole repository at

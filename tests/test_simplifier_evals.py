@@ -17,7 +17,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from tool_pins import spec
+
 ROOT = Path(__file__).resolve().parent.parent
+PYTEST = spec("pytest")          # the pinned releases (board 107, tests/tool_pins.py)
 RUNNER = ROOT / "evals" / "run_simplifier_evals.py"
 FIXTURE = ROOT / "evals" / "scenarios" / "simplifier"
 spec = importlib.util.spec_from_file_location("run_simplifier_evals", RUNNER)
@@ -59,7 +62,7 @@ check("the request carries the deterministic leads for the dead code and the unu
 trap_words = ("parse_order_line", "load_price_list", "receipt_path", "refund_reference")
 check("no deterministic signal points at a trap", not any(word in request for word in trap_words), request)
 check("the agent's own definition is in the sandbox", (sandbox / ".claude/agents/simplifier.md").is_file())
-tests = subprocess.run(["uvx", "--with", "pytest", "pytest", "-q", "-p", "no:cacheprovider"], cwd=sandbox,
+tests = subprocess.run(["uvx", "--with", PYTEST, "pytest", "-q", "-p", "no:cacheprovider"], cwd=sandbox,
                        capture_output=True, text=True, check=False)
 check("the project under review is a working project: its own tests pass", tests.returncode == 0, tests.stdout[-300:])
 
@@ -136,7 +139,7 @@ hard_trap_words = ("parse_order_line", "load_price_list", "receipt_path", "refun
 check("hard: no deterministic signal points at a trap", not any(word in hard_request for word in hard_trap_words), hard_request)
 check("hard: the signals do not name the subtle excess — the dead branch, the second implementation, the duplicate",
       not any(word in hard_request for word in ("wholesale", "FixedAmountDiscount", "refund_amount", "on_hand")), hard_request)
-tests = subprocess.run(["uvx", "--with", "pytest", *(part for name in hard["test_with"] for part in ("--with", name)),
+tests = subprocess.run(["uvx", "--with", PYTEST, *(part for name in hard["test_with"] for part in ("--with", name)),
                         "pytest", "-q", "-p", "no:cacheprovider"], cwd=hard_box, capture_output=True, text=True, check=False)
 check("hard: the project under review is a working project: its own tests pass", tests.returncode == 0, tests.stdout[-300:])
 hard_perfect = [
@@ -343,7 +346,7 @@ check("negative — and the kinds of the first round are in that list", all(word
 traps_request = runner.request_text(traps_box, round2["scope"])
 check("traps: no deterministic signal points at a trap, old or new",
       not any(word in traps_request for word in (*hard_trap_words, "journal", "flock", "ATTEMPTS", "CLOSED", "_write_whole", "vat", "tax")), traps_request)
-tests = subprocess.run(["uvx", "--with", "pytest", *(part for name in round2["test_with"] for part in ("--with", name)),
+tests = subprocess.run(["uvx", "--with", PYTEST, *(part for name in round2["test_with"] for part in ("--with", name)),
                         "pytest", "-q", "-p", "no:cacheprovider"], cwd=traps_box, capture_output=True, text=True, check=False)
 check("traps: the project under review is a working project: its own tests pass", tests.returncode == 0, tests.stdout[-300:])
 proved = subprocess.run([sys.executable, "-c", """
@@ -396,7 +399,7 @@ for rel, old, new in (
     text = (simpler / rel).read_text(encoding="utf-8")
     check(f"the simpler form of a new trap applies to the project — {rel}: {old.strip()[:50]}", text.count(old) == 1, rel)
     (simpler / rel).write_text(text.replace(old, new), encoding="utf-8")
-tests = subprocess.run(["uvx", "--with", "pytest", *(part for name in round2["test_with"] for part in ("--with", name)),
+tests = subprocess.run(["uvx", "--with", PYTEST, *(part for name in round2["test_with"] for part in ("--with", name)),
                         "pytest", "-q", "-p", "no:cacheprovider"], cwd=simpler, capture_output=True, text=True, check=False)
 check("…and the traps tempt: with all six removed or simplified the project's own tests stay green — only reading the "
       "requirements and the operator's notes says they are needed", tests.returncode == 0, tests.stdout[-300:])

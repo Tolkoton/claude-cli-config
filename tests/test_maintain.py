@@ -55,7 +55,7 @@ RUNNER = ROOT / ".claude/unattended/board-runner.sh"
 RUNNER_LIMIT_S = 120
 PASS = FAIL = 0
 # The simplifier's outside tools (vulture, pylint through uvx) are not what is tested here.
-PATH = os.pathsep.join(d for d in os.environ.get("PATH", "").split(os.pathsep) if d and not any((Path(d) / t).exists() for t in ("uvx", "vulture", "pylint")))
+PATH = os.pathsep.join(d for d in os.environ.get("PATH", "").split(os.pathsep) if d and not any((Path(d) / t).exists() for t in ("vulture", "pylint", "uvx")))
 
 sys.path.insert(0, str(HOOKS))
 spec = importlib.util.spec_from_file_location("maintain", MAINTAIN)

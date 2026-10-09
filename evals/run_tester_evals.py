@@ -98,8 +98,10 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
+sys.path.insert(1, str(Path(__file__).resolve().parent.parent / ".claude" / "hooks"))  # the pinned versions
 import environment
 import run_analyst_evals as analyst
+import tool_versions
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -109,14 +111,17 @@ SCENES = ("boundary", "rounding", "empty", "order")
 ARMS = {"a": ("wrong", "arm-a-builder.md"), "b": ("skeleton", "arm-b-tester-draft.md"), "c": ("skeleton", "arm-c-builder-real.md")}
 WRITES_CODE = ("c",)
 REFERENCE_TESTS = "tests/test_reference_of_the_scene.py"
-PYTEST = ("uvx", "--with", "pytest", "pytest", "-q", "-p", "no:cacheprovider")
+# pytest and Hypothesis at the versions .claude/hooks/tool_versions.py pins (board 107): a scoring
+# whose verdict moved with a release would not compare two runs.
+PYTEST = ("uvx", "--with", tool_versions.spec("pytest"), "pytest", "-q", "-p", "no:cacheprovider")
 TOOLS = ("Read", "Grep", "Glob", "Write", "Edit", "Bash")
 RUN_TIMEOUT_S = 900
 PROPERTY = HERE / "scenarios" / "tester-property"
 PROPERTY_SCENES = ("roundtrip", "conserve", "idempotent", "bound", "none")
 # arm: (its contract has the «Invariants» section, the library is there, the paragraph its prompt gets)
 PROPERTY_ARMS = {"a": (False, False, None), "b": (True, False, "arm-b-invariants.md"), "c": (True, True, "arm-c-invariants.md")}
-HYPOTHESIS = ("uvx", "--with", "pytest", "--with", "hypothesis", "pytest", "-q", "-p", "no:cacheprovider")
+HYPOTHESIS = ("uvx", "--with", tool_versions.spec("pytest"), "--with", tool_versions.spec("hypothesis"), "pytest", "-q", "-p",
+              "no:cacheprovider")
 SEED, SEARCH_SEEDS = 0, (1, 2, 3, 4, 5)
 OUTCOMES = {(False, True): "caught", (True, True): "missed", (False, False): "fails_on_both", (True, False): "mirrors_bug"}
 
@@ -334,7 +339,7 @@ def table(runs: list[JsonObj]) -> str:
 
 
 def run_once(sandbox: Path, text: str, args: argparse.Namespace, runner: tuple[str, ...] = PYTEST) -> JsonObj:
-    allowed = " ".join(runner).split(" -q")[0]   # uvx --with pytest pytest, or the same with the library
+    allowed = " ".join(runner).split(" -q")[0]   # uvx --with pytest==<pinned> pytest, or the same with the library
     command = [args.claude, "-p", text, "--tools", *TOOLS, "--permission-mode", "acceptEdits", "--allowedTools", f"Bash({allowed}:*)",
                "--output-format", "json", "--strict-mcp-config", "--max-budget-usd", str(args.max_usd_per_run)]
     command += ["--model", args.model] if args.model else []

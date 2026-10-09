@@ -11,18 +11,21 @@ ran the tools over .claude/. This runs them:
                                             engine; --isolated is how the engine judges itself)
     mypy --strict <every .py under .claude>
 
-Through `uvx` when available, else `ruff` / `mypy` on PATH. Without either the check FAILS
-with the reason rather than passing vacuously: a lint gate that cannot run has not run.
+At the versions tool_versions.py pins (board 107; read through tests/tool_pins.py): a tool on PATH of exactly that
+version, else `uvx <tool>@<version>`. Without either — or with only another version on PATH — the
+check FAILS with the reason rather than passing vacuously or judging with another release: a lint
+gate that cannot run has not run, and one whose verdict moves with a release is no gate.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+from tool_pins import tool_versions as VERSIONS
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE = ROOT / ".claude"
@@ -48,12 +51,6 @@ def engine_python() -> list[str]:
     return files
 
 
-def runner(tool: str) -> list[str] | None:
-    if shutil.which("uvx"):
-        return ["uvx", tool]
-    if shutil.which(tool):
-        return [tool]
-    return None
 
 
 def main() -> int:
@@ -61,27 +58,27 @@ def main() -> int:
     py_files = engine_python()
     print(f"  {len(py_files)} engine-owned Python files under .claude/")
 
-    ruff = runner("ruff")
+    ruff, why = VERSIONS.command("ruff")
     if ruff is None:
-        print("  FAIL ruff: neither `uvx` nor `ruff` is on PATH — the engine cannot be linted here")
+        print(f"  FAIL ruff: {why} — the engine cannot be linted here")
         failed += 1
     else:
         r = subprocess.run([*ruff, "check", "--isolated", "--output-format", "concise", *py_files], cwd=ROOT, capture_output=True, text=True, check=False)
         ok = r.returncode == 0
-        print(f"  {'ok  ' if ok else 'FAIL'} ruff check --isolated <engine Python>  {r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ''}")
+        print(f"  {'ok  ' if ok else 'FAIL'} ruff {VERSIONS.VERSIONS['ruff']} check --isolated <engine Python>  {r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ''}")
         if not ok:
             print(r.stdout[:3000])
             failed += 1
 
-    mypy = runner("mypy")
+    mypy, why = VERSIONS.command("mypy")
     if mypy is None:
-        print("  FAIL mypy: neither `uvx` nor `mypy` is on PATH — the engine cannot be type-checked here")
+        print(f"  FAIL mypy: {why} — the engine cannot be type-checked here")
         failed += 1
     elif py_files:
         r = subprocess.run([*mypy, "--strict", *py_files], cwd=ROOT, capture_output=True, text=True, check=False)
         ok = r.returncode == 0
         last = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:200]
-        print(f"  {'ok  ' if ok else 'FAIL'} mypy --strict (engine Python)  {last}")
+        print(f"  {'ok  ' if ok else 'FAIL'} mypy {VERSIONS.VERSIONS['mypy']} --strict (engine Python)  {last}")
         if not ok:
             print(r.stdout[:3000])
             failed += 1

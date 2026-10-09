@@ -30,6 +30,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from tool_pins import tool_versions as TOOL_VERSIONS
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS = ROOT / ".claude" / "hooks"
 GATE = HOOKS / "gate.py"
@@ -153,7 +155,10 @@ r = project()
 shims = r / "_shims"
 shims.mkdir()
 for tool in ("ruff", "mypy", "pytest"):
-    (shims / tool).write_text(f'#!/usr/bin/env bash\necho "{tool} $*" >> "{r}/calls.log"\nexit 0\n')
+    # `--version` names the pinned release (tool_versions.py, board 107): the gate runs a tool on PATH only at it.
+    pinned = TOOL_VERSIONS.VERSIONS[tool]
+    (shims / tool).write_text(f'#!/usr/bin/env bash\n[ "$1" = --version ] && {{ echo "{tool} {pinned}"; exit 0; }}\n'
+                              f'echo "{tool} $*" >> "{r}/calls.log"\nexit 0\n')
     (shims / tool).chmod(0o755)
 (r / ".gitignore").write_text(".claude/state/\n_shims/\ncalls.log\n")
 commit(r, "python defaults")

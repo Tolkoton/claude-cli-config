@@ -68,6 +68,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from tool_pins import tool_versions as VERSIONS
+
 REPO_ROOT = Path(
     subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -135,8 +137,11 @@ def make_shim(shim_dir: Path, name: str, log: Path) -> None:
     """
     shim_dir.mkdir(parents=True, exist_ok=True)
     p = shim_dir / name
+    # `--version` names the release tool_versions.py pins (board 107): the hook uses a ruff on
+    # PATH only at that version, so a stand-in has to claim it.
     p.write_text(
         "#!/usr/bin/env bash\n"
+        f'[ "$1" = --version ] && {{ echo "{name} {VERSIONS.VERSIONS.get(name, "1.0")}"; exit 0; }}\n'
         f'printf "%s\\n" "{name} $*" >> "{log}"\n'
         'for a in "$@"; do\n'
         f'  if [ -f "$a" ]; then printf "# touched-by-{name}\\n" >> "$a"; fi\n'
@@ -174,14 +179,15 @@ def real_ruff_dir(root: Path) -> Path | None:
     """
     if not shutil.which("uvx"):
         return None
+    pinned = f"ruff@{VERSIONS.VERSIONS['ruff']}"
     probe = subprocess.run(
-        ["uvx", "--quiet", "ruff", "--version"], capture_output=True, text=True, check=False)
+        ["uvx", "--quiet", pinned, "--version"], capture_output=True, text=True, check=False)
     if probe.returncode != 0:
         return None
     d = root / "realruff"
     d.mkdir(parents=True, exist_ok=True)
     p = d / "ruff"
-    p.write_text('#!/usr/bin/env bash\nexec uvx --quiet ruff "$@"\n')
+    p.write_text(f'#!/usr/bin/env bash\nexec uvx --quiet {pinned} "$@"\n')
     p.chmod(0o755)
     return d
 

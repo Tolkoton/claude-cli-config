@@ -26,7 +26,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from tool_pins import spec
+
 ROOT = Path(__file__).resolve().parent.parent
+PYTEST = spec("pytest")          # the pinned releases (board 107, tests/tool_pins.py)
+HYPOTHESIS = spec("hypothesis")
 RUNNER = ROOT / "evals/run_tester_evals.py"
 PASS = FAIL = 0
 
@@ -123,7 +127,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and recorded["summary"]["caught"] == {"a": "2 of 2", "b": "2 of 2", "c": "2 of 2"} and recorded["summary"]["cost_usd"] == 1.2
           and recorded["runs"][0]["tests"].startswith("import pytest") and recorded["runs"][0]["test_count"] == 9, r.stdout + r.stderr)
     check("arms A and B may run pytest only; arm C the command that brings Hypothesis",
-          len(argv) == 6 and all("Bash(uvx --with pytest pytest:*)" in line for line in argv[:4]) and all("Bash(uvx --with pytest --with hypothesis pytest:*)" in line for line in argv[4:]), argv)
+          len(argv) == 6 and all(f"Bash(uvx --with {PYTEST} pytest:*)" in line for line in argv[:4]) and all(f"Bash(uvx --with {PYTEST} --with {HYPOTHESIS} pytest:*)" in line for line in argv[4:]), argv)
     check("the contract arm A was given has no «Invariants» section; B and C have it",
           (Path(tmp) / "sections").read_text(encoding="utf-8").split() == ["0", "0", "1", "1", "1", "1"], (Path(tmp) / "sections").read_text(encoding="utf-8"))
     r = subprocess.run([*base, "--scenes", "boundary"], capture_output=True, text=True, env=env, check=False)
@@ -248,8 +252,8 @@ with tempfile.TemporaryDirectory() as tmp:
     check("arm A's prompt says nothing of invariants or a library", "nvariant" not in a and "ypothesis" not in a and "property" not in a.replace("property-", ""), a)
     check("arm B's prompt is arm A's plus its paragraph: a test per invariant, by examples, no library", b.replace(b_rules, "") == a and "no\n  property-based testing library" in b and "ypothesis" not in b, b)
     check("arm C's prompt is arm A's plus its paragraph and the run command that brings Hypothesis",
-          c.replace(c_rules, "").replace("--with hypothesis ", "") == a and "you do not narrow it" in c and "suppress the library's health checks" in c
-          and "uvx --with pytest --with hypothesis pytest -q -p no:cacheprovider tests/test_split_bill_contract.py" in c)
+          c.replace(c_rules, "").replace(f"--with {HYPOTHESIS} ", "") == a and "you do not narrow it" in c and "suppress the library's health checks" in c
+          and f"uvx --with {PYTEST} --with {HYPOTHESIS} pytest -q -p no:cacheprovider tests/test_split_bill_contract.py" in c)
     check("no prompt has an unfilled field or names a trap", not any(word in p for p in (a, b, c) for word in ("{", "trap", "wrong", "200.00", "rounds up")))
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")

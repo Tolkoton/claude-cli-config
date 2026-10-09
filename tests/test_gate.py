@@ -20,6 +20,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from tool_pins import tool_versions as VERSIONS
+
 ROOT = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
                            check=True).stdout.strip())
 GATE = ROOT / ".claude" / "hooks" / "gate.py"
@@ -66,34 +68,45 @@ def set_env(root: Path, text: str) -> None:
     sh(root, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "env", "--allow-empty")
 
 
-def shims(root: Path, **exit_codes: int) -> Path:
-    """ruff / mypy / pytest / uv stand-ins: log argv to <root>/calls.log, exit as told."""
-    d = root / "_shims"
-    d.mkdir(exist_ok=True)
-    for name in ("ruff", "mypy", "pytest"):
+def shims(root: Path, version: str | None = None, names: tuple[str, ...] = ("ruff", "mypy", "pytest"),
+          where: str = "_shims", **exit_codes: int) -> Path:
+    """ruff / mypy / pytest / uv stand-ins: log argv to <root>/calls.log, exit as told. `--version`
+    names the version tool_versions.py pins (board 107) unless `version` says another."""
+    d = root / where
+    d.mkdir(parents=True, exist_ok=True)
+    for name in names:
         rc = exit_codes.get(name, 0)
         out = {"ruff": "mod.py:1:1: F401 unused import", "mypy": "mod.py:1: error: bad type",
-               "pytest": "FAILED tests/test_mod.py::t"}[name]
+               "pytest": "FAILED tests/test_mod.py::t", "uvx": "", "black": ""}[name]
+        shown = version or VERSIONS.VERSIONS.get(name, "1.0")
         p = d / name
-        p.write_text(f'#!/usr/bin/env bash\necho "{name} $*" >> "{root}/calls.log"\n'
+        p.write_text(f'#!/usr/bin/env bash\n[ "$1" = --version ] && {{ echo "{name} {shown}"; exit 0; }}\n'
+                     f'echo "{where.strip("_")}:{name} $*" >> "{root}/calls.log"\n'
                      f'[ {rc} -ne 0 ] && echo "{out}"\nexit {rc}\n')
         p.chmod(0o755)
     return d
 
 
-def gate(root: Path, *args: str, stdin: Any = None, path: Path | None = None
+def without_uvx() -> str:
+    """PATH with no directory that holds uvx (nor what sits beside it, mypy among them)."""
+    return os.pathsep.join(d for d in os.environ["PATH"].split(os.pathsep) if d and not (Path(d) / "uvx").exists())
+
+
+def gate(root: Path, *args: str, stdin: Any = None, path: Path | None = None, rest: str | None = None
          ) -> subprocess.CompletedProcess[str]:
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root))
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"} | {"CLAUDE_PROJECT_DIR": str(root)}
+    if rest is not None:
+        env["PATH"] = rest
     if path:
         env["PATH"] = f"{path}:{env['PATH']}"
     return subprocess.run([sys.executable, str(GATE), *args], cwd=root, capture_output=True, text=True,
                           env=env, input=json.dumps(stdin) if stdin is not None else "", check=False)
 
 
-def hook_stop(root: Path, session: str = "s1", active: bool = False, path: Path | None = None
-              ) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+def hook_stop(root: Path, session: str = "s1", active: bool = False, path: Path | None = None,
+              rest: str | None = None) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
     proc = gate(root, "--layer", "stop", "--hook", stdin={"stop_hook_active": active, "session_id": session},
-                path=path)
+                path=path, rest=rest)
     try:
         payload = json.loads(proc.stdout) if proc.stdout.strip() else {}
     except ValueError:
@@ -239,6 +252,33 @@ check("a lint error blocks with LINT FAILED", "LINT FAILED" in str(payload.get("
 hook_stop(r, session="n", path=shims(r))
 check("without [tool.ruff] / [tool.mypy] the tools are not run", "ruff" not in calls(r) and "mypy" not in calls(r), calls(r))
 
+print("stop: the check tools at the engine's pinned versions (board 107)")
+r = new_repo()
+(r / "pyproject.toml").write_text('[tool.ruff]\nline-length = 100\n[tool.mypy]\nstrict = true\n')
+sh(r, "git", "add", "-A")
+sh(r, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "tools")
+(r / "mod.py").write_text("x = 4\n")
+old = shims(r, version="0.0.1")
+proc, payload = hook_stop(r, session="v1", path=old, rest=without_uvx())
+reason = str(payload.get("reason"))
+check("another version on PATH and no uvx: the stop is blocked, and the reason names both versions",
+      proc.returncode == 0 and payload.get("decision") == "block" and "ruff did not run" in reason
+      and "0.0.1" in reason and VERSIONS.VERSIONS["ruff"] in reason and "mypy did not run" in reason, payload)
+check("...and neither tool judged the change with the other version", "ruff check" not in calls(r) and "mypy mod.py" not in calls(r), calls(r))
+(r / "calls.log").unlink(missing_ok=True)
+fetch = shims(r, version="0.0.1", names=("ruff", "mypy", "pytest", "uvx"), where="_fetch")
+proc, payload = hook_stop(r, session="v2", path=fetch, rest=without_uvx())
+log = calls(r)
+check("another version on PATH and uvx at hand: uvx runs exactly the pinned release",
+      f"fetch:uvx --quiet ruff@{VERSIONS.VERSIONS['ruff']} check --force-exclude mod.py" in log
+      and f"fetch:uvx --quiet mypy@{VERSIONS.VERSIONS['mypy']} mod.py" in log and "fetch:ruff check" not in log, log)
+(r / "calls.log").unlink(missing_ok=True)
+own = shims(r, version="9.9.9", names=("ruff", "mypy"), where=".venv/bin")
+proc, payload = hook_stop(r, session="v3", path=old, rest=without_uvx())
+log = calls(r)
+check("a project that installed the tools in its own virtual environment keeps its own versions",
+      "venv/bin:ruff check --force-exclude mod.py" in log and "venv/bin:mypy mod.py" in log and "shims:ruff" not in log, log)
+
 # ---------------------------------------------------------------- pre_commit and ci: the full set
 print("pre_commit / ci: the full set")
 r = new_repo()
@@ -279,6 +319,14 @@ p = gate(r2, "--layer", "post_write", "--hook", stdin={"tool_input": {"file_path
 check("a clean edit prints nothing and writes no report", p.returncode == 0 and not p.stdout.strip() and not (r2 / ".claude/state/gate/last-report.json").exists(), p.stdout)
 p = gate(r2, "--layer", "post_write", "--hook", stdin={"tool_input": {"file_path": str(r2 / "gone.py")}})
 check("a vanished path is a no-op", p.returncode == 0 and not p.stdout.strip())
+r3 = new_repo()
+(r3 / "mod.py").write_text("import os\nx=1\n")
+p = gate(r3, "--layer", "post_write", "--hook", stdin={"tool_input": {"file_path": str(r3 / "mod.py")}},
+         path=shims(r3, version="0.0.1", names=("ruff", "black")), rest=without_uvx())
+check("board 107: a ruff of another version on PATH neither formats nor lints, nor hands the file to black — "
+      "the report says why, the edit is never blocked",
+      p.returncode == 0 and not calls(r3) and (r3 / "mod.py").read_text() == "import os\nx=1\n"
+      and "tools/version" in rules(r3), calls(r3) + p.stdout)
 p = gate(r2, "--layer", "post_write", "--hook", stdin=None)
 check("an empty envelope never blocks", p.returncode == 0)
 

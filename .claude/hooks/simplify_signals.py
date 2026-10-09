@@ -17,9 +17,11 @@ shows each signal as a `warn` finding — a signal never blocks.
            is appended to .claude/state/simplifier/metrics.jsonl and compared with the median of
            the runs before it — growth past GROWTH is a `trend` signal, which calls the simplifier
 
-Tools run through `uvx`, like ruff: vulture (dead code; the tests and scripts are read as users
-of a name and never reported themselves), pylint's duplicate-code. Nothing is
-added to the project's dependencies; a tool that cannot run is reported as `unavailable`, never
+Tools at the versions .claude/hooks/tool_versions.py pins (board 107) — the project's own copy in
+its virtual environment if it has one, else one on PATH of exactly that version, else `uvx`:
+vulture (dead code; the tests and scripts are read as users of a name and never reported
+themselves), pylint's duplicate-code. Nothing is added to the project's dependencies; a tool that
+cannot run — or only another version of it — is reported as `unavailable` with the reason, never
 read as "clean". The result is also written to .claude/state/simplifier/signals-<scope>.json.
 
 Standard library only; Python 3.11+.
@@ -32,7 +34,6 @@ import ast
 import hashlib
 import json
 import re
-import shutil
 import subprocess
 import sys
 import tomllib
@@ -42,6 +43,7 @@ from statistics import median
 from typing import Any
 
 import complexity_budget as budget
+import tool_versions
 
 Signal = dict[str, Any]
 STATE_REL = Path(".claude/state/simplifier")
@@ -62,19 +64,22 @@ def signal(tool: str, kind: str, file: str | None, line: int | None, message: st
     return {"id": f"S-{ident}", "tool": tool, "kind": kind, "file": file, "line": line, "message": message}
 
 
-def run_tool(root: Path, tool: str, *args: str) -> str | None:
-    """The tool's stdout through `uvx` (else the tool on PATH); None when it cannot run."""
-    prefix = ["uvx"] if shutil.which("uvx") else []
-    if not prefix and not shutil.which(tool):
-        return None
+def run_tool(root: Path, tool: str, *args: str) -> tuple[str | None, str]:
+    """The tool's stdout and ""; None and why when it cannot run (tool_versions.py, board 107)."""
+    own = tool_versions.project_tool(root, tool)
+    prefix, why = ([own], "") if own else tool_versions.command(tool)
+    if prefix is None:
+        return None, why
     try:
-        proc = subprocess.run([*prefix, tool, *args], cwd=root, capture_output=True, text=True,
+        proc = subprocess.run([*prefix, *args], cwd=root, capture_output=True, text=True,
                               timeout=TOOL_TIMEOUT_S, check=False)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"{tool} did not finish: {exc}"
     # Both tools exit non-zero when they FOUND something; only a run with no output at all and
     # an error text is a tool that did not run.
-    return None if proc.returncode != 0 and not proc.stdout.strip() and proc.stderr.strip() else proc.stdout
+    if proc.returncode != 0 and not proc.stdout.strip() and proc.stderr.strip():
+        return None, proc.stderr.strip().splitlines()[-1][:200]
+    return proc.stdout, ""
 
 
 def project_files(root: Path, env: dict[str, str]) -> list[str]:
@@ -156,9 +161,9 @@ def dead_code_signals(root: Path, production: list[str], users: list[str], only:
     reported = set(production) if only is None else only & set(production)
     if not reported:
         return []
-    out = run_tool(root, "vulture", "--min-confidence", "60", *sorted({*production, *users}))
+    out, why = run_tool(root, "vulture", "--min-confidence", "60", *sorted({*production, *users}))
     if out is None:
-        return [signal("vulture", "unavailable", None, None, "vulture could not run: dead code was not measured")]
+        return [signal("vulture", "unavailable", None, None, f"vulture could not run: dead code was not measured ({why})")]
     return [signal("vulture", "dead-code", m["file"], int(m["line"]), m["msg"])
             for m in VULTURE_RE.finditer(out) if m["file"] in reported]
 
@@ -198,10 +203,10 @@ def unused_dependency_signals(root: Path) -> list[Signal]:
 def duplication_signals(root: Path, production: list[str]) -> list[Signal]:
     if len(production) < 2:
         return []
-    out = run_tool(root, "pylint", "--disable=all", "--enable=duplicate-code",
-                   f"--min-similarity-lines={DUPLICATE_LINES}", "-sn", *production)
+    out, why = run_tool(root, "pylint", "--disable=all", "--enable=duplicate-code",
+                        f"--min-similarity-lines={DUPLICATE_LINES}", "-sn", *production)
     if out is None:
-        return [signal("pylint", "unavailable", None, None, "pylint could not run: duplication was not measured")]
+        return [signal("pylint", "unavailable", None, None, f"pylint could not run: duplication was not measured ({why})")]
     by_module = {PurePosixPath(p).stem: p for p in reversed(production)}
     found: list[Signal] = []
     for block in out.split("R0801: Similar lines in")[1:]:

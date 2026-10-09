@@ -28,7 +28,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from tool_pins import spec
+
 ROOT = Path(__file__).resolve().parent.parent
+PYTEST = spec("pytest")          # the pinned releases (board 107, tests/tool_pins.py)
 RUNNER = ROOT / "evals/run_tester_evals.py"
 PASS = FAIL = 0
 
@@ -184,7 +187,7 @@ with tempfile.TemporaryDirectory() as tmp:
                   and not list((dry / f"{name}-{arm}").rglob("*reference*")) for arm in "abc"))
     a, b, c = ((dry / f"prompt-order-{arm}.txt").read_text(encoding="utf-8") for arm in "abc")
     check("every prompt names the same contract, test file and run command",
-          all(".engine/slices/stock-transfer.md" in p and "tests/test_stock_transfer_contract.py" in p and "uvx --with pytest pytest -q" in p and "{" not in p for p in (a, b, c)))
+          all(".engine/slices/stock-transfer.md" in p and "tests/test_stock_transfer_contract.py" in p and f"uvx --with {PYTEST} pytest -q" in p and "{" not in p for p in (a, b, c)))
     check("arm A is told the implementation is there; arm B that there is none to read", "Your implementation of it is already in" in a and "no\nimplementation to read" in b)
     check("arm C is told to write both the implementation and the tests", "You write both the\nimplementation and the slice's tests" in c and "no body yet" in c)
     check("no prompt names the trap", not any(word in p for p in (a, b, c) for word in ("different SKUs", "first in this list", "trap", "wrong")), a)

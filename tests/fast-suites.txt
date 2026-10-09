@@ -108,5 +108,8 @@ test_owner_terms.py
 test_audit_noise.py
 test_core_units.py
 test_architecture_doc.py
+test_tool_versions.py
 # Board 738: test_shell_text 35 s stays out (about three hundred and fifty runs of the real block-dangerous.sh).
 # Board 089: test_architecture_doc 0.1 s is in (in-process: every path docs/ARCHITECTURE.md names exists, the hooks map equals the settings both ways, matcher by matcher).
+# Board 107: test_tool_versions 0.4 s is in (the check tools' versions stay in one place; in-process, and a dozen runs
+# of tool_versions.py with stand-ins on a PATH built from nothing).

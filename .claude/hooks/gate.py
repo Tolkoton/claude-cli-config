@@ -336,6 +336,51 @@ def tool_prefix(root: Path) -> str:
     return ""
 
 
+def tool_versions_module() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import tool_versions
+
+    return tool_versions
+
+
+def check_tool(root: Path, tool: str) -> tuple[str | None, str]:
+    """The shell text that starts a check tool of the default commands, and "" — or None and why.
+    The project's own version when it pins one (a lockfile runner, its virtual environment), else
+    the engine's (tool_versions.py, board 107): a tool on PATH of that version, else uvx."""
+    prefix = tool_prefix(root)
+    if prefix:
+        return f"{prefix}{tool}", ""
+    versions = tool_versions_module()
+    own = versions.project_tool(root, tool)
+    if own:
+        return shlex.quote(own), ""
+    argv, why = versions.command(tool)
+    if argv is None:
+        return None, why
+    return (tool if argv == [shutil.which(tool)] else " ".join(shlex.quote(a) for a in argv)), ""
+
+
+def edit_ruff(root: Path) -> tuple[list[str] | None, str]:
+    """ruff for the edit-time layer (the formatter, the quick lint), never fetched: the project's
+    own, else one on PATH of the engine's version. None and "" when there is none at all; None and
+    why when there is only another version — that one neither formats nor lints (board 107)."""
+    prefix = tool_prefix(root).split()
+    if prefix:
+        return prefix + ["ruff"], ""
+    versions = tool_versions_module()
+    own = versions.project_tool(root, "ruff")
+    if own:
+        return [own], ""
+    on_path = shutil.which("ruff")
+    if not on_path:
+        return None, ""
+    found = versions.installed_version(on_path)
+    if found == versions.VERSIONS["ruff"]:
+        return [on_path], ""
+    return None, (f"ruff on PATH is {found or 'of a version it does not print'}, the engine's is "
+                  f"{versions.VERSIONS['ruff']} (.claude/hooks/tool_versions.py): not formatted, not linted")
+
+
 def pyproject_has(root: Path, table: str) -> bool:
     try:
         text = (root / "pyproject.toml").read_text(encoding="utf-8")
@@ -675,10 +720,20 @@ def check_steps(root: Path, env: dict[str, str], files: list[str], full: bool, r
             return []
         scope = "." if full else quoted(py_files)
         concise, pytest = ("--output-format concise ", "pytest") if snapshot else ("", "pytest -x")
-        if pyproject_has(root, "tool.ruff"):
-            steps.append(("lint", f"{prefix}ruff check --force-exclude {concise}{scope}"))
-        if pyproject_has(root, "tool.mypy"):
-            steps.append(("typecheck", f"{prefix}mypy {scope}"))
+        for kind, tool, table, args in (("lint", "ruff", "tool.ruff", f" check --force-exclude {concise}{scope}"),
+                                        ("typecheck", "mypy", "tool.mypy", f" {scope}")):
+            if not pyproject_has(root, table):
+                continue
+            start, why = check_tool(root, tool)
+            if start:
+                steps.append((kind, start + args))
+            else:
+                finding = Finding(None, None, "tools/version", "block", f"{tool} did not run: {why}",
+                                  "a check with another release is not this check: give the machine uv "
+                                  "or that version, or pin the tool in the project (a lockfile, its "
+                                  "virtual environment, or LINT_CMD / TYPECHECK_CMD in .claude/project.env)")
+                report.add(finding)
+                report.reasons.append(f"TOOL VERSION [{finding.rule}] {finding.message}. {finding.hint}")
         if (root / "tests").is_dir() or (root / "test").is_dir():
             if full:
                 steps.append(("tests", f"{prefix}{pytest} --no-header -q"))
@@ -1070,17 +1125,19 @@ def layer_post_write(root: Path, env: dict[str, str], rel: str, report: Report) 
         notes.append(f"{shown_rel} was rewritten by the formatter; re-read it before your next edit.")
         report.add(Finding(rel, None, "format", "log", "rewritten by the formatter"))
     # A project that names its own formatter owns its tooling: no ruff lint on top of it.
-    if path.suffix == ".py" and not own_formatter:
-        command = f"{tool_prefix(root)}ruff check --force-exclude --output-format concise {shlex.quote(str(path))}"
-        if tool_prefix(root) or shutil.which("ruff"):
-            rc, out, ms = run_shell(root, command)
-            report.steps_ms["lint"] = ms
-            if rc == 1:
-                for match in DIAGNOSTIC_RE.finditer(out):
-                    shown = os.path.relpath(match["file"], root) if os.path.isabs(match["file"]) else match["file"]
-                    report.add(Finding(shown, int(match["line"]), "lint", "warn", match["msg"].strip(),
-                                       "fix it in the next edit"))
-                    notes.append(f"lint {shown}:{match['line']} {match['msg'].strip()}")
+    ruff, why = edit_ruff(root) if path.suffix == ".py" and not own_formatter else (None, "")
+    if why:
+        report.add(Finding(rel, None, "tools/version", "log", why))
+    if path.suffix == ".py" and not own_formatter and ruff:
+        command = " ".join(shlex.quote(a) for a in ruff) + f" check --force-exclude --output-format concise {shlex.quote(str(path))}"
+        rc, out, ms = run_shell(root, command)
+        report.steps_ms["lint"] = ms
+        if rc == 1:
+            for match in DIAGNOSTIC_RE.finditer(out):
+                shown = os.path.relpath(match["file"], root) if os.path.isabs(match["file"]) else match["file"]
+                report.add(Finding(shown, int(match["line"]), "lint", "warn", match["msg"].strip(),
+                                   "fix it in the next edit"))
+                notes.append(f"lint {shown}:{match['line']} {match['msg'].strip()}")
     warns = [f for f in report.findings if f.severity == "warn"]
     if warns:
         stuck = lessons(root, "failure", " ; ".join(sorted(f"{w.rule} {w.file} {w.message}" for w in warns)))
@@ -1107,15 +1164,11 @@ def format_file(root: Path, env: dict[str, str], path: Path) -> bool:
         return True
     target = str(path)
     if ext == "py":
-        prefix = tool_prefix(root).split()
-        if prefix:
-            runner = prefix + ["ruff"]
-        elif shutil.which("ruff"):
-            runner = ["ruff"]
-        elif shutil.which("black"):
-            quiet_run(["black", "--quiet", target])
-            return False
-        else:
+        runner, why = edit_ruff(root)
+        if runner is None:
+            # Only when there is no ruff at all: a ruff of another version formats nothing either.
+            if not why and shutil.which("black"):
+                quiet_run(["black", "--quiet", target])
             return False
         quiet_run([*runner, "format", "--force-exclude", target])
         quiet_run([*runner, "check", "--force-exclude", "--fix", "--select", "I", target])

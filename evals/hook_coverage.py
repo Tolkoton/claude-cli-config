@@ -95,13 +95,21 @@ def scope_files(only: str = "") -> list[str]:
     return [f for f in found if only in f]
 
 
+def coverage_spec() -> str:
+    """coverage==<version> as .claude/hooks/tool_versions.py pins it (board 107)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude" / "hooks"))
+    import tool_versions
+
+    return str(tool_versions.spec("coverage"))
+
+
 @functools.cache
 def coverage_site() -> str:
     """The directory holding a coverage.py built for THIS interpreter (fetched by uvx)."""
     if not shutil.which("uvx"):
         raise SystemExit("hook_coverage: uvx is not installed — coverage.py cannot be fetched, nothing measured.")
     out = subprocess.run(
-        ["uvx", "--quiet", "--python", sys.executable, "--from", "coverage", "python", "-c",
+        ["uvx", "--quiet", "--python", sys.executable, "--from", coverage_spec(), "python", "-c",
          "import coverage, os; print(os.path.dirname(os.path.dirname(coverage.__file__)))"],
         capture_output=True, text=True, check=False, cwd="/")
     site = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else ""

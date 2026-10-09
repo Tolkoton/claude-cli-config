@@ -256,6 +256,27 @@ the home directory and `$HOME`; the catastrophic literals a rule cannot express 
 reference matcher for the documented semantics; `tests/test_root_delete_deny.py`
 shows the two instruments together.
 
+## The versions of the check tools (board 107)
+
+On 2026-10-09 ruff 0.17.0 came out, and within the hour the engine's lint went red on the server
+with no change to the code: uvx took the newest release. Since then every outside tool whose answer
+decides a check runs at a version written in one place, `.claude/hooks/tool_versions.py` — ruff,
+mypy, vulture, pylint, and for the engine's own measurements pytest, Hypothesis and coverage.py.
+A tool on PATH of exactly that version is used as it is; otherwise `uvx <tool>@<version>`.
+Raising a version is a task of its own; `tests/test_tool_versions.py` refuses a call through uvx
+without one.
+
+- **Without uvx and with only another version on PATH** a check does not judge: the engine's lint
+  fails with both versions named, the `stop` gate blocks with `tools/version`, a simplifier signal is
+  `unavailable` with the reason. The edit-time formatter and quick lint never fetch anything: a ruff
+  of another version on PATH formats and lints nothing there (a `log` finding says why), and black
+  stays the fallback only where there is no ruff at all.
+- **In a project** the project's own version wins: `uv run` / `poetry run` with a lockfile, a tool in
+  its virtual environment (`VIRTUAL_ENV`, `.venv/`, `venv/`), or its `LINT_CMD` / `TYPECHECK_CMD` /
+  `FORMAT_CMD`. A global tool of another version is not the project's choice and is not used.
+- **pytest in a project is never pinned**: it runs the project's code in the project's environment.
+- The first run on a machine with uvx needs the network once (uv's cache keeps the release).
+
 ## The commit policy, by environment
 
 | environment | commit | push |
