@@ -68,10 +68,9 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-
-import tomllib
 
 ENV_DEFAULTS = {
     "max_cyclomatic_per_function": "COMPLEXITY_MAX_CYCLOMATIC",

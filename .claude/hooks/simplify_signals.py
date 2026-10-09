@@ -35,13 +35,13 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from statistics import median
 from typing import Any
 
 import complexity_budget as budget
-import tomllib
 
 Signal = dict[str, Any]
 STATE_REL = Path(".claude/state/simplifier")

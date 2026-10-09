@@ -82,12 +82,11 @@ import subprocess
 import sys
 import time
 import tokenize
+import tomllib
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 LAYERS = ("post_write", "stop", "pre_commit", "ci")
 SEVERITIES = ("block", "warn", "log")
