@@ -66,3 +66,16 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-09 | overseer | - | BLOCK no.4 masked test gap: the new proposals check (tests/test_maintain.py:313) builds its 'promoted' negative case with the status PROMOTED, which the engine never writes. On promotion lesson_queue. #6d2c79d9
 - 2026-10-09 | agent | - | A test that pins which day is «today» must use a date far from the real clock: board 106's case with BOARD_TODAY=2026-10-09 let the mutant «BOARD_TODAY ignored» survive, because the container's own da #4254a86f
 - 2026-10-09 | overseer | - | BLOCK no.4 masked test gap: docs/ARCHITECTURE.md:6 promises the owner that the test keeps the hooks diagram matching .claude/settings.json (event, matcher and script), and the turn calls the map 'equa #9f0de250
+- 2026-10-09 | parked | engine-package-3b-/-S8-apply-personal | engine-package-3b / S8 apply-personal: a real write under ~/.claude — the run may only dry-run there (plan, step 9). #50754466
+- 2026-10-09 | parked | engine-package-3b-/-S9-cloud-probe | engine-package-3b / S9 cloud-probe: facts only a real cloud session can produce (which branch it checks out, the remote, whether CLAUDE_CODE_REMOTE is set as documented, which settings files are prese #6b868763
+- 2026-10-09 | parked | engine-package-3c-/-C8b-post-move-audit-run | engine-package-3c / C8b post-move audit run: money. The plan caps both audit runs at $60; spent so far: $8.93 (contaminated pre-move run) + $27.92 (valid pre-move run) + about $25 (post-move attempt t #44f078d9
+- 2026-10-09 | parked | 602-testing-guard-resolve-loop | 602-testing-guard-resolve-loop: testing.py guard: symlink loop у file_path дає traceback до Python 3.12 #109ef5e5
+- 2026-10-09 | parked | 602-python311-fstring | 602-python311-fstring: Під Python 3.11 testing.py не парситься, хоча hooks пишуть «Python 3.11+» #8d0ae232
+- 2026-10-09 | parked | 602-cloud-formatter-whole-file | 602-cloud-formatter-whole-file: У хмарній сесії format-on-edit переформатовує весь файл #46cc919a
+- 2026-10-09 | parked | 602-cloud-shallow-clone | 602-cloud-shallow-clone: Свіжий хмарний клон shallow: дві suites fast-набору червоні #5035b250
+- 2026-10-09 | parked | golden-set-inherits-cloud-remote | golden-set-inherits-cloud-remote: Golden set у хмарній сесії: сценарій успадковує `CLAUDE_CODE_REMOTE=true` #cc3edf96
+- 2026-10-09 | parked | 721-zero-verdict-rule-small-gaps | 721/zero-verdict-rule-small-gaps: Правило «audit без жодного вердикту» (721): три дрібниці, які побачив overseer #a0a317ec
+- 2026-10-09 | parked | 106-review-days-independent-of-period | 106/review-days-independent-of-period: Доби витрат в огляді не залежать від періоду, але тест цього не тримає (106) #bb32d507
+- 2026-10-09 | escalation | - | CAPABILITY_GRANT harness self-repair #ce3ba4a1
+- 2026-10-09 | escalation | - | FINDING decana dry run exits 1 for a reason outside this round #053967a2
+- 2026-10-09 | escalation | - | FINDING decana carries the old rules inline, partly edited #d0ea75d8
