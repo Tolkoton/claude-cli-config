@@ -23,10 +23,10 @@ A scene that fails is work on the analyst's definition or on the critics' lens �
 check, never a verdict on the role (the owner's answer 6, board 050): nothing here may be used
 to remove the analyst. Nothing is tuned to the result; a failed scene is reported as it is.
 
-PAID RUNS. Sessions start only when the task in tasks/doing/ has the owner's «Платні прогони: так»
-line, or the owner runs this by hand with --owner-approved (which does not count inside a Claude
-Code session). No dollar number is required; one in that line, or --max-usd, is a ceiling (the
-smaller of the two) the runs stop before.
+EXTRA SESSIONS (board 078). The sessions this starts are ordinary work, like a test: no leave is
+asked for. Each one is booked to the task in hand (.claude/state/board/extra-sessions.jsonl;
+board_state.py) so the runner's summary and the owner's review show where the limit goes.
+--max-usd is a ceiling the runs stop before; --owner-approved is still accepted, and changes nothing.
 
 Standard library only, Python 3.12+.
 """
@@ -48,7 +48,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
 import environment
-import run_simplifier_evals as paid
+import run_simplifier_evals as shared
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -90,7 +90,6 @@ def at_ref(ref: str, rel: str) -> str:
     return subprocess.run(["git", "-C", str(ROOT), "show", f"{ref}:{rel}"], capture_output=True, text=True, check=True).stdout
 
 
-dollar_limit = paid.dollar_limit
 
 
 # ------------------------------------------------------------------ sandboxes and prompts
@@ -216,7 +215,7 @@ def summary(runs: list[JsonObj]) -> JsonObj:
             "after_total": sum(1 for r in runs if r["variant"] == "after"), "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
 
 
-# ------------------------------------------------------------------ the paid part
+# ------------------------------------------------------------------ the sessions
 
 
 def run_once(sandbox: Path, text: str, agent: str | None, args: argparse.Namespace) -> JsonObj:
@@ -250,7 +249,7 @@ def main() -> int:
     parser.add_argument("--max-usd", type=float, default=None, help="a ceiling: stop before the runs together cost more (default: none)")
     parser.add_argument("--max-usd-per-run", type=float, default=1.0)
     parser.add_argument("--tasks-dir", type=Path, default=ROOT / "tasks")
-    parser.add_argument("--owner-approved", action="store_true", help="the OWNER's word, for a run by hand outside a session")
+    parser.add_argument("--owner-approved", action="store_true", help="accepted so that old commands still run; since board 078 no leave is needed")
     args = parser.parse_args()
     expected = json.loads(fixture("expected.json"))
     goals = goals_module()
@@ -264,16 +263,12 @@ def main() -> int:
             (args.dry_run / f"prompt-{scene}-{variant}.txt").write_text(f"[agent: {agent or 'none'}]\n{text}\n", encoding="utf-8")
         print(f"{len(todo)} prompts and two sandboxes in {args.dry_run}; nothing was run")
         return 0
-    refusal = paid.paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
-    if refusal:
-        print(refusal, file=sys.stderr)
-        return 2
-    limit = dollar_limit(args.tasks_dir, args.max_usd)
+    limit = args.max_usd
     runs: list[JsonObj] = []
     with tempfile.TemporaryDirectory(prefix="engine-analyst-eval-") as tmp:
         sandboxes = {variant: build_sandbox(Path(tmp) / variant, variant, args.before_ref) for variant in ("before", "after")}
         for scene, variant in todo:
-            stop = paid.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            stop = shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
             if stop:
                 print(stop)
                 break
@@ -282,6 +277,7 @@ def main() -> int:
             if "error" not in row:
                 row |= score(scene, variant, row["answer"], expected, goals)
             runs.append(row)
+            shared.book_session(args.tasks_dir, "run_analyst_evals", row.get("cost_usd", 0.0))
             shown = row.get("error") or f"{'good' if row['good'] else 'n/a' if row['good'] is None else 'NOT good'} — {row['observed']}"
             print(f"{scene} {variant}: {shown}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})")
     report: JsonObj = {

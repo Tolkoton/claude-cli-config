@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""A paid audit starts only when the owner said so (package board, item 4).
+"""The overseer's audit run starts only when the owner said so (package board, item 4; board 078).
 
 evals/run_audit_scenarios.py refuses, before anything else and before any session, unless
-  - the one task in tasks/doing/ says «Аудит потрібен: так» or «Платні прогони: так» (board 053:
-    the owner's leave for any paid run, no dollar number), or
+  - the one task in tasks/doing/ says «Аудит потрібен: так», or
   - the owner runs it by hand with --owner-approved — in their own terminal: inside a Claude
     Code session (CLAUDECODE set) the flag is refused, like gate.py --close-escalation.
+Board 078 took the «Платні прогони:» line away: an old task that carries it works on, the line is
+ignored — it opens no audit, sets no ceiling, and stops nothing.
 
 No session is started here. A case that must get PAST the gate asks for a scenario that does
 not exist, so the runner stops at its next check ("no scenario id contains"); a `claude` shim
@@ -83,43 +84,22 @@ r = run("--tasks-dir", str(board(("001-a.md", "так"))), in_session=True)
 check("…inside a Claude Code session too: that is how a board task runs its audit", passed(r), r.stderr)
 r = run("--tasks-dir", str(board(("001-a.md", "так"), ("002-b.md", "так"))))
 check("two tasks in doing/: refused", refused(r), r.stderr)
-paid = board(("001-a.md", "ні\nПлатні прогони: так"))
-check("board 053 — «Аудит потрібен: ні» with «Платні прогони: так»: the runner goes on", passed(run("--tasks-dir", str(paid))))
-paid = board(("001-a.md", "ні\nПлатні прогони: два повні audit-и — скільки потрібно"))
-check("negative — a wording without «так» (the owner's answer on board 053: only «так» is leave): refused", refused(run("--tasks-dir", str(paid))))
-r = run("--tasks-dir", str(board(("001-a.md", "ні\nПлатні прогони: ні"))))
-check("negative — «Платні прогони: ні»: refused, and both lines are named", refused(r) and "«Платні прогони: так»" in r.stderr and "Аудит потрібен: так" in r.stderr, r.stderr)
-for taken_back in ("так, але не для audit-у", "так, крім audit-у", "так, лише прогони simplifier-а", "до 5 доларів", "заборонено, навіть до 5 доларів", "не треба"):
-    r = run("--tasks-dir", str(board(("001-a.md", f"ні\nПлатні прогони: {taken_back}"))))
-    check(f"negative — «Платні прогони: {taken_back}»: the audit is refused", refused(r), r.stderr)
-r = run("--tasks-dir", str(board(("001-a.md", "ні\n\n## Що зробити\n- …\n\n## Питання до власника\nПлатні прогони: так"))))
-check("negative — «Платні прогони: так» below the header (under «Питання до власника»): the audit is refused", refused(r), r.stderr)
-print("a sum in the task's line is the audit's ceiling too (the overseer's third BLOCK)")
+print("board 078: an old «Платні прогони:» line is ignored")
 CEILING = "cost ceiling $"
-capped = str(board(("001-a.md", "ні\nПлатні прогони: так, до 5 доларів")))
-r = run("--tasks-dir", capped)
-check("«Платні прогони: так, до 5 доларів»: the runner goes on with a ceiling of 5 dollars", passed(r) and f"{CEILING}5.00" in r.stderr, r.stderr)
-r = run("--tasks-dir", capped, "--max-cost", "3")
-check("…a smaller --max-cost stands, and nothing is said about the task's sum", passed(r) and CEILING not in r.stderr, r.stderr)
-r = run("--tasks-dir", capped, "--max-cost", "50")
-check("…a larger --max-cost does not lift the owner's sum", passed(r) and f"{CEILING}5.00" in r.stderr, r.stderr)
-r = run("--tasks-dir", str(board(("001-a.md", "так\nПлатні прогони: так, не більше 12,5 $"))))
-check("«Аудит потрібен: так» with a sum in the other line: the sum binds the audit", passed(r) and f"{CEILING}12.50" in r.stderr, r.stderr)
-UNREAD = "is neither the owner's leave nor a plain «ні»"
-for line in ("до 5 доларів", "до $5", "$5", "USD 5", "до 5 dollars", "до .5 долара", "так, до 5 доларів на audit", "п'ять доларів", "скільки потрібно"):
+for line in ("так", "так, до 5 доларів", "два повні audit-и — скільки потрібно", "ні"):
+    r = run("--tasks-dir", str(board(("001-a.md", f"ні\nПлатні прогони: {line}"))))
+    check(f"«Аудит потрібен: ні» beside an old «Платні прогони: {line}»: refused — the line opens nothing", refused(r) and "001-a.md" in r.stderr, r.stderr)
+for line in ("до $5", "так, до 5 доларів", "ні", "скільки потрібно"):
     r = run("--tasks-dir", str(board(("001-a.md", f"так\nПлатні прогони: {line}"))))
-    check(f"negative — «Аудит потрібен: так» beside «Платні прогони: {line}» (the overseer's fourth and fifth BLOCKs): the audit stops, it does not go on uncapped",
-          refused(r) and UNREAD in r.stderr and "«так, до N доларів»" in r.stderr and CEILING not in r.stderr, r.stderr)
-    r = run("--tasks-dir", str(board(("001-a.md", f"ні\nПлатні прогони: {line}"))), "--owner-approved")
-    check(f"negative — …and --owner-approved in the owner's terminal beside «{line}»: stops too", refused(r) and UNREAD in r.stderr, r.stderr)
-r = run("--tasks-dir", str(board(("001-a.md", "так\nПлатні прогони: ні"))))
-check("«Аудит потрібен: так» beside «Платні прогони: ні» (no number): the audit goes on, no ceiling", passed(r) and CEILING not in r.stderr, r.stderr)
-r = run("--tasks-dir", str(board(("001-a.md", "ні\nПлатні прогони: ні"))), "--owner-approved")
-check("--owner-approved beside a plain «ні»: the owner's flag stands", passed(r), r.stderr)
-r = run("--tasks-dir", str(board(("001-a.md", "ні\nПлатні прогони: так"))))
-check("negative — «Платні прогони: так» without a sum: no ceiling is invented", passed(r) and CEILING not in r.stderr, r.stderr)
-r = run("--tasks-dir", str(board(("001-a.md", "так"))))
-check("negative — «Аудит потрібен: так» alone: no ceiling", passed(r) and CEILING not in r.stderr, r.stderr)
+    check(f"«Аудит потрібен: так» beside an old «Платні прогони: {line}»: the runner goes on, and the line sets no ceiling",
+          passed(r) and CEILING not in r.stderr, r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "ні\nПлатні прогони: до $5"))), "--owner-approved")
+check("--owner-approved in the owner's terminal beside an old line: the flag stands, nothing stops it", passed(r), r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "ні"))))
+check("the refusal names the audit line and the flag, and no paid-runs line", "Аудит потрібен: так" in r.stderr and "--owner-approved" in r.stderr
+      and "Платні прогони" not in r.stderr, r.stderr)
+r = run("--tasks-dir", str(board(("001-a.md", "так"))), "--max-cost", "3")
+check("--max-cost is the run's own ceiling, as before", passed(r), r.stderr)
 yes_in_todo = board()
 (yes_in_todo / "todo" / "001-a.md").write_text("# x\n\nАудит потрібен: так\n", encoding="utf-8")
 check("«так» in todo/ allows nothing", refused(run("--tasks-dir", str(yes_in_todo))))
@@ -167,7 +147,7 @@ sys.path.insert(0, str(ROOT / ".claude/unattended"))
 import board as engine_board  # noqa: E402
 
 in_hand = engine_board.parse((real_tasks / "doing" / real_doing[0]).read_text(encoding="utf-8")) if len(real_doing) == 1 else None
-wants = in_hand is not None and (in_hand.audit or in_hand.paid)
+wants = in_hand is not None and in_hand.audit
 check("without --tasks-dir the board is this repository's tasks/", passed(r) if wants else refused(r), (real_doing, r.stderr))
 fixture = ROOT / "tests/fixtures/board-audit-yes"
 check("the fixture board the other audit suites use says «так»", passed(run("--tasks-dir", str(fixture))))

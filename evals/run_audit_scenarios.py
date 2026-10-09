@@ -682,29 +682,31 @@ def board_module() -> Any:
     return module
 
 
+def state_module() -> Any:
+    """.claude/unattended/board_state.py — where each audit session is booked to the task in hand (board 078)."""
+    spec = importlib.util.spec_from_file_location("engine_board_state", HERE.parent / ".claude" / "unattended" / "board_state.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load .claude/unattended/board_state.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["engine_board_state"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) -> str | None:
-    """Why this run may not start a paid session, or None. Owner's rule (tasks/README.md): the
-    audit runs when the one task in tasks/doing/ says «Аудит потрібен: так» or «Платні прогони: так», or when the owner
-    starts it by hand with --owner-approved. The flag is the owner's: inside a Claude Code
-    session (CLAUDECODE is set in every shell the agent's tools start) it does not count."""
-    unread = board_module().line_unread(tasks_dir.resolve())
-    if unread is not None:
-        return f"refusing to start paid sessions: {unread}."
+    """Why this audit run may not start, or None. The owner's rule (tasks/README.md): the overseer's
+    audit runs when the one task in tasks/doing/ says «Аудит потрібен: так», or when the owner starts
+    it by hand with --owner-approved — that decision stays the owner's (board 078 took away only the
+    «Платні прогони:» line). The flag is the owner's: inside a Claude Code session (CLAUDECODE is set
+    in every shell the agent's tools start) it does not count."""
     reason = board_module().audit_refusal(tasks_dir.resolve())
     if reason is None or (owner_approved and not in_session):
         return None
     flag = (" --owner-approved was given, but inside a Claude Code session (CLAUDECODE is set) it does not "
             "count: it is the owner's flag, for the owner's own terminal." if owner_approved else "")
     return (f"refusing to start paid sessions: {reason}.{flag}\n"
-            "Two ways through, both the owner's: write «Аудит потрібен: так» or «Платні прогони: так» in the task (tasks/README.md, "
-            "«Платні прогони»), or run this by hand with --owner-approved.")
-
-
-def cost_ceiling(tasks_dir: Path, asked: float | None) -> float | None:
-    """The ceiling of this run: the smaller of --max-cost and the dollar sum the owner wrote in the
-    task's «Платні прогони:» line, when either is there; None is no ceiling (board 053)."""
-    given = [limit for limit in (asked, board_module().paid_ceiling(tasks_dir.resolve())) if limit is not None]
-    return min(given) if given else None
+            "Two ways through, both the owner's: write «Аудит потрібен: так» in the task (tasks/README.md), "
+            "or run this by hand with --owner-approved.")
 
 
 def main() -> int:
@@ -746,16 +748,12 @@ def main() -> int:
         parser.error("--resume needs --out")
     if args.tier and args.runs is not None and args.runs != TIERS[args.tier]:
         parser.error(f"--tier {args.tier} is {TIERS[args.tier]} run(s) per scenario; --runs {args.runs} contradicts it")
-    # The paid-run rule (package board, item 4), before anything else: no session is paid for
-    # unless the owner said so — in the task on the board, or by hand with the flag.
+    # The audit rule, before anything else: the overseer's audit runs on the owner's word only —
+    # «Аудит потрібен: так» in the task, or the flag by hand (board 078 kept it, the rest needs no leave).
     refusal = paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
-    ceiling = cost_ceiling(args.tasks_dir, args.max_cost)
-    if ceiling != args.max_cost:
-        print(f"cost ceiling ${ceiling:.2f}: the sum the owner wrote in the task's «Платні прогони:» line", file=sys.stderr)
-    args.max_cost = ceiling
     if args.runs is None:
         args.runs = TIERS[args.tier or DEFAULT_TIER]
     if args.runs < 1:
@@ -916,6 +914,7 @@ def main() -> int:
                 texts[scenario_id] = (SCENARIOS / f"{scenario_id}.md").read_text(encoding="utf-8")
             row["runs"].append(run_once(args, scenario_id, expected[scenario_id], texts[scenario_id],
                                         workdir / f"{scenario_id}-run{n + 1}"))
+            state_module().book_extra(args.tasks_dir, "run_audit_scenarios", row["runs"][-1].get("cost_usd", 0.0))
             refresh(row)
             if args.out:
                 save_results(args.out, payload())

@@ -104,7 +104,7 @@ check("a control that catches as much fails: the other model adds nothing", runn
 s = runner.summary([run((9, 0), (0, 0), complete=False)])
 check("a run cut short is not judged", s["complete_runs"] == 0 and s["thresholds"]["passed"] is None and s["cost_usd"] == 0.4, s)
 
-print("PAID-*    nothing starts without the owner's word and the key")
+print("KEY-*     nothing starts without the key; no leave is asked (board 078) and every Claude session is booked")
 
 
 class Gemini(BaseHTTPRequestHandler):
@@ -136,17 +136,14 @@ board = work / "tasks"
 
 def measure(*args: str, key: str | None = KEY) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if k not in ("GEMINI_API_KEY_SIMPLIFIER", "GEMINI_API_KEY")}
-    env |= {"CLAUDECODE": "1", "SECOND_OPINION_API_BASE": f"http://127.0.0.1:{server.server_port}/v1beta"} | ({"GEMINI_API_KEY_SIMPLIFIER": key} if key else {})
+    env |= {"CLAUDECODE": "1", "SECOND_OPINION_API_BASE": f"http://127.0.0.1:{server.server_port}/v1beta",
+            "BOARD_STATE_DIR": str(work / "books")} | ({"GEMINI_API_KEY_SIMPLIFIER": key} if key else {})
     return subprocess.run([sys.executable, str(RUNNER), "--only", "typical-string-dispatch", "--tasks-dir", str(board), "--claude", str(shim), *args],
                           capture_output=True, text=True, check=False, env=env)
 
 
-done = measure("--runs", "1")
-check("a task without the «Платні прогони» line: refused, nothing started",
-      done.returncode == 2 and "refusing to start paid sessions" in done.stderr and Gemini.calls == 0 and not (work / "started").exists(), done.stderr)
-(board / "doing" / "013-x.md").write_text("# 013\n\nПлатні прогони: так, до 15 доларів.\n", encoding="utf-8")
 done = measure("--runs", "1", key=None)
-check("the line is there but the key is not: refused before either judge is asked — the control included",
+check("no key: refused before either judge is asked — the control included; no other leave is asked",
       done.returncode == 2 and "GEMINI_API_KEY_SIMPLIFIER" in done.stderr and Gemini.calls == 0 and not (work / "started").exists(), done.stderr)
 done = measure("--runs", "2", "--max-usd", "0.2")
 check("a limit below one call: the run is cut short before anything is asked", "cut short" in done.stdout and Gemini.calls == 0 and not (work / "started").exists(), done.stdout)
@@ -155,6 +152,9 @@ done = measure("--runs", "2", "--out", str(out))
 result = json.loads(out.read_text()) if out.is_file() else {}
 summary = result.get("summary", {})
 check("with both: every case goes to both judges in every run", Gemini.calls == 2 and (work / "started").read_text().count("key=") == 2, done.stdout + done.stderr)
+booked = [json.loads(line) for line in (work / "books" / "extra-sessions.jsonl").read_text(encoding="utf-8").splitlines()] if (work / "books" / "extra-sessions.jsonl").is_file() else []
+check("the two Claude sessions are booked to the task in hand; the Gemini calls are not Claude's",
+      [(b["task"], b["tool"]) for b in booked] == [("013-x", "run_second_opinion_evals")] * 2, booked)
 check("the control never sees the key, has no tools, and gets the same system text",
       "key=none" in (work / "started").read_text() and "--tools\n\n" in (work / "argv").read_text() and "You did not make the claim" in (work / "argv").read_text())
 check("the result: gemini caught it with a checked line, the control did not; cost from both",

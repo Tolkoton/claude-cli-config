@@ -24,6 +24,12 @@ a row made no commit, and what every attempt reported as its cost.
                                                              UTC day cost: the day in progress and the seven
                                                              before it (BOARD_TODAY=YYYY-MM-DD names "today")
 
+THE EXTRA SESSIONS (board 078). A session of Claude that a tool starts while a task is in hand — an
+eval, a measurement — is ordinary work and needs no leave; so that one can see where the limit goes,
+every such tool books it with `book_extra` into extra-sessions.jsonl beside costs.json: the time, the
+task in doing/ (empty when the tool was started by hand), the tool, what the session reported it
+cost. `report` adds the count and the sum to each task's line.
+
 COST. `total_cost_usd` of a continued conversation is taken to be that conversation's running
 total (premise PR-board-02: seen in the operator's log, not provable without a paid call), so a
 task costs the sum, over its conversations, of the highest figure each one reported. Every
@@ -209,11 +215,71 @@ def today_utc() -> date:
     return date.fromisoformat(given) if given else datetime.now(UTC).date()
 
 
-def report(data: JsonObj, today: date | None = None) -> list[str]:
+EXTRA_FILE = "extra-sessions.jsonl"
+
+
+def note_extra_session(state_dir: Path, task: str, tool: str, cost_usd: float) -> None:
+    """Append one extra session to the books; written once, never rewritten."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    row = {"utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "task": task, "tool": tool,
+           "cost_usd": round(float(cost_usd or 0.0), 4)}
+    with (state_dir / EXTRA_FILE).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def book_extra(tasks_dir: Path, tool: str, cost_usd: float) -> None:
+    """What every tool that starts a session of Claude calls after it: the session is booked to the
+    task this session has in doing/ of `tasks_dir`, in that project's .claude/state/board/
+    (BOARD_STATE_DIR names another directory). A board with no project's .claude/ beside it (a test
+    fixture, a stray directory) is booked nowhere: no .claude/ is made for it. Best effort: a run
+    never fails over its books."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import board
+
+        tasks = Path(os.path.realpath(tasks_dir))
+        named = os.environ.get("BOARD_STATE_DIR")
+        if not named and not (tasks.parent / ".claude").is_dir():
+            return
+        state = Path(named or tasks.parent / ".claude" / "state" / "board")
+        note_extra_session(state, board.in_hand(tasks), tool, cost_usd)
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        pass
+
+
+def extra_sessions(state_dir: Path) -> dict[str, tuple[int, float]]:
+    """task -> (how many extra sessions, what they cost); "" is the sessions started with no task."""
+    found: dict[str, tuple[int, float]] = {}
+    try:
+        lines = (state_dir / EXTRA_FILE).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return found
+    for line in lines:
+        try:
+            row = json.loads(line)
+            task, cost = str(row.get("task") or ""), float(row.get("cost_usd") or 0.0)
+        except (ValueError, TypeError, AttributeError):
+            continue
+        count, spent = found.get(task, (0, 0.0))
+        found[task] = (count + 1, spent + cost)
+    return found
+
+
+def extra_words(count: int, spent: float) -> str:
+    return f"додаткових сесій Claude: {count} ({spent:.2f} USD)"
+
+
+def report(data: JsonObj, today: date | None = None, extra: dict[str, tuple[int, float]] | None = None) -> list[str]:
+    extra = extra or {}
     lines = []
     for name, found in sorted(data["tasks"].items()):
-        lines.append(f"{name}: {float(found.get('cost_usd', 0.0)):.2f} USD, {len(found.get('attempts', []))} attempt(s), "
-                     f"{found.get('outcome', 'in work')}")
+        line = (f"{name}: {float(found.get('cost_usd', 0.0)):.2f} USD, {len(found.get('attempts', []))} attempt(s), "
+                f"{found.get('outcome', 'in work')}")
+        lines.append(line + (f", {extra_words(*extra[name])}" if name in extra else ""))
+    for name in sorted(n for n in extra if n and n not in data["tasks"]):
+        lines.append(f"{name}: {extra_words(*extra[name])} (сесія з власником)")
+    if "" in extra:
+        lines.append(f"без задачі (запуск руками): {extra_words(*extra[''])}")
     lines.append(f"total: {float(data.get('total_cost_usd', 0.0)):.2f} USD")
     return lines + daily(data["tasks"], today or today_utc())
 
@@ -226,7 +292,7 @@ def main(argv: list[str]) -> int:
     data = load(path)
     if command == "report":
         save(path, data)
-        print("\n".join(report(data)))
+        print("\n".join(report(data, extra=extra_sessions(path.parent))))
         return 0
     if not rest:
         print(f"board_state: {command} needs a task", file=sys.stderr)

@@ -184,13 +184,9 @@ TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
 AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
-# The owner's leave for paid runs (board 053, the owner's answer), read in the task's header only.
-# One wording and no other: the line is the word «так», and after it there may stand a dollar sum
-# above zero — a ceiling, never a required field. Anything else in the line is no leave: the guard
-# fails closed, so a refusal needs no list of its words.
-PAID = re.compile(r"^Платні прогони:[ \t]*(.*)$", re.MULTILINE)
-PAID_YES = re.compile(r"так(?:[\s,;:—–-]+(?:(?:до|не більше|не понад)\s+)?(?<![-–—])(\d+(?:[.,]\d+)?)\s*(?:долар\w*|\$|USD))?[.!]?", re.IGNORECASE)
-PAID_PLAIN_NO = ("", "ні", "—", "–", "-")  # a refusal that can hide no ceiling and no condition
+# A «Платні прогони:» line (board 053) is read no more: since board 078 a session of Claude a task
+# starts — an eval, a measurement — is ordinary work, like a test, and needs no leave. An old task
+# that carries the line works on: the line is ignored.
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
@@ -233,9 +229,6 @@ class Task:
     action_arg: str = ""
     rule: str = ""
     attended: bool = False
-    paid: bool = False
-    paid_ceiling: float | None = None
-    paid_unread: bool = False
 
     @property
     def answered(self) -> bool:
@@ -279,19 +272,6 @@ def consents(answer: str) -> bool:
     return is_word(answer, CONSENT)
 
 
-def paid_leave(header: str) -> tuple[bool, float | None]:
-    """(the owner gave leave for paid runs, the dollar ceiling written there or None). One line
-    only: two «Платні прогони:» lines in a header are nobody's clear word, so no leave."""
-    lines = [m.group(1).strip(" \t*_") for m in PAID.finditer(header)]
-    if len(lines) != 1:
-        return False, None
-    leave = PAID_YES.fullmatch(lines[0])
-    if not leave:
-        return False, None
-    ceiling = float(leave.group(1).replace(",", ".")) if leave.group(1) else None
-    return (False, None) if ceiling is not None and ceiling <= 0 else (True, ceiling)
-
-
 def parse(text: str) -> Task:
     text = COMMENT.sub("", text)
     first_heading = HEADING.search(text)
@@ -307,7 +287,6 @@ def parse(text: str) -> Task:
         following = HEADING.search(rest)
         questions = rest[: following.start()] if following else rest
     rule = RULE.search(header)
-    paid, ceiling = paid_leave(header)
     offers = [m for m in ACTION.finditer(questions) if m.group(1) in OFFERS]
     return Task(
         action=offers[-1].group(1) if offers else "",
@@ -319,9 +298,6 @@ def parse(text: str) -> Task:
         gate=gate.group(1) if gate else "",
         rule=rule.group(1) if rule else "",
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
-        paid=paid,
-        paid_ceiling=ceiling,
-        paid_unread=not paid and any(line.strip(" \t*_.!").lower() not in PAID_PLAIN_NO for line in PAID.findall(header)),
     )
 
 
@@ -973,46 +949,24 @@ def gate_reject(path: Path, word: str = CONSENT) -> None:
 
 
 def audit_refusal(tasks: Path) -> str | None:
-    """Why a paid audit may NOT start for the work in hand; None when this session's task in
-    doing/ asks for it. The other side's task beside it neither allows nor refuses anything."""
+    """Why the overseer's audit run (evals/run_audit_scenarios.py) may NOT start for the work in
+    hand; None when this session's task in doing/ says «Аудит потрібен: так» — the owner's own
+    decision, kept apart from every other session of Claude (board 078). The other side's task
+    beside it neither allows nor refuses anything."""
     doing = own(tasks)
     if not doing:
         return f"no task of this session is in {tasks}/doing/"
     if len(doing) > 1:
         return f"{tasks}/doing/ holds more than one task: " + ", ".join(p.name for p in doing)
-    if not (read(doing[0]).audit or read(doing[0]).paid):
-        return f"the task in doing/, {doing[0].name}, says neither «Аудит потрібен: так» nor «Платні прогони: так»"
-    return line_unread(tasks)
-
-
-def paid_refusal(tasks: Path) -> str | None:
-    """Why paid sessions other than the audit may NOT start for the work in hand; None when this
-    session's one task in doing/ carries the owner's «Платні прогони: так»."""
-    doing = own(tasks)
-    if len(doing) != 1:
-        return f"{tasks}/doing/ holds {len(doing)} tasks of this session, not one"
-    if not read(doing[0]).paid:
-        return f"the task in doing/, {doing[0].name}, has no «Платні прогони: так» line"
+    if not read(doing[0]).audit:
+        return f"the task in doing/, {doing[0].name}, does not say «Аудит потрібен: так»"
     return None
 
 
-def paid_ceiling(tasks: Path) -> float | None:
-    """The dollar ceiling the owner wrote after «так» in that line, if any; None is no ceiling."""
-    doing = own(tasks)
-    return read(doing[0]).paid_ceiling if len(doing) == 1 else None
-
-
-def line_unread(tasks: Path) -> str | None:
-    """Why NO paid run may start, whatever word opened it («Аудит потрібен: так», --owner-approved):
-    the «Платні прогони:» line of this session's task is neither leave nor a plain «ні». It may
-    hold a ceiling or a condition the guard does not read («до $5», «п'ять доларів», «лише
-    simplifier»), and the owner's word is never dropped silently: the run stops rather than go on
-    uncapped. No list of spellings is kept: what is not one of the two is unread. None otherwise."""
-    doing = own(tasks)
-    if len(doing) == 1 and read(doing[0]).paid_unread:
-        return (f"the «Платні прогони:» line of the task in doing/, {doing[0].name}, is neither the owner's leave nor a plain «ні», "
-                "so a ceiling or a condition may be meant there that cannot be read; the wordings are «Платні прогони: так», «так, до N доларів» and «ні»")
-    return None
+def in_hand(tasks: Path) -> str:
+    """The name (no .md) of this session's one task in doing/, for the books; empty with none or two."""
+    doing = own(tasks) if tasks.is_dir() else []
+    return doing[0].stem if len(doing) == 1 else ""
 
 
 ANOMALIES = "ANOMALIES.md"

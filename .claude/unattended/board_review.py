@@ -243,8 +243,20 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def task_costs(state: Path) -> dict[str, dict[str, Any]]:
+    """costs.json's tasks; each that started extra sessions of Claude (board 078) carries them as
+    `extra`: (how many, what they cost)."""
     tasks = load_json(state / "board/costs.json").get("tasks")
-    return {str(k): v for k, v in tasks.items() if isinstance(v, dict)} if isinstance(tasks, dict) else {}
+    costs = {str(k): v for k, v in tasks.items() if isinstance(v, dict)} if isinstance(tasks, dict) else {}
+    for name, extra in board_state.extra_sessions(state / "board").items():
+        if name:
+            costs.setdefault(name, {})["extra"] = extra
+    return costs
+
+
+def extra_line(entry: dict[str, Any] | None) -> str:
+    """The extra sessions of Claude a task started (evals, measurements), for the owner; empty with none."""
+    extra = (entry or {}).get("extra")
+    return f" Додаткових сесій Claude (evals, виміри): {extra[0]}, ${float(extra[1]):.2f}." if extra else ""
 
 
 def runner_alive(state: Path) -> bool | None:
@@ -270,7 +282,7 @@ def task_line(name: str, entry: dict[str, Any] | None, now: datetime) -> str:
         line += f"; витрачено ${float(entry.get('cost_usd', 0.0)):.2f} за {len(entry.get('attempts') or [])} завершених спроб"
         idle = int(entry.get("attempts_without_commit", 0) or 0)
         line += f", із них поспіль без commit-а: {idle}" if idle else ""
-    return line + "."
+    return line + "." + extra_line(entry)
 
 
 def attempt_line(state: Path, name: str, entry: dict[str, Any] | None, now: datetime) -> str | None:
@@ -382,7 +394,9 @@ def done_section(src: Source, stems: list[str], costs: dict[str, dict[str, Any]]
         if len(closed) == 3:
             lines.append(f"Закрито {stamp(as_utc(closed[1]))}, commit `{closed[0]}` — {closed[2]}")
         if stem in costs:
-            lines.append(f"За записами runner-а: ${float(costs[stem].get('cost_usd', 0.0)):.2f}, спроб: {len(costs[stem].get('attempts') or [])}.")
+            spent = (f"За записами runner-а: ${float(costs[stem].get('cost_usd', 0.0)):.2f}, спроб: {len(costs[stem].get('attempts') or [])}."
+                     if "cost_usd" in costs[stem] else "Runner цю задачу не вів.")
+            lines.append(spent + extra_line(costs[stem]))
         lines.append("")
         found = sections(report)
         if not report:

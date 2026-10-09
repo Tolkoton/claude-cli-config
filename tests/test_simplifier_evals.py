@@ -550,53 +550,35 @@ except FileNotFoundError:
     refused = True
 check("negative — `without` naming a file the layers below do not carry is an error, not a silent no-op", refused)
 
-print("PAID-*    no session without the owner's word")
+print("EXTRA-*   board 078: no leave is asked; every session is booked to the task in hand")
 board = work / "tasks"
 (board / "doing").mkdir(parents=True)
-check("no task in doing/: refused", runner.paid_run_refusal(board, False, True) is not None)
 (board / "doing" / "010-x.md").write_text("# 010\n\nАудит потрібен: ні\n")
-check("a task without the line: refused", runner.paid_run_refusal(board, False, True) is not None)
-check("--owner-approved inside a session does not count", "does not count" in str(runner.paid_run_refusal(board, True, True)))
-check("--owner-approved in the owner's terminal: allowed", runner.paid_run_refusal(board, True, False) is None)
-(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так, не більше 30 доларів.\n")
-check("the task's «Платні прогони» line with a dollar limit: allowed", runner.paid_run_refusal(board, False, True) is None)
-(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні.\n")
-check("negative — the line says «ні»: refused", runner.paid_run_refusal(board, False, True) is not None)
-check("…and the refusal asks for «Платні прогони: так», not for a dollar number",
-      "«Платні прогони: так»" in str(runner.paid_run_refusal(board, False, True)) and "no dollar number is needed" in str(runner.paid_run_refusal(board, False, True)),
-      runner.paid_run_refusal(board, False, True))
-check("the old line's number is a ceiling: the smaller of it and --max-usd", (board / "doing" / "010-x.md").write_text(
-    "# 010\n\nПлатні прогони: так, не більше 30 доларів.\n") and runner.dollar_limit(board, None) == 30.0
-    and runner.dollar_limit(board, 50.0) == 30.0 and runner.dollar_limit(board, 4.0) == 4.0)
-for unread in ("до $5", "USD 5", "п'ять доларів", "скільки потрібно", "так, до 5 доларів на audit"):
-    (board / "doing" / "010-x.md").write_text(f"# 010\n\nПлатні прогони: {unread}\n")
-    check(f"negative — «{unread}» is neither leave nor a plain «ні»: --owner-approved in the owner's terminal is refused too, and the line is named (the overseer's sixth BLOCK)",
-          "neither the owner's leave nor a plain «ні»" in str(runner.paid_run_refusal(board, True, False)) and "010-x.md" in str(runner.paid_run_refusal(board, True, False)),
-          runner.paid_run_refusal(board, True, False))
-    check("…and without the flag, inside a session: refused", runner.paid_run_refusal(board, False, True) is not None)
-(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні\n")
-check("beside a plain «ні» the owner's flag in the owner's terminal still passes", runner.paid_run_refusal(board, True, False) is None, runner.paid_run_refusal(board, True, False))
-(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так\n")
-check("board 053 — «Платні прогони: так» without a number: allowed", runner.paid_run_refusal(board, False, True) is None, runner.paid_run_refusal(board, False, True))
-check("…and there is no ceiling: nothing stops the runs but the runner's own guard", runner.dollar_limit(board, None) is None)
-check("…a ceiling only when --max-usd names one", runner.dollar_limit(board, 4.0) == 4.0)
+check("the runner keeps no paid-run guard", not hasattr(runner, "paid_run_refusal") and not hasattr(runner, "dollar_limit"))
 check("no ceiling never stops a run; a ceiling stops the run that could pass it, not the one that fits",
       runner.over_limit(1000.0, 5.0, None) is None and runner.over_limit(5.0, 5.0, 10.0) is None
       and "the limit is $10.00" in str(runner.over_limit(5.01, 5.0, 10.0)))
 shim = work / "claude"
-shim.write_text("#!/bin/sh\necho started >> \"$(dirname \"$0\")/started\"\n")
+shim.write_text("#!/bin/sh\necho started >> \"$(dirname \"$0\")/started\"\n"
+                "echo '{\"result\": \"[]\", \"total_cost_usd\": 0.25, \"modelUsage\": {\"claude-x\": {}}, \"num_turns\": 1}'\n")
 shim.chmod(0o755)
+books = work / "books"
 done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
-                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
-check("with «так» and no number the runner itself goes past the guard and the limit: the session is started",
-      "refusing to start paid sessions" not in done.stderr and "cost limit" not in done.stdout and (work / "started").exists(), done.stdout + done.stderr)
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
+check("a task with no line at all: the session is started — no leave is asked",
+      "refusing" not in done.stderr and "cost limit" not in done.stdout and (work / "started").exists(), done.stdout + done.stderr)
+booked = [json.loads(line) for line in (books / "extra-sessions.jsonl").read_text().splitlines()] if (books / "extra-sessions.jsonl").is_file() else []
+check("…and the session is booked to the task in hand, with what it reported it cost",
+      [(b["task"], b["tool"], b["cost_usd"]) for b in booked] == [("010-x", "run_simplifier_evals", 0.25)], booked)
 (work / "started").unlink(missing_ok=True)
 (board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: ні\n")
 done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
-                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
-check("negative — with «ні» the runner itself refuses with exit 2 and starts nothing",
-      done.returncode == 2 and "refusing to start paid sessions" in done.stderr and not (work / "started").exists(), done.stderr)
-(board / "doing" / "010-x.md").write_text("# 010\n\nПлатні прогони: так\n")
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
+check("an old «Платні прогони: ні» stops nothing: the line is ignored", "refusing" not in done.stderr and (work / "started").exists(), done.stderr)
+(work / "started").unlink(missing_ok=True)
+done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim), "--max-usd", "1"],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
+check("negative — --max-usd under one run's reserve starts nothing", "cost limit" in done.stdout and not (work / "started").exists(), done.stdout)
 kept = work / "kept.json"
 done = subprocess.run([sys.executable, str(RUNNER), "--runs", "2", "--tasks-dir", str(board), "--claude", str(work / "no-such-claude"),
                        "--out", str(kept)], capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})

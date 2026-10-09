@@ -100,7 +100,7 @@ PROPERTY = {
              "    shelf = Shelf('W-1', on_hand, held)\n    for call, quantity in calls:\n        try:\n            shelf = call(shelf, quantity)\n        except ValueError:\n            pass\n        assert shelf.on_hand >= 0 and shelf.held >= 0\n",
 }
 
-print("paid runs: only with the owner's line; arm C alone is allowed the library")
+print("board 078: no leave for the sessions; arm C alone is allowed the library")
 with tempfile.TemporaryDirectory() as tmp:
     tasks = Path(tmp) / "tasks"
     (tasks / "doing").mkdir(parents=True)
@@ -110,10 +110,9 @@ with tempfile.TemporaryDirectory() as tmp:
     shim.write_text(f"#!/bin/sh\necho started >> {tmp}/started\n", encoding="utf-8")
     shim.chmod(0o755)
     base = [sys.executable, str(RUNNER), "--set", "property", "--tasks-dir", str(tasks), "--claude", str(shim)]
-    r = subprocess.run([*base, "--owner-approved"], capture_output=True, text=True, env=env, check=False)
-    check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
-          r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/063-x.md").write_text("# 063\n\nПлатні прогони: так, до 50 доларів.\n", encoding="utf-8")
+    r = subprocess.run([*base, "--max-usd", "0.1"], capture_output=True, text=True, env=env, check=False)
+    check("board 078: a task with no line is not refused — only the run's own ceiling stops it: under one run, nothing starts",
+          "refusing" not in r.stderr and "cost limit" in r.stdout and not (Path(tmp) / "started").exists(), r.stdout + r.stderr)
     ready = Path(tmp) / "ready.py"
     ready.write_text(HEAD["conserve"] + OBVIOUS["conserve"] + "\n" + TRAP["conserve"], encoding="utf-8")
     shim.write_text(f"#!/bin/sh\necho \"$*\" | tr '\\n' ' ' >> {tmp}/argv; echo >> {tmp}/argv\ngrep -c Invariants .engine/slices/split-bill.md >> {tmp}/sections\n"
@@ -122,7 +121,7 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([*base, "--scenes", "conserve", "--repeat", "2", "--out", str(out)], capture_output=True, text=True, env=env, check=False)
     recorded = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {}
     argv = (Path(tmp) / "argv").read_text(encoding="utf-8").splitlines() if (Path(tmp) / "argv").is_file() else []
-    check("with the line: six sessions for one scene, three arms, two repeats — each scored «caught», recorded as the property set",
+    check("six sessions for one scene, three arms, two repeats — each scored «caught», recorded as the property set",
           r.returncode == 0 and len(argv) == 6 and r.stdout.count(": caught") == 6 and recorded.get("set") == "property"
           and recorded["summary"]["caught"] == {"a": "2 of 2", "b": "2 of 2", "c": "2 of 2"} and recorded["summary"]["cost_usd"] == 1.2
           and recorded["runs"][0]["tests"].startswith("import pytest") and recorded["runs"][0]["test_count"] == 9, r.stdout + r.stderr)

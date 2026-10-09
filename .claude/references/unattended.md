@@ -66,13 +66,13 @@ writes and follows inside a task — nothing executes it by itself.
 ## The owner's two rules (board 053)
 
 **Quality over price.** Quality is the base of the system, not price. A task carries no dollar
-limit: paid runs take what an honest result needs. The owner's leave is the line
-`Платні прогони: так` (or `Аудит потрібен: так` for the audit) — no number; a dollar number the
-owner did write there is a ceiling the paid-run scripts stop before. The line is read in the task's
-header only and leave is recognised, not assumed: the line is the word «так», after which only a
-dollar sum above zero may stand («так, до 30 доларів»); anything else in the line refuses, and a line
-that is neither leave nor a plain «ні» stops every paid run of the task, one opened by
-`Аудит потрібен: так` or `--owner-approved` too: the owner's word is never dropped silently. Only the runner's per-task
+limit: extra Claude sessions — evals, measurements, the critics' and the simplifier's checks — take
+what an honest result needs, and since board 078 they need no leave: they are ordinary work, like a
+test. A «Платні прогони:» line in an old task is ignored. Every such session is booked to the task in
+hand (`.claude/state/board/extra-sessions.jsonl`), and the runner's summary and the review show how
+many each task started and what they cost. One decision stays the owner's: the overseer's audit run
+(`run_audit_scenarios.py`) needs `Аудит потрібен: так` in the task, or `--owner-approved` by hand outside
+a session. Only the runner's per-task
 guard (`BOARD_MAX_USD`) stands against a loop: it does not cut the work, it parks the task with a
 question, and the owner's answer continues it with the same budget again. Where something
 proves too long or too dear — measure first, then simplify in a task of its own.
@@ -85,4 +85,4 @@ set, invariant, property-based testing, mutation testing, spike, sandbox, and th
 Ukrainian sentence the term keeps its English form and takes a hyphenated ending when it must
 (`runner-а`, `slice-ів`, `audit-у`). A rare term may get a short Ukrainian gloss; the term itself
 stays English. No invented Ukrainian translations («наглядач», «ворота», «зріз», «виконавець»…).
-The lines the board reads — `Аудит потрібен:`, `Платні прогони:`, `Відповідь:` — are written as they are.
+The lines the board reads — `Аудит потрібен:`, `Відповідь:` — are written as they are.

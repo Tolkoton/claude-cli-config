@@ -40,10 +40,10 @@ green tests — is the case a blind tester exists for.
 Nothing is tuned to the result: a scene that did not go as hoped is recorded as it is. Eight
 runs show a coarse difference between the arms, not a fine one.
 
-PAID RUNS. As in run_analyst_evals.py: sessions start only when the task in tasks/doing/ has the
-owner's «Платні прогони: так» line, or the owner runs this by hand with --owner-approved (which
-does not count inside a Claude Code session). No dollar number is required; one in that line, or
---max-usd, is a ceiling (the smaller of the two) the runs stop before.
+EXTRA SESSIONS (board 078). The sessions this starts are ordinary work, like a test: no leave is
+asked for. Each one is booked to the task in hand (.claude/state/board/extra-sessions.jsonl;
+board_state.py) so the runner's summary and the owner's review show where the limit goes.
+--max-usd is a ceiling the runs stop before; --owner-approved is still accepted, and changes nothing.
 
 THE PROPERTY SET (board 063, the spike of the design of board 048): `--set property`.
 
@@ -459,20 +459,17 @@ def main() -> int:
             (args.dry_run / f"prompt-{name}-{arm}.txt").write_text(prompt(expected[name], arm), encoding="utf-8")
         print(f"{len(dict.fromkeys(todo))} prompts and sandboxes in {args.dry_run}; nothing was run")
         return 0
-    refusal = analyst.paid.paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
-    if refusal:
-        print(refusal, file=sys.stderr)
-        return 2
-    limit = analyst.dollar_limit(args.tasks_dir, args.max_usd)
+    limit = args.max_usd
     runs: list[JsonObj] = []
     with tempfile.TemporaryDirectory(prefix="engine-tester-eval-") as tmp:
         for name, arm in todo:
-            stop = analyst.paid.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            stop = analyst.shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
             if stop:
                 print(stop)
                 break
             row = one_run(name, arm, expected[name], Path(tmp), args)
             runs.append(row)
+            analyst.shared.book_session(args.tasks_dir, "run_tester_evals", row.get("cost_usd", 0.0))
             line = row.get("error") or f"{shown(row)} — {row['observed']}" + (f" | {row['code_observed']}" if "code" in row else "")
             line += f" | {row['test_count']} tests, trap calls {row.get('trap_calls', '—')}" + (f", search {row['search']}" if "search" in row else "") if "test_count" in row else ""
             print(f"{name} {arm}: {line}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})", flush=True)

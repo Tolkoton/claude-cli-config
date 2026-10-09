@@ -23,10 +23,9 @@ false findings. Nothing is tuned to the result.
 The fixture cases are judged on evals/reference-project + scenarios/simplifier/project + scenarios/
 second-opinion/project; the engine cases on this repository as it was at `engine_commit`.
 
-PAID RUNS. As run_simplifier_evals.py: only on the owner's «Платні прогони: так» line in the task
-in tasks/doing/ (no dollar number needed), or the owner's --owner-approved outside a session. Without the key
-(GEMINI_API_KEY_SIMPLIFIER) nothing starts at all: half a measurement is not a measurement.
-A number in that line, or --max-usd, is a ceiling the runs stop before; a run that was cut short is not in the summary.
+EXTRA SESSIONS (board 078). As in run_simplifier_evals.py: no leave is asked for, and every Claude session is
+booked to the task in hand. Without the key (GEMINI_API_KEY_SIMPLIFIER) nothing starts at all: half a measurement
+is not a measurement. --max-usd is a ceiling the runs stop before; a run that was cut short is not in the summary.
 
 Standard library only, Python 3.12+.
 """
@@ -188,15 +187,14 @@ def main() -> int:
             chars = sum(len(r["prompt"]) for r in requests)
             print(f"\n{len(requests)} cases, {chars} characters of request in all (about {chars // 4} tokens per judge per run)")
             return 0
-        refusal = fixture.paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
         key = os.environ.get(second.KEY_VAR, "").strip()
-        refusal = refusal or (second.refusal(config, key) and f"nothing started — {second.refusal(config, key)}. The measurement needs both judges.")
+        refusal = second.refusal(config, key) and f"nothing started — {second.refusal(config, key)}. The measurement needs both judges."
         if refusal:
             print(refusal, file=sys.stderr)
             return 2
         empty = Path(tmp) / "empty"
         empty.mkdir()
-        limit = fixture.dollar_limit(args.tasks_dir, args.max_usd)
+        limit = args.max_usd
         runs: list[JsonObj] = []
         spent = 0.0
         for number in range(1, args.runs + 1):
@@ -209,6 +207,8 @@ def main() -> int:
                         break
                     answer, cost, error = ask_gemini(row["prompt"], config, key) if judge == "gemini" else ask_claude(row["prompt"], args, empty)
                     spent += cost
+                    if judge != "gemini":
+                        fixture.book_session(args.tasks_dir, "run_second_opinion_evals", cost)
                     opinion = second.no_opinion(error) if error else second.checked(answer, row["sent"])
                     case = row["case"]
                     run["answers"].append({"case": case["id"], "truth": case["truth"], "kind": case["kind"], "judge": judge,

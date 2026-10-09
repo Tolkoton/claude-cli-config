@@ -125,28 +125,28 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the contract carries the mark the script reads, and the facts carry the same line",
           "(threshold owner-ratified)" in contract and runner.facts_of(data, "discount-threshold")["ratified_thresholds"][0] in contract)
 
-print("paid runs: only with the owner's line, never past its number")
+print("board 078: no leave for the sessions; the run's own ceiling stands, each session is booked")
 with tempfile.TemporaryDirectory() as tmp:
     tasks = Path(tmp) / "tasks"
     (tasks / "doing").mkdir(parents=True)
     (tasks / "doing/062-x.md").write_text("# 062\n\nАудит потрібен: ні\n", encoding="utf-8")
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDECODE": "1"}
+    books = Path(tmp) / "books"
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)}
     shim = Path(tmp) / "claude"
     shim.write_text(f"#!/bin/sh\necho started >> {tmp}/started\n", encoding="utf-8")
     shim.chmod(0o755)
     base = [sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim)]
-    r = subprocess.run([*base, "--owner-approved"], capture_output=True, text=True, env=env, check=False)
-    check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
-          r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/062-x.md").write_text("# 062\n\nПлатні прогони: так, до 5 доларів.\n", encoding="utf-8")
     r = subprocess.run([*base, "--max-usd", "0.5"], capture_output=True, text=True, env=env, check=False)
-    check("with the line, a limit smaller than one run starts nothing", "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
+    check("board 078: a task with no line is not refused — only the run's own ceiling stops it: under one run, nothing starts",
+          "refusing" not in r.stderr and "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
     answer = json.dumps(ideal("discount-threshold") | {"reason": "a ratified threshold"})
     shim.write_text(f"#!/bin/sh\necho \"$@\" >> {tmp}/started\ncat <<'EOF'\n" + json.dumps({"total_cost_usd": 3, "result": answer}) + "\nEOF\n", encoding="utf-8")
-    r = subprocess.run([*base, "--max-usd", "50", "--max-usd-per-run", "3"], capture_output=True, text=True, env=env, check=False)
+    r = subprocess.run([*base, "--max-usd", "5", "--max-usd-per-run", "3"], capture_output=True, text=True, env=env, check=False)
     started = (Path(tmp) / "started").read_text(encoding="utf-8")
-    check("the task's 5 dollars cap a larger --max-usd: after a run of 3 dollars the second is not started",
+    check("--max-usd 5: after a run of 3 dollars the second is not started",
           started.count("\n") == 1 and "the limit is $5.00" in r.stdout and r.returncode == 1, r.stdout + r.stderr)
+    booked = [json.loads(line) for line in (books / "extra-sessions.jsonl").read_text(encoding="utf-8").splitlines()] if (books / "extra-sessions.jsonl").is_file() else []
+    check("…and the one session it started is booked to the task in hand", [(b["task"], b["tool"], b["cost_usd"]) for b in booked] == [("062-x", "run_manager_evals", 3.0)], booked)
     check("the session runs as the agent test-manager with the launch line and read-only tools",
           f"-p TESTING_REQUEST {runner.REQUEST_ID} --agent test-manager --tools Read Grep Glob" in started, started)
     check("the one scene that ran is scored", "discount-threshold: passed — tester" in r.stdout, r.stdout)

@@ -86,12 +86,12 @@ gate in `/plan-slice` or `/feature-architect` becomes a park. Everything above h
 modes, Article 5 included — unattended never means "decide it anyway". Unattended
 work runs through the task board only (below); detail: `.claude/references/unattended.md`.
 
-## The task board and paid runs
+## The task board and extra sessions
 Work arrives as files in `tasks/` (`tasks/README.md`): take the first `todo/` task with its
 dependencies in `done/`, move it to `doing/` in its own commit, end in `done/NNN-name/` with
-`report.md` — or in `blocked/` with a question for the owner. A paid run (audit included) only when
-the task says so: `Аудит потрібен: так` or `Платні прогони: так`. Full tests once, at its end.
-Quality over price: a task carries no dollar limit — paid runs take what an honest result needs;
+`report.md` — or in `blocked/` with a question for the owner. Extra Claude sessions (evals, critics,
+measurements) are ordinary work; the overseer's audit run needs `Аудит потрібен: так`. Full tests once.
+Quality over price: a task carries no dollar limit — sessions take what an honest result needs;
 only the runner's `BOARD_MAX_USD` guards a loop (it parks the task with a question). Wherever the
 owner reads, technical terms stay English (overseer, slice, gates, runner…): `unattended.md`.
 

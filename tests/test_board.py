@@ -690,7 +690,7 @@ print("the rules for the agent")
 seed = " ".join((ROOT / "templates/project/tasks/README.md").read_text(encoding="utf-8").split())
 here = " ".join((ROOT / "tasks/README.md").read_text(encoding="utf-8").split())
 short = (ROOT / ".claude/engine-rules.md").read_text(encoding="utf-8")
-short = short[short.index("## The task board and paid runs"):short.index("## Constitution")]
+short = short[short.index("## The task board and extra sessions"):short.index("## Constitution")]
 MANUAL = {
     "which task: the first in todo/ with its dependencies in done/": ("першу в черзі задачу з `todo/`", "залежності вже в `done/`"),
     "…moved to doing/ in a commit of its own — or already there when the runner started you": ("окремим commit-ом", "вже лежить задача"),
@@ -718,8 +718,8 @@ MANUAL = {
         "Задачу з присутнім власником сам не бери"),
     "the owner's answers go first; an attended task in doing/ does not stop the runner (board 049)": (
         "## Відповіді власника — першими", "першою після поточної", "`tasks/.first`", "у роботі з власником", "бере наступні задачі"),
-    "paid runs only on the owner's written word": ("Аудит потрібен: так", "Платні прогони: так", "Агент сам таких прогонів не починає"),
-    "the paid-run scripts refuse by themselves; --owner-approved is the owner's": ("перевіряють це самі: відмовляють", "--owner-approved"),
+    "board 078: extra sessions are ordinary work, booked per task; the audit run stays the owner's": (
+        "## Додаткові сесії Claude", "Окремої згоди на них не треба", "extra-sessions.jsonl", "Аудит потрібен: так", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),
 }
 for rule, phrases in MANUAL.items():
@@ -728,13 +728,14 @@ for rule, phrases in MANUAL.items():
 check("this repository's manual carries every rule of the seed (it may only have grown)",
       all(ph in here for phrases in MANUAL.values() for ph in phrases))
 SHORT = ("`tasks/README.md`", "`todo/`", "dependencies in `done/`", "`doing/` in its own commit", "`done/NNN-name/`", "`report.md`",
-         "`blocked/`", "question for the owner", "paid run", "audit included", "`Аудит потрібен: так`", "`Платні прогони: так`", "Full tests once")
+         "`blocked/`", "question for the owner", "Extra Claude sessions", "ordinary work", "`Аудит потрібен: так`", "Full tests once")
 check("the engine's standing rules say it briefly", all(ph in short for ph in SHORT), [ph for ph in SHORT if ph not in short])
 check("…in at most eight lines (board 053: the owner's two rules in three of them)", len(short.strip().splitlines()) <= 8, len(short.strip().splitlines()))
 agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8") + (ROOT / "templates/project/AGENTS.md").read_text(encoding="utf-8")
 check("both AGENTS.md files name tasks/ among the key paths", agents.count("| `tasks/` |") == 2)
 evals_readme = (ROOT / "evals/README.md").read_text(encoding="utf-8")
-check("evals/README.md states the paid-run rule", "--owner-approved" in evals_readme and "Аудит потрібен: так" in evals_readme)
+check("evals/README.md states the audit rule, and that the other evals need no leave (board 078)",
+      "--owner-approved" in evals_readme and "Аудит потрібен: так" in evals_readme and "need no leave since board 078" in evals_readme)
 limits = (ROOT / "docs/engine-limits.md").read_text(encoding="utf-8")
 check("docs/engine-limits.md says what the gate and the runner do not guarantee", "seat belt, not a lock" in limits and "BOARD_MAX_USD" in limits)
 

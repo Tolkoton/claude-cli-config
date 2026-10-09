@@ -351,9 +351,8 @@ def run_main(module: Any, *argv: str) -> int:
 def board_cases() -> None:
     print("board.py")
     board = load(".claude/unattended/board.py")
-    leave = {text: board.paid_leave(f"Платні прогони: {text}\n") for text in ("так", "так, до 0,5 долара", "так, до 1 долара", "так, до 0 доларів")}
-    check("a ceiling under one dollar is a ceiling; only zero is no leave",
-          list(leave.values()) == [(True, None), (True, 0.5), (True, 1.0), (False, None)], leave)
+    task = board.parse("# 010\n\nАудит потрібен: так\nПлатні прогони: так, до 0,5 долара\n")
+    check("board 078: an old «Платні прогони:» line is ignored, the audit line read as ever", task.audit and not hasattr(task, "paid"), task)
     root = scratch()
     for folder in ("todo", "doing", "blocked", "done"):
         (root / "tasks" / folder).mkdir(parents=True)
@@ -626,8 +625,80 @@ def costs_cases() -> None:
           state.daily({"014-dip": {"attempts": dipped}}, date(2026, 10, 9))[0])
 
 
+def extra_cases() -> None:
+    """board 078: every extra session of Claude is booked to the task in hand and shown with it."""
+    print("board_state.py: the extra sessions (board 078)")
+    state = load(".claude/unattended/board_state.py")
+    box = scratch()
+    tasks_dir = box / "tasks"
+    for column in ("todo", "doing", "blocked", "done"):
+        (tasks_dir / column).mkdir(parents=True)
+    (tasks_dir / "doing" / "078-a.md").write_text("# 078\n\nАудит потрібен: ні\n", encoding="utf-8")
+    books = box / "books"
+    saved = os.environ.get("BOARD_STATE_DIR")
+    os.environ["BOARD_STATE_DIR"] = str(books)
+    try:
+        state.book_extra(tasks_dir, "run_simplifier_evals", 0.5)
+        state.book_extra(tasks_dir, "run_tester_evals", 0.25)
+        (tasks_dir / "doing" / "079-b.md").write_text("# 079\n", encoding="utf-8")
+        state.book_extra(tasks_dir, "run_manager_evals", 1.0)   # two tasks of this side in doing/: nobody's
+        state.book_extra(box / "no-such-board", "run_analyst_evals", 2.0)   # no board at all: by hand
+    finally:
+        if saved is None:
+            os.environ.pop("BOARD_STATE_DIR", None)
+        else:
+            os.environ["BOARD_STATE_DIR"] = saved
+    rows = [json.loads(line) for line in (books / state.EXTRA_FILE).read_text(encoding="utf-8").splitlines()]
+    check("each session is one line: the time, the task in hand, the tool, what it cost",
+          [(r["task"], r["tool"], r["cost_usd"]) for r in rows] == [("078-a", "run_simplifier_evals", 0.5), ("078-a", "run_tester_evals", 0.25),
+                                                                   ("", "run_manager_evals", 1.0), ("", "run_analyst_evals", 2.0)]
+          and all(r["utc"].endswith("Z") for r in rows), rows)
+    extra = state.extra_sessions(books)
+    check("they add up per task; sessions with no task in hand are kept apart", extra == {"078-a": (2, 0.75), "": (2, 3.0)}, extra)
+    saved = os.environ.pop("BOARD_STATE_DIR", None)
+    try:
+        (tasks_dir / "doing" / "079-b.md").unlink()
+        state.book_extra(tasks_dir, "run_audit_scenarios", 0.2)
+        check("NEGATIVE — with no project's .claude/ beside the board (a fixture), nothing is booked and no .claude/ is made",
+              not (box / ".claude").exists())
+        (box / ".claude").mkdir()
+        state.book_extra(tasks_dir, "run_audit_scenarios", 0.2)
+        beside = box / ".claude" / "state" / "board" / state.EXTRA_FILE
+        check("…with one, the session is booked in its .claude/state/board/",
+              beside.is_file() and json.loads(beside.read_text(encoding="utf-8"))["task"] == "078-a", beside)
+    finally:
+        if saved is not None:
+            os.environ["BOARD_STATE_DIR"] = saved
+    (books / state.EXTRA_FILE).open("a", encoding="utf-8").write("not json\n")
+    check("NEGATIVE — a broken line is stepped over, the sums stand", state.extra_sessions(books) == extra)
+    report = state.report({"tasks": {"078-a": {"cost_usd": 4.0, "attempts": [{}], "outcome": "done"}}, "total_cost_usd": 4.0},
+                          extra=extra | {"080-owner": (1, 0.1)})
+    check("the runner's summary shows each task's extra sessions after its own cost",
+          "078-a: 4.00 USD, 1 attempt(s), done, додаткових сесій Claude: 2 (0.75 USD)" in report, report)
+    check("…a task the runner never ran (a session with the owner) and the sessions started by hand on lines of their own",
+          "080-owner: додаткових сесій Claude: 1 (0.10 USD) (сесія з власником)" in report
+          and "без задачі (запуск руками): додаткових сесій Claude: 2 (3.00 USD)" in report, report)
+    check("NEGATIVE — a task with no extra session says nothing of them",
+          not any("додаткових" in line for line in state.report({"tasks": {"001-x": {"cost_usd": 1.0}}, "total_cost_usd": 1.0})), "")
+    (books / "costs.json").write_text(json.dumps({"tasks": {"078-a": {"cost_usd": 4.0, "attempts": []}}, "total_cost_usd": 4.0}), encoding="utf-8")
+    said = subprocess.run([sys.executable, str(ROOT / ".claude/unattended/board_state.py"), str(books), "report"],
+                          capture_output=True, text=True, check=False)
+    check("`board_state.py <dir> report` reads the books beside costs.json", said.returncode == 0 and "додаткових сесій Claude: 2 (0.75 USD)" in said.stdout,
+          said.stdout + said.stderr)
+    sys.path.insert(0, str(ROOT / ".claude/unattended"))
+    review = load(".claude/unattended/board_review.py")
+    state_root = box / "state"
+    (state_root / "board").mkdir(parents=True)
+    (state_root / "board" / state.EXTRA_FILE).write_text((books / state.EXTRA_FILE).read_text(encoding="utf-8"), encoding="utf-8")
+    costs = review.task_costs(state_root)
+    check("the review takes the extra sessions into each task's costs", costs.get("078-a", {}).get("extra") == (2, 0.75), costs)
+    check("…and says them in the owner's words", review.extra_line(costs["078-a"]) == " Додаткових сесій Claude (evals, виміри): 2, $0.75.", review.extra_line(costs["078-a"]))
+    check("NEGATIVE — no extra session, no words", review.extra_line({"cost_usd": 1.0}) == "")
+
+
 def main() -> int:
     costs_cases()
+    extra_cases()
     engine_cases()
     gate_cases()
     board_cases()

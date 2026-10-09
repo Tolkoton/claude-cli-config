@@ -24,10 +24,10 @@ script with testing.py's own validator:
 A scene passes when it is matched and names the fact. A scene that does not pass is recorded
 as it is — it is work on the manager's definition, not something to rerun until green.
 
-PAID RUNS. Refused unless the board task in tasks/doing/ carries the owner's «Платні прогони: так»
-line, or the owner runs this by hand with --owner-approved (which does not count inside a Claude
-Code session). No dollar number is required; one in that line, or --max-usd, is a ceiling (the
-smaller of the two), and the run stops BEFORE a session that could pass it.
+EXTRA SESSIONS (board 078). The sessions this starts are ordinary work, like a test: no leave is
+asked for. Each one is booked to the task in hand (.claude/state/board/extra-sessions.jsonl;
+board_state.py) so the runner's summary and the owner's review show where the limit goes.
+--max-usd is a ceiling the runs stop before; --owner-approved is still accepted, and changes nothing.
 
 Standard library only, Python 3.12+.
 """
@@ -226,15 +226,11 @@ def main() -> int:
             build_sandbox(args.dry_run / name, data, name)
         print(f"{len(args.scenes)} sandboxes in {args.dry_run}; nothing was run")
         return 0
-    refusal = analyst.paid.paid_run_refusal(args.tasks_dir, args.owner_approved, bool(os.environ.get("CLAUDECODE")))
-    if refusal:
-        print(refusal, file=sys.stderr)
-        return 2
-    limit = analyst.dollar_limit(args.tasks_dir, args.max_usd)
+    limit = args.max_usd
     runs: list[JsonObj] = []
     with tempfile.TemporaryDirectory(prefix="engine-manager-eval-") as tmp:
         for name in args.scenes:
-            stop = analyst.paid.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            stop = analyst.shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
             if stop:
                 print(stop)
                 break
@@ -242,6 +238,7 @@ def main() -> int:
             if "error" not in row:
                 row |= score(row["answer"], data, name)
             runs.append(row)
+            analyst.shared.book_session(args.tasks_dir, "run_manager_evals", row.get("cost_usd", 0.0))
             said = row.get("error") or f"{'passed' if row['passed'] else 'NOT passed'} — {row.get('shown')}" + (f" [differs: {'; '.join(row['differs'])}]" if row["differs"] else "")
             print(f"{name}: {said}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})", flush=True)
     report: JsonObj = {

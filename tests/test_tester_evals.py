@@ -82,26 +82,26 @@ TRAP = {
     "order": "def test_mismatch_wins_over_shortage():\n    with pytest.raises(ValueError, match='different SKUs'):\n        transfer(A, C, 9)\n",
 }
 
-print("paid runs: only with the owner's line, never past its number")
+print("board 078: no leave for the sessions; the run's own ceiling stands, each session is booked")
 with tempfile.TemporaryDirectory() as tmp:
     tasks = Path(tmp) / "tasks"
     (tasks / "doing").mkdir(parents=True)
     (tasks / "doing/061-x.md").write_text("# 061\n\nАудит потрібен: ні\n", encoding="utf-8")
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDECODE": "1"}
+    books = Path(tmp) / "books"
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)}
     shim = Path(tmp) / "claude"
     shim.write_text(f"#!/bin/sh\necho started >> {tmp}/started\n", encoding="utf-8")
     shim.chmod(0o755)
-    r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--owner-approved"], capture_output=True, text=True, env=env, check=False)
-    check("refused without a «Платні прогони:» line, and --owner-approved does not count in a session; no session started",
-          r.returncode == 2 and "refusing to start paid sessions" in r.stderr and not (Path(tmp) / "started").exists(), r.stderr)
-    (tasks / "doing/061-x.md").write_text("# 061\n\nПлатні прогони: так, до 10 доларів.\n", encoding="utf-8")
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--max-usd", "0.5"], capture_output=True, text=True, env=env, check=False)
-    check("with the line, a limit smaller than one run starts nothing", "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
+    check("a task with no line is not refused — only the run's own ceiling stops it: under one run, nothing starts",
+          "refusing" not in r.stderr and "cost limit" in r.stdout and not (Path(tmp) / "started").exists() and r.returncode == 1, r.stdout + r.stderr)
     shim.write_text(f"#!/bin/sh\necho started >> {tmp}/started\necho '{{\"total_cost_usd\": 6, \"result\": \"done\"}}'\n", encoding="utf-8")
-    r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--max-usd", "50", "--max-usd-per-run", "6", "--scenes", "boundary"],
+    r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--max-usd", "10", "--max-usd-per-run", "6", "--scenes", "boundary"],
                        capture_output=True, text=True, env=env, check=False)
     started = (Path(tmp) / "started").read_text(encoding="utf-8").count("started")
-    check("the task's 10 dollars cap a larger --max-usd: after a run of 6 dollars the second is not started", started == 1 and "the limit is $10.00" in r.stdout and r.returncode == 1, r.stdout + r.stderr)
+    check("--max-usd 10: after a run of 6 dollars the second is not started", started == 1 and "the limit is $10.00" in r.stdout and r.returncode == 1, r.stdout + r.stderr)
+    booked = [json.loads(line) for line in (books / "extra-sessions.jsonl").read_text(encoding="utf-8").splitlines()] if (books / "extra-sessions.jsonl").is_file() else []
+    check("…and the one session it started is booked to the task in hand", [(b["task"], b["tool"], b["cost_usd"]) for b in booked] == [("061-x", "run_tester_evals", 6.0)], booked)
     check("a session that wrote no test file is «no tests»", "boundary a: no_tests" in r.stdout, r.stdout)
     shim.write_text("#!/bin/sh\necho not json\n", encoding="utf-8")
     r = subprocess.run([sys.executable, str(RUNNER), "--tasks-dir", str(tasks), "--claude", str(shim), "--scenes", "boundary"], capture_output=True, text=True, env=env, check=False)

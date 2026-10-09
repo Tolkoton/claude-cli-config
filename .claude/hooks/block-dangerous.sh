@@ -142,7 +142,7 @@ done
 
 # The owner's variable (board 056). CLAUDECODE is set in every shell an agent's tools start, and
 # by it the board runner, engine.py and the owner-only commands (promote, apply-settings, the
-# paid runs' --owner-approved, baseline record…) tell the owner's terminal from an agent. A
+# audit run's --owner-approved, baseline record…) tell the owner's terminal from an agent. A
 # command that clears or replaces it would speak with the owner's voice, so it is refused:
 # unset, `env -u`, `env -i`, an assignment of anything but 1 (before a command, with export or
 # declare), `export -n`, and inline code that pops, deletes or overwrites it. Reading it

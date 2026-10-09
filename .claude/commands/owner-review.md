@@ -90,8 +90,8 @@ to deliver instead of pretending they arrived.
   the inbox, below 800 (800 and up are rule questions and the gate's). A number that is already in `todo/` **replaces**
   that task — use it only when the owner wants that task rewritten;
 - fill `Залежить від:` and `## Що зробити` / `## Готово, коли` from what the owner said;
-  `Аудит потрібен: ні` unless the owner asked for the paid audit; a paid run needs the line
-  `Платні прогони: так` — no dollar limit, the owner's «так» is the leave; «спершу проєкт» when
+  `Аудит потрібен: ні` unless the owner asked for the paid audit; no other line is needed for
+  extra sessions (evals, measurements: board 078); «спершу проєкт» when
   the owner wants a design first; technical terms in English (`.claude/references/unattended.md`);
 - show the owner the text and write it once they agree.
 
