@@ -19,7 +19,8 @@ SCENES
   - the report's other parts by their VALUES, not their headings: the hot file is the one that
     both changes often and is complex (not the busy simple one, not the quiet complex one); the
     snapshot's counts and what went since the previous report; the open and the overdue debt;
-    the lesson queue and the waiting rule proposal; a task proposal for each;
+    the lesson queue, the waiting rule proposals (the PROPOSED ones only) and whether memory is due
+    a clean-up (board 743: each by its value, with its negative case); a task proposal for each;
   - an answer that is not «так» — the command is not called; inside a session — refused;
   - the list changed after the question — not called;
   - «так» — the command is called with exactly the list the owner saw: the patches as one group,
@@ -278,7 +279,10 @@ try:
                        "- 002-cart | open | recorded 2026-10-02 | due 2026-10-09 | commit def5678 | deferred: the test | follow-up: tasks/todo/012-followup.md\n"
                        "- 003-old | closed 2026-09-20 by 004 | recorded 2026-09-10 | due 2026-09-17 | commit 0a0a0a0 | deferred: the test | follow-up: tasks/done/009\n"),
                       (".engine/lesson-queue.md", "# queue\n- 2026-09-28 | gate | s1 | the first lesson #0000aaaa\n- 2026-10-01 | agent | s1 | the second lesson #0000bbbb\n"),
-                      (".engine/rule-proposals.md", "")):
+                      (".engine/rule-proposals.md", "# Rule proposals\n\n## RP-0000cccc — 2026-10-02 — PROPOSED\n- Rule: чекає\n\n"
+                       "## RP-0000ffff — 2026-10-03 — PROPOSED\n- Rule: теж чекає\n\n"
+                       # the states lesson_queue.py closes a proposal with: APPROVED (promote) and REJECTED (reject)
+                       "## RP-0000dddd — 2026-09-20 — APPROVED\n- Rule: уже правило\n\n## RP-0000eeee — 2026-09-21 — REJECTED\n- Rule: відхилено\n")):
         (w.repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (w.repo / rel).write_text(body, encoding="utf-8")
     w.commit("the project has a history")
@@ -308,6 +312,10 @@ try:
           "Закрити прострочений борг термінового виправлення `001-login` (строк 2026-10-01): tasks/todo/011-followup.md." in tasks_part and "002-cart" not in tasks_part, tasks_part)
     queue = part(rich, "Черга уроків")
     check("the lesson queue: how many and since when", "- кандидатів у черзі: 2, найстаріший від 2026-09-28" in queue, queue)
+    check("board 743: the rule proposals that wait for the owner — the two PROPOSED; NEGATIVE: the approved (promoted) and the rejected are not counted",
+          "- пропозицій правил, що чекають вашої відповіді: 2" in queue, queue)
+    check("board 743: NEGATIVE — two candidates and a clean-up clock that has just started: memory is not due, and no task is proposed for it",
+          "- прибирання пам'яті: ще не час" in queue and "Прибрати пам'ять" not in tasks_part, queue + tasks_part)
     (w.repo / ".engine/baseline.json").write_text(json.dumps({"schema": 1, "tests": ["tests/t.py::a"], "lint": {"app/hot.py": {"E501": 1}}, "types": {}}))
     (w.repo / ".engine/debt.md").write_text(w.text(".engine/debt.md").replace("- 001-login | open |", "- 001-login | closed 2026-10-08 by 013 |"))
     w.commit("a week of repairs")
@@ -318,6 +326,16 @@ try:
                                         "- прибрано з минулого звіту: 4")), snap)
     check("…and the debt that was closed is gone while the other, now past its term, is overdue",
           "Відкрито: 1 з 3; прострочено: 1." in debt and "001-login" not in debt + tasks_part and "ПРОСТРОЧЕНО — `002-cart`" in debt and "`002-cart`" in tasks_part, debt + tasks_part)
+    crowded = World()
+    (crowded.repo / ".engine").mkdir(exist_ok=True)
+    (crowded.repo / ".engine/lesson-queue.md").write_text("# queue\n" + "".join(f"- 2026-09-{10 + i:02d} | gate | s1 | lesson {i} #{i:08x}\n" for i in range(31)),
+                                                           encoding="utf-8")
+    crowded.commit("a long queue")
+    report = crowded.reported().text(".engine/maintain/2026-10-04.md")
+    queue, tasks_part = part(report, "Черга уроків"), part(report, "Пропозиції задач")
+    check("board 743: 31 candidates — memory is due, and the reason is said; no rule proposal waits (no file): 0",
+          "- прибирання пам'яті: час — 31 candidates in the queue (over 30)" in queue and "- пропозицій правил, що чекають вашої відповіді: 0" in queue, queue)
+    check("…and the clean-up is a task proposal, with the same reason", "Прибрати пам'ять і розібрати чергу уроків (31 candidates in the queue (over 30))." in tasks_part, tasks_part)
     empty = part(World().reported().text(".engine/maintain/2026-10-04.md"), "Гарячі місця")
     check("a project with none of this says so instead of inventing it", "- немає" in empty, empty)
 

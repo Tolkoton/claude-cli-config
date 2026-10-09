@@ -781,7 +781,7 @@ def golden_line(src: Source, state: Path) -> str:
             f"({newest[0] or 'час не записано'}): {met} із {len(newest[2])} сценаріїв відповідають очікуванням.")
 
 
-def health_section(src: Source, state: Path, costs: dict[str, dict[str, Any]], period: Since) -> list[str]:
+def health_section(src: Source, state: Path, costs: dict[str, dict[str, Any]], period: Since, now: datetime) -> list[str]:
     lines = [*test_run_lines(state), golden_line(src, state)]
     context = context_lines(src)
     if context:
@@ -790,6 +790,8 @@ def health_section(src: Source, state: Path, costs: dict[str, dict[str, Any]], p
         spent = period_costs(costs, period)
         lines.append(f"- Витрати за період, за записами runner-а: ${sum(c for _, c in spent):.2f}"
                      + (" — " + ", ".join(f"{name} ${cost:.2f}" for name, cost in spent) if spent else "") + ".")
+        lines.append("- Витрати за добу (UTC), за записами runner-а — темп; межі на добу немає:")   # board 106
+        lines += [f"  - {line}" for line in board_state.daily(costs, now.astimezone(UTC).date())]
     else:
         lines.append("- Витрати за період: записів runner-а (`costs.json`) тут немає; суми по задачах — у розділах «Витрати» їхніх звітів.")
     return lines
@@ -816,7 +818,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
                         ("Аномалії", anomalies_section(src, period, now)),
                         ("План", plan_section(src)),
                         ("Кандидати в нові задачі", candidates_section(src, stems, period)),
-                        ("Здоров'я", health_section(src, state, costs, period))):
+                        ("Здоров'я", health_section(src, state, costs, period, now))):
         lines += [f"## {title}", "", *body, ""]
     lines += ["---", f"Наступний огляд — лише нове після цього: `python3 .claude/unattended/board.py review --since {src.sha[:12]}`"]
     return "\n".join(lines) + "\n"

@@ -50,7 +50,10 @@ A release is a full audit without regressions, green tests, an identical golden 
 `stable`. The audit is paid, so the release never runs it — but it does not let it be forgotten.
 The last full audit is the record `evals/baseline/*/audit-*.json` with `"tier": "full"` and
 `"status": "complete"` whose `recorded_utc` is the latest and whose `engine_commit` this
-repository has; a smoke run and a run that stopped half way do not count. `evals/needs_audit.py`
+repository has; a smoke run and a run that stopped half way do not count, nor a record whose
+runs are all there and not one of them gave a verdict — every session failed, as the 401 recording
+of 2026-10-06 (board 721); a refusal names such a record as not counted when it is newer than the audit
+that counts. `evals/needs_audit.py`
 compares that commit with the work tree. When a text the model reads differs — its TEXT list or
 its MAYBE list of hook files — or when no such record exists, the release is refused before the
 suites run, with the changed files and the command to run:

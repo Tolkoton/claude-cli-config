@@ -235,10 +235,26 @@ try:
     odd = doc.stdout.split("\n## Аномалії")[1].split("\n## ")[0] if "\n## Аномалії" in doc.stdout else ""
     check("the review shows it in «Аномалії»", name in odd and "task board вільна" in odd, out(doc)[:900])
 
+    check("board 723: NEGATIVE — with a journal that can be written, no anomaly-failed event", "anomaly-failed" not in w.text(".claude/state/board/events.log"),
+          w.text(".claude/state/board/events.log"))
     r = w.runner("2026-10-05")
     check("NEGATIVE: the same day's next run places nothing and starts no agent", r.returncode == 0 and len(w.said("calls")) == 2 and sum(PLACED in s for s in w.subjects()) == 1 and "state=idle" in w.status(), out(r))
     r = w.runner("2026-10-06")
     check("the next day: once more, and once", w.tasks("done") == ["010-work", name, "012-cleanup-2026-10-06"] and len(w.said("calls")) == 3 and w.said("nightly") == ["nightly"] * 2, out(r) + str(w.subjects()))
+
+    w = World().task("todo", "010-work")
+    (w.repo / "tasks/ANOMALIES.md").mkdir()   # board 723: the journal cannot be written — a directory stands where the file goes
+    w.commit("the owner's task")
+    r = w.runner("2026-10-05")
+    name = "011-cleanup-2026-10-05"
+    log = w.text(".claude/state/board/events.log")
+    check("board 723: NEGATIVE — the journal cannot be written: events.log says so for the cleanup task it placed",
+          f"anomaly-failed cleanup-task tasks/todo/{name}.md" in log, log)
+    check("…the cleanup task is placed and committed all the same, and done; the board did not stop",
+          r.returncode == 0 and w.tasks("done") == ["010-work", name] and sum(PLACED in s for s in w.subjects()) == 1
+          and w.said("nightly") == ["nightly"] and "state=idle" in w.status() and "reason=todo-empty" in w.status(), out(r) + log)
+    check("…and it says nothing else: the journal stands where it stood, nothing is left uncommitted",
+          (w.repo / "tasks/ANOMALIES.md").is_dir() and w.dirty() == "", w.dirty())
 
     w = World().task("blocked", "030-asked", ask="1. Що?\n   Відповідь:\n")
     w.commit("a question waits")

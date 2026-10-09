@@ -14,6 +14,7 @@ copied in, and the synthetic repository records a complete full-tier audit of th
 releases, so a case changes a text the model reads — or the audit's record — to make it stale.
 """
 
+import importlib.util
 import json
 import os
 import shutil
@@ -318,6 +319,16 @@ def main() -> int:
         refused("a full audit that stopped half way does not count", repo,
                 (repo.audit("audit-partial.json", before["head"], status="partial", recorded_utc="2026-02-02T00:00:00Z"),
                  repo.release("v0.2.0", "--owner-approved"))[1], repo.state(), "full audit", checks_ran=False)
+        refused("board 721: a record the audit runner itself marked «no-verdicts» (board 014) does not count either", repo,
+                (repo.audit("audit-no-verdicts.json", before["head"], status="no-verdicts", recorded_utc="2026-02-02T06:00:00Z"),
+                 repo.release("v0.2.0", "--owner-approved"))[1], repo.state(), "full audit", checks_ran=False)
+        failed = [{"id": f"0{i}", "runs": [{"marker": None, "error": "session failed: Failed to authenticate. API Error: 401"}] * 3} for i in (1, 2)]
+        proc = (repo.audit("audit-401.json", before["head"], recorded_utc="2026-02-02T12:00:00Z", scenarios=failed),
+                repo.release("v0.2.0", "--owner-approved"))[1]
+        out = proc.stdout + proc.stderr
+        refused("board 721: a full audit «complete» in which no session gave a verdict does not count", repo, proc, repo.state(), "full audit", checks_ran=False)
+        check("…and the refusal names that record and says why it was not counted",
+              "not counted, because no session in them gave a verdict: evals/baseline/box/audit-401.json" in out and "audit-work.json" in out, out)
         refused("the bypass flag inside an agent session", repo,
                 repo.release("v0.2.0", "--owner-approved", "--without-audit", session=True), repo.state(), "CLAUDECODE", checks_ran=False)
         check("bypass in a session: nothing written into the journal", repo.journal() == "")
@@ -325,12 +336,53 @@ def main() -> int:
         proc = repo.release("v0.2.0", "--owner-approved")
         check("a full audit of the new text: released", proc.returncode == 0 and "audit-again.json" in proc.stdout, proc.stdout + proc.stderr)
 
+        print("board 721: one verdict among sessions that failed is a measurement")
+        repo = fresh(base, "one-verdict")
+        commit(repo.work, "a reworded skill", SKILL)
+        before = repo.state()
+        repo.audit("audit-older-401.json", before["head"], recorded_utc="2025-12-31T00:00:00Z",
+                   scenarios=[{"id": "01", "runs": [{"marker": None, "error": "session failed: 401"}] * 3}])
+        proc = repo.release("v0.2.0", "--owner-approved")
+        out = proc.stdout + proc.stderr
+        refused("board 721: a record with no verdict, older than the last full audit — refused for the changed text alone", repo, proc,
+                repo.state(), "audit-work.json", checks_ran=False)
+        check("NEGATIVE — …and that older record is not named: it would not have been the last full audit anyway",
+              "audit-older-401.json" not in out and "not counted" not in out, out)
+        # the one verdict is neither in the first scenario nor in the last or the first run of its own
+        mixed = [{"id": "01", "runs": [{"marker": None, "error": "session failed: 401"}] * 3},
+                 {"id": "02", "runs": [{"marker": None, "error": "session failed: 401"}, {"marker": "PASS"}, {"marker": None}]},
+                 {"id": "03", "runs": [{"marker": None}] * 3}]
+        repo.audit("audit-mixed.json", before["head"], recorded_utc="2026-02-03T00:00:00Z", scenarios=mixed)
+        proc = repo.release("v0.2.0", "--owner-approved")
+        check("a full audit with one verdict among failed sessions counts: released, measured from it",
+              proc.returncode == 0 and "audit-mixed.json" in proc.stdout and "not counted" not in proc.stdout, proc.stdout + proc.stderr)
+
+        print("board 721: the records in this repository")
+        spec = importlib.util.spec_from_file_location("engine_for_721", ROOT / "engine.py")
+        assert spec is not None and spec.loader is not None
+        engine = importlib.util.module_from_spec(spec)
+        sys.modules["engine_for_721"] = engine
+        spec.loader.exec_module(engine)
+        recorded = ROOT / "evals/baseline/linux-ubuntu-22.04"
+        refused_login = json.loads((recorded / "audit-v0.12.0-release.json").read_text(encoding="utf-8"))
+        measured = json.loads((recorded / "audit-v0.12.0.json").read_text(encoding="utf-8"))
+        check("the operator's recording of 2026-10-06 (every session refused, status «complete») holds no verdict",
+              refused_login.get("status") == "complete" and engine.holds_no_verdict(refused_login))
+        check("NEGATIVE — the v0.12.0 audit of 2026-10-03, with its verdicts, is a measurement", not engine.holds_no_verdict(measured))
+        check("NEGATIVE — a record with no runs at all is not «no verdict» (the audit runner's own rule since board 014: it writes such a file complete)",
+              not engine.holds_no_verdict({"tier": "full", "status": "complete", "scenarios": [{"id": "01", "runs": []}]})
+              and not engine.holds_no_verdict({"tier": "full", "status": "complete"}))
+
         print("no full audit at all")
         repo = fresh(base, "no-audit")
         git(repo.work, "rm", "-q", "evals/baseline/box/audit-work.json")
         git(repo.work, "commit", "-q", "-m", "the audit's record is gone")
         before = repo.state()
         refused("no full audit recorded", repo, repo.release("v0.2.0", "--owner-approved"), before, "full audit", checks_ran=False)
+        repo.audit("audit-only-401.json", repo.head, scenarios=[{"id": "01", "runs": [{"marker": None}]}])
+        proc = repo.release("v0.2.0", "--owner-approved")
+        refused("board 721: the only full audit holds no verdict — refused as having none", repo, proc, repo.state(), "no complete full audit", checks_ran=False)
+        check("…and it says which record did not count", "audit-only-401.json" in proc.stdout + proc.stderr, proc.stdout + proc.stderr)
 
         print("the owner's bypass: released, and written into the journal")
         repo = fresh(base, "bypass")

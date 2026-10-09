@@ -43,6 +43,7 @@ The paths every session needs are the table in `AGENTS.md`. These are the rest.
 
 | Path | What it is |
 |---|---|
+| `docs/ARCHITECTURE.md` | How the parts connect: the roles, the levels, one task's and one slice's way, the hooks by event (Ukrainian, for the owner) |
 | `.claude/ownership.txt` | Who owns every path: engine, project, machine, user (read by engine.py) |
 | `templates/project/` | The seeds a new project starts from (CLAUDE.md, AGENTS.md, records) |
 | `user/` | The owner's own skills and settings layer. Never ships. |

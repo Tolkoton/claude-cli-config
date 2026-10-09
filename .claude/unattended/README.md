@@ -109,7 +109,10 @@ it cannot work past: a pull that conflicts (`reason=pull-conflict`), claude logg
 What to read, in `.claude/state/board/`: `status` (one line: `state=… task=… since=<UTC>
 [reason=…]`), `events.log`, `costs.json`, `summary.md`, `logs/`. The numbers and paths are
 environment variables listed at the head of the script. `board.py` is the board's one reader
-(`next`, `summary`, …); `board_state.py` keeps what the runner remembers about each task.
+(`next`, `summary`, …); `board_state.py` keeps what the runner remembers about each task, and its
+`report` — the summary's «Витрати» — also says what every UTC day cost: the day in progress and the
+seven before it, a day with nothing spent at 0.00, an attempt recorded without a time on a line of its
+own (board 106). No limit is set per day; `BOARD_MAX_USD` per task is as it was.
 
 The owner's review — `python3 .claude/unattended/board.py review [--since <commit|date>]` — is
 one markdown document about the work branch as origin has it (`board_review.py`). It writes

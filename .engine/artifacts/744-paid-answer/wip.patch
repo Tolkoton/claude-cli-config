@@ -1,0 +1,311 @@
+diff --git a/.claude/unattended/board-runner.sh b/.claude/unattended/board-runner.sh
+index 215dcb1..e7a07e1 100755
+--- a/.claude/unattended/board-runner.sh
++++ b/.claude/unattended/board-runner.sh
+@@ -506,6 +506,9 @@ intake() {
+     board_commit "board: answered, back to todo — $(echo "$answered" | tr '\n' ' ')" \
+       || finish error - commit "cannot commit the answered tasks"
+   fi
++  # board 744: what unblock wrote and did not move — the note under a leave written in an answer
++  board_commit "board: «Платні прогони: так» stands in an answer, where it opens nothing — the owner is asked to put it in the header" \
++    || finish error - commit "cannot commit the board's note about a paid-run leave"
+   placed=$(board maintain-task) || finish error - maintain "board.py maintain-task failed"
+   if [ -n "$placed" ]; then
+     event "maintain-task $placed"
+diff --git a/.claude/unattended/board.py b/.claude/unattended/board.py
+index 096c5de..24e7807 100755
+--- a/.claude/unattended/board.py
++++ b/.claude/unattended/board.py
+@@ -22,7 +22,9 @@ exception reads only: `review` takes the board from the work branch in origin (b
+                                      of the same side: see AN ATTENDED TASK)
+     board.py where <NNN-name>        todo | doing | blocked | done | missing
+     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
+-    board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
++    board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/ — but
++                                     one whose answer says «Платні прогони: так» while its header gives
++                                     no leave stays, with a question how to give it (A LEAVE IN AN ANSWER)
+     board.py audit-allowed           exit 0 only when this session's task in doing/ asks for the audit
+     board.py gate-answers            the gate's questions in blocked/ that the owner answered
+                                      «так»: one `name<TAB>stamp<TAB>sha256` line each
+@@ -122,6 +124,17 @@ task is in hand» — the paid-run checks, the overseer's unit key, a hook's jou
+ its own side's (`own`, board 712): an agent alone the plain one, the owner's session the attended
+ one, or the plain one when no attended task is there.
+ 
++A LEAVE IN AN ANSWER (board 744). The owner's leave for paid runs is read from one line in the
++task's header and nowhere else, so «Платні прогони: так» written into an answer opens nothing; twice
++such a task went back to the queue, the run was refused, and the same question came back. Now
++`unblock` keeps such a task in blocked/ (an answer written after the last such note says it, and the
++header still has no leave) and appends one more question — the board's note: what to do with the
++header (add the line; or change the one there, «ні» → «так», since a template task has one already
++and two lines are no leave; or keep one of several), «додано» when it is done, «без них» when no paid
++run is wanted. «додано» while the header still gives no leave brings a new note, saying what is wrong
++with it; any other answer returns the task to the agent, without leave. The board never writes the
++leave itself: the line in the header stays the owner's.
++
+ THE OWNER'S ANSWERS FIRST (board 049). A task the owner has just answered does not go to the end
+ of the queue, whatever its number — a gate question is numbered from 900. `unblock` appends the
+ names it returns to todo/ to `tasks/.first`, one per line; `next` takes the tasks named there
+@@ -201,6 +214,8 @@ GATE = re.compile(r"^Ескалація (?:gates|воріт):\s*(\S+)", re.MULTI
+ COUNT_WORDS = {2: "двох", 3: "трьох"}
+ GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
+ CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
++PAID_ANSWER = re.compile(r"Платні прогони:[\s*_`]*так(?!\w)", re.IGNORECASE)   # the leave, written in an answer (board 744)
++PAID_NOTE = "Примітка task board про платні прогони"
+ # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
+ # question (the `Ескалація gates:` line), the rest by an action line.
+ OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "update-deps", "close-escalation")
+@@ -566,12 +581,56 @@ def duplicates(board: Board) -> list[str]:
+     return duplicate_lines({c: [p.name for p in (board.done() if c == "done" else board.files(c))] for c in COLUMNS})
+ 
+ 
++def leave_problem(task: Task) -> str:
++    """Why the board keeps an answered task in blocked/ over a leave for paid runs (A LEAVE IN AN
++    ANSWER), or "": `answer` — «Платні прогони: так» stands in an answer written after the board's
++    last note; `added` — the owner answered the last note «додано», yet the header still gives no
++    leave. Never when the header gives it."""
++    if task.paid:
++        return ""
++    noted, _, after_note = task.questions.rpartition(PAID_NOTE)
++    answers = [a.strip() for a in ANSWER.findall(after_note)]
++    if noted and answers and is_word(answers[-1], "додано"):
++        return "added"
++    return "answer" if any(PAID_ANSWER.search(answer) for answer in answers) else ""
++
++
++def where_leave_goes(header: str) -> str:
++    """What to do with the header for the leave to be read: add the line, change the one there, or
++    keep one of several — the guard reads exactly one line (`paid_leave`)."""
++    lines = [m.group(1).strip() for m in PAID.finditer(header)]
++    if not lines:
++        return "допишіть угорі цієї задачі, під «Аудит потрібен:», окремий рядок `Платні прогони: так`"
++    if len(lines) == 1:
++        return (f"угорі цієї задачі вже стоїть рядок `Платні прогони: {lines[0]}` — замініть у ньому «{lines[0]}» на «так»; "
++                "другого такого рядка не дописуйте")
++    return f"угорі цієї задачі рядків «Платні прогони:» — {len(lines)}, а дозвіл читається лише з одного: лишіть один, `Платні прогони: так`"
++
++
++def leave_note(path: Path, task: Task, problem: str) -> None:
++    """The board's question under such an answer: what to do with the header, and what to answer."""
++    text = path.read_text(encoding="utf-8").rstrip("\n")
++    first = HEADING.search(COMMENT.sub("", text))
++    header = COMMENT.sub("", text)[: first.start()] if first else text
++    said = ("ви відповіли «додано», але вгорі задачі дозволу на платні прогони досі немає" if problem == "added" else
++            "у відповіді вище стоїть «Платні прогони: так», але згоду на платні прогони task board читає лише з рядка вгорі "
++            "задачі, — у відповіді вона нічого не відкриває")
++    path.write_text(text + f"\n{len(task.answers) + 1}. {PAID_NOTE}: {said}, тому задача не повернулась у чергу. Якщо це згода — "
++                    f"{where_leave_goes(header)} і напишіть тут «додано». Якщо платних прогонів не треба — напишіть тут «без них» "
++                    "(будь-яка інша відповідь теж поверне задачу агентові, без дозволу). Решту ваших відповідей агент отримає, як є."
++                    "\n   Відповідь:\n", encoding="utf-8")
++
++
+ def unblock(board: Board) -> list[str]:
+     moved: list[str] = []
+     for path in board.files("blocked"):
+         task = read(path)
+         # A gate question answered «так» is closed by the runner, not handed to an agent;
+         # an offered action answered «так» waits for the runner to act on it first.
++        problem = leave_problem(task) if task.answered and not task.closes and not task.decided else ""
++        if problem:
++            leave_note(path, task, problem)
++            continue
+         if task.answered and not task.closes and not task.decided:
+             target = board.tasks / "todo" / path.name
+             target.parent.mkdir(parents=True, exist_ok=True)
+diff --git a/tasks/README.md b/tasks/README.md
+index b613c6d..b8e1489 100644
+--- a/tasks/README.md
++++ b/tasks/README.md
+@@ -58,6 +58,14 @@ property-based testing, mutation testing, spike, sandbox тощо. Рідкіс
+ поверне задачу в `todo/`. Відповісти можна у файлі в гілці або поклавши заповнений файл із тим
+ самим номером в inbox.
+ 
++Згода на платні прогони — не відповідь, а рядок угорі задачі («Платні прогони» нижче). Якщо ви
++написали «Платні прогони: так» у відповіді, а вгорі задачі такого рядка немає, task board задачу в
++чергу не повертає: дописує ще одне питання — «Примітка task board про платні прогони» — з тим, куди
++поставити рядок: якщо вгорі вже стоїть `Платні прогони: ні` (так у кожній задачі з шаблону), замініть «ні» на
++«так» — рядок має бути один; якщо рядка немає — допишіть його. Потім відповідайте «додано» (або «без них», якщо
++платних прогонів не треба). «додано», а дозволу вгорі так і немає, — нова примітка, що саме не так. Сам рядок
++task board ніколи не пише: це ваше слово.
++
+ Номер у колонці має бути один. Два файли з одним номером в одній колонці — помилка task board:
+ `python3 .claude/unattended/board.py check` (і `summary`, і огляд у «Стан зараз») показує її рядком
+ «ПОМИЛКА». Поки вона є, файл з inbox стосується лише файла з точно такою самою назвою; якщо такої
+diff --git a/templates/project/tasks/README.md b/templates/project/tasks/README.md
+index 52a2598..e2db0ab 100644
+--- a/templates/project/tasks/README.md
++++ b/templates/project/tasks/README.md
+@@ -58,6 +58,14 @@ property-based testing, mutation testing, spike, sandbox тощо. Рідкіс
+ поверне задачу в `todo/`. Відповісти можна у файлі в гілці або поклавши заповнений файл із тим
+ самим номером в inbox.
+ 
++Згода на платні прогони — не відповідь, а рядок угорі задачі («Платні прогони» нижче). Якщо ви
++написали «Платні прогони: так» у відповіді, а вгорі задачі такого рядка немає, task board задачу в
++чергу не повертає: дописує ще одне питання — «Примітка task board про платні прогони» — з тим, куди
++поставити рядок: якщо вгорі вже стоїть `Платні прогони: ні` (так у кожній задачі з шаблону), замініть «ні» на
++«так» — рядок має бути один; якщо рядка немає — допишіть його. Потім відповідайте «додано» (або «без них», якщо
++платних прогонів не треба). «додано», а дозволу вгорі так і немає, — нова примітка, що саме не так. Сам рядок
++task board ніколи не пише: це ваше слово.
++
+ Номер у колонці має бути один. Два файли з одним номером в одній колонці — помилка task board:
+ `python3 .claude/unattended/board.py check` (і `summary`, і огляд у «Стан зараз») показує її рядком
+ «ПОМИЛКА». Поки вона є, файл з inbox стосується лише файла з точно такою самою назвою; якщо такої
+diff --git a/tests/test_board.py b/tests/test_board.py
+index e9caecf..62abcc1 100755
+--- a/tests/test_board.py
++++ b/tests/test_board.py
+@@ -276,6 +276,133 @@ print("the owner's answers first")
+ FIRST = root / "tasks/.first"
+ check("unblock writes the answered task into tasks/.first", FIRST.read_text(encoding="utf-8").split() == ["004-full.md"], FIRST.read_text(encoding="utf-8") if FIRST.exists() else "(absent)")
+ shutil.rmtree(root, ignore_errors=True)
++
++# --- board 744: a leave for paid runs written in an answer opens nothing ------------------------
++print("a leave for paid runs written in an answer (board 744)")
++root = new_board()
++ASKED = "1. Дозволити платні прогони?\n   Відповідь: {}\n"
++TEMPLATE_HEAD = "Аудит потрібен: ні\nПлатні прогони: ні"   # every task made from tasks/TEMPLATE.md carries this line
++PAID_NOTE = "Примітка task board про платні прогони"
++
++
++def body_of(path: Path) -> str:
++    """The file's text, or "" when it is not there: a task that moved makes a check fail, not the suite crash."""
++    return path.read_text(encoding="utf-8") if path.is_file() else ""
++
++
++def answer_note(path: Path, answer: str) -> None:
++    if path.is_file():
++        path.write_text(path.read_text(encoding="utf-8").rstrip("\n") + f" {answer}\n", encoding="utf-8")
++
++
++in_answer = put(root, "blocked", "727-paid.md", task(questions=ASKED.format("Так: це вада. Платні прогони: так — на обох наборах, скільки потрібно.")))
++plain_no = put(root, "blocked", "728-no.md", task(questions=ASKED.format("Ні. Платні прогони: ні.")))
++bold = put(root, "blocked", "729-bold.md", task(questions=ASKED.format("**Платні прогони:** Так.")))
++headed = put(root, "blocked", "730-headed.md", task(questions=ASKED.format("Платні прогони: так")).replace("Аудит потрібен: ні", "Аудит потрібен: ні\nПлатні прогони: так"))
++templated = put(root, "blocked", "732-template.md", task(questions=ASKED.format("Так, Платні прогони: так")).replace("Аудит потрібен: ні", TEMPLATE_HEAD))
++r = cli(root, "unblock")
++text = body_of(in_answer)
++check("negative — «Платні прогони: так» in an answer, none in the header: the task stays in blocked/, not in the queue",
++      r.returncode == 0 and "727-paid.md" not in r.stdout and in_answer.is_file() and not (root / "tasks/todo/727-paid.md").exists(), r.stdout + r.stderr)
++check("…with one more question that says where the line goes and what to answer, and waits for an answer",
++      "2. Примітка task board про платні прогони: у відповіді вище стоїть «Платні прогони: так»" in text and "ви відповіли «додано»" not in text
++      and "допишіть угорі цієї задачі, під «Аудит потрібен:», окремий рядок `Платні прогони: так`" in text
++      and "«додано»" in text and "«без них»" in text and board.parse(body_of(in_answer)).answers[-1] == "" and not board.parse(body_of(in_answer)).paid, text)
++check("…the owner's own answer is kept as it was", "Відповідь: Так: це вада. Платні прогони: так — на обох наборах, скільки потрібно." in text)
++check("negative — the same in bold, with a capital and a full stop, is caught too", "Примітка task board" in body_of(bold) and bold.is_file())
++noted = body_of(templated)
++check("negative — a task made from the template has «Платні прогони: ні» already: the note says to change that line, not to add one",
++      "угорі цієї задачі вже стоїть рядок `Платні прогони: ні` — замініть у ньому «ні» на «так»; другого такого рядка не дописуйте" in noted
++      and "допишіть угорі" not in noted and templated.is_file(), noted)
++check("«Платні прогони: ні» in an answer, and a leave already in the header: both return as before",
++      sorted(r.stdout.split()) == ["728-no.md", "730-headed.md"] and "Примітка" not in body_of(root / "tasks/todo/728-no.md")
++      and board.parse(body_of(root / "tasks/todo/730-headed.md")).paid, r.stdout)
++r = cli(root, "unblock")
++check("a second unblock writes no second note", r.stdout == "" and body_of(in_answer) == text, r.stdout)
++in_answer.write_text(text.replace("Аудит потрібен: ні", "Аудит потрібен: ні\nПлатні прогони: так"), encoding="utf-8")
++answer_note(in_answer, "додано")
++r = cli(root, "unblock")
++check("the owner adds the line to the header and answers «додано»: the task returns, and its header now gives the leave",
++      "727-paid.md" in r.stdout.split() and board.parse(body_of(root / "tasks/todo/727-paid.md")).paid, r.stdout)
++answer_note(bold, "без них")
++r = cli(root, "unblock")
++check("«без них»: the task returns without a leave — the board never writes the line itself",
++      "729-bold.md" in r.stdout.split() and not board.parse(body_of(root / "tasks/todo/729-bold.md")).paid, r.stdout)
++
++templated.write_text(noted.replace(TEMPLATE_HEAD, TEMPLATE_HEAD + "\nПлатні прогони: так"), encoding="utf-8")
++answer_note(templated, "додано")
++r = cli(root, "unblock")
++twice = body_of(templated)
++check("negative — the owner ADDED a second line beside «ні» and answered «додано»: two lines are no leave, the task stays, a new note says to keep one",
++      "732-template.md" not in r.stdout and twice.count(PAID_NOTE) == 2
++      and "ви відповіли «додано», але вгорі задачі дозволу на платні прогони досі немає" in twice.rsplit(PAID_NOTE, 1)[1]
++      and "рядків «Платні прогони:» — 2, а дозвіл читається лише з одного: лишіть один, `Платні прогони: так`" in twice, r.stdout + twice)
++templated.write_text(twice.replace("\nПлатні прогони: так\n", "\n", 1).replace("Платні прогони: ні", "Платні прогони: так", 1), encoding="utf-8")
++answer_note(templated, "додано")
++r = cli(root, "unblock")
++check("…the one line changed to «так», «додано»: the task returns with the leave", "732-template.md" in r.stdout.split()
++      and board.parse(body_of(root / "tasks/todo/732-template.md")).paid, r.stdout)
++
++stubborn = put(root, "blocked", "733-stubborn.md", task(questions=ASKED.format("Платні прогони: так")).replace("Аудит потрібен: ні", TEMPLATE_HEAD))
++cli(root, "unblock")
++answer_note(stubborn, "додано")
++r = cli(root, "unblock")
++check("negative — «додано» with the header unchanged («ні»): a new note, still not in the queue",
++      "733-stubborn.md" not in r.stdout and body_of(stubborn).count(PAID_NOTE) == 2, body_of(stubborn))
++answer_note(stubborn, "зроби без прогонів, але порівняй руками")
++r = cli(root, "unblock")
++check("any other answer to the note is the owner's instruction: the task returns to the agent, without leave",
++      "733-stubborn.md" in r.stdout.split() and not board.parse(body_of(root / "tasks/todo/733-stubborn.md")).paid, r.stdout)
++
++token = put(root, "blocked", "734-token.md", task(questions="1. Додайте токен SERVICE_TOKEN у сховище секретів CI і напишіть тут «додано».\n   Відповідь: додано\n"))
++r = cli(root, "unblock")
++check("negative — «додано» counts only under the board's own note: another question answered «додано», no leave anywhere — the task returns, no note",
++      "734-token.md" in r.stdout.split() and "Примітка" not in body_of(root / "tasks/todo/734-token.md"), r.stdout)
++half = put(root, "blocked", "735-half.md", task(questions=ASKED.format("Платні прогони: так") + "2. А ще одне?\n   Відповідь:\n"))
++r = cli(root, "unblock")
++check("negative — the leave in an answer while another question still waits: no note yet, the task just waits for its answers",
++      "735-half.md" not in r.stdout and "Примітка" not in body_of(half), body_of(half))
++denied = put(root, "blocked", "736-denied.md", task(questions=ASKED.format("Платні прогони: так")).replace("Аудит потрібен: ні", TEMPLATE_HEAD))
++cli(root, "unblock")
++answer_note(denied, "не додано, бо передумав")
++r = cli(root, "unblock")
++check("negative — «не додано, бо передумав» under the note is not the word «додано»: the task returns, without a second note",
++      "736-denied.md" in r.stdout.split() and body_of(root / "tasks/todo/736-denied.md").count(PAID_NOTE) == 1, r.stdout)
++word = put(root, "blocked", "737-word.md", task(questions=ASKED.format("Платні прогони: таким способом не потрібні.")))
++r = cli(root, "unblock")
++check("negative — «Платні прогони: таким способом…» is not the word «так»: the task returns, no note",
++      "737-word.md" in r.stdout.split() and "Примітка" not in body_of(root / "tasks/todo/737-word.md"), r.stdout)
++body = put(root, "blocked", "738-body.md", task(questions=ASKED.format("Платні прогони: так")).replace("## Що зробити\n- щось", "## Що зробити\nПлатні прогони: так — це рядок тексту задачі, не шапки"))
++cli(root, "unblock")
++check("the header is what the note reads: a «Платні прогони:» line in the task's text below the header is not counted as one",
++      "допишіть угорі цієї задачі, під «Аудит потрібен:», окремий рядок" in body_of(body) and "рядків «Платні прогони:»" not in body_of(body),
++      body_of(body))
++offered = put(root, "blocked", "739-offer.md", task(questions=ASKED.format("Платні прогони: так")
++                                                    + "2. Застосувати пропозицію налаштувань?\n   Дія runner-а: apply-settings " + "a" * 64 + "\n   Відповідь: так\n"))
++r = cli(root, "unblock")
++check("an offered action answered «так» stays the runner's to act on: no note is written on it, whatever another answer says",
++      "739-offer.md" not in r.stdout and "Примітка" not in body_of(offered) and board.parse(body_of(offered)).decided == "apply-settings", body_of(offered))
++gated = put(root, "blocked", "941-gate.md", "# 941 — Gates\n\nЗалежить від: —\nАудит потрібен: ні\nЕскалація gates: 2026-10-09T00:00:00Z\n\n"
++             "## Питання до власника\n1. Що з прогоном?\n   Відповідь: Платні прогони: так\n2. Закрити ескалацію?\n   Відповідь: так\n")
++r = cli(root, "unblock")
++check("a gate question answered «так» stays the runner's to close: no note is written on it, whatever another answer says",
++      "941-gate.md" not in r.stdout and "Примітка" not in body_of(gated) and board.parse(body_of(gated)).closes, body_of(gated))
++several = put(root, "blocked", "740-several.md", task(questions=ASKED.format("Так: це вада. Платні прогони: так — на обох наборах.")
++                                                      + "2. A чи B?\n   Відповідь: B\n").replace("Аудит потрібен: ні", TEMPLATE_HEAD))
++r = cli(root, "unblock")
++check("negative — the leave in an answer that is not the last one (question 1 of 2): still caught, the task stays with the note",
++      "740-several.md" not in r.stdout and "3. Примітка task board про платні прогони" in body_of(several), r.stdout + body_of(several))
++again = put(root, "blocked", "731-again.md", task(questions=ASKED.format("Платні прогони: так")))
++cli(root, "unblock")
++answer_note(again, "Платні прогони: так")
++r = cli(root, "unblock")
++check("negative — the leave written into the note's answer again: a second note, still not in the queue",
++      "731-again.md" not in r.stdout and body_of(again).count(PAID_NOTE) == 2, body_of(again))
++answer_note(again, "без них")
++r = cli(root, "unblock")
++check("…and «без них» under the second note returns it: only what was written after the LAST note is read",
++      "731-again.md" in r.stdout.split() and again.exists() is False, r.stdout)
++
+ root = new_board()
+ done(root, "001-base")
+ FIRST = root / "tasks/.first"
+diff --git a/tests/test_board_runner.py b/tests/test_board_runner.py
+index dcb48fe..be8137e 100755
+--- a/tests/test_board_runner.py
++++ b/tests/test_board_runner.py
+@@ -1667,5 +1667,17 @@ for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
+           "board-runner.sh --stop-after-attempt" in words and "wip/<задача>/<час UTC>" in words and "--source агент" in words
+           and "закрито іншим шляхом" in words and "git stash (команда" not in words)
+ 
++# --- board 744: a leave for paid runs written in an answer ------------------------------------------
++print("board 744: «Платні прогони: так» in an answer — the runner commits the board's note, the task waits")
++w = World("done")
++w.put("blocked", "040-paid.md", task(questions="1. Дозволити платні прогони?\n   Відповідь: Так. Платні прогони: так\n"))
++r = w.run()
++paid_text = (w.repo / "tasks/blocked/040-paid.md").read_text(encoding="utf-8") if w.has("tasks/blocked/040-paid.md") else ""
++check("negative — the task is not handed to an agent: it stays in blocked/ with the board's note, no claude call",
++      r.returncode == 0 and len(w.calls()) == 0 and "Примітка task board про платні прогони" in paid_text and not w.has("tasks/todo/040-paid.md"), r.stdout + r.stderr + paid_text)
++check("…the note is committed in a commit of its own, nothing is left uncommitted, the board waits for the owner",
++      any(s.startswith("board: «Платні прогони: так» stands in an answer") for s in w.log())
++      and sh(w.repo, "git", "status", "--porcelain").stdout.strip() == "" and w.status().startswith("state=waiting-owner"), str(w.log()[:3]) + w.status())
++
+ print(f"\nPASS {PASS}   FAIL {FAIL}")
+ sys.exit(0 if FAIL == 0 else 1)

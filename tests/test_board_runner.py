@@ -289,6 +289,8 @@ check("it ran in the repository", w.calls()[0]["cwd"] == str(w.repo))
 check("status: idle, todo empty", w.status().startswith("state=idle task=- since=") and "reason=todo-empty" in w.status(), w.status())
 check("since= is UTC in ISO form", w.status().split("since=")[1][:20].endswith("Z") and "T" in w.status().split("since=")[1][:20], w.status())
 check("the summary is written", "idle" in (w.state / "summary.md").read_text() and "done: 1" in (w.state / "summary.md").read_text())
+check("board 106: the summary says what the day cost, from costs.json — the one call, 1.00 USD, today in UTC",
+      f"- доба {datetime.now(UTC).date().isoformat()} (UTC, триває): 1.00 USD" in (w.state / "summary.md").read_text(), (w.state / "summary.md").read_text())
 check("the cost of the task is recorded", w.costs()["001-first"]["cost_usd"] == 1.0 and w.costs()["001-first"]["outcome"] == "done", w.costs())
 check("the branch was pushed", w.origin_head() == w.head(), (w.origin_head(), w.head()))
 logged = (w.state / "events.log").read_text()

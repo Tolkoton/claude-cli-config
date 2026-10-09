@@ -577,7 +577,57 @@ def lessons_cases() -> None:
     check("...and a failed edit by the file it was for", "src/x.py" in (failure or "") and "no match" in (failure or ""), failure)
 
 
+def costs_cases() -> None:
+    """board 106: what every UTC day cost, from the runner's own records (board_state.py)."""
+    print("board_state.py: the days")
+    state = load(".claude/unattended/board_state.py")
+    from datetime import date
+
+    tasks = {
+        "010-a": {"cost_usd": 3.0, "attempts": [
+            {"utc": "2026-10-08T23:50:00Z", "session_id": "s1", "reported_usd": 1.0},
+            {"utc": "2026-10-09T00:10:00Z", "session_id": "s1", "reported_usd": 2.5},   # the same conversation, continued: 1.5 more
+            {"utc": "2026-10-09T01:00:00Z", "session_id": "s2", "reported_usd": 0.5}]},
+        "011-old": {"cost_usd": 2.0, "attempts": [{"session_id": "s9", "reported_usd": 2.0}]},   # a record older than the time field
+        "012-long-ago": {"cost_usd": 4.0, "attempts": [{"utc": "2026-09-01T10:00:00Z", "session_id": "s3", "reported_usd": 4.0}]},
+    }
+    lines = state.daily(tasks, date(2026, 10, 9))
+    check("the day in progress first, then the seven before it, each by its date", [line.split(" (")[0] for line in lines[:8]]
+          == [f"доба 2026-10-{d:02d}" for d in range(9, 1, -1)] and lines[0].startswith("доба 2026-10-09 (UTC, триває)"), lines)
+    check("a continued conversation costs what its total grew by, on the day it grew: 1.50 + 0.50 today, 1.00 yesterday",
+          "доба 2026-10-09 (UTC, триває): 2.00 USD" in lines and "доба 2026-10-08 (UTC): 1.00 USD" in lines, lines)
+    check("NEGATIVE — a day with nothing spent is shown as zero, not left out", "доба 2026-10-05 (UTC): 0.00 USD" in lines, lines)
+    check("NEGATIVE — an attempt with no time is a line of its own, never put on a day", lines[-1] == "без часу запису (старий запис), не приписано жодній добі: 2.00 USD"
+          and sum(float(line.split(": ")[1].split()[0]) for line in lines[:8]) == 3.0, lines)
+    check("what was spent before the eight days is said, so the lines add up to the tasks' costs",
+          "раніше за 2026-10-02: 4.00 USD" in lines and round(sum(float(line.rsplit(": ", 1)[1].split()[0]) for line in lines), 2)
+          == sum(t["cost_usd"] for t in tasks.values()), lines)
+    ahead = state.daily({"013-ahead": {"attempts": [{"utc": "2026-10-11T00:00:00Z", "session_id": "s4", "reported_usd": 0.25}]}}, date(2026, 10, 9))
+    check("NEGATIVE — an attempt dated after today (a clock that was ahead) is said, not lost", ahead[-1] == "пізніше за 2026-10-09 (годинник ішов уперед?): 0.25 USD", ahead)
+    edge = state.daily({"015-edge": {"attempts": [{"utc": "2026-10-02T23:59:59Z", "session_id": "s6", "reported_usd": 0.75}]}}, date(2026, 10, 9))
+    check("NEGATIVE — the oldest of the eight days keeps what it cost: none of it is said again as «earlier»",
+          edge[7] == "доба 2026-10-02 (UTC): 0.75 USD" and len(edge) == 8, edge)
+    check("no spending at all: eight zero days and nothing else", state.daily({}, date(2026, 10, 9)) == [
+          f"доба 2026-10-{d:02d} (UTC{', триває' if d == 9 else ''}): 0.00 USD" for d in range(9, 1, -1)])
+    report = state.report({"tasks": tasks, "total_cost_usd": 9.0}, date(2026, 10, 9))
+    day_line = "доба 2026-10-09 (UTC, триває): 2.00 USD"
+    check("the runner's report carries the days after the total", "total: 9.00 USD" in report and day_line in report
+          and report.index("total: 9.00 USD") < report.index(day_line), report)
+    box = scratch()   # the runner writes its summary with `board_state.py <dir> report`
+    (box / "costs.json").write_text(json.dumps({"tasks": tasks, "total_cost_usd": 9.0}), encoding="utf-8")
+    said = subprocess.run([sys.executable, str(ROOT / ".claude/unattended/board_state.py"), str(box), "report"], capture_output=True,
+                          text=True, check=False, env={**os.environ, "BOARD_TODAY": "2030-01-02"})   # far from any real today
+    check("`board_state.py report` takes the day in progress from BOARD_TODAY, as the runner's other day-bound steps do",
+          said.returncode == 0 and "доба 2030-01-02 (UTC, триває): 0.00 USD" in said.stdout.splitlines()
+          and "раніше за 2029-12-26: 7.00 USD" in said.stdout.splitlines(), said.stdout + said.stderr)
+    dipped = [{"utc": "2026-10-09T01:00:00Z", "session_id": "s5", "reported_usd": v} for v in (1.0, 2.5, 2.0, 3.0)]
+    check("NEGATIVE — a conversation whose figure dipped and rose again: the day counts its highest figure once, as the task's cost does",
+          state.daily({"014-dip": {"attempts": dipped}}, date(2026, 10, 9))[0] == "доба 2026-10-09 (UTC, триває): 3.00 USD" and state.cost_of(dipped) == 3.0,
+          state.daily({"014-dip": {"attempts": dipped}}, date(2026, 10, 9))[0])
+
+
 def main() -> int:
+    costs_cases()
     engine_cases()
     gate_cases()
     board_cases()
