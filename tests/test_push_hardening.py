@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """block-dangerous.sh refuses the dangerous forms of a push itself (board 017).
 
-The ask rule in settings.json still prompts for every push; the hook stops, whatever the answer
-would be:
+park-ask-gated.py decides an ordinary push by environment (board 603); this hook stops, in every
+environment and whatever the answer would be:
   - a forced push in any spelling: the flag anywhere before the separator, `git -C dir push`,
     `git -c k=v push`, several spaces or a tab, a short-flag cluster (-uf), --force-with-lease,
     --force-if-includes, a refspec with a plus, --mirror;

@@ -14,6 +14,10 @@ an agent), so this is the test of that one file. It holds before and after the a
   two handlers of the fresh-context overseer (OVERSEER_HANDLERS, board 018) and the two of testing.py
   (TESTING_HANDLERS, board 062), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
   `cp` of it the one way to apply it;
+- board 603 (owner, 2026-10-09): the ask list drops the two push rules — park-ask-gated.py decides
+  a push by environment now — and the allow list gains WebFetch and WebSearch, which a cloud
+  session needs and cannot take from the personal layer it never reads; nothing else of the
+  permissions differs from the live file;
 - once the live .claude/settings.json equals the proposal, that is reported as applied.
 """
 
@@ -33,7 +37,11 @@ PERSONAL = ROOT / "user/settings.json"
 FROZEN = ROOT / "docs/tasks/effective-before-split.json"
 HOME_FIXTURE = ROOT / "tests/fixtures/home-settings.json"
 PERSONAL_KEYS = ("defaultMode", "additionalDirectories")
-PERSONAL_ALLOW = ("WebFetch", "WebSearch")
+# Board 603 (owner, 2026-10-09): the web tools stand in the shared layer too. The personal layer keeps
+# them as well (they apply in every directory there); a cloud session reads only the shared file.
+WEB_TOOLS = ("WebFetch", "WebSearch")
+# Board 603: a push left the ask list — park-ask-gated.py decides it by environment.
+PUSH_ASK_RULES = ("Bash(git push:*)", "Bash(git push)")
 PERSONAL_ENV = (
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
@@ -75,6 +83,13 @@ INTENDED: dict[str, str] = {
         "with -fr given the same shape as -rf (tests/test_root_delete_deny.py); X5: the twelve Write(<path>) rules "
         "are gone — Claude Code 2.1.287 does not apply Write rules with a path and warns about them at start-up; "
         "each had an Edit(<path>) twin, which covers every file-modifying tool, so nothing is unguarded"
+    ),
+    "permissions.ask": (
+        "board 603 (owner, 2026-10-09): `Bash(git push:*)` and `Bash(git push)` leave the ask list — an ask rule "
+        "prompts in every environment and no hook lifts it, so a cloud session stopped on every push of its own "
+        "branch; park-ask-gated.py decides the push now: the cloud session's own claude/ branch to origin goes, "
+        "any other cloud push is refused, a local session asks, the runner is refused "
+        "(tests/test_push_by_environment.py)"
     ),
     "permissions.defaultMode": (
         "F4 (owner): the personal layer says `auto`, not `acceptEdits`; `auto` is legal at the user level only, "
@@ -132,7 +147,20 @@ def main() -> int:
     # --- the proposal holds nothing personal --------------------------------------------------
     perm = proposal["permissions"]
     t.check("proposal: no defaultMode / additionalDirectories", not any(k in perm for k in PERSONAL_KEYS))
-    t.check("proposal: WebFetch/WebSearch are not blanket-allowed", not any(a in perm["allow"] for a in PERSONAL_ALLOW))
+    t.check("proposal (board 603): WebFetch and WebSearch are allowed in the shared layer",
+            all(a in perm["allow"] for a in WEB_TOOLS), str(perm["allow"]))
+    t.check("proposal (board 603): no push rule in ask — the hook decides it",
+            not any(r in perm["ask"] for r in PUSH_ASK_RULES) and not any("git push" in r for r in perm["ask"]))
+    ask_gone = [r for r in live["permissions"]["ask"] if r not in perm["ask"]]
+    ask_new = [r for r in perm["ask"] if r not in live["permissions"]["ask"]]
+    allow_gone = [r for r in live["permissions"]["allow"] if r not in perm["allow"]]
+    allow_new = [r for r in perm["allow"] if r not in live["permissions"]["allow"]]
+    t.check(
+        "proposal (board 603): against the live file the ask list drops at most the two push rules and adds none; "
+        "the allow list adds at most WebFetch and WebSearch and drops none",
+        set(ask_gone) <= set(PUSH_ASK_RULES) and not ask_new and set(allow_new) <= set(WEB_TOOLS) and not allow_gone,
+        json.dumps({"ask gone": ask_gone, "ask new": ask_new, "allow new": allow_new, "allow gone": allow_gone}),
+    )
     t.check("proposal: no model variables under env", not any(k in proposal.get("env", {}) for k in PERSONAL_ENV))
     t.check("personal layer: no model variables either (removed, not moved)", "env" not in {k: v for k, v in personal_raw.items() if not k.startswith("_")})
     t.check("personal layer: defaultMode auto", personal_raw["permissions"].get("defaultMode") == "auto")

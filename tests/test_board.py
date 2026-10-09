@@ -545,10 +545,12 @@ def ask_gated(project: Path, command: str) -> str:
                           capture_output=True, text=True, check=False, env=env).stdout
 
 
+# A push is not the example any more: since board 603 it is the hook's own rule, by environment
+# (it asks attended, and the runner pushes itself) — tests/test_push_by_environment.py.
 (root / ".claude/state/overseer").mkdir(parents=True)
-check("negative — attended, the hook that parks an ask-gated command says nothing", ask_gated(root, "git push origin work") == "")
+check("negative — attended, the hook that parks an ask-gated command says nothing", ask_gated(root, "git rebase main") == "")
 (root / ".claude/state/overseer/mode").write_text("unattended\n", encoding="utf-8")
-said = json.loads(ask_gated(root, "git push origin work") or "{}").get("hookSpecificOutput", {})
+said = json.loads(ask_gated(root, "git rebase main") or "{}").get("hookSpecificOutput", {})
 check("unattended it still denies the command, and now sends the agent to the board, not to a line in parked.md",
       said.get("permissionDecision") == "deny" and "board.py open-item --to blocked" in said.get("permissionDecisionReason", "")
       and "Append a PARKED entry" not in said.get("permissionDecisionReason", ""), said)

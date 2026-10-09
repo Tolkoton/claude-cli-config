@@ -19,6 +19,11 @@ Board 017 (owner decision) put the dangerous forms of a push back into the hook:
 deletion of a remote branch, and a push into main or stable. One case here pins the last of
 them; every form is in tests/test_push_hardening.py.
 
+Board 603 (owner decision, 2026-10-09) takes the ordinary push out of the ask list: an ask rule
+prompted in every environment, a cloud session included, and no hook lifts it. park-ask-gated.py
+decides it by environment now (tests/test_push_by_environment.py). Here the settings keep the
+force forms in deny and no push in allow; the proposal holds no push rule in ask.
+
 Every hook case runs against a REAL throwaway git repo with a real branch checked out,
 because the hook reads the branch with `git branch --show-current`; faking it would test
 the test.
@@ -138,14 +143,17 @@ print(f"  {'ok  ' if ok else 'FAIL'} {'block message names the subcommand (commi
 if not ok:
     fails.append(f"message does not name the subcommand: {r.stderr!r}")
 
-# --- push is governed by the settings file: ask prompts, force forms denied ------------------
+# --- the settings: force forms denied, no push allowed; the proposal asks for none (board 603) --
 for path in SETTINGS:
     perms = json.loads(path.read_text(encoding="utf-8"))["permissions"]
+    name = path.relative_to(ROOT)
     checks = [
-        (f"{path.name}: {PUSH_RULE} is in ask", PUSH_RULE in perms["ask"]),
-        (f"{path.name}: the force-push forms are in deny", all(rule in perms["deny"] for rule in FORCE_RULES)),
-        (f"{path.name}: no push rule in allow", not any("git push" in rule for rule in perms["allow"])),
+        (f"{name}: the force-push forms are in deny", all(rule in perms["deny"] for rule in FORCE_RULES)),
+        (f"{name}: no push rule in allow", not any("git push" in rule for rule in perms["allow"])),
     ]
+    if path == SETTINGS[1]:
+        checks.append((f"{name}: no push rule in ask — park-ask-gated.py decides it (board 603)",
+                       PUSH_RULE not in perms["ask"] and not any("git push" in rule for rule in perms["ask"])))
     for name, ok in checks:
         print(f"  {'ok  ' if ok else 'FAIL'} {name}")
         if not ok:
@@ -157,5 +165,5 @@ if fails:
     for f in fails:
         print("  -", f)
     sys.exit(1)
-total = len(CASES) + 1 + 3 * len(SETTINGS)
+total = len(CASES) + 1 + 2 * len(SETTINGS) + 1
 print(f"PASS {total}/{total} commit-policy cases")

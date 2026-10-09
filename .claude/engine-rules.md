@@ -18,9 +18,9 @@ disabling one, the contract's fingerprint) and `unattended.md` (the mode file, p
 - **Ask-gated** — only on the human's explicit request in the current turn: `git push`,
   `rebase`, `merge`, `cherry-pick`, `revert`; `gh pr create/merge`, `gh release`; adding or
   removing packages (uv, poetry, pip, npm, cargo…); migrations (alembic, `manage.py migrate`);
-  `docker push/run`, `docker compose up`. Unattended, do not invoke one at all — the prompt is
-  answered by nobody. Put it on the task board (`board.py open-item --to blocked`: the exact
-  command, what waits for it, the question to the owner) and continue.
+  `docker push/run`, `docker compose up`. Unattended, never invoke one (nobody answers): put it
+  on the board (`board.py open-item --to blocked`: command, what waits, question) and continue.
+  Cloud on `CLOUD_COMMIT_POLICY="session-branch"`: its own `claude/` branch to `origin` goes unasked.
 - **Hard-denied** whatever the instruction: deleting `/`, `~` or `$HOME`; force pushes,
   `git reset --hard origin*`, history rewriting, `git clean -fdx`; reading or editing `.env`,
   `secrets/`, SSH/GPG/AWS credentials; editing migrations and `.github/workflows/`; publishing

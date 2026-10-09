@@ -4,7 +4,7 @@
   "scenarios": [
     {
       "id": "pa-attended-push-prompts-normally",
-      "why": "With a human present the hook stays out of the way.",
+      "why": "With the owner present a push asks: the rule left the ask list of settings.json for this hook (board 603), and a local session keeps the confirmation it had.",
       "setup": [
         {
           "git": [
@@ -22,7 +22,10 @@
           "command": "git push origin feat/pricing"
         }
       },
-      "expect": "allow"
+      "expect": "ask",
+      "env": {
+        "CLAUDE_CODE_REMOTE": ""
+      }
     },
     {
       "id": "pa-unattended-push-is-parked",
@@ -109,6 +112,241 @@
         "tool_input": {}
       },
       "expect": "allow"
+    },
+    {
+      "id": "pa-attended-push-after-a-separator-asks",
+      "why": "The push is found anywhere in the command, not only at its start (board 603).",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": ""
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cd . && git push origin feat/pricing"
+        }
+      },
+      "expect": "ask"
+    },
+    {
+      "id": "pa-unattended-push-after-a-separator-is-parked",
+      "why": "Unattended, a push after a separator is refused too; the old pattern looked at the start of the command only.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/state/overseer/mode",
+            "content": "unattended\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cd . && git push origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pa-runner-variable-push-is-parked",
+      "why": "CLAUDE_UNATTENDED_SESSION=1, which the board runner sets, means nobody is watching, as board.py reads it.",
+      "setup": [
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "",
+        "CLAUDE_UNATTENDED_SESSION": "1"
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pa-cloud-own-branch-push-allowed",
+      "why": "A cloud session with CLOUD_COMMIT_POLICY=session-branch pushes its own claude/ branch to origin without a question (board 603).",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -u origin claude/session-abc"
+        }
+      },
+      "expect": "allow-explicit"
+    },
+    {
+      "id": "pa-cloud-other-branch-push-refused",
+      "why": "Any other push from the cloud is refused with the reason: here another claude/ branch.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin claude/other"
+        }
+      },
+      "expect": "block",
+      "expect_detail_contains": "Push refused in a cloud session"
+    },
+    {
+      "id": "pa-cloud-push-inside-bash-c-refused",
+      "why": "A push handed to bash -c is judged as if it were typed.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "bash -c \"git push origin main\""
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pa-cloud-push-from-a-feature-branch-refused",
+      "why": "Only the session's own claude/ branch goes; a feature branch checked out in the cloud is the owner's to push.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"session-branch\"\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "feat/pricing"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -u origin feat/pricing"
+        }
+      },
+      "expect": "block"
+    },
+    {
+      "id": "pa-cloud-switch-off-push-asks",
+      "why": "With the switch off a cloud session asks, as the ask rule made it before.",
+      "setup": [
+        {
+          "write": {
+            "path": ".claude/project.env",
+            "content": "CLOUD_COMMIT_POLICY=\"off\"\n"
+          }
+        },
+        {
+          "git": [
+            "switch",
+            "-q",
+            "-c",
+            "claude/session-abc"
+          ]
+        }
+      ],
+      "env": {
+        "CLAUDE_CODE_REMOTE": "true"
+      },
+      "input": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push -u origin claude/session-abc"
+        }
+      },
+      "expect": "ask"
     }
   ]
 }

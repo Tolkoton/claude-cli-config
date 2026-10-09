@@ -38,7 +38,8 @@ it to `tasks/blocked/` instead (`tasks/README.md`, rule 4).
 
 For an ask-gated command: the exact command in `--what`, and the question is whether the owner
 runs it. `park-ask-gated.py` denies such a command unattended and hands you this instruction if
-you forget.
+you forget. A push is not one of them: the runner sends the branch itself, and the hook refuses
+a push of the session's own, anywhere in the command (board 603).
 
 `.engine/overseer/parked.md` and `.engine/overseer/escalations.md` are history. They are only
 appended to — an AUTONOMOUS decision, closed by being logged, still goes to `escalations.md`;

@@ -154,6 +154,38 @@ restart Claude Code:
 cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
 ```
 
+## `settings.json` — push by environment, the web tools allowed (board 603)
+
+The owner's decision: a cloud session works without stopping for a confirmation. Two rules of the
+live file stopped it, and neither a prompt nor a hook can lift them — Claude Code evaluates an ask
+rule whatever a PreToolUse hook returns (code.claude.com/docs/en/permissions, "Extend permissions
+with hooks"). So the proposal changes exactly two lists and nothing else:
+
+- **`permissions.ask` loses `Bash(git push:*)` and `Bash(git push)`.** The push is decided by
+  `.claude/hooks/park-ask-gated.py` now, by environment: a local session with the owner gets the
+  same question as before (the hook says `ask`); a cloud session with
+  `CLOUD_COMMIT_POLICY="session-branch"` pushes its own checked-out `claude/` branch to `origin`
+  without one and is refused any other push, with the reason; the runner is refused, as before.
+  A forced push, the deletion of a remote branch and a push into main or stable stay refused by
+  `block-dangerous.sh` everywhere, and the force forms stay in `permissions.deny`. The hook's part
+  acts already; until the proposal is applied the ask rule still prompts in the cloud too.
+- **`permissions.allow` gains `WebFetch` and `WebSearch`.** A cloud session reads only the shared
+  file — not `~/.claude/settings.json`, where the personal layer put them (package 3b). The
+  personal layer keeps them. `.claude/settings.json` ships into every installed project, so after
+  the next release the web tools are allowed there too. The file's `_comment_philosophy` still says
+  they live in the personal layer: the owner asked for nothing else in the file to change.
+
+`tests/test_settings_proposal.py` names `permissions.ask` as the one new intended difference of the
+effective settings and allows no other change to either list; `tests/test_push_by_environment.py`
+shows every case of the push with both Bash hooks together, the negative ones included, and that
+the hook's mirror of the ask list (`ASK_GATED`) matches the proposal's. Applied by the owner's
+«так» in the task of board 603 (the runner's `apply-settings`), or by hand, then restart Claude
+Code:
+
+```bash
+cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py
+```
+
 ## `complexity-thresholds.md` — the default complexity limits (board 010)
 
 The simplifier's signals and the complexity budget measure new and worsened functions against

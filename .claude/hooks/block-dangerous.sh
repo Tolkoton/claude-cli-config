@@ -173,9 +173,10 @@ for pattern in "${OWNER_VARIABLE_PATTERNS[@]}"; do
   fi
 done
 
-# Push (board 017, owner decision): the `ask` rule in settings.json still puts every push in
-# front of a human, but the dangerous forms are refused HERE, whatever the answer to the prompt
-# would be. The three literal patterns above knew one spelling each: `git -C dir push --force`,
+# Push (board 017, owner decision): park-ask-gated.py decides an ordinary push by environment
+# (board 603: the owner asks locally, the cloud session's own claude/ branch goes, the runner is
+# refused), but the dangerous forms are refused HERE, in every environment, whatever that hook or
+# a prompt would answer. The three literal patterns above knew one spelling each: `git -C dir push --force`,
 # a flag after the refspec, `-uf`, `+branch`, `--mirror`, `--delete`, `:branch` and
 # `git push -f` at the end of a line all passed. Now every `git … push` in the command is read
 # word by word, up to the next separator:
@@ -294,7 +295,7 @@ if printf '%s' "$JUDGED" | grep -q 'push'; then
         echo "BLOCKED by the engine safety hook (block-dangerous.sh): $REASON." >&2
         echo "Command: $CMD" >&2
         echo "" >&2
-        echo "An ordinary push of a working branch is not refused here (the ask rule prompts for it)." >&2
+        echo "An ordinary push of a working branch is not refused here (park-ask-gated.py decides it by environment)." >&2
         echo "If this one is genuinely needed, ask the user to run it manually outside Claude Code." >&2
         exit 2
       fi
@@ -366,8 +367,8 @@ if [ "$(read_field agent_type 2>/dev/null || true)" = "overseer" ]; then
 fi
 
 # Block a direct git commit on a protected branch (defense-in-depth). An ordinary push is not
-# blocked here: the `ask` rule in settings.json decides it (owner decision 2026-10-01); its
-# dangerous forms were refused above (board 017).
+# blocked here: park-ask-gated.py decides it by environment (board 603); its dangerous forms
+# were refused above (board 017).
 BRANCH=""
 # Ask git, do not look for a .git DIRECTORY: in a `git worktree` checkout .git is a FILE.
 # With the old `[ -d .../.git ]` the branch stayed unknown there, and a legitimate commit
@@ -377,8 +378,8 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && git -C "$CLAUDE_PROJECT_DIR" rev-parse --
 fi
 
 # Commit only. Push left this block on 2026-10-01 (owner decision, docs/plan/package-3b-finish.md):
-# what stands between the agent and a push is the settings file — `Bash(git push:*)` in
-# permissions.ask prompts (unattended, park-ask-gated.py parks it). Board 017 put the dangerous
+# then the settings file's `Bash(git push:*)` in permissions.ask prompted for it; since board 603
+# park-ask-gated.py decides it by environment, the ask rule gone. Board 017 put the dangerous
 # forms back into the hook, in the push section above: a forced push, the deletion of a remote
 # branch and a push into main or stable (PUSH_PROTECTED_BRANCHES) are refused whatever the
 # prompt would be answered; a release is the operator's, outside Claude Code.
@@ -400,15 +401,15 @@ done
 #
 #   environment                         | commit                       | push
 #   ------------------------------------+------------------------------+------------------------
-#   attended, the owner's machine       | refused: the commit is the   | permissions.ask prompts
+#   attended, the owner's machine       | refused: the commit is the   | park-ask-gated.py asks
 #                                       | owner's review checkpoint    | force push: denied
-#   unattended (the board runner)       | allowed on unattended/* only | ask → parked by
+#   unattended (the board runner)       | allowed on unattended/* only | refused by
 #                                       |                              | park-ask-gated.py
-#   cloud session (CLAUDE_CODE_REMOTE)  | allowed on the session's own | permissions.ask
-#                                       | non-protected branch, ONLY   | force push: denied
-#                                       | when CLOUD_COMMIT_POLICY in  |
-#                                       | .claude/project.env says     |
-#                                       | session-branch; ships "off"  |
+#   cloud session (CLAUDE_CODE_REMOTE)  | allowed on the session's own | the same switch: its own
+#                                       | non-protected branch, ONLY   | claude/ branch to origin
+#                                       | when CLOUD_COMMIT_POLICY in  | goes, any other push is
+#                                       | .claude/project.env says     | refused (park-ask-gated.py);
+#                                       | session-branch; ships "off"  | switch off: asks
 #
 # The unattended branch is the opt-in in both local modes: nothing reaches `main` without
 # a human reading the diff, and a long run still builds each session on a committed base

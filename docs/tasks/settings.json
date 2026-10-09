@@ -91,8 +91,6 @@
       "Edit(**/.github/workflows/**)"
     ],
     "ask": [
-      "Bash(git push:*)",
-      "Bash(git push)",
       "Bash(git rebase:*)",
       "Bash(git merge:*)",
       "Bash(git cherry-pick:*)",
@@ -136,7 +134,9 @@
       "Task",
       "TodoWrite",
       "NotebookEdit",
-      "NotebookRead"
+      "NotebookRead",
+      "WebFetch",
+      "WebSearch"
     ]
   },
   "hooks": {

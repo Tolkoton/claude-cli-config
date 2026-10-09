@@ -95,9 +95,11 @@ constitution and `cat` of an env file reached the shell). What is refused, and w
 
 ### A dangerous push
 
-Every push still meets the `ask` rule of the settings file. Three kinds are refused by
-`block-dangerous.sh` itself, whatever the prompt would be answered (board 017, owner decision;
-it takes back part of the decision of 2026-10-01, which left push to the settings file alone):
+An ordinary push is decided by `park-ask-gated.py`, by environment ("The commit policy, by
+environment" below; board 603 took `git push` off the ask list of the settings file). Three
+kinds are refused by `block-dangerous.sh` itself, in every environment, whatever that hook or a
+prompt would answer (board 017, owner decision; it takes back part of the decision of 2026-10-01,
+which left push to the settings file alone):
 
 - **a forced push** — `--force`, `--force-with-lease`, `--force-if-includes`, `--mirror`, a
   short-flag cluster with `f` (`-f`, `-uf`), a refspec that starts with `+`;
@@ -258,15 +260,37 @@ shows the two instruments together.
 
 | environment | commit | push |
 |---|---|---|
-| attended, the owner's machine | refused — the commit is the owner's review checkpoint | `permissions.ask` prompts; the dangerous forms refused by the hook ("A dangerous push") |
-| unattended (the board runner) | allowed on `unattended/*` only | ask → parked by `park-ask-gated.py`; the dangerous forms refused |
-| cloud session (`CLAUDE_CODE_REMOTE=true`) | allowed on the session's own non-protected branch **only** when `CLOUD_COMMIT_POLICY="session-branch"` in `.claude/project.env`; ships `off` | `permissions.ask`; force push denied |
+| attended, the owner's machine | refused — the commit is the owner's review checkpoint | `park-ask-gated.py` asks; the dangerous forms refused by `block-dangerous.sh` ("A dangerous push") |
+| unattended (the board runner) | allowed on `unattended/*` only | refused by `park-ask-gated.py` — the runner pushes the branch itself; the dangerous forms refused |
+| cloud session (`CLAUDE_CODE_REMOTE=true`) | allowed on the session's own non-protected branch **only** when `CLOUD_COMMIT_POLICY="session-branch"` in `.claude/project.env`; ships `off` | the same switch: the session's own checked-out `claude/` branch to `origin` goes without a question; any other push is refused with the reason (`park-ask-gated.py`); with the switch off it asks; the dangerous forms refused |
 
 The cloud rule is a switch and not a default because the shape of a cloud session has not
 been observed from the inside. Run `bash .claude/unattended/env-probe.sh` there, read the
 `git_branch`, `git_remotes`, `settings_*` and `session_kind` lines, and flip the key only
 on that evidence. The probe reports environment variables by name and prints values for an
 allow-list of non-secret ones only.
+
+### The push rule, by environment — what it rests on (board 603)
+
+- **Where it is found.** Every `git … push` of the command, read like `block-dangerous.sh` reads
+  it: after a separator, behind `git -C <dir>`, inside `bash -c`, `sh -c` and `eval` (quotes are
+  dropped), with the text nothing runs emptied first (`shell_text.py`) — so a push quoted in a
+  commit message is no push, unless the same command also holds something that could run text.
+  Then it counts, and in the cloud such a command is refused: put that text in single quotes
+  without a shell or interpreter in the same command, or in a file, or run the push on its own.
+- **The one cloud form.** `git push [-u|-q|-v|--progress|--dry-run] origin <ref>`, where `<ref>`
+  is the branch checked out where the push runs (a `cd` before it and `git -C` count), or `HEAD`,
+  or `HEAD:<that branch>`, and that branch starts with `claude/`. A bare push, another remote or
+  URL, a second refspec, tags, any other option, git's own options but `-C`, an assignment before
+  `git` or a `GIT_*` variable anywhere in the command are refused: each can send something else.
+  When the push is the whole command (with a `cd`, `2>&1`, `>/dev/null`) the hook says `allow`, so
+  neither a prompt nor the auto mode's classifier stops it; inside a longer command it says
+  nothing and the settings decide, because an allow approves the whole call.
+- **Not seen**, as for the dangerous forms above: a push from a script the command starts, a
+  remote whose URL or `remote.origin.pushurl` an earlier command changed, an alias; a `cd` inside
+  a subshell is taken as if it lasted. **Without `python3`** the hook does not run (a non-zero
+  exit other than 2 blocks nothing), and once the ask rule is gone a push then meets no
+  question — `env-check.sh` names a missing `python3` at the start of every session.
 
 ## What the overseer is shown of a gate exemption, and what closes an escalation
 
