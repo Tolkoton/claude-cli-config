@@ -210,6 +210,11 @@ print("testing.py — the overseer's BLOCKs on check #4 are counted for the next
     json.dumps({"slice": "discount", "verdict": "PASS", "check": None}), json.dumps({"slice": "discount", "verdict": "BLOCK", "check": 4}), json.dumps([4])]) + "\n",
     encoding="utf-8")
 check("only this slice's BLOCKs on check 4 count; a broken line is stepped over", testing.overseer_blocks_4(r, "discount") == 2, testing.overseer_blocks_4(r, "discount"))
+with (r / testing.OVERSEER_ROWS_REL).open("a", encoding="utf-8") as rows_file:
+    rows_file.write(json.dumps({"slice": "discount", "verdict": "PASS", "check": None, "test_gaps": [{"check": "x", "misses": "y"}]}) + "\n")
+    rows_file.write(json.dumps({"slice": "discount", "verdict": "PASS", "check": None, "test_gaps": []}) + "\n")
+check("board 077: a PASS with a test gap counts like a BLOCK on #4 did; a PASS with none does not",
+      testing.overseer_blocks_4(r, "discount") == 3, testing.overseer_blocks_4(r, "discount"))
 check("no verdict file: none", testing.overseer_blocks_4(gate_root, "discount") == 0)
 
 # ---------------------------------------------------------------------------------------------

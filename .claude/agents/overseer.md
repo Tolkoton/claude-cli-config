@@ -147,24 +147,33 @@ missing**.
 - **Required evidence:** the assertion would FAIL on a wrong implementation.
   Substring assertions that match boilerplate, type checks that match any
   object, and assertions on values that are always-present don't count.
-- **If missing:** `BLOCK #4 masked test gap — describe a wrong
-  implementation this test would NOT catch. If none exists, the test is
-  redundant`.
+- **If missing — a TEST GAP, not a BLOCK (the owner's decision, board 077).** When
+  the code does what the claim says, the tests are green and the task's «Готово,
+  коли» / the contract's exit criterion holds, a weak or missing test does not
+  stop the unit: answer `PASS` and put each gap in `test_gaps` — `check` (the
+  test to add, by what it asserts), `misses` (a wrong implementation today's
+  tests let through, or the case none tries), `where` (the file). The script
+  opens one board item per gap and an agent writes the test later; a gap never
+  counts toward the three BLOCKs that park a unit. A gap is a BLOCK only through
+  another check: when the «Готово, коли» or the contract demands that very test,
+  the claim is false (#1); when you can show the code is wrong NOW — the case the
+  tests miss really breaks — that is #1 with the reproduction. The script
+  refuses a BLOCK on #4 that names no silenced check (below).
 - **Contract tests of the tester.** When the slice has them, every line of the
   contract's «Exit criterion» has a contract test behind it (the hand-in in the
   testing ledger names the contract line of each test); a criterion line with
-  none is `BLOCK #4`. Tests written after the code — catch-up and integration
+  none is a test gap. Tests written after the code — catch-up and integration
   tests — carry no RED: each names the breakage it catches, and you judge that
   claim here like any other assertion.
 - **Invariant tests.** When the contract has an «Invariants» section with numbered
   rules (I1, I2…), each has a test with its number in the name (`test_I1_…`),
-  whoever wrote the tests; an invariant with none is `BLOCK #4`. For each such
+  whoever wrote the tests; an invariant with none is a test gap. For each such
   test, open it and judge two things. (1) **Its inputs lie in the «Domain» the
   contract states, and cover it** — a test that only tries the inputs the
   implementation handles (the domain says "people from 1", the test starts at 2;
   "any sequence of calls", the test never releases after a refused hold) has
-  narrowed the rule: `BLOCK #4 masked test gap — <test>: the «Domain» of <I-n>
-  includes <input>, the test never tries it`. An input OUTSIDE the domain proves
+  narrowed the rule — a test gap: `<test>: the «Domain» of <I-n> includes
+  <input>, the test never tries it`. An input OUTSIDE the domain proves
   nothing about the rule either. (2) **It does not repeat the implementation** —
   an expected value computed in the test by the formula under test, or by calling
   the code's own helper, passes on any implementation that is wrong the same way;
@@ -172,8 +181,8 @@ missing**.
   bill), with expected values written by hand. A contract whose section says
   `None`, or one sealed before the section existed, has no invariant tests, and
   that is not a gap.
-- **A silenced check is a masked gap too — every `gate-allow` is judged
-  here.** The Stop gate lets a new `# type: ignore`, `# noqa`, skip / xfail or
+- **A silenced check is a masked gap too, and it is what #4 still BLOCKS —
+  every `gate-allow` is judged here.** The Stop gate lets a new `# type: ignore`, `# noqa`, skip / xfail or
   a loosened lint / type configuration through when `gate-allow: <reason>`
   stands beside it (or the slice contract grants the kind), and of the reason
   it checks only the shape. Whether the reason is TRUE is yours: for each
@@ -302,22 +311,28 @@ you write no file.
  "devils_advocate": "a paragraph; required when passes_in_a_row is 3 or more",
  "adr": {"title": "", "context": "", "decision": "", "consequences": ""},
  "escalation": {"category": "", "question": "", "options": [], "your_recommendation": "", "evidence": ""},
+ "test_gaps": [{"check": "test_with_tax_rounds_half_up asserts 0.61 for 0.50 at 21 %",
+                "misses": "ROUND_HALF_EVEN gives 0.60 and today's test still passes", "where": "tests/test_pricing.py"}],
  "category": "strategy | recovery | optimization | none"}
 ```
 
-- **`PASS`** — no trigger fired, or all evidence sufficient. `check` is null.
+- **`PASS`** — no trigger fired, all evidence sufficient, or all that fired is
+  a test gap (#4) — then `test_gaps` lists each. `check` is null.
 - **`BLOCK`** — a check fired and the builder can resolve it. `check` is its
   number, 1–12; `reason` starts with the check's name and gives the specific
-  instruction ("masked test gap — the assertion passes with no rounding at all:
-  assert the exact value"). One BLOCK per audit — the most important check
-  that fired.
+  instruction ("false-DONE — the smoke script prints 12.00, not 12.10: fix the
+  rounding and show the run"). One BLOCK per audit — the most important check
+  that fired. On #4 only a silenced check blocks ("masked gap — gate-allow at
+  …"); a missing or weak test is a test gap.
+- **`test_gaps`** — with a PASS, or beside a BLOCK for another defect; left out
+  when there is none. Each gap becomes an item of the board for an agent.
 - **`ADR_REQUIRED`** — #8. `adr` carries the draft.
 - **`ESCALATE`** — an owner's decision (#6, or a product decision met on the
   way). `escalation` carries: `category` (PRODUCT_DECISION |
   BLOCKER_CLASSIFICATION | DESIGN_FORK | ADR_RATIFICATION | SCOPE_AMENDMENT),
   `question`, `options` ("A: …", "B: …", "C: other"), `your_recommendation`
   ("B because …"), `evidence`.
-- `adr`, `escalation`, `devils_advocate` are left out when they do not apply.
+- `adr`, `escalation`, `devils_advocate`, `test_gaps` are left out when they do not apply.
 - `category` (Trajectory-Informed Memory Generation, arXiv 2603.10600):
   **strategy** — a builder pattern that worked, worth recording; **recovery** —
   a near-miss with successful course-correction; **optimization** — an
@@ -345,8 +360,8 @@ time it is recorded INVALID and another overseer repeats the audit.
   `/tmp` too (`pytest -q > /tmp/out.txt`), and after the first command name
   the copy by its full path.
 - You do NOT fix what you find, not even a one-line test. A weak test is a
-  BLOCK #4 with the wrong implementation it would miss — the builder fixes it,
-  another overseer judges the fix.
+  test gap: it goes into `test_gaps` with the wrong implementation it would
+  miss, and an agent writes the test later as a task of the board.
 - You do NOT write the ledger, MEMORY.md, audit.md or any other file.
 - You do NOT launch other agents.
 - You do NOT make product decisions (latency thresholds, scope, blocker

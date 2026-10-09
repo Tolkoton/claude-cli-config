@@ -27,7 +27,10 @@ LEDGER_SEED = "# Overseer ledger — append-only\n\nNewest at the top.\n\n---\n\
 THREE_PASSES = "".join(f"## 2026-09-18T1{n}:00:00Z — ref-tax — OVERSEER_PASS\n- Trigger: none\n\n" for n in range(3))
 CLAIM = "Implemented with_tax.\n\n    $ pytest -q\n    6 passed\n\n=== UNIT 3 COMPLETE ==="
 GOOD = {"verdict": "PASS", "check": None, "reason": "every claim has its evidence", "evidence": ["src/pricing.py:1", "command: pytest -q → 6 passed"], "category": "none"}
-BLOCK = {"verdict": "BLOCK", "check": 4, "reason": "masked test gap — the assertion passes without rounding", "evidence": ["tests/test_pricing.py:1"], "category": "none"}
+# A real defect (board 077: a missing or weak test is a PASS with `test_gaps`, never a BLOCK).
+BLOCK = {"verdict": "BLOCK", "check": 1, "reason": "false-DONE — the smoke script prints 12.00, not 12.10", "evidence": ["tests/test_pricing.py:1"], "category": "none"}
+GAP = {"check": "test_with_tax_rounds_half_up asserts 0.61 for 0.50 at 21 %", "misses": "ROUND_HALF_EVEN gives 0.60 and the test still passes",
+       "where": "tests/test_pricing.py"}
 
 failures: list[str] = []
 
@@ -227,8 +230,8 @@ check("…once: the request is consumed", p.stop("Next.") == "")
 p = Project()
 p.audit(BLOCK)
 said = p.stop("The overseer agent answered BLOCK.")
-check("BLOCK: the finding goes back to the builder, with the check number", "OVERSEER_BLOCK" in said and "#4 masked test gap" in said and "BLOCK 1 of 3" in said, said)
-check("BLOCK: the ledger names the check", "- Trigger: #4" in p.first_entry() and "OVERSEER_BLOCK" in p.first_entry(), p.first_entry())
+check("BLOCK: the finding goes back to the builder, with the check number", "OVERSEER_BLOCK" in said and "#1 false-DONE" in said and "BLOCK 1 of 3" in said, said)
+check("BLOCK: the ledger names the check", "- Trigger: #1" in p.first_entry() and "OVERSEER_BLOCK" in p.first_entry(), p.first_entry())
 p = Project()
 p.audit({"verdict": "ADR_REQUIRED", "reason": "tax rate as float contradicts the contract", "evidence": ["src/pricing.py:1"], "adr": {"title": "Rate type"}})
 said = p.stop("The overseer agent asks for an ADR.")
@@ -322,6 +325,52 @@ p = Project(slice_name="ref-tax")
 p.audit(GOOD)
 check("negative — without three PASS in a row no devil's advocate is demanded", p.rows()[-1]["verdict"] == "PASS")
 
+print("7b. A test gap is a PASS and an item of the board, never a BLOCK (board 077)")
+p = Project()
+for column in ("todo", "doing", "blocked", "done"):
+    (p.root / "tasks" / column).mkdir(parents=True, exist_ok=True)
+_, rid = p.claim()
+p.launch(f"OVERSEER_REQUEST {rid}")
+said = p.answer({"verdict": "BLOCK", "check": 4, "reason": "masked test gap — the assertion passes without rounding",
+                 "evidence": ["tests/test_pricing.py:1"], "category": "none"})
+check("a BLOCK on #4 for a weak test goes back to the agent: a test gap is a PASS with `test_gaps`",
+      "VERDICT REFUSED" in said and "test_gaps" in said and "board 077" in said and not p.rows(), said)
+said = p.answer(GOOD | {"test_gaps": [GAP]})
+row = p.rows()[-1] if p.rows() else {}
+items = sorted((p.root / "tasks/todo").glob("*.md"))
+check("…answered PASS with the gap: recorded PASS, the gap in the row with its board item",
+      row.get("verdict") == "PASS" and row.get("test_gaps", [{}])[0].get("task", "").startswith("tasks/todo/7"), str(row))
+check("…the item in todo/ is work for an agent and names the check to write",
+      len(items) == 1 and GAP["check"] in items[0].read_text(encoding="utf-8") and "Брак тесту" in items[0].read_text(encoding="utf-8"),
+      str([i.name for i in items]))
+check("…the ledger entry says so", "- Test gaps: " in p.first_entry() and GAP["check"] in p.first_entry() and "OVERSEER_PASS" in p.first_entry(), p.first_entry())
+check("…and the Stop hook continues as on any PASS", "OVERSEER_PASS recorded" in p.stop("Answered."))
+p.audit(GOOD | {"test_gaps": [GAP]}, "More.\n\n=== UNIT 3 COMPLETE ===", shell="echo more >> src/pricing.py")
+check("negative — the same gap found again by the next overseer returns the item still open, not a second one",
+      len(sorted((p.root / "tasks/todo").glob("*.md"))) == 1 and p.rows()[-1]["verdict"] == "PASS", str(sorted((p.root / "tasks/todo").glob("*.md"))))
+p.audit(GOOD | {"test_gaps": [GAP]}, "Again.\n\n=== UNIT 3 COMPLETE ===", shell="echo again >> src/pricing.py")
+said = p.stop("Answered.")
+check("…and passes with gaps never count toward the three BLOCKs: three in a row park nothing",
+      [r["verdict"] for r in p.rows()] == ["PASS", "PASS", "PASS"] and not list((p.root / "tasks/blocked").glob("*.md"))
+      and "third in a row" not in said and "OVERSEER_PASS recorded" in said, said)
+p = Project()
+_, rid = p.claim()
+p.launch(f"OVERSEER_REQUEST {rid}")
+p.answer({"verdict": "BLOCK", "check": 4, "reason": "masked gap — gate-allow at src/pricing.py:1 names no cause",
+          "evidence": ["src/pricing.py:1"], "category": "none"})
+check("negative — a BLOCK on #4 for a silenced check (a gate-allow) is still a BLOCK", [r["verdict"] for r in p.rows()] == ["BLOCK"], str(p.rows()))
+p = Project()
+_, rid = p.claim()
+p.launch(f"OVERSEER_REQUEST {rid}")
+p.answer(GOOD | {"test_gaps": [GAP]})
+check("without a task board the gap is kept by the ledger alone", "no task board: recorded here only" in p.first_entry()
+      and p.rows()[-1]["verdict"] == "PASS", p.first_entry())
+p = Project()
+_, rid = p.claim()
+p.launch(f"OVERSEER_REQUEST {rid}")
+said = p.answer(GOOD | {"test_gaps": [{"check": "x"}]})
+check("a test gap without what it misses goes back to the agent", "VERDICT REFUSED" in said and "`misses`" in said, said)
+
 print("8. Three BLOCKs on one unit park it; the re-audit is a new request")
 p = Project()
 first = p.audit(BLOCK)
@@ -339,7 +388,7 @@ p.answer(BLOCK)
 said, fourth = p.claim("And again.\n\n=== UNIT 3 COMPLETE ===", after_audit=True)
 check("third BLOCK: park for the owner, and NO fourth audit is requested", "third in a row" in said and "tasks/blocked/" in said and "Launch the agent" not in said and fourth == "", said)
 check("…the park entry is written by the hook, not left to the builder", "three BLOCKs in a row" in p.read(".engine/overseer/parked.md")
-      and "already put it before the owner (.engine/overseer/parked.md)" in said and said.count("BLOCK 3: #4 masked test gap") == 1, said + p.read(".engine/overseer/parked.md"))
+      and "already put it before the owner (.engine/overseer/parked.md)" in said and said.count("BLOCK 3: #1 false-DONE") == 1, said + p.read(".engine/overseer/parked.md"))
 check("…no marker for a runner that is not there", not list((p.root / ".claude/state").rglob("three-blocks-*.json")))
 
 
@@ -359,14 +408,14 @@ def three_blocks(project: Project) -> dict[str, Any]:
 p = Project()
 printed = three_blocks(p)
 check("no runner: the person at the terminal is told in a message of their own, with the three reasons",
-      printed.get("decision") == "block" and "тричі поспіль" in printed.get("systemMessage", "") and printed["systemMessage"].count("masked test gap") == 3, str(printed))
+      printed.get("decision") == "block" and "тричі поспіль" in printed.get("systemMessage", "") and printed["systemMessage"].count("false-DONE") == 3, str(printed))
 p = Project()
 (p.root / "tasks/blocked").mkdir(parents=True)
 printed = three_blocks(p)
 asked = sorted((p.root / "tasks/blocked").glob("*.md"))
 question = asked[0].read_text(encoding="utf-8") if asked else ""
 check("board 037 — a project with a task board: the parked unit is a question in tasks/blocked/, with the three reasons and an empty answer",
-      len(asked) == 1 and asked[0].name.startswith("700-open-item-") and "Відкритий пункт: " in question and question.count("masked test gap") == 3
+      len(asked) == 1 and asked[0].name.startswith("700-open-item-") and "Відкритий пункт: " in question and question.count("false-DONE") == 3
       and question.rstrip().endswith("Відповідь:") and f"tasks/blocked/{asked[0].name}" in printed.get("reason", "") + printed.get("systemMessage", ""), question + str(printed))
 check("…and the log parked.md gets nothing: the item lives on the board only", not p.read(".engine/overseer/parked.md"))
 three_blocks(p)
@@ -379,8 +428,8 @@ marker = json.loads(p.read(".claude/state/board/three-blocks-031-refused.json") 
 check("under the board runner: the session is stopped outright, the builder is asked nothing",
       printed.get("continue") is False and "decision" not in printed and "031-refused" in printed.get("stopReason", ""), str(printed))
 check("…and the marker for the runner names the task, the unit and the three verdicts", marker.get("task") == "031-refused"
-      and marker.get("unit") == "-|031-refused|unit 3" and [b.get("check") for b in marker.get("blocks", [])] == [4, 4, 4]
-      and len({b.get("request") for b in marker["blocks"]}) == 3 and "masked test gap" in marker["blocks"][0]["reason"], str(marker))
+      and marker.get("unit") == "-|031-refused|unit 3" and [b.get("check") for b in marker.get("blocks", [])] == [1, 1, 1]
+      and len({b.get("request") for b in marker["blocks"]}) == 3 and "false-DONE" in marker["blocks"][0]["reason"], str(marker))
 check("…nothing is written to the park queue: the task file carries it", not p.read(".engine/overseer/parked.md"))
 check("…the count restarts: the unit gets three attempts again after the owner's answer", p.rows()[-1]["verdict"] == "PARK")
 # board 712: the owner's session's task lies in doing/ beside the runner's, and its name sorts first
@@ -471,7 +520,7 @@ p.answer(BLOCK)
 said = p.run(VERDICT, ["status"]).stdout
 check("`status` after the answer: the request is answered, not pending (seen live: a session reported a recorded PASS as pending)",
       f"answered request:  {rid}" in said and "BLOCK recorded" in said and "pending request:   none" in said, said)
-check("the verdict is in the ledger; the Stop hook adds nothing (the report is the human's)", "OVERSEER_BLOCK" in p.first_entry() and p.stop("The overseer blocked: #4.") == "")
+check("the verdict is in the ledger; the Stop hook adds nothing (the report is the human's)", "OVERSEER_BLOCK" in p.first_entry() and p.stop("The overseer blocked: #1.") == "")
 old = Project(wired=False)
 old.write("turn.md", CLAIM)
 check("negative — not wired: `request` refuses instead of leaving a request nobody records", old.run(VERDICT, ["request", "--turn-file", "turn.md"]).returncode == 3)

@@ -505,7 +505,9 @@ def overseer_blocks_4(root: Path, slug: str) -> int:
             row = json.loads(line)
         except ValueError:
             continue
-        if isinstance(row, dict) and row.get("slice") == slug and row.get("verdict") == "BLOCK" and row.get("check") == 4:
+        # A test gap counts as much as a BLOCK on #4 did: since board 077 it is a PASS with `test_gaps`.
+        if isinstance(row, dict) and row.get("slice") == slug and (
+                (row.get("verdict") == "BLOCK" and row.get("check") == 4) or row.get("test_gaps")):
             count += 1
     return count
 
@@ -693,7 +695,7 @@ def mandatory(facts: JsonObj) -> dict[str, str]:
         for item in previous:
             why = [text for flag, text in ((item.get("code_was_wrong"), "a dispute ended «the code was wrong»"),
                                            (item.get("contract_ambiguous") or item.get("questions_to_contract"), "the tester found an ambiguity of the contract"),
-                                           (item.get("overseer_blocks_check_4"), "the overseer blocked on check #4")) if flag]
+                                           (item.get("overseer_blocks_check_4"), "the overseer found a test gap or blocked on check #4")) if flag]
             if why:
                 fired["O4"] = f"on the previous slice of the block ({item.get('slice')}): " + "; ".join(why)
         if untouched:
@@ -705,7 +707,7 @@ def mandatory(facts: JsonObj) -> dict[str, str]:
         if debt.get("due"):
             fired[f"O6:{debt['kind']}"] = f"the {debt['kind']} check of {debt.get('slice')} was deferred until {debt['until']}, and that has come"
     if facts.get("decision_at_point_a") == "builder" and (facts.get("self_added_behaviours") or facts.get("overseer_blocks_check_4")):
-        fired["O7"] = "point (a) said «the builder», and the slice gave a self-added behaviour or a block on check #4"
+        fired["O7"] = "point (a) said «the builder», and the slice gave a self-added behaviour or a test gap (check #4)"
     untested = [f["file"] for f in facts.get("changed_code_and_tests", []) if not f["touched"]]
     if untested:
         fired["O8"] = "the slice changed working code no test touches: " + ", ".join(untested)

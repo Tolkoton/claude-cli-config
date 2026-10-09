@@ -151,7 +151,7 @@ elif step == "refused":
         request = json.loads((state / "pending.json").read_text())["id"]
         hook("overseer_verdict.py", ["guard"], {"hook_event_name": "PreToolUse", "tool_name": "Agent",
                                                "tool_input": {"subagent_type": "overseer", "prompt": f"OVERSEER_REQUEST {request}"}})
-        reply = {"verdict": "BLOCK", "check": 4, "reason": f"ПРИЧИНА-{turn}: the assertion passes without the fix",
+        reply = {"verdict": "BLOCK", "check": 1, "reason": f"ПРИЧИНА-{turn}: false-DONE, the smoke script prints the old total",
                  "evidence": ["src/unit.py:1"], "category": "none"}
         hook("overseer_verdict.py", ["record"], {"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": f"a{turn}",
                                                 "last_assistant_message": "```json\n" + json.dumps(reply) + "\n```"})
@@ -1429,7 +1429,7 @@ why = text.split("## Чому зупинилась")[-1].split("## Питанн�
 check("the runner moved the task to blocked/ after ONE session — the fake never touched the task file", r.returncode == 0
       and bool(text) and not w.has("tasks/doing/001-refused.md") and " attempt 001-refused 2" not in events(w), r.stdout + r.stderr + events(w))
 check("«Чому зупинилась» carries the unit and the three overseers' verdicts", "overseer тричі поспіль відхилив один юніт (-|001-refused|unit 1)" in why
-      and all(f"BLOCK {k} (" in why and f"перевірка #4): ПРИЧИНА-{k}:" in why for k in (1, 2, 3)), text)
+      and all(f"BLOCK {k} (" in why and f"перевірка #1): ПРИЧИНА-{k}:" in why for k in (1, 2, 3)), text)
 check("…and one question to the owner, unanswered", "1. Три overseer-и поспіль" in text and text.rstrip().endswith("Відповідь:"), text)
 journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
 check("the event is in the anomaly journal", "— 001-refused\n- Що сталося: overseer тричі поспіль відхилив один юніт" in journal, journal)

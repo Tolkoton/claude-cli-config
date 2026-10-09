@@ -46,8 +46,8 @@ the next unblocked item. A `gate-allow` is not a way through: the overseer reads
 - On `OVERSEER_REQUEST <id>`: launch the agent `overseer` (fresh context, no editing tool) with
   exactly that line as its prompt, change nothing until it answers, then end the turn. You never
   audit or write a verdict: `overseer_verdict.py` writes the ledger from the agent's answer, and
-  `OVERSEER_PASS` typed by you is ignored. After a BLOCK you fix and claim again — another
-  overseer judges it; three BLOCKs on one unit park the task (`.claude/skills/overseer/SKILL.md`).
+  `OVERSEER_PASS` typed by you is ignored. After a BLOCK you fix and claim again — another overseer
+  judges it; three BLOCKs park the task; a test gap is a PASS plus a `todo/` item (`skills/overseer`).
 - Planning stands the overseer down: `python3 .claude/hooks/overseer_phase.py set plan` before
   drafting a contract, `… clear` when done. Never write `.claude/state/` with your own tools —
   it is the state of hooks and scripts; the named scripts are the only sanctioned path.

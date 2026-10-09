@@ -36,6 +36,13 @@ writes the entry into .engine/overseer/ledger.md and a row into
 .claude/state/overseer/verdicts.jsonl. Hooks decide on the second file; the ledger is for people
 and for the next overseer.
 
+TEST GAPS (board 077, the owner's decision). A gap in the tests of code that does what the claim
+says — a wrong implementation the tests let through, an edge case none tries — does not stop the
+unit: the agent answers PASS and lists each gap in `test_gaps`, and this script opens one item per
+gap in tasks/todo/ (board.py open_item; without a board the ledger alone keeps it). A BLOCK on
+check #4 is refused unless it names a silenced check (a gate-allow and its kin): that is all #4
+still blocks. So a test gap never counts toward the three BLOCKs that park a unit.
+
 LIMIT. A hook cannot tell that it was started by Claude Code and not by the builder's own Bash: an
 agent that deliberately feeds `record` a made-up envelope, or writes .claude/state/ itself, forges
 a verdict. The rules forbid both; nothing here makes them impossible (docs/engine-limits.md).
@@ -76,6 +83,10 @@ CATEGORIES = ("strategy", "recovery", "optimization", "none")
 MAX_BLOCKS = 3      # the owner's number (board 015, answer 4): three BLOCKs on one unit park the task
 MAX_ASKS = 3        # the request itself and two repeats; then the item is parked and the turn ends
 PASSES_FOR_ADVOCATE = 3
+# What check #4 may still block (board 077): a silenced check — a gate-allow, a type-ignore or
+# no-qa marker, a skip, a loosened setting. A missing or weak test is a test gap, never a BLOCK.
+SILENCED_RE = re.compile(r"gate[- ]?allow|exemption|suppress|ignore|noqa|no-qa|skip|xfail|silenc|loosen", re.IGNORECASE)
+GAP_FIELDS = ("check", "misses")
 EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
 AGENT_TOOLS = frozenset({"Agent", "Task"})
 OUTPUT_TAIL_LINES = 15
@@ -86,6 +97,7 @@ NO_ENTRIES = "(no entries yet)"
 # The ledger's Action line: what the verdict does next, which is the hook's doing, not the agent's.
 ACTIONS = {
     "PASS": "unit accepted; the builder continues",
+    "PASS+gaps": "unit accepted; the builder continues, and each test gap is an item of the board for an agent to write the test",
     "BLOCK": "returned to the builder: fix and claim again, another overseer judges it (BLOCK on attempt {attempt}; {limit} in a row park the unit)",
     "ADR_REQUIRED": "ADR draft handed to the builder for routing (.claude/engine-rules.md, Verdict routing)",
     "ESCALATE": "escalation handed to the builder for routing (.claude/engine-rules.md, Verdict routing)",
@@ -503,6 +515,18 @@ def schema_errors(root: Path, obj: JsonObj, request: JsonObj) -> list[str]:
     if verdict == "ESCALATE" and not (isinstance(obj.get("escalation"), dict) and obj["escalation"].get("question")):
         errors.append("ESCALATE carries the question: `escalation` must be an object with category, question, options, "
                       "your_recommendation, evidence")
+    gaps = obj.get("test_gaps")
+    if gaps is not None:
+        if not isinstance(gaps, list) or not all(
+                isinstance(g, dict) and all(isinstance(g.get(k), str) and g[k].strip() for k in GAP_FIELDS) for g in gaps):
+            errors.append("`test_gaps` must be a list of objects, each with `check` (the test to add, by name) and "
+                          "`misses` (the wrong implementation or the case today's tests let through); `where` may name the file")
+        elif gaps and verdict not in ("PASS", "BLOCK"):
+            errors.append("`test_gaps` go with a PASS (or beside a BLOCK for another defect)")
+    if verdict == "BLOCK" and check == 4 and isinstance(reason, str) and not SILENCED_RE.search(reason):
+        errors.append("a test gap is not a BLOCK (the owner, board 077): when the code does what the claim says and only a "
+                      "test is missing or weak, answer PASS and put the gap in `test_gaps` (check, misses, where) — the "
+                      "script opens a board item for it. Check #4 blocks only a silenced check: name the gate-allow")
     return errors
 
 
@@ -512,6 +536,8 @@ def one_line(text: object, limit: int = 600) -> str:
 
 def ledger_entry(row: JsonObj, obj: JsonObj | None) -> str:
     verdict = str(row["verdict"])
+    gaps = row.get("test_gaps") or []
+    action = "PASS+gaps" if verdict == "PASS" and gaps else verdict
     header = verdict if verdict == INVALID else f"OVERSEER_{verdict}"
     check = row.get("check")
     trigger = f"#{check} — {row['reason']}" if check else (str(row["reason"]) if verdict != "PASS" else f"none — {row['reason']}")
@@ -519,8 +545,12 @@ def ledger_entry(row: JsonObj, obj: JsonObj | None) -> str:
     lines = [f"## {row['utc']} — {row['slice']} — {header}",
              f"- Trigger: {one_line(trigger)}",
              f"- Evidence: {one_line(evidence, 900)}",
-             f"- Action: {ACTIONS[verdict].format(attempt=row.get('attempt', 1), limit=MAX_BLOCKS)}",
+             f"- Action: {ACTIONS[action].format(attempt=row.get('attempt', 1), limit=MAX_BLOCKS)}",
              f"- Category: {(obj or {}).get('category', 'none')}"]
+    if gaps:
+        lines.append("- Test gaps: " + one_line("; ".join(
+            f"{g['check']} — {g['misses']}" + (f" → {g['task']}" if g.get("task") else " (no task board: recorded here only)")
+            for g in gaps), 1500))
     if obj and isinstance(obj.get("devils_advocate"), str) and obj["devils_advocate"].strip():
         lines.append(f"- Devil's advocate: {one_line(obj['devils_advocate'], 1200)}")
     if obj and verdict == "ADR_REQUIRED":
@@ -580,6 +610,44 @@ def settle(root: Path, row: JsonObj) -> None:
         pass
 
 
+def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonObj]:
+    """One item in tasks/todo/ per test gap (board 077), named by the check to write; `task` is its
+    path, or empty without a board. The item's key is the check, so the same gap found again by the
+    next overseer returns the item still open instead of a second one. Best effort."""
+    opened: list[JsonObj] = []
+    board: Any = None
+    tasks: Any = None
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board as board_module
+
+        board = board_module
+        tasks = board.Board(root / "tasks") if (root / "tasks").is_dir() else None
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        tasks = None
+    for gap in gaps:
+        check, misses = one_line(gap["check"], 200), one_line(gap["misses"], 600)
+        where = one_line(gap.get("where") or "", 200)
+        task = ""
+        if tasks is not None and board is not None:
+            try:
+                made = board.open_item(
+                    tasks, "todo", f"Брак тесту (overseer): {check}",
+                    f"Overseer прийняв юніт `{row.get('unit_key') or row.get('slice')}` (PASS, запит `{row['request']}`) "
+                    f"і знайшов брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
+                    + f" Вердикт — у `{LEDGER_REL.as_posix()}`.",
+                    do=(f"Дописати перевірку «{check}»: тест червоніє на тому, що описано вище ({misses}), і зелений "
+                        "на коді, як він є (покажи обидва прогони); код не міняти, якщо тест не знайде справжньої вади; "
+                        "швидкий набір тестів зелений."),
+                    key="test-gap-" + re.sub(r"[^a-z0-9]+", "-", check.lower()).strip("-")[:60],
+                    source="overseer (overseer_verdict.py)")
+                task = made.relative_to(root).as_posix() if made else ""
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                task = ""
+        opened.append({"check": check, "misses": misses, "where": where, "task": task})
+    return opened
+
+
 def schema_reason(errors: list[str]) -> str:
     return ("VERDICT REFUSED — the answer does not fit the schema:\n- " + "\n- ".join(errors[:6]) + "\n"
             "Answer again with the ONE JSON object and nothing else (verdict, check, reason, evidence, category; "
@@ -624,6 +692,8 @@ def record(root: Path, envelope: JsonObj) -> JsonObj | None:
 
     def finish(verdict: str, reason: str, obj: JsonObj | None = None, check: object = None, **extra: object) -> None:
         row.update({"verdict": verdict, "reason": one_line(reason), "check": check, **extra})
+        if obj and verdict in ("PASS", "BLOCK") and obj.get("test_gaps"):
+            row["test_gaps"] = open_test_gaps(root, row, obj["test_gaps"])
         write_ledger(root, ledger_entry(row, obj))
         append_row(root, row)
         settle(root, row)

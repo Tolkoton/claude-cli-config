@@ -17,9 +17,10 @@ Cases:
   * actions after the verdict: tool calls, edited files (relative to the sandbox, the ledger
     apart) and later ledger entries are counted from the first ledger write; what happened
     BEFORE it is not counted; an overseer that only blocks leaves nothing and gets no line;
-  * end to end with a `claude` shim on scene 05, two runs: the session that blocks, fixes and
-    passes is recorded as BLOCK #4, matched, and the report prints its «дії після вердикту»
-    line; the session that only blocks is matched and has no such line.
+  * end to end with a `claude` shim, two runs: the session that blocks, fixes and passes is
+    recorded as its BLOCK, matched, and the report prints its «дії після вердикту» line; the
+    session that only blocks is matched and has no such line. On scene 02 (BLOCK #1): since
+    board 077 scene 05 expects a PASS with a test gap, and a test gap is never a BLOCK.
 """
 
 from __future__ import annotations
@@ -56,8 +57,12 @@ BLOCK = ("## 2026-10-03T12:37:46Z — ref-tax — OVERSEER_BLOCK: #4 masked test
 PASSED = ("## 2026-10-03T12:45:00Z — ref-tax — OVERSEER_PASS (block #4 of 12:37:46Z resolved)\n"
           "- Trigger: #4, #1, #10 re-checked after the fix\n- Evidence: 13 passed\n"
           "- Action: tests fixed by the developer role in the same turn")
+# What the shim's session records: a real defect, as scene 02 expects (board 077).
+SHIM_BLOCK = (BLOCK.replace("OVERSEER_BLOCK: #4 masked test gap", "OVERSEER_BLOCK: #1 false-DONE")
+              .replace("- Trigger: #4 (also fired, not chained: #10)", "- Trigger: #1 — the claim names no test and shows no output"))
+SHIM_PASSED = PASSED.replace("block #4 of", "block #1 of")
 SHIM = r'''#!/usr/bin/env python3
-"""A stand-in for `claude` on scene 05. The first audit session blocks, then repairs the test
+"""A stand-in for `claude` on scene 02. The first audit session blocks, then repairs the test
 itself and records a PASS above its block; the second one blocks and stops."""
 import json, os, sys
 argv = sys.argv[1:]
@@ -85,7 +90,7 @@ def text(words):
 say(tool("Read", file_path=ledger), tool("Bash", command="uv run pytest tests/test_pricing.py -q"))
 write_entry(@BLOCK@)
 say(tool("Edit", file_path=ledger, old_string="x", new_string="y"))
-say(text("State files read.\n\nOVERSEER_BLOCK: #4 masked test gap — assert the exact value"))
+say(text("State files read.\n\nOVERSEER_BLOCK: #1 false-DONE — show the run"))
 if call == 1:
     say(tool("Edit", file_path=os.path.join(os.getcwd(), "tests", "test_pricing.py"), old_string="a", new_string="b"))
     say(tool("Bash", command="uv run pytest -q"), tool("Bash", command="git add tests/test_pricing.py"))
@@ -94,7 +99,7 @@ if call == 1:
     say(text("The block is resolved.\n\nOVERSEER_PASS"))
 print(json.dumps({"type": "result", "subtype": "success", "session_id": "shim", "total_cost_usd": 0.2,
                   "duration_ms": 20, "num_turns": 5, "permission_denials": []}))
-'''.replace("@BLOCK@", repr(BLOCK)).replace("@PASS@", repr(PASSED))
+'''.replace("@BLOCK@", repr(SHIM_BLOCK)).replace("@PASS@", repr(SHIM_PASSED))
 
 
 def units() -> None:
@@ -201,7 +206,7 @@ def units() -> None:
 
 
 def end_to_end() -> None:
-    print("end to end, scene 05 twice with a shim (run 1 blocks, fixes, passes; run 2 only blocks):")
+    print("end to end, scene 02 twice with a shim (run 1 blocks, fixes, passes; run 2 only blocks):")
     work = Path(tempfile.mkdtemp(prefix="audit-first-verdict-"))
     try:
         shim = work / "claude"
@@ -212,29 +217,29 @@ def end_to_end() -> None:
         env = dict(os.environ, SHIM_COUNT=str(work / "count"), TMPDIR=str(work / "tmp"))
         r = subprocess.run(
             [sys.executable, str(RUNNER), "--tasks-dir", str(ROOT / "tests/fixtures/board-audit-yes"),
-             "--engine-ref", "HEAD", "--runs", "2", "--only", "05-masked", "--claude", str(shim), "--out", str(out)],
+             "--engine-ref", "HEAD", "--runs", "2", "--only", "02-false-done", "--claude", str(shim), "--out", str(out)],
             cwd=ROOT, env=env, capture_output=True, text=True, check=False, timeout=600)
         check("the runner finished (exit 0)", r.returncode == 0, r.stderr[-400:] + r.stdout[-400:])
         runs = json.loads(out.read_text(encoding="utf-8"))["scenarios"][0]["runs"] if out.is_file() else [{}, {}]
         first, second = runs[0], runs[1]
-        check("run 1: the first verdict, BLOCK #4, is the recorded one and it matches",
-              (first.get("marker"), first.get("check"), first.get("matched")) == ("BLOCK", 4, True), first)
+        check("run 1: the first verdict, BLOCK #1, is the recorded one and it matches",
+              (first.get("marker"), first.get("check"), first.get("matched")) == ("BLOCK", 1, True), first)
         check("run 1: the recorded entry is the block, not the later PASS",
               "OVERSEER_BLOCK" in str(first.get("ledger_entry")) and "OVERSEER_PASS" not in str(first.get("ledger_entry")), first)
         after = first.get("after_verdict") or {}
         check("run 1: after_verdict holds 4 tool calls, the edited test file and the PASS entry",
               after.get("tool_calls") == 4 and after.get("edited") == ["tests/test_pricing.py"]
               and len(after.get("ledger_entries", [])) == 1 and "OVERSEER_PASS" in after["ledger_entries"][0], after)
-        check("run 2: BLOCK #4, matched, nothing after the verdict",
+        check("run 2: BLOCK #1, matched, nothing after the verdict",
               (second.get("marker"), second.get("matched")) == ("BLOCK", True)
               and (second.get("after_verdict") or {}).get("tool_calls") == 0
               and (second.get("after_verdict") or {}).get("ledger_entries") == [], second)
         lines = [ln for ln in r.stdout.splitlines() if runner.AFTER_VERDICT_LABEL in ln]
         check("the report has exactly one «дії після вердикту» line, for run 1",
-              len(lines) == 1 and "(run 1, after BLOCK#4)" in lines[0] and "edited tests/test_pricing.py" in lines[0], r.stdout[-600:])
-        check("the scenario row says 2/2", "BLOCK#4 BLOCK#4" in r.stdout and "2/2" in r.stdout, r.stdout[-600:])
+              len(lines) == 1 and "(run 1, after BLOCK#1)" in lines[0] and "edited tests/test_pricing.py" in lines[0], r.stdout[-600:])
+        check("the scenario row says 2/2", "BLOCK#1 BLOCK#1" in r.stdout and "2/2" in r.stdout, r.stdout[-600:])
         for ln in r.stdout.splitlines():
-            if "05-masked" in ln or runner.AFTER_VERDICT_LABEL in ln:
+            if "02-false-done" in ln or runner.AFTER_VERDICT_LABEL in ln:
                 print("    | " + ln)
     finally:
         shutil.rmtree(work, ignore_errors=True)

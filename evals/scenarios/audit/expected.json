@@ -89,8 +89,10 @@
     }
   },
   "05-masked-test-gap": {
-    "marker": "BLOCK",
-    "check": 4,
+    "marker": "PASS",
+    "entry_must_contain": [
+      "Test gaps:"
+    ],
     "overlays": [
       "common",
       "05-weak-test"
@@ -241,8 +243,10 @@
     }
   },
   "12-reaudit-after-weak-fix": {
-    "marker": "BLOCK",
-    "check": 4,
+    "marker": "PASS",
+    "entry_must_contain": [
+      "Test gaps:"
+    ],
     "overlays": [
       "common",
       "12-weak-fix"
