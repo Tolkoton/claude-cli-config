@@ -20,6 +20,7 @@ WHAT IS CHECKED, the negative cases first
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -381,6 +382,211 @@ check("request.json says the task's mode, as mode.py show prints it", request.ge
       and json.loads((root / f".claude/state/overseer/requests/{request['id']}/request.json").read_text(encoding="utf-8"))["mode"] == request["mode"], request.get("mode"))
 check("the overseer's definition says what the field means", "`mode`" in (ROOT / ".claude/agents/overseer.md").read_text(encoding="utf-8")
       and "«конвеєр»" in (ROOT / ".claude/agents/overseer.md").read_text(encoding="utf-8"))
+
+# ------------------------------------------------------------------ the minimum at closing (board 098)
+print("check-close: the minimum of the mode, by files")
+
+
+def sh_git(at: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=at, check=True, capture_output=True)
+
+
+def commit_all(at: Path, message: str) -> None:
+    sh_git(at, "add", "-A")
+    sh_git(at, "commit", "-qm", message)
+
+
+def start(at: Path, name: str, line: str = "") -> None:
+    put(at, "doing", f"{name}.md", task(name[:3], line))
+    commit_all(at, f"board: {name} → doing")
+
+
+def audited(at: Path, name: str, rid: str, verdict_word: str = "PASS", unit_task: str | None = None) -> None:
+    """The overseer answered on the tree as it is now: its request's fingerprint and the verdict row."""
+    folder = at / ".claude/state/overseer/requests" / rid
+    folder.mkdir(parents=True)
+    (folder / "request.json").write_text(json.dumps({"id": rid, "tree": verdict.tree_fingerprint(at)}), encoding="utf-8")
+    with (at / ".claude/state/overseer/verdicts.jsonl").open("a", encoding="utf-8") as rows:
+        rows.write(json.dumps({"request": rid, "verdict": verdict_word, "unit_key": f"-|{unit_task or name}|unit 1"}) + "\n")
+
+
+def close(at: Path, name: str, report: bool = True) -> None:
+    folder = at / "tasks/done" / name
+    folder.mkdir(parents=True)
+    (at / "tasks/doing" / f"{name}.md").rename(folder / "task.md")
+    if report:
+        (folder / "report.md").write_text("# звіт\n", encoding="utf-8")
+    commit_all(at, f"board: {name} → done")
+
+
+def code(at: Path, rel: str, text: str) -> None:
+    (at / rel).parent.mkdir(parents=True, exist_ok=True)
+    (at / rel).write_text(text, encoding="utf-8")
+
+
+def closing(at: Path, name: str) -> tuple[str, list[str]]:
+    return mode.check_close(at, name)
+
+
+cc = project(git=True)
+code(cc, ".claude/project.env", 'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\n')
+commit_all(cc, "the project")
+start(cc, "060-no-pass")
+code(cc, "src/a.py", "A = 1\n")
+commit_all(cc, "unit 1")
+close(cc, "060-no-pass")
+r = run(MODE, cc, "--root", str(cc), "check-close", "060-no-pass")
+check("negative — соло, a commit of working code and no PASS: exit 1, the commit named",
+      r.returncode == 1 and "мінімуму режиму «соло» немає: 060-no-pass" in r.stdout and "(«unit 1») змінив робочий код (src/a.py)" in r.stdout, said(r))
+start(cc, "061-pass")
+code(cc, "src/b.py", "B = 1\n")
+audited(cc, "061-pass", "r061")
+commit_all(cc, "unit 1")
+close(cc, "061-pass")
+r = run(MODE, cc, "--root", str(cc), "check-close", "tasks/done/061-pass/task.md")
+check("соло, the PASS whose audit saw that code: exit 0 (the task named by its task.md)",
+      r.returncode == 0 and r.stdout.strip() == "мінімум режиму «соло» є: 061-pass", said(r))
+check("…and the earlier task still lacks its PASS: the later one's commits are not its own", closing(cc, "060-no-pass")[1][0].startswith("commit "))
+start(cc, "062-edited-after")
+code(cc, "src/c.py", "C = 1\n")
+audited(cc, "062-edited-after", "r062")
+code(cc, "src/c.py", "C = 2  # changed after the PASS\n")
+commit_all(cc, "unit 1")
+close(cc, "062-edited-after")
+check("negative — code changed after the PASS: the audit did not see what was committed", len(closing(cc, "062-edited-after")[1]) == 1,
+      closing(cc, "062-edited-after"))
+start(cc, "063-other")
+code(cc, "src/d.py", "D = 1\n")
+audited(cc, "063-other", "r063a", unit_task="064-someone-else")
+audited(cc, "063-other", "r063b", verdict_word="BLOCK")
+commit_all(cc, "unit 1")
+close(cc, "063-other")
+check("negative — a PASS on another task's unit, or a BLOCK on this one's, does not count", len(closing(cc, "063-other")[1]) == 1, closing(cc, "063-other"))
+start(cc, "073-turn-back")
+code(cc, "src/i.py", "I = 1\n")
+commit_all(cc, "unit 1")
+close(cc, "073-turn-back")
+audited(cc, "073-turn-back", "r073", unit_task="-")
+check("a PASS with no task in doing/ (the runner's turn back, the task already in done/) that saw the committed code counts",
+      closing(cc, "073-turn-back") == ("соло", []), closing(cc, "073-turn-back"))
+start(cc, "065-docs")
+code(cc, "docs/note.md", "текст\n")
+code(cc, "notes.txt", "outside SOURCE_DIRS: no audit is asked for it\n")
+commit_all(cc, "a document")
+close(cc, "065-docs")
+check("a task that changed no working code closes as before: report.md is all it needs", closing(cc, "065-docs") == ("соло", []), closing(cc, "065-docs"))
+start(cc, "066-no-report")
+close(cc, "066-no-report", report=False)
+check("negative — no report.md: missing in every mode", closing(cc, "066-no-report") == ("соло", ["у tasks/done/066-no-report/ немає report.md"]),
+      closing(cc, "066-no-report"))
+start(cc, "067-sketch", "Режим: ескіз")
+code(cc, "src/e.py", "E = 1\n")
+commit_all(cc, "a sketch")
+close(cc, "067-sketch")
+check("ескіз: report.md for now — the quarantine and the record come with board 099", closing(cc, "067-sketch") == ("ескіз", []), closing(cc, "067-sketch"))
+start(cc, "068-pipeline-bare", "Режим: конвеєр")
+code(cc, "src/f.py", "F = 1\n")
+audited(cc, "068-pipeline-bare", "r068")
+commit_all(cc, "unit 1")
+close(cc, "068-pipeline-bare")
+bare = closing(cc, "068-pipeline-bare")
+check("negative — конвеєр without the feature artifact and with no slice contract: both missing, the PASS is there",
+      bare[0] == "конвеєр" and len(bare[1]) == 2 and "артефакту функції" in bare[1][0] and "жодного slice contract-у" in bare[1][1], bare)
+start(cc, "069-pipeline-unsealed", "Режим: конвеєр")
+code(cc, ".engine/architecture/feature/pay.md", "# Feature pay\n")
+code(cc, ".engine/slices/pay-tax.md", "# contract\n")
+code(cc, "src/g.py", "G = 1\n")
+audited(cc, "069-pipeline-unsealed", "r069")
+commit_all(cc, "unit 1")
+close(cc, "069-pipeline-unsealed")
+check("negative — конвеєр with an unsealed slice contract: refused, the contract named",
+      closing(cc, "069-pipeline-unsealed")[1] == ["slice contract .engine/slices/pay-tax.md не запечатано: немає .claude/state/contracts/pay-tax.sha256"],
+      closing(cc, "069-pipeline-unsealed"))
+seal = cc / ".claude/state/contracts/pay-tax.sha256"
+seal.parent.mkdir(parents=True)
+seal.write_text(hashlib.sha256((cc / ".engine/slices/pay-tax.md").read_bytes()).hexdigest() + "  .engine/slices/pay-tax.md\n", encoding="utf-8")
+check("…sealed (contract_fingerprint.py's format): the minimum of конвеєр is there", closing(cc, "069-pipeline-unsealed") == ("конвеєр", []),
+      closing(cc, "069-pipeline-unsealed"))
+code(cc, ".engine/slices/pay-tax.md", "# contract, the goalpost moved\n")
+check("negative — the contract changed after its seal", "змінено після печатки" in " ".join(closing(cc, "069-pipeline-unsealed")[1]),
+      closing(cc, "069-pipeline-unsealed"))
+check("negative — a task closed with its PASS stays so after later tasks' unaudited commits: its commits end where it closed",
+      closing(cc, "061-pass") == ("соло", []), closing(cc, "061-pass"))
+# BLOCK 1 of the first audit: (a) empty settings, (b) every stay in doing/, (c) a crash, and its two test gaps.
+for env_text, rel in (('SOURCE_DIRS="src"\nCODE_EXTENSIONS=""\n', "src/a.py"), ("", "notes/plan.txt")):
+    bare_env = project(git=True)
+    if env_text:
+        code(bare_env, ".claude/project.env", env_text)
+        commit_all(bare_env, "the project")
+    start(bare_env, "080-empty")
+    code(bare_env, rel, "x = 1\n")
+    commit_all(bare_env, "unit 1")
+    close(bare_env, "080-empty")
+    r = run(MODE, bare_env, "--root", str(bare_env), "check-close", "080-empty")
+    check(f"negative — empty CODE_EXTENSIONS{' and SOURCE_DIRS' if not env_text else ''}: every file asks for an audit, as the Stop hook "
+          f"reads it — {rel} with no PASS is missing", r.returncode == 1 and f"змінив робочий код ({rel})" in r.stdout, said(r))
+start(cc, "081-parked-once")
+code(cc, "src/j.py", "J = 1\n")
+commit_all(cc, "unit 1, never audited")
+close(cc, "081-parked-once")
+(cc / "tasks/done/081-parked-once/task.md").rename(cc / "tasks/blocked/081-parked-once.md")
+(cc / "tasks/done/081-parked-once/report.md").rename(cc / "tasks/blocked/report-081-parked-once.md")
+(cc / "tasks/done/081-parked-once").rmdir()
+commit_all(cc, "board: 081-parked-once → blocked — the runner parked it (minimum)")
+start(cc, "082-meanwhile")
+code(cc, "src/k.py", "K = 1\n")
+audited(cc, "082-meanwhile", "r082")
+commit_all(cc, "082's unit, audited")
+close(cc, "082-meanwhile")
+(cc / "tasks/blocked/081-parked-once.md").rename(cc / "tasks/todo/081-parked-once.md")
+commit_all(cc, "board: answered, back to todo — 081-parked-once.md")
+(cc / "tasks/todo/081-parked-once.md").rename(cc / "tasks/doing/081-parked-once.md")
+commit_all(cc, "board: 081-parked-once → doing")
+close(cc, "081-parked-once")
+again = closing(cc, "081-parked-once")
+check("negative — parked and restarted with no new code: the first stay's unaudited commit is still the task's, and missing",
+      len(again[1]) == 1 and "src/j.py" in again[1][0], again)
+check("…another task's commits while it waited in blocked/ are not its own", "src/k.py" not in " ".join(again[1]), again)
+start(cc, "083-later-pass")
+code(cc, "src/l.py", "L = 1\n")
+commit_all(cc, "unit 1, committed before any audit")
+code(cc, "src/m.py", "M = 1\n")
+audited(cc, "083-later-pass", "r083")
+commit_all(cc, "unit 2, audited")
+close(cc, "083-later-pass")
+check("a later PASS whose request already held the earlier commit covers it: a verdict speaks for everything since the last accepted PASS",
+      closing(cc, "083-later-pass") == ("соло", []), closing(cc, "083-later-pass"))
+start(cc, "084-cyrillic")
+code(cc, "src/модуль.py", "N = 1\n")
+commit_all(cc, "a module named outside ASCII")
+close(cc, "084-cyrillic")
+check("negative — a working-code file named outside ASCII, with no PASS: named, not lost to git's quoting",
+      any("src/модуль.py" in line for line in closing(cc, "084-cyrillic")[1]), closing(cc, "084-cyrillic"))
+start(cc, "085-turn-back-fix")
+close(cc, "085-turn-back-fix")
+code(cc, "src/o.py", "O = 1\n")
+commit_all(cc, "a fix made in the turn back, after the move to done/, never audited")
+check("negative — a commit made in the turn back (after the move to done/, before another task starts) is the task's",
+      any("src/o.py" in line for line in closing(cc, "085-turn-back-fix")[1]), closing(cc, "085-turn-back-fix"))
+start(cc, "086-broken")
+close(cc, "086-broken")
+(cc / "tasks/done/086-broken/task.md").write_bytes(b"# \xff\xfe not UTF-8\n")
+r = run(MODE, cc, "--root", str(cc), "check-close", "086-broken")
+check("negative — the check itself breaks (task.md not UTF-8): exit 3 and BROKEN, never 1 — a crash is not «missing»",
+      r.returncode == 3 and "BROKEN: check-close could not judge 086-broken: UnicodeDecodeError" in r.stderr and r.stdout == "", said(r))
+r = run(MODE, cc, "--root", str(cc), "check-close", "070-nowhere")
+check("negative — a task that is not in done/: refused, exit 2", r.returncode == 2 and "is not there" in r.stderr, said(r))
+put(cc, "doing", "071-never-started.md", task("071"))
+close(cc, "071-never-started")
+check("negative — a task never committed in doing/: which commits are the task's is unknown, and that is said",
+      any("ніколи не лежала в tasks/doing/" in line for line in closing(cc, "071-never-started")[1]), closing(cc, "071-never-started"))
+put(cc, "doing", "072-put-by-owner.md", task("072"))
+commit_all(cc, "owner: a task straight into doing/")
+code(cc, "src/h.py", "H = 1\n")
+commit_all(cc, "unit 1")
+close(cc, "072-put-by-owner")
+check("a task the owner put into doing/ himself: its commits start there — the unaudited one is found",
+      len(closing(cc, "072-put-by-owner")[1]) == 1 and "src/h.py" in closing(cc, "072-put-by-owner")[1][0], closing(cc, "072-put-by-owner"))
 
 for path in roots:
     shutil.rmtree(path, ignore_errors=True)

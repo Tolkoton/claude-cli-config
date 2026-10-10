@@ -33,6 +33,13 @@ FAKE_STOP_AT=<n> makes call n ask for a soft stop while it runs — through the 
 FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
     gateq           the Stop gate gave up during the session: a gate question appears in blocked/,
                     uncommitted, and the task stays in doing/
+    code-done       change src/unit.py and commit it with no audit, then `done` (board 098)
+    pass-done       change src/unit.py, have it audited through the REAL overseer hooks (claim,
+                    guard, a PASS answer, the stop that hands it back), commit it, then `done`
+    pipeline-done   the same as pass-done, plus a feature artifact and an unsealed slice contract
+    audit           have the tree as it is audited (a PASS), commit the ledger, leave the task as it is
+    seal            seal the slice contract with contract_fingerprint.py, nothing else
+    done-broken     `done`, then task.md is overwritten with bytes that are not UTF-8 and committed
 
 A conversation's reported cost is its running total (1 USD a call unless FAKE_COST says
 otherwise); `--resume ID` keeps the id, a call without it opens a new conversation.
@@ -93,6 +100,62 @@ doing = named or doing
 result = "worked"
 leave = step.endswith("-dirty")
 step = step.removesuffix("-dirty")
+
+
+def overseer_pass():
+    """A unit claimed and answered PASS through the real hooks, as a session would send them (board 098)."""
+    hooks = Path(os.environ["FAKE_HOOKS"])
+
+    def hook(script, args, envelope):
+        return subprocess.run([sys.executable, str(hooks / script), *args], input=json.dumps(envelope), capture_output=True, text=True).stdout
+
+    def use(i, name, tool_input):
+        return [{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": f"t{i}", "name": name, "input": tool_input}]}},
+                {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"}]}}]
+
+    records = [{"type": "user", "message": {"role": "user", "content": "do the unit"}}]
+    records += use(1, "Edit", {"file_path": os.path.abspath("src/unit.py")}) + use(2, "Bash", {"command": "pytest -q"})
+    transcript = home / f"transcript-{n}-pass.jsonl"
+    transcript.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+    hook("overseer_stop.py", [], {"hook_event_name": "Stop", "transcript_path": str(transcript),
+                                  "last_assistant_message": f"Unit {n}.\n\n=== UNIT 1 COMPLETE ==="})
+    request = json.loads(Path(".claude/state/overseer/pending.json").read_text())["id"]
+    hook("overseer_verdict.py", ["guard"], {"hook_event_name": "PreToolUse", "tool_name": "Agent",
+                                           "tool_input": {"subagent_type": "overseer", "prompt": f"OVERSEER_REQUEST {request}"}})
+    reply = {"verdict": "PASS", "check": None, "reason": "every claim has its evidence", "evidence": ["src/unit.py:1", "command: pytest -q → 1 passed"],
+             "category": "none"}
+    hook("overseer_verdict.py", ["record"], {"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": f"p{n}",
+                                            "last_assistant_message": "```json\n" + json.dumps(reply) + "\n```"})
+    hook("overseer_stop.py", [], {"hook_event_name": "Stop", "transcript_path": str(transcript), "last_assistant_message": "Answered."})
+
+
+if step in ("code-done", "pass-done", "pipeline-done"):
+    if step == "pipeline-done":
+        for rel, text in ((".engine/architecture/feature/pay.md", "# Feature pay\n"), (".engine/slices/pay-tax.md", "# contract\n")):
+            Path(rel).parent.mkdir(parents=True, exist_ok=True)
+            Path(rel).write_text(text)
+    unit = Path("src/unit.py")
+    unit.write_text(unit.read_text() + f"STEP_{n} = {n}\n")
+    if step != "code-done":
+        overseer_pass()
+    git("add", "-A"); git("commit", "-q", "-m", f"unit {n}")
+    step = "done"
+elif step == "audit":
+    overseer_pass()
+    git("add", "-A")
+    if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode:
+        git("commit", "-q", "-m", f"the audit {n}")
+elif step == "done-broken" and doing:
+    task = doing[0]
+    target = Path("tasks/done") / task.stem
+    target.mkdir(parents=True)
+    task.rename(target / "task.md")
+    (target / "task.md").write_bytes(b"# \xff\xfe not UTF-8\n")
+    (target / "report.md").write_text("# Звіт\n")
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done", "--", "tasks")
+elif step == "seal":
+    subprocess.run([sys.executable, str(Path(os.environ["FAKE_HOOKS"]) / "contract_fingerprint.py"), "seal", ".engine/slices/pay-tax.md"],
+                   check=True, capture_output=True)
 if step in ("done", "done-nocommit") and doing:
     task = doing[0]
     target = Path("tasks/done") / task.stem
@@ -204,6 +267,9 @@ class World:
             (self.repo / "tasks" / column).mkdir(parents=True)
             (self.repo / "tasks" / column / ".gitkeep").touch()
         (self.repo / ".gitignore").write_text(".claude/state/\n")
+        # The template's code paths (board 098: with none, every file would ask for an audit at closing).
+        (self.repo / ".claude").mkdir()
+        (self.repo / ".claude/project.env").write_text('SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\n')
         sh(self.repo, "git", "add", "-A")
         sh(self.repo, "git", "commit", "-q", "-m", "base")
         sh(self.repo, "git", "remote", "add", "origin", str(self.origin))
@@ -1488,6 +1554,78 @@ for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
           "Задача закривається з чистим робочим деревом" in words and "один раз отримує хід назад" in words and "нічого не видаляє" in words)
 check("the runner's own head and the unattended README name the option",
       "--stop-after-task" in runner_text.split("set -uo pipefail")[0] and "--stop-after-task" in (ROOT / ".claude/unattended/README.md").read_text(encoding="utf-8"))
+
+# --- board 098: the minimum of the task's mode at closing ------------------------------------------------------------------
+print("board 098: the minimum of the mode is checked when the agent closes its task; once back to the agent, then blocked/")
+PIPELINE = ("# Задача\n\nЗалежить від: —\nРежим: конвеєр\nАудит потрібен: ні\n\n## Що зробити\n- функція\n\n"
+            "## Готово, коли\n- готово\n\n## Питання до власника\n")
+
+
+def minimum_world(plan: str) -> World:
+    """An audited world: its working code is src/*.py (the World's project.env), the overseer wired."""
+    return audited_world(plan)
+
+
+w = minimum_world("code-done idle")
+w.put("todo", "001-solo.md")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-solo.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-solo.md") else ""
+check("negative — соло, a commit of working code with no PASS: the agent gets the turn back once, with what is missing",
+      len(w.calls()) == 2 and "the minimum of its mode is not there" in w.argv(1)[1] and "змінив робочий код (src/unit.py)" in w.argv(1)[1]
+      and "--resume" in w.argv(1), [c["argv"][1][:200] for c in w.calls()])
+check("…still missing after it: blocked/ with «Чому зупинилась» and a question; the report waits beside it",
+      bool(text) and "задачу закрито без мінімуму її режиму" in text and "змінив робочий код" in text and text.rstrip().endswith("Відповідь:")
+      and w.has("tasks/blocked/report-001-solo.md") and not w.has("tasks/done/001-solo"), r.stdout + text)
+check("…in the anomaly journal, in the events, committed, and the board waits for the owner",
+      "задачу закрито без мінімуму її режиму" in (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+      and " minimum-missing 001-solo" in events(w) and " task-parked 001-solo minimum" in events(w)
+      and "board: 001-solo → blocked — the runner parked it (minimum); the board goes on" in w.log() and "state=waiting-owner" in w.status(),
+      events(w) + w.status())
+
+w = minimum_world("pass-done")
+w.put("todo", "001-solo.md")
+r = w.run()
+check("соло, the code audited (a PASS through the real hooks): the task closes, one session, no turn back",
+      r.returncode == 0 and w.has("tasks/done/001-solo/report.md") and len(w.calls()) == 1 and "minimum-missing" not in events(w)
+      and "state=idle" in w.status(), r.stdout + events(w))
+
+w = minimum_world("code-done audit")
+w.put("todo", "001-solo.md")
+r = w.run()
+check("the turn back is used: the agent has the committed code audited — the task stays in done/",
+      w.has("tasks/done/001-solo/report.md") and len(w.calls()) == 2 and " minimum-made 001-solo" in events(w) and "task-parked" not in events(w),
+      r.stdout + events(w))
+
+w = minimum_world("pipeline-done idle")
+w.put("todo", "001-pipeline.md", PIPELINE)
+r = w.run()
+text = (w.repo / "tasks/blocked/001-pipeline.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-pipeline.md") else ""
+check("negative — конвеєр without a sealed slice contract: back to the agent once, then blocked/ naming the contract",
+      len(w.calls()) == 2 and "не запечатано" in w.argv(1)[1] and "slice contract .engine/slices/pay-tax.md не запечатано" in text, r.stdout + text)
+
+w = minimum_world("pipeline-done seal")
+w.put("todo", "001-pipeline.md", PIPELINE)
+r = w.run()
+check("…the contract sealed in the turn back: the task stays in done/", w.has("tasks/done/001-pipeline/report.md") and " minimum-made 001-pipeline" in events(w),
+      r.stdout + events(w))
+
+w = minimum_world("done-broken")
+w.put("todo", "001-broken.md")
+r = w.run()
+check("negative — the check itself breaks (exit 3): an anomaly, the task stays in done/, no turn back, no park",
+      w.has("tasks/done/001-broken/task.md") and len(w.calls()) == 1 and "task-parked" not in events(w)
+      and "мінімум режиму задачі не перевірено: `mode.py check-close` відповів кодом 3" in (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8"),
+      events(w) + r.stdout)
+
+w = World("done")
+w.put("todo", "001-first.md")
+r = w.run()
+check("a task without working code (no code paths here) closes as before: report.md is its minimum, nothing is asked",
+      w.has("tasks/done/001-first/report.md") and len(w.calls()) == 1 and "minimum" not in events(w), events(w))
+
+for manual in ("tasks/README.md", "templates/project/tasks/README.md", ".claude/unattended/README.md"):
+    words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
+    check(f"{manual} describes the minimum at closing (board 098)", "mode.py check-close" in words and "report-<" in words)
 
 # --- board 035: the runner's reliability ---------------------------------------------------------------------------------
 print("board 035: --stop-after-attempt — the attempt in hand ends, the task stays in doing/ and the next start continues it")

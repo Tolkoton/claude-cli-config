@@ -43,3 +43,9 @@ From: lesson #a1b2c3d4 (analyst, 052-engine-goals-document, 2026-10-05).
 Goals documents: check the repository's boundary first — an isolated outside project that lives beside the code (Decana) is not the project's goal and stays out of the document (052).
 
 From: lesson #e5f6a7b8 (analyst, 052-engine-goals-document, 2026-10-05).
+
+## 2026-10-10 — When a check reads a project setting, test its empty value against the readers that alread
+
+When a check reads a project setting, test its empty value against the readers that already exist: an empty CODE_EXTENSIONS means «every file» to the gates and to the Stop hook (overseer_stop._is_code_path), and the first mode.py check-close read it as «no code» — failing open in a documented configuration (board 098, BLOCK 1). Two siblings from the same audit: a check's own crash must not share an exit code with its «missing» (Python exits 1 on an uncaught exception), and a range of a task's commits must cover every stay of the task in doing/, not the newest one.
+
+From: lesson #7ced8025 (overseer, -, 2026-10-10).

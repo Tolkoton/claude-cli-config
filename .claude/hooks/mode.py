@@ -6,6 +6,9 @@
                                                          each with where it was read; writes nothing
     python3 .claude/hooks/mode.py raise <mode> --why "…"  the agent raises the mode of its task in doing/
     python3 .claude/hooks/mode.py unattended              `unattended env|mode-file` (exit 0) or `attended` (exit 1)
+    python3 .claude/hooks/mode.py check-close <task>      the minimum of the mode of a task in done/ (board 098):
+                                                         exit 0 it is there; 1 what is missing, a line each;
+                                                         3 the check itself broke (never read as «missing»)
 
 THREE MODES, a property of the TASK: ескіз (an answer to one question, code only in quarantine),
 соло (one builder, the gates, the overseer), конвеєр (a feature architect, a sealed slice contract
@@ -33,14 +36,32 @@ THE ACCOMPANIMENT is a fact about the project: it has the snapshot `.engine/base
 profile `.engine/onboard/profile.md`. THE WORK TYPE belongs to the card: `type:` of the bug record
 that `.engine/PROGRESS.md` marks IN PROGRESS.
 
+THE MINIMUM AT CLOSING (`check-close`, board 098). When the agent has moved its task to done/, the
+runner asks here, by files and never by words: in every mode, report.md in the task's folder;
+соло — for every commit of the task that changed working code, a PASS of the overseer whose audit saw
+exactly that code; конвеєр — the same, plus the feature artifact (.engine/architecture/feature/) and,
+for every slice contract the task wrote (.engine/slices/), its seal (.claude/state/contracts/) that
+still matches it; ескіз — report.md for now, the quarantine and the record come with board 099.
+Working code is what asks for an audit: a code path as the Stop hook reads it from .claude/project.env
+(overseer_stop._is_code_path — under SOURCE_DIRS when set, else an extension of CODE_EXTENSIONS, else
+every file), never under tasks/ or .engine/. The task's commits are those of EVERY stay of the task in
+doing/ (a park and a restart do not drop the first stay's commits); the last stay runs on past the
+move to done/ — the turn back — until another task enters doing/. A PASS sees a commit's code when,
+for every working-code file the commit changed, the content the audit's request recorded (its tree
+fingerprint: the file as it was uncommitted, else as at the request's HEAD) is the content of the
+commit. A request whose HEAD already holds an earlier commit sees it too: a verdict speaks for every
+file changed since the last accepted PASS (gate_allows.unit_files), not for the turn's edits alone.
+
 A mode says which roles run and how strictly; it never says who runs them, and nothing here
 names one (tests/test_model_roles.py). Standard library only. Exit: 0 done; 1 attended
-(`unattended` only); 2 refused.
+(`unattended` only) or a minimum missing (`check-close` only); 2 refused.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -70,6 +91,9 @@ FORBIDDEN = {
     ("конвеєр", "hotfix"): "an urgent fix is small by definition: /hotfix is refused in the mode «конвеєр»",
 }
 EXIT_OK, EXIT_ATTENDED, EXIT_REFUSED = 0, 1, 2
+EXIT_MISSING, EXIT_BROKEN = 1, 3
+RECORDS = ("tasks/", ".engine/")   # the board's and the engine's records: never working code
+FEATURES, SLICES, SEALS = ".engine/architecture/feature/", ".engine/slices/", ".claude/state/contracts"
 
 
 @dataclass(frozen=True)
@@ -274,6 +298,175 @@ def cmd_raise(root: Path, target: str, why: str) -> int:
     return EXIT_OK
 
 
+# ------------------------------------------------------------------ the minimum at closing (board 098)
+
+
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False)
+
+
+def _lines(result: subprocess.CompletedProcess[bytes]) -> list[str]:
+    return [line for line in result.stdout.decode("utf-8", "surrogateescape").splitlines() if line] if result.returncode == 0 else []
+
+
+def _hooks() -> tuple[Any, Any]:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import overseer_stop
+    import overseer_verdict
+
+    return overseer_stop, overseer_verdict
+
+
+def working_code(root: Path) -> Any:
+    """The test «is this path working code?»: a code path as the Stop hook reads it (what asks for an
+    audit — empty settings mean every file), never the board's or the engine's records."""
+    stop, _ = _hooks()
+    env = stop._load_project_env(root) if (root / ".claude" / "project.env").is_file() else {}
+    dirs, exts = stop._build_source_dirs(env), stop._build_code_extensions(env)
+
+    def is_code(rel: str) -> bool:
+        return not rel.startswith(RECORDS) and stop._is_code_path(rel, dirs, exts)
+
+    return is_code
+
+
+def _stays(root: Path, stem: str) -> list[tuple[str, str]]:
+    """(the commit that brought tasks/doing/<stem>.md in, the one that took it out or ""), oldest first."""
+    moves = _git(root, "log", "--reverse", "--no-renames", "-z", "--format=%x01%H", "--name-status", "--", f"tasks/doing/{stem}.md")
+    stays: list[tuple[str, str]] = []
+    for record in moves.stdout.decode("utf-8", "surrogateescape").split("\x01")[1:] if moves.returncode == 0 else []:
+        fields = record.split("\0")   # «<sha>», «\n<status>», «<path>», …
+        sha, status = fields[0].strip(), (fields[1].strip()[:1] if len(fields) > 1 else "")
+        if status == "A":
+            stays.append((sha, ""))
+        elif status == "D" and stays and not stays[-1][1]:
+            stays[-1] = (stays[-1][0], sha)
+    return stays
+
+
+def task_commits(root: Path, stem: str) -> list[str] | None:
+    """The task's commits, oldest first: those of every stay of tasks/doing/<stem>.md; the last stay runs
+    past the move to done/ (the turn back) until another task enters doing/. None when it never was there."""
+    stays = _stays(root, stem)
+    if not stays:
+        return None
+    commits: list[str] = []
+    for number, (came, left) in enumerate(stays):
+        end = left or "HEAD"
+        if number == len(stays) - 1:
+            after = _lines(_git(root, "log", "--reverse", "--format=%H", "--diff-filter=A", "--no-renames", f"{left or came}..HEAD",
+                                "--", "tasks/doing/"))
+            end = f"{after[0]}^" if after else "HEAD"
+        commits += [c for c in _lines(_git(root, "rev-list", "--reverse", "--no-merges", f"{came}..{end}")) if c not in commits]
+    return commits
+
+
+def _changed(root: Path, commit: str) -> list[str]:
+    """The paths a commit changed, unquoted (-z): a name outside ASCII is not wrapped in quotes."""
+    out = _git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", commit)
+    return [rel for rel in out.stdout.decode("utf-8", "surrogateescape").split("\0") if rel] if out.returncode == 0 else []
+
+
+def _digest(root: Path, commit: str, rel: str) -> str:
+    """The content of a file at a commit as the request's tree fingerprint writes it: sha256[:16], or `absent`."""
+    blob = _git(root, "cat-file", "blob", f"{commit}:{rel}")
+    return hashlib.sha256(blob.stdout).hexdigest()[:16] if blob.returncode == 0 else "absent"
+
+
+def passed_trees(root: Path, stem: str) -> list[dict[str, Any]]:
+    """The tree fingerprints of the requests the overseer answered PASS for this task's units — or with no
+    task in doing/ (`-`): the runner's turn back runs when the task is already in done/."""
+    _, ov = _hooks()
+    trees = []
+    try:
+        rows = [json.loads(line) for line in (root / ov.VERDICTS_REL).read_text(encoding="utf-8").splitlines() if line.strip()]
+    except (OSError, ValueError):
+        rows = []
+    for row in rows:
+        named = str(row.get("unit_key", "")).split("|")[1:2] if isinstance(row, dict) else []
+        if not isinstance(row, dict) or row.get("verdict") != "PASS" or named not in ([stem], ["-"]):
+            continue   # a PASS on another task's unit is not this one's; "-" is an audit with no task in doing/ (the turn back)
+        try:
+            request = json.loads((root / ov.REQUESTS_REL / str(row.get("request")) / "request.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        tree = request.get("tree") if isinstance(request, dict) else None
+        if isinstance(tree, dict) and isinstance(tree.get("files"), dict) and tree.get("head"):
+            trees.append(tree)
+    return trees
+
+
+def _seen(root: Path, tree: dict[str, Any], rel: str) -> str:
+    recorded = tree["files"].get(rel)
+    return str(recorded).partition(":")[2] if recorded is not None else _digest(root, str(tree["head"]), rel)
+
+
+def unaudited(root: Path, stem: str, commits: list[str]) -> list[str]:
+    """Each commit of the task that changed working code no PASS of the overseer saw, as a line."""
+    is_code = working_code(root)
+    trees = passed_trees(root, stem)
+    missing = []
+    for commit in commits:
+        code = [rel for rel in _changed(root, commit) if is_code(rel)]
+        if not code:
+            continue
+        if any(all(_seen(root, tree, rel) == _digest(root, commit, rel) for rel in code) for tree in trees):
+            continue
+        subject = _lines(_git(root, "log", "-1", "--format=%s", commit))
+        missing.append(f"commit {commit[:10]} («{subject[0] if subject else '?'}») змінив робочий код ({', '.join(code[:5])}"
+                       f"{', …' if len(code) > 5 else ''}), а PASS overseer-а, що бачив саме цей код, у журналі вердиктів немає")
+    return missing
+
+
+def pipeline_missing(root: Path, commits: list[str]) -> list[str]:
+    """конвеєр: the feature artifact and a matching seal on every slice contract the task wrote."""
+    changed = sorted({rel for commit in commits for rel in _changed(root, commit)})
+    features = [rel for rel in changed if rel.startswith(FEATURES) and rel.endswith(".md") and (root / rel).is_file()]
+    slices = [rel for rel in changed if rel.startswith(SLICES) and rel.endswith(".md") and (root / rel).is_file()]
+    missing = [] if features else [f"артефакту функції ({FEATURES}<назва>.md) серед змін задачі немає"]
+    if not slices:
+        missing.append(f"жодного slice contract-у ({SLICES}<slug>.md) серед змін задачі немає")
+    for rel in slices:
+        seal = root / SEALS / f"{Path(rel).stem}.sha256"
+        if not seal.is_file():
+            missing.append(f"slice contract {rel} не запечатано: немає {SEALS}/{seal.name}")
+        elif seal.read_text(encoding="utf-8").split()[:1] != [hashlib.sha256((root / rel).read_bytes()).hexdigest()]:
+            missing.append(f"slice contract {rel} змінено після печатки ({SEALS}/{seal.name})")
+    return missing
+
+
+def check_close(root: Path, stem: str) -> tuple[str, list[str]]:
+    """(the mode in force, what of its minimum is missing) for the task in tasks/done/<stem>/."""
+    folder = root / "tasks" / "done" / stem
+    mode = parse((folder / "task.md").read_text(encoding="utf-8")).current or DEFAULT
+    missing = [] if (folder / "report.md").is_file() else [f"у tasks/done/{stem}/ немає report.md"]
+    if mode == "ескіз":
+        return mode, missing   # the quarantine and the record of a sketch come with board 099
+    commits = task_commits(root, stem)
+    if commits is None:
+        return mode, [*missing, "задача ніколи не лежала в tasks/doing/ у git: невідомо, які commit-и її"]
+    missing += unaudited(root, stem, commits)
+    if mode == "конвеєр":
+        missing += pipeline_missing(root, commits)
+    return mode, missing
+
+
+def cmd_check_close(root: Path, given: str) -> int:
+    stem = Path(given.rstrip("/")).name.removesuffix(".md")
+    stem = Path(given.rstrip("/")).parent.name if stem == "task" else stem
+    if not (root / "tasks" / "done" / stem / "task.md").is_file():
+        print(f"REFUSED: tasks/done/{stem}/task.md is not there: check-close judges a task the agent has moved to done/", file=sys.stderr)
+        return EXIT_REFUSED
+    mode, missing = check_close(root, stem)
+    if not missing:
+        print(f"мінімум режиму «{mode}» є: {stem}")
+        return EXIT_OK
+    print(f"мінімуму режиму «{mode}» немає: {stem}")
+    for line in missing:
+        print(f"- {line}")
+    return EXIT_MISSING
+
+
 # ------------------------------------------------------------------ entry
 
 
@@ -294,8 +487,15 @@ def main(argv: list[str] | None = None) -> int:
     raising.add_argument("mode", help=" | ".join(MODES))
     raising.add_argument("--why", required=True)
     commands.add_parser("unattended")
+    commands.add_parser("check-close").add_argument("task", help="NNN-name, or its folder or task.md in tasks/done/")
     args = parser.parse_args(argv)
     root = (args.root or project_root()).resolve()
+    if args.command == "check-close":
+        try:
+            return cmd_check_close(root, args.task)
+        except Exception as exc:  # noqa: BLE001 — gate-allow: a check that breaks must say so with its own code, never pass for «missing»
+            print(f"BROKEN: check-close could not judge {args.task}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            return EXIT_BROKEN
     if args.command == "raise":
         return cmd_raise(root, args.mode, args.why)
     if args.command == "unattended":

@@ -1015,6 +1015,9 @@ PARK_REASONS = {
     "returned": ("агент повернув задачу з `doing/` у `todo/`, не закінчивши її і нічого не спитавши",
                  ("Агент не закінчив задачу й не поставив питання. Що робити далі? Будь-яка відповідь поверне задачу в чергу; "
                  "вказівку агентові напишіть тут же.")),
+    "minimum": ("задачу закрито без мінімуму її режиму, і після одного ходу назад його так і не було ({n})",
+                ("Задачу закрито без мінімуму її режиму (board 098: `mode.py check-close`), і хід назад агентові цього не виправив. "
+                "Що робити далі? Будь-яка відповідь поверне задачу в чергу; вказівку агентові напишіть тут же.")),
 }
 
 
@@ -1075,9 +1078,14 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
          wip: str = "", remote: str = "") -> Path | None:
     """The runner gives up on a task: doing/ (or todo/) → blocked/, with the reason, a question
     for the owner and an entry in the anomaly journal. None when the task is in neither.
-    `verdicts` (reason three-blocks) is the hook's marker: its verdicts are written under the reason."""
+    `verdicts` (reason three-blocks) is the hook's marker: its verdicts are written under the reason.
+    A task closed into done/ without the minimum of its mode (reason minimum, board 098) comes back
+    from done/<stem>/: task.md goes to blocked/, its report beside it as blocked/report-<stem>.md."""
     stem = stem.removesuffix(".md")
     source = next((p for c in ("doing", "todo") for p in [board.tasks / c / f"{stem}.md"] if p.is_file()), None)
+    closed = board.tasks / "done" / stem
+    if source is None and reason == "minimum" and (closed / "task.md").is_file():
+        source = closed / "task.md"
     if source is None:
         return None
     unit, refused = blocks_of(verdicts)
@@ -1096,10 +1104,16 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
         head = head.rstrip("\n") + f"\n\n{WHY}\n{line}\n\n"
     number = len(ANSWER.findall(parse(text).questions)) + 1
     tail = tail.rstrip("\n") + f"\n{number}. {question}\n   Відповідь:\n"
-    target = board.tasks / "blocked" / source.name
+    target = board.tasks / "blocked" / f"{stem}.md"   # from done/<stem>/ the file is task.md
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(head + tail, encoding="utf-8")
     source.unlink()
+    if source.parent == closed:
+        report = closed / "report.md"
+        if report.is_file():
+            report.replace(board.tasks / "blocked" / f"report-{stem}.md")
+        if not any(closed.iterdir()):
+            closed.rmdir()
     anomaly(board, stem, what + ".", "задачу перенесено в `blocked/` з розділом «Чому зупинилась» і питанням до власника; "
             "runner узяв наступну задачу." + saved)
     return target
@@ -1281,7 +1295,7 @@ def main() -> int:
     if args.command == "park":
         parked = park(board, args.name, args.reason, args.detail, args.stash, args.verdicts, args.wip, args.wip_remote)
         if parked is None:
-            print(f"board: {args.name} is in neither tasks/doing/ nor tasks/todo/", file=sys.stderr)
+            print(f"board: {args.name} is in neither tasks/doing/ nor tasks/todo/ (nor, for `minimum`, tasks/done/)", file=sys.stderr)
             return EXIT_REFUSED
         print(board.shown(parked))
         return 0

@@ -642,6 +642,47 @@ Commit what belongs to this task (through .claude/unattended/commit_checkpoint.s
     "$turn. Runner нічого не видаляв і не комітив і взяв наступну задачу. Файли: $(sed 's/.*/`&`/' <<< "$left" | paste -sd, - | sed 's/,/, /g')."
 }
 
+# check_minimum <stem>: the agent closed its task into done/; the minimum of its mode must be there
+# (board 098: `mode.py check-close`, by files — report.md; in соло a PASS of the overseer on every
+# commit with working code; in конвеєр also the feature artifact and sealed slice contracts). If it is
+# not (exit 1), the agent gets the turn back once with what is missing; still missing afterwards — the
+# task goes to blocked/ with the reason `minimum`. Any other exit (3: the check broke) is an anomaly
+# and the task stays in done/ — never a park, never a stop.
+check_minimum() {
+  local stem="$1" missing rc
+  [ "$OUTCOME" = done ] || return 0
+  missing=$(python3 "$HERE/../hooks/mode.py" --root "$PROJECT_ROOT" check-close "$stem" 2>/dev/null); rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  if [ "$rc" -ne 1 ]; then
+    note_anomaly "$stem" "мінімум режиму задачі не перевірено: \`mode.py check-close\` відповів кодом $rc" "задачу лишено в \`done/\`; runner узяв наступну"
+    return 0
+  fi
+  event "minimum-missing $stem"
+  say "$stem: closed without the minimum of its mode; the agent is asked once to make it"
+  local ask="The task $stem is in tasks/done/, but the minimum of its mode is not there (python3 .claude/hooks/mode.py check-close $stem):
+$missing
+Make what is missing — for a commit of working code with no PASS, get the overseer's audit of that code (claim the unit, as tasks/README.md and the engine rules say); for конвеєр, the feature artifact and the seal of every slice contract — and commit it (through .claude/unattended/commit_checkpoint.sh, on this branch). Keep the task in tasks/done/; if it cannot be made without the owner, move the task to tasks/blocked/ with your question instead. Do not push. You are asked this once; if the minimum is still missing afterwards, the task goes to blocked/."
+  while :; do
+    if [ -n "$MAX_USD" ] && [ "$(memo get "$stem" left "$MAX_USD")" = "0.00" ]; then break; fi
+    attempt "$stem" "$ask" "$ask"
+    [ "$NOTE" = "limit" ] || break
+    status waiting-limit "$stem"
+    say "usage limit; waiting $LIMIT_WAIT s"
+    sleep "$LIMIT_WAIT"
+  done
+  board_commit "board: $stem — what the minimum turn left uncommitted under tasks/" \
+    || finish error "$stem" commit "cannot commit the leftover changes under tasks/"
+  OUTCOME=$(board where "$stem")
+  [ "$OUTCOME" = done ] || return 0
+  missing=$(python3 "$HERE/../hooks/mode.py" --root "$PROJECT_ROOT" check-close "$stem" 2>/dev/null); rc=$?
+  [ "$rc" -eq 0 ] && { event "minimum-made $stem"; return 0; }
+  if [ "$rc" -ne 1 ]; then
+    note_anomaly "$stem" "мінімум режиму задачі не перевірено після ходу назад: \`mode.py check-close\` відповів кодом $rc" "задачу лишено в \`done/\`; runner узяв наступну"
+    return 0
+  fi
+  park_task "$stem" minimum "$(sed -n '2,$p' <<< "$missing" | sed 's/^- //' | paste -sd ';' - | sed 's/;/; /g')"
+}
+
 # run_task <tasks/doing/NAME.md>: attempts until the task left doing/ — moved by the agent to
 # done/ or blocked/, or parked in blocked/ by the runner. Sets OUTCOME to done, blocked or missing.
 run_task() {
@@ -735,6 +776,7 @@ while :; do
   board_commit "board: $TASK_NAME → $OUTCOME (the move was left uncommitted)" \
     || finish error "$TASK_NAME" commit "cannot commit the leftover changes under tasks/"
   [ "$CLOSED_BY" != agent ] || close_clean "$TASK_NAME"
+  [ "$CLOSED_BY" != agent ] || check_minimum "$TASK_NAME"
   rm -f "$DIRTY_BEFORE"
   memo finish "$TASK_NAME" "$OUTCOME"
   event "task-$OUTCOME $TASK_NAME cost=$(memo get "$TASK_NAME" cost)"
