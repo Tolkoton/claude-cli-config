@@ -47,4 +47,4 @@
    Що робити далі? Раджу: «Код візьми з .engine/artifacts/739-journals/wip.patch, виправ (а), (б) і (в), прогони golden
    set (`python3 evals/run_hook_scenarios.py --engine-ref HEAD --hooks-dir <дерево>/.claude/hooks`) і подавай на audit
    знову». Будь-яка відповідь поверне задачу в чергу, і юніт отримає три нові спроби.
-   Відповідь:
+   Відповідь: Код візьми з .engine/artifacts/739-journals/wip.patch, виправ (а), (б) і (в), прогони golden set (python3 evals/run_hook_scenarios.py --engine-ref HEAD --hooks-dir <дерево>/.claude/hooks) і подавай на audit знову.
