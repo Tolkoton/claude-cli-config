@@ -199,7 +199,8 @@ def ledger(root: Path, title: str, lines: list[str], row: JsonObj | None = None)
     carried = ""
     if row is not None:
         compact = json.dumps({k: v for k, v in row.items() if k not in LEDGER_DROPS}, ensure_ascii=False)
-        carried = f"<!-- row: {compact.replace('--', '-\\u002d')} -->\n"
+        escaped = compact.replace("--", "-\\u002d")   # outside the f-string: a backslash in its expression needs Python 3.12
+        carried = f"<!-- row: {escaped} -->\n"
     with path.open("a", encoding="utf-8") as handle:
         handle.write(f"\n## {utc_now()} — {title}\n" + "".join(f"- {line}\n" for line in lines) + carried)
 

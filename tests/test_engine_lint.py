@@ -20,6 +20,7 @@ gate that cannot run has not run, and one whose verdict moves with a release is 
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -82,6 +83,22 @@ def main() -> int:
         if not ok:
             print(r.stdout[:3000])
             failed += 1
+
+    # Board 748: the hooks say «Python 3.11+», and a form that only 3.12 parses (a backslash inside an f-string's
+    # expression) once kept testing.py from starting under 3.11 unseen — the suites run under the newest python3.
+    # Every Python file of the repository is compiled by the oldest supported interpreter when it is on PATH (nothing
+    # is written: compile() in memory).
+    oldest = shutil.which("python3.11")
+    every = sorted({*py_files, "engine.py", *(str(p.relative_to(ROOT)) for d in ("evals", "tests") for p in (ROOT / d).glob("*.py"))})
+    if oldest is None:
+        print("  note python3.11 is not on PATH: the oldest supported Python is not checked here")
+    else:
+        probe = ("import sys\nbad = []\nfor f in sys.argv[1:]:\n    try:\n        compile(open(f, encoding='utf-8').read(), f, 'exec')\n"
+                 "    except SyntaxError as exc:\n        bad.append(f'{f}:{exc.lineno}: {exc.msg}')\nprint('\\n'.join(bad))\nsys.exit(1 if bad else 0)")
+        r = subprocess.run([oldest, "-c", probe, *every], cwd=ROOT, capture_output=True, text=True, check=False)
+        ok = r.returncode == 0
+        print(f"  {'ok  ' if ok else 'FAIL'} python3.11 compiles every Python file of the repository ({len(every)})  {r.stdout.strip()[:300]}")
+        failed += 0 if ok else 1
 
     print(f"\n{'FAIL' if failed else 'PASS'}: engine lint {'has findings' if failed else 'clean'}")
     return 1 if failed else 0
