@@ -55,3 +55,9 @@ From: lesson #7ced8025 (overseer, -, 2026-10-10).
 The delete guard has no way through for a removal the owner ordered on the task board: board 732 (remove the second opinion, the owner's «так» in 720) could not delete evals/run_second_opinion_evals.py, whose two network functions no test touched, and the owner's word reaches the guard only as delete_guard.py confirm (needs a simplifier finding with tool evidence) or a sealed slice contract (none in соло). A grant read from an answered question in tasks/blocked/ (the runner already checks the owner's answers there) would let an ordered removal through without a hollow test.
 
 From: lesson #6e0a38a1 (gate, -, 2026-10-10).
+
+## 2026-10-10 — Bug 007 (board 747): the hooks promise Python 3.11+, but the suites and the Stop gate run 
+
+Bug 007 (board 747): the hooks promise Python 3.11+, but the suites and the Stop gate run under python3 only (3.13 on the cloud server), where Path.resolve() no longer raises on a symlink loop; the guard's loop case broke on 3.12 unseen, and its regression test is red only under python3.12. A code path that differs between Python versions needs its case run under the oldest supported interpreter too — for example the suite starting the hook under each python3.1x found on PATH.
+
+From: lesson #b4933b7b (agent, 007-testing-guard-resolve-loop, 2026-10-10).
