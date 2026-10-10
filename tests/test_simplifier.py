@@ -344,9 +344,8 @@ print("GONE-*    board 732: the second opinion is out of the engine; the simplif
 repo = new_repo()
 check("negative — .claude/hooks/second_opinion.py is gone: there is nothing to call",
       not (ROOT / ".claude/hooks/second_opinion.py").exists())
-listed = subprocess.run([sys.executable, str(ROOT / "evals/run_second_opinion_evals.py"), "--list"], capture_output=True, text=True, check=False)
-check("…and the measurement script left for the owner to remove (the delete guard) no longer runs: it names the missing module",
-      listed.returncode != 0 and "No module named 'second_opinion'" in listed.stderr, listed.stderr[-300:])
+check("…and the measurement script that called it is gone too: the owner removed it (board 732)",
+      not (ROOT / "evals/run_second_opinion_evals.py").exists())
 (repo / ".claude/project.env").write_text(FILES[".claude/project.env"] + 'SECOND_OPINION="on"\n')   # an old project's key: read by nobody
 opinion = {"verdict": "disagree", "reason": "it is called", "counter_evidence": [], "verified": True}
 (repo / "answer.json").write_text(json.dumps({"findings": [
