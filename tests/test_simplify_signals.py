@@ -19,6 +19,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# This run's own temporary directories live in RUN, and only RUN is removed at the end (board 735): another run's
+# directories with the same prefix — the Stop gate's, a second clone's — are not this run's to delete.
+RUN = Path(tempfile.mkdtemp(prefix="signals-run-"))
 SIGNALS = ROOT / ".claude" / "hooks" / "simplify_signals.py"
 GATE = ROOT / ".claude" / "hooks" / "gate.py"
 PASS = FAIL = 0
@@ -56,7 +60,7 @@ def write(repo: Path, rel: str, text: str) -> None:
 
 
 def new_repo(files: dict[str, str] = BASE) -> Path:
-    repo = Path(tempfile.mkdtemp(prefix="signals-"))
+    repo = Path(tempfile.mkdtemp(prefix="signals-", dir=RUN))
     for rel, text in files.items():
         write(repo, rel, text)
     for args in (["init", "-q", "-b", "main"], ["add", "-A"],
@@ -195,7 +199,7 @@ proc = subprocess.run([sys.executable, str(SIGNALS), "--scope", "full"], cwd=rep
 check("the plain output says the simplifier is called", "SIMPLIFIER CALL (sharp growth)" in proc.stdout, proc.stdout[-300:])
 
 print("TOOLS-*  a tool that cannot run is reported, never read as clean")
-shim = Path(tempfile.mkdtemp(prefix="signals-path-"))
+shim = Path(tempfile.mkdtemp(prefix="signals-path-", dir=RUN))
 for tool in ("git", "python3"):
     target = shutil.which(tool)
     assert target
@@ -232,7 +236,6 @@ check("COMPLEXITY_GATE off: no signal, no step — the gate is exactly what it w
       code == 0 and not any(f["rule"].startswith("simplify/") for f in report["findings"])
       and "simplify_signals" not in report["timings_ms"]["steps"], report)
 
-for leftover in Path(tempfile.gettempdir()).glob("signals-*"):
-    shutil.rmtree(leftover, ignore_errors=True)
+shutil.rmtree(RUN, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)

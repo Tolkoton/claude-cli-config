@@ -15,6 +15,10 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# This run's own temporary directories live in RUN, and only RUN is removed at the end (board 735): another run's
+# directories with the same prefix — the Stop gate's, a second clone's — are not this run's to delete.
+RUN = Path(tempfile.mkdtemp(prefix="budget-run-"))
 HOOK = ROOT / ".claude" / "hooks" / "complexity_budget.py"
 PASS = FAIL = 0
 
@@ -70,7 +74,7 @@ def sh(repo: Path, *args: str) -> str:
 
 
 def make_repo(gate: str = "block", budget: str = BUDGET, active: bool = True) -> Path:
-    repo = Path(tempfile.mkdtemp(prefix="budget-"))
+    repo = Path(tempfile.mkdtemp(prefix="budget-", dir=RUN))
     (repo / "src" / "demo").mkdir(parents=True)
     (repo / "tests").mkdir()
     (repo / ".engine" / "slices").mkdir(parents=True)
@@ -377,7 +381,6 @@ after = (repo / ".claude/project.env").read_text()
 check("a second run replaces the values, never duplicates the keys",
       after.count("COMPLEXITY_MAX_CYCLOMATIC") == 1 and 'COMPLEXITY_MAX_CYCLOMATIC="9"' in after, after)
 
-for leftover in Path(tempfile.gettempdir()).glob("budget-*"):
-    shutil.rmtree(leftover, ignore_errors=True)
+shutil.rmtree(RUN, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)

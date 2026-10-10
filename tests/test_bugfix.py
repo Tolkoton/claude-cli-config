@@ -28,6 +28,7 @@ Run:   python3 tests/test_bugfix.py       Exit: 0 all green, 1 otherwise.
 from __future__ import annotations
 
 import importlib.util
+import os
 import re
 import shutil
 import subprocess
@@ -105,8 +106,14 @@ def project() -> Path:
     return root
 
 
+# `prove` copies the project under the temporary directory; this run gives it one of its own (board 735), so the
+# check that the copies are removed looks at this run's copies only, not at a concurrent run's.
+PROVE_TMP = Path(tempfile.mkdtemp(prefix="bugfix-run-"))
+
+
 def run(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(BUGFIX), "--root", str(root), *args], capture_output=True, text=True, check=False)
+    return subprocess.run([sys.executable, str(BUGFIX), "--root", str(root), *args], capture_output=True, text=True,
+                          env={**os.environ, "TMPDIR": str(PROVE_TMP)}, check=False)
 
 
 def prove(root: Path, *args: str, cmd: str = RUN) -> subprocess.CompletedProcess[str]:
@@ -221,7 +228,7 @@ try:
     (root / "tests/test_calc.py").write_text(TEST + "import os\nassert 'bugfix-prove-' in os.getcwd(), os.getcwd()\n", encoding="utf-8")
     r = prove(root)
     check("both runs happen in a temporary copy, never in the project", r.returncode == 0, out(r))
-    leftovers = [p for p in Path(tempfile.gettempdir()).glob("bugfix-prove-*")]
+    leftovers = list(PROVE_TMP.glob("bugfix-prove-*"))
     check("the temporary copies are removed", not leftovers, leftovers)
 
     # --- pins: the same script the other way round (the delete guard's first way through) -----------
@@ -377,5 +384,6 @@ check("the limits say what the proof does not give", "## The bug-fix proof (boar
 check("the engine's AGENTS.md names the command", "`/bugfix`" in text("AGENTS.md"))
 check("the budget reference says a bug record carries a budget too", ".engine/bugs/" in text(".claude/references/complexity-budget.md"))
 
+shutil.rmtree(PROVE_TMP, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)

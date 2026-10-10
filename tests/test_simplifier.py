@@ -21,6 +21,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# This run's own temporary directories live in RUN, and only RUN is removed at the end (board 735): another run's
+# directories with the same prefix — the Stop gate's, a second clone's — are not this run's to delete.
+RUN = Path(tempfile.mkdtemp(prefix="simplifier-run-"))
 HOOKS = ROOT / ".claude" / "hooks"
 SCRIPT = HOOKS / "simplifier.py"
 sys.path.insert(0, str(HOOKS))
@@ -62,7 +66,7 @@ def git(repo: Path, *args: str) -> str:
 
 
 def new_repo() -> Path:
-    repo = Path(tempfile.mkdtemp(prefix="simplifier-"))
+    repo = Path(tempfile.mkdtemp(prefix="simplifier-", dir=RUN))
     for rel, text in FILES.items():
         (repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (repo / rel).write_text(text, encoding="utf-8")
@@ -131,7 +135,7 @@ check("nothing is ever raised: a protected flag_only stays flag_only",
       one(repo, proposed_action="flag_only", protected=True).get("proposed_action") == "flag_only")
 
 print("PATH-*    the path is judged as the project sees it, however the agent wrote it (board 708)")
-outside = Path(tempfile.mkdtemp(prefix="simplifier-outside-")) / "note.py"
+outside = Path(tempfile.mkdtemp(prefix="simplifier-outside-", dir=RUN)) / "note.py"
 outside.write_text("x = 1\n", encoding="utf-8")
 (repo / "src/demo/link.py").symlink_to(outside)
 (repo / "src/demo/rules.md").symlink_to(repo / ".claude/constitution.md")
@@ -363,7 +367,6 @@ check("decide still records the owner's decision (delete_guard.py confirm calls 
 rate = cli(repo, "reversals")
 check("reversals says nothing of a second model", rate.returncode == 0 and "second model" not in rate.stdout, rate.stdout)
 
-for leftover in Path(tempfile.gettempdir()).glob("simplifier-*"):
-    shutil.rmtree(leftover, ignore_errors=True)
+shutil.rmtree(RUN, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)
