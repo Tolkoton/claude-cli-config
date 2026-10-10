@@ -1,0 +1,1344 @@
+diff --git a/.claude/agents/reader.md b/.claude/agents/reader.md
+new file mode 100644
+index 0000000..bf5b85e
+--- /dev/null
++++ b/.claude/agents/reader.md
+@@ -0,0 +1,59 @@
++---
++name: reader
++description: |
++  The fresh reader of one record: today a sketch's record `.engine/sketches/<name>.md` (the mode
++  ескіз). Checks one thing — does the output written in the record prove its answer («так», «ні»,
++  «не з'ясовано»)? — and answers PASS or BLOCK with the lines it rests on. Fresh context, blind to
++  the author's conversation, read-only. Started only by the line `python3 .claude/hooks/reader.py
++  request` prints — `READER_REQUEST <id>` — and with nothing else in the prompt; a hook refuses any
++  other start.
++tools: Read, Grep, Glob
++---
++
++# Reader — Mandate
++
++You read ONE record and judge ONE question. You did not write it, you have not seen the
++conversation that wrote it, and you change nothing.
++
++## Step 1 — the request
++
++Your prompt is `READER_REQUEST <id>`. Read `.claude/state/reader/requests/<id>/request.json`: the
++record's path (`record`), the question (`question`), the task (`task`). Then read the record itself.
++Read the code under `sketches/` the record names, if it names any, to see what the command ran.
++
++## Step 2 — the one question
++
++A sketch record has: the question, what was tried, the command and its output, the answer.
++Judge whether **the output, as written, proves the answer**:
++
++- «так» / «ні» — the output must show it: the number, the line, the error, the behaviour the answer
++  claims. An answer that goes beyond the output (a claim about cases the command never ran, a cause
++  the output does not show) is not proved.
++- «не з'ясовано» — the record must say what was tried and why it did not settle the question; an
++  output that in fact answers it is a wrong «не з'ясовано».
++- No command, no output, or output that does not belong to the command named — not proved.
++- Wording, style, length are not your question. Neither is whether the sketch was worth doing.
++
++## Step 3 — the answer
++
++Answer with ONE JSON object and nothing else:
++
++```json
++{"verdict": "PASS",
++ "reason": "the output of `python3 sketches/rate/probe.py` shows 429 after 61 calls in 60 s, the answer «так» says the limit is 60 a minute",
++ "evidence": [".engine/sketches/rate.md:14 — the output line «429 Too Many Requests» at call 61", ".engine/sketches/rate.md:20 — the answer «так»"]}
++```
++
++- `verdict` — PASS when the output proves the answer; BLOCK when it does not.
++- `reason` — one or two sentences: on BLOCK, exactly what the output fails to show, so the author can
++  fix the record.
++- `evidence` — the lines of the record (`path:line — what it says`) your verdict rests on.
++
++A script writes your verdict into the journal; nothing you type outside the JSON is recorded. If the
++author fixes the record after a BLOCK, another reader reads it — not you.
++
++## What you do NOT do
++
++- You do not edit, run, or fix anything; you start no other agent.
++- You do not judge the sketch's code quality, the choice of question, or the record's prose.
++- You do not pass a record because it is close: the output proves the answer, or it does not.
+diff --git a/.claude/hooks/gate.py b/.claude/hooks/gate.py
+index abb0cc7..a87b6eb 100755
+--- a/.claude/hooks/gate.py
++++ b/.claude/hooks/gate.py
+@@ -51,6 +51,15 @@ marks from the AST, configuration from the parsed tables — a string that merel
+ is not a finding. The guard calls no tool, so it runs whether or not PROJECT_MARKER exists; a
+ missing marker skips only lint, types and tests.
+ 
++THE SKETCH'S QUARANTINE (stop, pre_commit, ci; board 099). Code under `sketches/` is a sketch's (the mode
++ескіз): the gates do not check it — no lint, types, tests or guard. Two blocks instead: a task in
++ескіз (its mode as mode.py reads it) that changed a file outside sketches/, .engine/ and tasks/; and,
++in any mode, working code that refers to a sketch — a Python import of `sketches`, a string holding a
++path into a named sketch (`../../sketches/<name>`, `"$ROOT/sketches/<name>"`, `"bash sketches/<name>/run.sh"`), or such a
++path on an added line of another language (a JavaScript import, a shell command).
++Tests are not looked at (they hold sketch paths as data); a reference built at run time, or code
++rewritten by hand from a sketch, is not seen (docs/engine-limits.md).
++
+ THE SNAPSHOT (stop, pre_commit, ci). With `.engine/baseline.json` (baseline.py) the question is
+ "no worse than it was", not "clean": a failing test blocks only when it is not on the snapshot's
+ list, a lint or type finding only when the count of its (file, rule) is above the recorded one.
+@@ -1192,10 +1201,88 @@ def is_config_file(rel: str) -> bool:
+     return Path(rel).name in ("pyproject.toml", *CONFIG_BASENAMES) or rel in (".claude/project.env", BASELINE_FILE)
+ 
+ 
++SKETCHES = "sketches/"
++QUARANTINE = ("sketches/", ".engine/", "tasks/")   # all a task in ескіз may change
++# A path into a named sketch: `sketches/<name>`, after any number of `./` or `../`, standing alone or after a shell
++# variable or substitution, quoted or not (`$ROOT/`, `"$ROOT"/`, `${ROOT:-.}/`, `$(dirname "$0")/`, a backtick
++# command, the placeholder an f-string is read with); a directory that merely shares the name deeper in the tree
++# (`src/sketches/a`) is not the quarantine, nor is an absolute path or an import alias (docs/engine-limits.md).
++SHELL_VALUE = r"(?:\$\{[^}]*\}|\$\w+|\$\([^()]*\)|`[^`]*`)"
++SKETCH_PATH_RE = re.compile(rf"(?:(?<![\w./-])|{SHELL_VALUE}[\"']?/)(?:\.{{1,2}}/)*sketches/[A-Za-z0-9_.-]+")
++
++
++def sketch_mode(root: Path) -> bool:
++    """The session's task in doing/ is in the mode ескіз, as its one reader says (mode.py)."""
++    try:
++        sys.path.insert(0, str(Path(__file__).resolve().parent))
++        import mode
++
++        mine = mode.own_task(root)
++        return len(mine) == 1 and mode.parse(mine[0].read_text(encoding="utf-8")).current == "ескіз"
++    except (ImportError, OSError, ValueError, UnicodeDecodeError):
++        return False
++
++
++def sketch_references(root: Path, layer: str, rel: str, diff_ref: str | None) -> list[int]:
++    """The added lines of a working-code file that refer to a sketch."""
++    text = new_text(root, layer, rel)
++    if text is None:
++        return []
++    added = added_lines(root, layer, rel, diff_ref)
++
++    def counted(line: int, last: int | None = None) -> bool:
++        """The node's lines (a string may span several) hold a line this diff adds."""
++        return added is None or any(n in added for n in range(line, (last or line) + 1))
++
++    if rel.endswith(".py"):
++        try:
++            tree = ast.parse(text)
++        except SyntaxError:
++            tree = None
++        if tree is not None:
++            hits = set()
++            for node in ast.walk(tree):
++                if isinstance(node, (ast.Import, ast.ImportFrom)):
++                    names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
++                    if any(n == "sketches" or n.startswith("sketches.") for n in names) and counted(node.lineno, node.end_lineno):
++                        hits.add(node.lineno)
++                elif (isinstance(node, ast.Constant) and isinstance(node.value, str) and SKETCH_PATH_RE.search(node.value)
++                        and counted(node.lineno, node.end_lineno)):
++                    hits.add(node.lineno)
++                elif isinstance(node, ast.JoinedStr) and counted(node.lineno, node.end_lineno):
++                    # an f-string is read with `$V` where each placeholder stands: f"{ROOT}/sketches/x" is "$V/sketches/x"
++                    joined = "".join(part.value if isinstance(part, ast.Constant) and isinstance(part.value, str) else "$V"
++                                     for part in node.values)
++                    if SKETCH_PATH_RE.search(joined):
++                        hits.add(node.lineno)
++            return sorted(hits)
++    return [n for n, line in enumerate(text.splitlines(), 1)
++            if counted(n) and not line.lstrip().startswith(("#", "//")) and SKETCH_PATH_RE.search(line)]
++
++
++def quarantine(root: Path, env: dict[str, str], layer: str, files: list[str], diff_ref: str | None, report: Report) -> None:
++    if sketch_mode(root):
++        for rel in files:
++            if not rel.startswith(QUARANTINE):
++                report.add(Finding(rel, None, "sketch/outside", "block",
++                                   "the task is a sketch (ескіз): it changes nothing outside sketches/, .engine/ and tasks/",
++                                   "keep the work in sketches/<name>/ and the record in .engine/sketches/<name>.md; working "
++                                   "code is written anew in a task in соло or конвеєр (mode.py raise соло, if it must be this one)"))
++    for rel in eligible(env, [f for f in files if not f.startswith(SKETCHES) and not is_test_file(f)]):
++        for line in sketch_references(root, layer, rel, diff_ref):
++            report.add(Finding(rel, line, "sketch/reference", "block",
++                               "working code refers to a sketch: a sketch never becomes working code",
++                               "write the code anew under this task's checks; never import, run or open sketches/<name>"))
++
++
+ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
+                  diff_ref: str | None, report: Report) -> None:
+     full = layer in ("pre_commit", "ci")
+     report.files = files
++    started = time.perf_counter()
++    quarantine(root, env, layer, files, diff_ref, report)   # before anything is skipped: a sketch's docs/ change is seen too
++    report.steps_ms["quarantine"] = int((time.perf_counter() - started) * 1000)
++    files = [f for f in files if not f.startswith(SKETCHES)]   # the gates do not check a sketch's code
+     code = eligible(env, files)
+     # A configuration file is not code, but changing the gate's own settings is exactly what
+     # the guard exists to see; so a config-only turn still reaches the guard.
+diff --git a/.claude/hooks/mode.py b/.claude/hooks/mode.py
+index ae40f87..eee409f 100755
+--- a/.claude/hooks/mode.py
++++ b/.claude/hooks/mode.py
+@@ -41,10 +41,11 @@ runner asks here, by files and never by words: in every mode, report.md in the t
+ соло — for every commit of the task that changed working code, a PASS of the overseer whose audit saw
+ exactly that code; конвеєр — the same, plus the feature artifact (.engine/architecture/feature/) and,
+ for every slice contract the task wrote (.engine/slices/), its seal (.claude/state/contracts/) that
+-still matches it; ескіз — report.md for now, the quarantine and the record come with board 099.
++still matches it; ескіз — the record .engine/sketches/<name>.md with a PASS of the reader on it as it
++is (reader.py, board 099), and no change outside sketches/, .engine/ and tasks/.
+ Working code is what asks for an audit: a code path as the Stop hook reads it from .claude/project.env
+ (overseer_stop._is_code_path — under SOURCE_DIRS when set, else an extension of CODE_EXTENSIONS, else
+-every file), never under tasks/ or .engine/. The task's commits are those of EVERY stay of the task in
++every file), never under tasks/, .engine/ or sketches/ (the quarantine, board 099). The task's commits are those of EVERY stay of the task in
+ doing/ (a park and a restart do not drop the first stay's commits); the last stay runs on past the
+ move to done/ — the turn back — until another task enters doing/. A PASS sees a commit's code when,
+ for every working-code file the commit changed, the content the audit's request recorded (its tree
+@@ -92,7 +93,9 @@ FORBIDDEN = {
+ }
+ EXIT_OK, EXIT_ATTENDED, EXIT_REFUSED = 0, 1, 2
+ EXIT_MISSING, EXIT_BROKEN = 1, 3
+-RECORDS = ("tasks/", ".engine/")   # the board's and the engine's records: never working code
++RECORDS = ("tasks/", ".engine/", "sketches/")   # the records and the sketches' quarantine: never working code
++QUARANTINE = ("sketches/", ".engine/", "tasks/")   # all a task in ескіз may change (board 099)
++SKETCH_RECORDS = ".engine/sketches/"
+ FEATURES, SLICES, SEALS = ".engine/architecture/feature/", ".engine/slices/", ".claude/state/contracts"
+ 
+ 
+@@ -435,16 +438,30 @@ def pipeline_missing(root: Path, commits: list[str]) -> list[str]:
+     return missing
+ 
+ 
++def sketch_missing(root: Path, commits: list[str]) -> list[str]:
++    """ескіз: nothing outside the quarantine, a record among the task's changes, a reader's PASS on each record as it is."""
++    sys.path.insert(0, str(Path(__file__).resolve().parent))
++    import reader
++
++    changed = sorted({rel for commit in commits for rel in _changed(root, commit)})
++    missing = [f"задача-ескіз змінила файл поза карантином (sketches/, .engine/, tasks/): {rel}" for rel in changed if not rel.startswith(QUARANTINE)]
++    records = [rel for rel in changed if rel.startswith(SKETCH_RECORDS) and rel.endswith(".md") and (root / rel).is_file()]
++    if not records:
++        missing.append(f"запису ескізу ({SKETCH_RECORDS}<назва>.md) серед змін задачі немає")
++    missing += [f"на запис {rel} немає PASS агента-читача, що читав його таким, як він є (reader.py)" for rel in records if not reader.passed(root, rel)]
++    return missing
++
++
+ def check_close(root: Path, stem: str) -> tuple[str, list[str]]:
+     """(the mode in force, what of its minimum is missing) for the task in tasks/done/<stem>/."""
+     folder = root / "tasks" / "done" / stem
+     mode = parse((folder / "task.md").read_text(encoding="utf-8")).current or DEFAULT
+     missing = [] if (folder / "report.md").is_file() else [f"у tasks/done/{stem}/ немає report.md"]
+-    if mode == "ескіз":
+-        return mode, missing   # the quarantine and the record of a sketch come with board 099
+     commits = task_commits(root, stem)
+     if commits is None:
+         return mode, [*missing, "задача ніколи не лежала в tasks/doing/ у git: невідомо, які commit-и її"]
++    if mode == "ескіз":
++        return mode, missing + sketch_missing(root, commits)
+     missing += unaudited(root, stem, commits)
+     if mode == "конвеєр":
+         missing += pipeline_missing(root, commits)
+diff --git a/.claude/hooks/reader.py b/.claude/hooks/reader.py
+new file mode 100755
+index 0000000..4a3ee20
+--- /dev/null
++++ b/.claude/hooks/reader.py
+@@ -0,0 +1,241 @@
++#!/usr/bin/env python3
++"""reader.py — the fresh reader of a record (board 099; the approved design is board 080, §2 and §6).
++
++    python3 .claude/hooks/reader.py request <task> --record <path>   # the package, then the launch line
++    python3 .claude/hooks/reader.py guard                            # PreToolUse hook (stdin: the envelope)
++    python3 .claude/hooks/reader.py record                           # SubagentStop hook, matcher `reader`
++    python3 .claude/hooks/reader.py status                           # the pending request and the last verdicts
++
++WHO. The agent `reader` (.claude/agents/reader.md): a fresh context, blind to the author's
++conversation, read-only, on the session's model — a role of verification (P5). It is started with
++one line this script prints — `READER_REQUEST <id>` — and nothing else; `guard` refuses any other
++start, and refuses the reader any agent of its own.
++
++WHAT. Today one kind of record: a sketch's `.engine/sketches/<name>.md` (the mode ескіз). The
++reader checks one thing — does the output written in the record prove its answer («так», «ні»,
++«не з'ясовано»)? Its answer is one JSON object: {"verdict": "PASS"|"BLOCK", "reason": "…",
++"evidence": ["…"]}. `record` writes it — never the author: the row into
++.claude/state/reader/verdicts.jsonl, an entry into the journal .engine/reader/ledger.md. A record
++that changed while it was read gets no verdict (INVALID). An answer that does not fit goes back to
++the agent once, then is INVALID.
++
++BLOCK. The author fixes the record and asks again: a new request, read by another reader, which
++has seen neither the first reading nor the fix. Three BLOCKs in a row on one record: the board
++runner parks the task — `record` leaves .claude/state/board/reader-blocks-<task>.json, and the
++runner moves the task to blocked/ (`board.py park <task> reader-blocks`). With the marker `record`
++appends a PARK row: the count restarts there, so after the owner's answer the record gets three
++readings again, as the park question promises (the overseer's PARK row does the same).
++
++`mode.py check-close` asks `passed()` here: a sketch closes only with a PASS on the record as it is.
++Standard library only. Exit: 0 done, 1 refused, 2 usage.
++"""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import secrets
++import sys
++from pathlib import Path
++from typing import Any
++
++sys.path.insert(0, str(Path(__file__).resolve().parent))
++import overseer_verdict as ov  # the protocol's helpers: one reader of a reply, one way to write state
++
++JsonObj = dict[str, Any]
++AGENT = "reader"
++STATE_REL = Path(".claude/state/reader")
++REQUESTS_REL = STATE_REL / "requests"
++PENDING_REL = STATE_REL / "pending.json"
++VERDICTS_REL = STATE_REL / "verdicts.jsonl"
++LEDGER_REL = Path(".engine/reader/ledger.md")
++LEDGER_HEAD = "# Журнал агента-читача\n\nВердикти свіжого читача записів; пише `reader.py record` із відповіді агента, найновіший унизу.\n"
++QUESTION = "Чи доводить вивід, записаний у записі, його відповідь («так», «ні», «не з'ясовано»)?"
++BLOCKS_TO_PARK = 3
++EXIT_OK, EXIT_REFUSED, EXIT_USAGE = 0, 1, 2
++
++
++def digest(path: Path) -> str:
++    return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
++
++
++def launch_line(request_id: str) -> str:
++    return f"READER_REQUEST {request_id}"
++
++
++def pending(root: Path) -> JsonObj | None:
++    waiting = ov.read_json(root / PENDING_REL)
++    return waiting if waiting.get("id") else None
++
++
++def rows(root: Path) -> list[JsonObj]:
++    try:
++        text = (root / VERDICTS_REL).read_text(encoding="utf-8")
++    except OSError:
++        return []
++    found = []
++    for line in text.splitlines():
++        try:
++            row = json.loads(line)
++        except ValueError:
++            continue
++        if isinstance(row, dict):
++            found.append(row)
++    return found
++
++
++def blocks_in_a_row(root: Path, record_rel: str) -> int:
++    count = 0
++    for row in reversed([r for r in rows(root) if r.get("record") == record_rel and r.get("verdict") in ("PASS", "BLOCK", "PARK")]):
++        if row["verdict"] != "BLOCK":
++            break
++        count += 1
++    return count
++
++
++def passed(root: Path, record_rel: str) -> bool:
++    """A PASS of a reader on the record as it is now (its content when it was read is its content now)."""
++    now = digest(root / record_rel)
++    return any(r.get("verdict") == "PASS" and r.get("record") == record_rel and r.get("record_sha256") == now for r in rows(root))
++
++
++def marker(root: Path, task: str) -> Path:
++    return root / ov.BOARD_STATE_REL / f"reader-blocks-{task}.json"
++
++
++def request(root: Path, task: str, record_rel: str) -> tuple[int, str]:
++    record_path = root / record_rel
++    if not record_rel.startswith(".engine/sketches/") or not record_rel.endswith(".md") or not record_path.is_file():
++        return EXIT_REFUSED, f"REFUSED: {record_rel} is not a sketch record (.engine/sketches/<name>.md) of this project"
++    request_id = ov.utc_now().replace("-", "").replace(":", "") + "-" + secrets.token_hex(3)
++    payload = {"id": request_id, "task": task.removesuffix(".md"), "record": record_rel, "record_sha256": digest(record_path),
++               "question": QUESTION, "attempt": blocks_in_a_row(root, record_rel) + 1, "utc": ov.utc_now()}
++    ov.write_json(root / REQUESTS_REL / request_id / "request.json", payload)
++    ov.write_json(root / PENDING_REL, {"id": request_id})
++    return EXIT_OK, (f"Reader request {request_id}: {record_rel} (attempt {payload['attempt']}). Launch the agent `reader` "
++                     f"(Agent tool, subagent_type `reader`, run_in_background false) with exactly this prompt and nothing else:\n"
++                     f"{launch_line(request_id)}")
++
++
++def guard(root: Path, envelope: JsonObj) -> JsonObj | None:
++    tool = str(envelope.get("tool_name", ""))
++    raw = envelope.get("tool_input")
++    tool_input: JsonObj = raw if isinstance(raw, dict) else {}
++    if envelope.get("agent_type") == AGENT:
++        return ov.deny(f"The reader is one fresh pair of eyes: {tool} starting another agent is refused.") if tool in ov.AGENT_TOOLS else None
++    if tool not in ov.AGENT_TOOLS or tool_input.get("subagent_type") != AGENT:
++        return None
++    waiting = pending(root)
++    if waiting is None:
++        return ov.deny("No reader request is pending, so the reader is not started. A request is made by "
++                       "`python3 .claude/hooks/reader.py request <task> --record .engine/sketches/<name>.md`.")
++    line = launch_line(str(waiting["id"]))
++    if str(tool_input.get("prompt", "")).strip() != line:
++        return ov.deny(f"The reader is started with exactly this prompt and nothing else: `{line}`. It reads the request "
++                       "package itself; anything added would be the author speaking to its reader.")
++    return None
++
++
++def schema_errors(obj: JsonObj) -> list[str]:
++    errors = []
++    if obj.get("verdict") not in ("PASS", "BLOCK"):
++        errors.append("`verdict` is PASS or BLOCK")
++    if not isinstance(obj.get("reason"), str) or len(obj["reason"].strip()) < 12:
++        errors.append("`reason` is a sentence (at least 12 characters)")
++    evidence = obj.get("evidence")
++    if not isinstance(evidence, list) or not evidence or not all(isinstance(e, str) and e.strip() for e in evidence):
++        errors.append("`evidence` is a non-empty list of strings: the lines of the record the verdict rests on")
++    return errors
++
++
++def ledger(root: Path, row: JsonObj) -> None:
++    path = root / LEDGER_REL
++    path.parent.mkdir(parents=True, exist_ok=True)
++    text = path.read_text(encoding="utf-8") if path.is_file() else LEDGER_HEAD
++    entry = (f"\n## {row['utc']} — {row.get('task') or '-'} — READER_{row['verdict']}\n- Record: {row.get('record')}\n"
++             f"- Reason: {ov.one_line(row.get('reason', ''))}\n- Request: {row['request']} (attempt {row.get('attempt', 1)})\n")
++    path.write_text(text.rstrip("\n") + "\n" + entry, encoding="utf-8")
++
++
++def record(root: Path, envelope: JsonObj) -> JsonObj | None:
++    if envelope.get("agent_type") != AGENT or envelope.get("hook_event_name") not in (None, "SubagentStop"):
++        return None
++    waiting = pending(root)
++    if waiting is None:
++        return None
++    request_id = str(waiting["id"])
++    if any(r.get("request") == request_id and r.get("verdict") != "INVALID" for r in rows(root)):
++        return None   # this request already has its verdict
++    asked = ov.read_json(root / REQUESTS_REL / request_id / "request.json")
++    row: JsonObj = {"utc": ov.utc_now(), "request": request_id, "task": asked.get("task", "-"), "record": asked.get("record", ""),
++                    "record_sha256": asked.get("record_sha256", ""), "attempt": asked.get("attempt", 1), "agent_id": envelope.get("agent_id", "")}
++
++    def finish(verdict: str, reason: str) -> None:
++        row.update({"verdict": verdict, "reason": ov.one_line(reason)})
++        ledger(root, row)
++        path = root / VERDICTS_REL
++        path.parent.mkdir(parents=True, exist_ok=True)
++        with path.open("a", encoding="utf-8") as handle:
++            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
++        ov.write_json(root / PENDING_REL, {})
++
++    obj, problem = ov.parse_reply(str(envelope.get("last_assistant_message") or ov._handed_back(envelope.get("agent_transcript_path"))))
++    errors = [problem] if obj is None else schema_errors(obj)
++    if errors:
++        if not waiting.get("schema_errors"):
++            ov.write_json(root / PENDING_REL, waiting | {"schema_errors": 1})
++            return {"decision": "block", "reason": "VERDICT REFUSED — the answer does not fit:\n- " + "\n- ".join(errors)
++                    + "\nAnswer again with ONE JSON object: verdict, reason, evidence. A second answer that does not fit is INVALID."}
++        finish("INVALID", "the answer does not fit: " + "; ".join(errors))
++        return None
++    assert obj is not None
++    if digest(root / str(row["record"])) != row["record_sha256"]:
++        finish("INVALID", f"the record {row['record']} changed while it was read")
++        return None
++    finish(str(obj["verdict"]), str(obj["reason"]))
++    if obj["verdict"] == "BLOCK" and blocks_in_a_row(root, str(row["record"])) >= BLOCKS_TO_PARK and row["task"] not in ("", "-"):
++        blocks = [r for r in rows(root) if r.get("record") == row["record"] and r.get("verdict") == "BLOCK"][-BLOCKS_TO_PARK:]
++        ov.write_json(marker(root, str(row["task"])), {"task": row["task"], "record": row["record"], "utc": ov.utc_now(),
++                                                       "blocks": [{"utc": b["utc"], "request": b["request"], "reason": b["reason"]} for b in blocks]})
++        with (root / VERDICTS_REL).open("a", encoding="utf-8") as handle:   # the count restarts here: three readings after the answer
++            handle.write(json.dumps({"utc": ov.utc_now(), "request": request_id, "task": row["task"], "record": row["record"],
++                                     "verdict": "PARK", "reason": f"{BLOCKS_TO_PARK} BLOCKs in a row: the task waits for the owner"},
++                                    ensure_ascii=False) + "\n")
++    return None
++
++
++def status(root: Path) -> int:
++    waiting = pending(root)
++    print(f"pending request:   {waiting['id'] if waiting else 'none'}")
++    for row in rows(root)[-5:]:
++        print(f"  {row.get('utc')}  {row.get('verdict'):<8} {row.get('request')}  {row.get('record')}  {ov.one_line(row.get('reason', ''), 90)}")
++    return EXIT_OK
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
++    commands = parser.add_subparsers(dest="command", required=True)
++    asking = commands.add_parser("request")
++    asking.add_argument("task")
++    asking.add_argument("--record", required=True)
++    commands.add_parser("guard")
++    commands.add_parser("record")
++    commands.add_parser("status")
++    args = parser.parse_args(argv)
++    root = ov.project_root()
++    if args.command == "request":
++        code, said = request(root, args.task, args.record)
++        print(said, file=sys.stdout if code == EXIT_OK else sys.stderr)
++        return code
++    if args.command == "status":
++        return status(root)
++    envelope = ov.read_envelope()
++    answer = guard(root, envelope) if args.command == "guard" else record(root, envelope)
++    if answer is not None:
++        print(json.dumps(answer, ensure_ascii=False))
++    return EXIT_OK
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/.claude/references/sketch-record.md b/.claude/references/sketch-record.md
+new file mode 100644
+index 0000000..a0c89c4
+--- /dev/null
++++ b/.claude/references/sketch-record.md
+@@ -0,0 +1,44 @@
++# The sketch's record — `.engine/sketches/<name>.md` (board 099)
++
++A task in the mode **ескіз** answers one question. Its code lives only in `sketches/<name>/` — the
++gates do not check it, and it never becomes working code: carrying it over is a new task in соло or
++конвеєр, where the code is written anew under that task's checks. What stays is the record, the
++evidence a later decision cites (the constitution, article 4).
++
++## The template
++
++```markdown
++# Ескіз <name>
++
++## Питання
++<one question, answerable by «так» or «ні»>
++
++## Що пробували
++<what was built under sketches/<name>/ and why that settles the question>
++
++## Команда і вивід
++```
++$ <the exact command, from the project root>
++<its output, as it came — not retold>
++```
++
++## Відповідь
++так | ні | не з'ясовано
++<one sentence: which line of the output says it; for «не з'ясовано» — what was tried and why it did not settle the question>
++```
++
++## Who reads it
++
++Before the task closes, a fresh **reader** (`.claude/agents/reader.md`) reads the record and judges one
++thing: does the output prove the answer? Ask for it with
++`python3 .claude/hooks/reader.py request <task> --record .engine/sketches/<name>.md` and launch the agent
++`reader` with exactly the line it prints. A BLOCK — fix the record and ask again: another reader reads
++it. Three BLOCKs in a row — the board runner parks the task. The runner closes a sketch only with a PASS
++on the record as it is (`mode.py check-close`): change the record after its PASS and it must be read again.
++
++## The quarantine (gate.py)
++
++- A task in ескіз changes nothing outside `sketches/`, `.engine/` and `tasks/` — the gate blocks it.
++- Working code that refers to a sketch — a Python import of `sketches`, a string that is a path into a
++  named sketch, such a path on an added line of a script — is a block in every mode.
++- What it does not catch: `docs/engine-limits.md`, «The sketch's quarantine».
+diff --git a/.claude/skills/slice-builder/SKILL.md b/.claude/skills/slice-builder/SKILL.md
+index f65d546..07a2b27 100644
+--- a/.claude/skills/slice-builder/SKILL.md
++++ b/.claude/skills/slice-builder/SKILL.md
+@@ -82,6 +82,14 @@ User context typically includes:
+ | "Fix this typo / rename this variable / one-line change" | No skill — user edits directly |
+ | Cross-module refactor of an existing feature | No skill — user-led, possibly with `master-architect` BACKTRACK |
+ 
++**A task in the mode ескіз** (`python3 .claude/hooks/mode.py show`) is not a slice: it answers one
++question and builds nothing that stays. Its code goes only into `sketches/<name>/` — the gates do not
++check it, and nothing outside `sketches/`, `.engine/` and `tasks/` may change (gate.py blocks it).
++What it leaves is the record `.engine/sketches/<name>.md` (`.claude/references/sketch-record.md`): the
++question, what was tried, the command and its output, the answer. A fresh `reader` must PASS the
++record before the task closes. Working code never imports, runs or opens a sketch; carrying a sketch
++over is a new task in соло or конвеєр, where the code is written anew under this skill.
++
+ If invoked incorrectly, hand off directly: name the correct skill and invoke it. Skill routing is mechanical — the "DO NOT use for" list above already determines the answer, so there is nothing here only a human can supply. Do not stop to ask for a redirect. Note the handoff in one line so the switch is visible, and continue.
+ 
+ ## Workflow
+diff --git a/.claude/unattended/README.md b/.claude/unattended/README.md
+index 6986df3..245d979 100644
+--- a/.claude/unattended/README.md
++++ b/.claude/unattended/README.md
+@@ -101,13 +101,17 @@ what belongs to the task, remove the rest. A tree still dirty after that turn is
+ with the list of files, and the next task is taken; the runner deletes, stashes and commits none
+ of them.
+ 
++A task in ескіз that three readers in a row refused (reader.py leaves `.claude/state/board/reader-blocks-<task>.json`)
++goes to `blocked/` with the reason `reader-blocks`, as the overseer's three BLOCKs do (board 099).
++
+ A task closes into `done/` with the minimum of its mode (board 098). Right after the clean-tree
+ check the runner asks `python3 .claude/hooks/mode.py check-close <task>`, which judges by files:
+ `report.md` in every mode; in соло, for every commit of the task that changed working code (what
+ the Stop hook asks an audit for: under `SOURCE_DIRS`, else an extension of `CODE_EXTENSIONS`, else
+ every file; never `tasks/` or `.engine/`), in every stay of the task in `doing/` and in the turn
+ back, a PASS of the overseer whose audit saw exactly that code; in конвеєр also the feature artifact and a matching seal on every slice contract the task
+-wrote; in ескіз `report.md` for now (board 099 adds the quarantine). Missing — the agent gets the turn
++wrote; in ескіз the record `.engine/sketches/<name>.md` with a reader's PASS on it as it is and no change outside
++`sketches/`, `.engine/`, `tasks/` (board 099). Missing — the agent gets the turn
+ back once with the list; still missing — the task goes to `blocked/` with the reason `minimum`, its
+ report beside it as `blocked/report-<task>.md`, and a journal entry. A task closed into `blocked/`,
+ and one the runner closes itself (a gate's escalation, an owner action), is not checked; a check that
+diff --git a/.claude/unattended/board-runner.sh b/.claude/unattended/board-runner.sh
+index dd18946..1c2dd88 100755
+--- a/.claude/unattended/board-runner.sh
++++ b/.claude/unattended/board-runner.sh
+@@ -175,6 +175,7 @@ GATE_PY="$HERE/../hooks/gate.py"
+ ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
+ DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
+ blocks_marker() { echo "$STATE/three-blocks-$1.json"; }   # left by overseer_stop.py after the third BLOCK
++reader_marker() { echo "$STATE/reader-blocks-$1.json"; }   # left by reader.py after the third BLOCK on one record (board 099)
+ board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
+ memo() { python3 "$HERE/board_state.py" "$STATE" "$@"; }
+ 
+@@ -548,6 +549,7 @@ park_task() {
+   local stem="$1" reason="$2" detail="$3" stash="" before after
+   local -a verdicts=()
+   [ "$reason" != three-blocks ] || verdicts=(--verdicts "$(blocks_marker "$stem")")
++  [ "$reason" != reader-blocks ] || verdicts=(--verdicts "$(reader_marker "$stem")")
+   commit_journal "$JOURNAL_OTHERS"
+   save_wip "$stem" "$reason"
+   before=$(git rev-parse -q --verify refs/stash 2>/dev/null)
+@@ -556,7 +558,7 @@ park_task() {
+   [ "$after" != "$before" ] && stash="$after"
+   board park "$stem" "$reason" --detail "$detail" ${stash:+--stash "$stash"} ${WIP:+--wip "$WIP"} ${WIP_AT:+--wip-remote "$WIP_AT"} "${verdicts[@]}" > /dev/null \
+     || finish error "$stem" park "board.py park $stem $reason failed"
+-  rm -f "$(blocks_marker "$stem")"
++  rm -f "$(blocks_marker "$stem")" "$(reader_marker "$stem")"
+   [ "$reason" = budget ] && memo rebudget "$stem"
+   board_commit "board: $stem → blocked — the runner parked it ($reason); the board goes on" \
+     || finish error "$stem" commit "cannot commit the parked task"
+@@ -705,6 +707,9 @@ run_task() {
+     if [ -f "$(blocks_marker "$stem")" ]; then
+       park_task "$stem" three-blocks ""; return 0
+     fi
++    if [ -f "$(reader_marker "$stem")" ]; then   # board 099: three readers in a row refused the sketch's record
++      park_task "$stem" reader-blocks "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("record", ""))' "$(reader_marker "$stem")" 2>/dev/null)"; return 0
++    fi
+     if [ "$(memo get "$stem" age_sec)" -ge "$TASK_MAX" ]; then
+       park_task "$stem" deadline "$((TASK_MAX / 3600))"; return 0
+     fi
+@@ -765,7 +770,7 @@ while :; do
+       TASK=$(board start "$TASK") || finish error "$TASK_NAME" start "board.py start refused"
+       board_commit "board: $TASK_NAME → doing" || finish error "$TASK_NAME" commit "cannot commit the move to doing/"
+       dirty_paths > "$DIRTY_BEFORE"
+-      rm -f "$(blocks_marker "$TASK_NAME")"   # a fresh start: a marker from before the owner's answer is stale
++      rm -f "$(blocks_marker "$TASK_NAME")" "$(reader_marker "$TASK_NAME")"   # a fresh start: a marker from before the owner's answer is stale
+       memo retry "$TASK_NAME"
+       ;;
+     *) memo begin "$TASK_NAME" ;;
+diff --git a/.claude/unattended/board.py b/.claude/unattended/board.py
+index f67112f..5a1a7a4 100755
+--- a/.claude/unattended/board.py
++++ b/.claude/unattended/board.py
+@@ -1015,6 +1015,10 @@ PARK_REASONS = {
+     "returned": ("агент повернув задачу з `doing/` у `todo/`, не закінчивши її і нічого не спитавши",
+                  ("Агент не закінчив задачу й не поставив питання. Що робити далі? Будь-яка відповідь поверне задачу в чергу; "
+                  "вказівку агентові напишіть тут же.")),
++    "reader-blocks": ("агент-читач тричі поспіль відхилив запис ескізу ({n})",
++                      ("Три агенти-читачі поспіль сказали, що вивід у записі ескізу не доводить його відповідь; їхні вердикти — у "
++                      "розділі «Чому зупинилась». Що робити далі? Будь-яка відповідь поверне задачу в чергу, і запис отримає три нові "
++                      "читання; вказівку агентові напишіть тут же.")),
+     "minimum": ("задачу закрито без мінімуму її режиму, і після одного ходу назад його так і не було ({n})",
+                 ("Задачу закрито без мінімуму її режиму (board 098: `mode.py check-close`), і хід назад агентові цього не виправив. "
+                 "Що робити далі? Будь-яка відповідь поверне задачу в чергу; вказівку агентові напишіть тут же.")),
+diff --git a/docs/engine-limits.md b/docs/engine-limits.md
+index 07b3a85..fd5bb0b 100644
+--- a/docs/engine-limits.md
++++ b/docs/engine-limits.md
+@@ -496,6 +496,40 @@ places, keeps the gate and the overseer, and holds the fix to a hard limit
+ - **The way back is checked for presence only.** `debt` refuses a card whose `- Roll back:` line
+   is empty; it does not try the command.
+ 
++## The sketch's quarantine (board 099)
++
++`gate.py` keeps a sketch's code in `sketches/<name>/` and working code away from it
++(`.claude/references/sketch-record.md`). What it does not catch:
++
++- **Code rewritten by hand.** A sketch's logic copied into `src/` line by line, without an import or
++  a path, is ordinary new code: the gates check it as such, and nothing says where it came from. The
++  rule «a sketch never becomes working code» holds for references, not for ideas.
++- **A reference built at run time** — a path joined from parts (`"sket" + "ches/x"`, `os.path.join(root,
++  "sketches", name)`), a variable that holds the whole directory (`$SKETCH_DIR/x`), a configuration file:
++  the gate reads the source, it does not run it. A literal path is caught after any number of `../`, after a
++  shell variable or substitution quoted or not (`"$ROOT/sketches/x"`, `"$ROOT"/sketches/x`, `${ROOT:-.}/sketches/x`,
++  `"$(dirname "$0")"/../sketches/x`, a backtick command), and in a Python f-string after a placeholder
++  (`f"{ROOT}/sketches/x"`).
++- **An absolute path or an import alias** — `/home/…/project/sketches/x`, `@/sketches/x`: the gate does not
++  know where the project lives or what an alias resolves to.
++- **A module name without a path outside Python** — `import sketches.rate` in a language whose imports are
++  not paths (only Python's `import` is read as code; other files are read for paths with a `/`).
++- **A directory that only shares the name.** `src/sketches/x` is not the quarantine and is not blocked:
++  only `sketches/` at the project's root is.
++- **Tests.** A test may hold a sketch path as data (the engine's own suites do), so tests are not
++  looked at; a test that imports a sketch passes the gate.
++- **A reference that was there before the turn.** Only the lines a turn adds are judged, as with
++  every other guard of the gate (a string spanning several lines is judged when any of them is added).
++- **A file a sketch deletes outside the quarantine** is not seen by the gate, which judges the files that
++  are there; `mode.py check-close` sees it at closing, from the task's commits.
++- **The mode is the session's task in doing/.** A sketch worked on with no task in doing/ (no board,
++  or two tasks of the session) is not known to be one: the first rule (nothing outside the
++  quarantine) is not applied; `mode.py check-close` still applies it at closing, from the task's
++  commits.
++- **The reader judges one question** — does the output prove the answer — and only the record as it
++  is: the record is checked by its content, not by who wrote the output into it. Output pasted by
++  hand rather than produced by the command is not detected.
++
+ ## The snapshot "as it was" (board 071)
+ 
+ With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).
+diff --git a/docs/tasks/settings.json b/docs/tasks/settings.json
+index 6580d91..36519f1 100644
+--- a/docs/tasks/settings.json
++++ b/docs/tasks/settings.json
+@@ -180,6 +180,11 @@
+             "type": "command",
+             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\" guard",
+             "timeout": 15
++          },
++          {
++            "type": "command",
++            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/reader.py\" guard",
++            "timeout": 15
+           }
+         ]
+       },
+@@ -283,6 +288,16 @@
+             "timeout": 900
+           }
+         ]
++      },
++      {
++        "matcher": "reader",
++        "hooks": [
++          {
++            "type": "command",
++            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/reader.py\" record",
++            "timeout": 30
++          }
++        ]
+       }
+     ],
+     "SessionStart": [
+diff --git a/tasks/README.md b/tasks/README.md
+index 4923b07..9c7aaf1 100644
+--- a/tasks/README.md
++++ b/tasks/README.md
+@@ -40,7 +40,10 @@ Task board — це чотири теки. Власник кладе задач
+ | `конвеєр` | функція з кількох slice-ів: feature architect, sealed slice contract на кожен slice, test manager і tester | те саме, плюс артефакт функції і contract-и її slice-ів |
+ 
+ Що лишає по собі кожен режим, runner перевіряє при закритті задачі (задача 098, нижче — «Мінімум режиму
+-при закритті»); карантин ескізу вмикає задача 099.
++при закритті»). Ескіз (задача 099): код лише в `sketches/<назва>/`, gates його не перевіряють, а все поза
++`sketches/`, `.engine/` і `tasks/` блокують; запис `.engine/sketches/<назва>.md` за шаблоном
++`.claude/references/sketch-record.md` читає свіжий агент-читач (`reader`), і без його PASS ескіз не
++закривається; робочий код, що посилається на `sketches/`, блокується в будь-якому режимі.
+ 
+ - **Без рядка — `соло`.** Так task board виконувала всі задачі досі.
+ - **Вгору агент іде сам, униз — лише ви.** Якщо задача виявилась більшою (critic каже «не той обсяг»,
+@@ -378,7 +381,8 @@ runner бере наступну задачу. Сам він нічого не 
+ а якщо порожні обидва — будь-який файл; ніколи не `tasks/` чи `.engine/`), і саме той PASS, чий audit
+ бачив цей код; рахуються commit-и всіх перебувань задачі в `doing/` і ходу назад;
+ у `конвеєр` — те саме, плюс артефакт функції й печатка на кожному slice contract-і задачі; у `ескіз` —
+-поки лише `report.md`. Мінімуму немає — агент один раз отримує хід назад із переліком, чого бракує;
++запис ескізу з PASS агента-читача на ньому, такому, як він є, і жодної зміни поза `sketches/`, `.engine/`,
++`tasks/`. Мінімуму немає — агент один раз отримує хід назад із переліком, чого бракує;
+ немає й тоді — задача йде в `blocked/` з причиною в розділі «Чому зупинилась» і питанням до вас, а її
+ звіт лежить поруч як `blocked/report-<задача>.md`. Задачі, які агент закрив у `blocked/`, і ті, що
+ закриває сам runner (ескалація gates, виконана дія), не перевіряються.
+diff --git a/templates/project/tasks/README.md b/templates/project/tasks/README.md
+index ed70f90..53e332e 100644
+--- a/templates/project/tasks/README.md
++++ b/templates/project/tasks/README.md
+@@ -40,7 +40,10 @@ Task board — це чотири теки. Власник кладе задач
+ | `конвеєр` | функція з кількох slice-ів: feature architect, sealed slice contract на кожен slice, test manager і tester | те саме, плюс артефакт функції і contract-и її slice-ів |
+ 
+ Що лишає по собі кожен режим, runner перевіряє при закритті задачі (задача 098, нижче — «Мінімум режиму
+-при закритті»); карантин ескізу вмикає задача 099.
++при закритті»). Ескіз (задача 099): код лише в `sketches/<назва>/`, gates його не перевіряють, а все поза
++`sketches/`, `.engine/` і `tasks/` блокують; запис `.engine/sketches/<назва>.md` за шаблоном
++`.claude/references/sketch-record.md` читає свіжий агент-читач (`reader`), і без його PASS ескіз не
++закривається; робочий код, що посилається на `sketches/`, блокується в будь-якому режимі.
+ 
+ - **Без рядка — `соло`.** Так task board виконувала всі задачі досі.
+ - **Вгору агент іде сам, униз — лише ви.** Якщо задача виявилась більшою (critic каже «не той обсяг»,
+@@ -378,7 +381,8 @@ runner бере наступну задачу. Сам він нічого не 
+ а якщо порожні обидва — будь-який файл; ніколи не `tasks/` чи `.engine/`), і саме той PASS, чий audit
+ бачив цей код; рахуються commit-и всіх перебувань задачі в `doing/` і ходу назад;
+ у `конвеєр` — те саме, плюс артефакт функції й печатка на кожному slice contract-і задачі; у `ескіз` —
+-поки лише `report.md`. Мінімуму немає — агент один раз отримує хід назад із переліком, чого бракує;
++запис ескізу з PASS агента-читача на ньому, такому, як він є, і жодної зміни поза `sketches/`, `.engine/`,
++`tasks/`. Мінімуму немає — агент один раз отримує хід назад із переліком, чого бракує;
+ немає й тоді — задача йде в `blocked/` з причиною в розділі «Чому зупинилась» і питанням до вас, а її
+ звіт лежить поруч як `blocked/report-<задача>.md`. Задачі, які агент закрив у `blocked/`, і ті, що
+ закриває сам runner (ескалація gates, виконана дія), не перевіряються.
+diff --git a/tests/fast-suites.txt b/tests/fast-suites.txt
+index 8b3eb51..f77dd64 100644
+--- a/tests/fast-suites.txt
++++ b/tests/fast-suites.txt
+@@ -110,9 +110,14 @@ test_core_units.py
+ test_architecture_doc.py
+ test_tool_versions.py
+ test_mode.py
++test_reader.py
++test_sketch_quarantine.py
+ # Board 738: test_shell_text 35 s stays out (about three hundred and fifty runs of the real block-dangerous.sh).
+ # Board 089: test_architecture_doc 0.1 s is in (in-process: every path docs/ARCHITECTURE.md names exists, the hooks map equals the settings both ways, matcher by matcher).
+ # Board 107: test_tool_versions 0.4 s is in (the check tools' versions stay in one place; in-process, and a dozen runs
+ # of tool_versions.py with stand-ins on a PATH built from nothing).
+ # Board 097: test_mode 4.9 s is in (the one reader of the mode and of «nobody is watching», which five places, the park hook
+ # among them, now ask; a dozen synthetic projects, three runs of hotfix.py and one of bugfix.py, env-probe.sh four times).
++# Board 099: test_reader 2.6 s and test_sketch_quarantine 2.0 s are in (the reader's guard and verdict writer on its real
++# envelopes; the quarantine through gate.py's stop layer in-process on a dozen synthetic projects). test_mode grew
++# with the closing minimum (boards 098, 099): about 17 s while another suite ran beside it.
+diff --git a/tests/hook-env-exempt.txt b/tests/hook-env-exempt.txt
+index 601e608..0d76db0 100644
+--- a/tests/hook-env-exempt.txt
++++ b/tests/hook-env-exempt.txt
+@@ -46,3 +46,4 @@ test_state_migration.py             # runs engine.py only; the hook paths are fi
+ test_supervisor_retired.py          # runs git and engine.py only; the paths are files it expects gone
+ test_text_hygiene.py                # runs git ls-files only; the hook paths are documents it reads
+ test_verify_on_stop.py              # by hand
++test_sketch_quarantine.py  # imports gate.py in-process and passes each synthetic project as the root; it starts no hook process (board 099)
+diff --git a/tests/test_board_runner.py b/tests/test_board_runner.py
+index a49c364..5c13568 100755
+--- a/tests/test_board_runner.py
++++ b/tests/test_board_runner.py
+@@ -40,6 +40,8 @@ FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
+     audit           have the tree as it is audited (a PASS), commit the ledger, leave the task as it is
+     seal            seal the slice contract with contract_fingerprint.py, nothing else
+     done-broken     `done`, then task.md is overwritten with bytes that are not UTF-8 and committed
++    reader-refused  write and commit a sketch's record, then have it read three times through the REAL
++                    reader.py (request, guard, a BLOCK answer recorded), leave the task in doing/ (board 099)
+ 
+ A conversation's reported cost is its running total (1 USD a call unless FAKE_COST says
+ otherwise); `--resume ID` keeps the id, a call without it opens a new conversation.
+@@ -153,6 +155,21 @@ elif step == "done-broken" and doing:
+     (target / "task.md").write_bytes(b"# \xff\xfe not UTF-8\n")
+     (target / "report.md").write_text("# Звіт\n")
+     git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done", "--", "tasks")
++elif step == "reader-refused":
++    hooks = Path(os.environ["FAKE_HOOKS"])
++    record = Path(".engine/sketches/rate.md")
++    record.parent.mkdir(parents=True, exist_ok=True)
++    record.write_text("# Ескіз rate\n\n## Команда і вивід\n$ python3 sketches/rate/probe.py\n40: 200\n\n## Відповідь\nтак\n")
++    git("add", "-A"); git("commit", "-q", "-m", "the sketch's record")
++    for k in (1, 2, 3):
++        said = subprocess.run([sys.executable, str(hooks / "reader.py"), "request", doing[0].stem, "--record", str(record)],
++                              capture_output=True, text=True).stdout
++        rid = said.rsplit("READER_REQUEST ", 1)[-1].strip()
++        subprocess.run([sys.executable, str(hooks / "reader.py"), "guard"], capture_output=True, text=True, input=json.dumps(
++            {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": {"subagent_type": "reader", "prompt": f"READER_REQUEST {rid}"}}))
++        reply = {"verdict": "BLOCK", "reason": f"ЧИТАЧ-{k}: the output stops at call 40, the answer claims a cut at 61", "evidence": [".engine/sketches/rate.md:5"]}
++        subprocess.run([sys.executable, str(hooks / "reader.py"), "record"], capture_output=True, text=True, input=json.dumps(
++            {"hook_event_name": "SubagentStop", "agent_type": "reader", "agent_id": f"r{k}", "last_assistant_message": json.dumps(reply)}))
+ elif step == "seal":
+     subprocess.run([sys.executable, str(Path(os.environ["FAKE_HOOKS"]) / "contract_fingerprint.py"), "seal", ".engine/slices/pay-tax.md"],
+                    check=True, capture_output=True)
+@@ -1609,6 +1626,21 @@ r = w.run()
+ check("…the contract sealed in the turn back: the task stays in done/", w.has("tasks/done/001-pipeline/report.md") and " minimum-made 001-pipeline" in events(w),
+       r.stdout + events(w))
+ 
++print("board 099: three readers in a row refused the sketch's record — the runner parks the task")
++w = World("reader-refused done")
++w.put("todo", "001-sketch.md", "# Ескіз\n\nЗалежить від: —\nРежим: ескіз\nАудит потрібен: ні\n\n## Що зробити\n- питання\n\n## Питання до власника\n")
++w.put("todo", "002-next.md")
++r = w.run()
++text = (w.repo / "tasks/blocked/001-sketch.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-sketch.md") else ""
++why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
++check("the runner moved the sketch to blocked/ after ONE session: «Чому зупинилась» names the record and the three readers' verdicts",
++      "агент-читач тричі поспіль відхилив запис ескізу (.engine/sketches/rate.md)" in why and all(f"ЧИТАЧ-{k}:" in why for k in (1, 2, 3))
++      and " attempt 001-sketch 2" not in events(w), r.stdout + text + events(w))
++check("…one question to the owner, the journal entry, the marker gone, the next task done",
++      "1. Три агенти-читачі поспіль" in text and "агент-читач тричі поспіль" in (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++      and not list(w.state.glob("reader-blocks-*")) and w.has("tasks/done/002-next/report.md") and " task-parked 001-sketch reader-blocks" in events(w),
++      events(w))
++
+ w = minimum_world("done-broken")
+ w.put("todo", "001-broken.md")
+ r = w.run()
+diff --git a/tests/test_mode.py b/tests/test_mode.py
+index 4ec433a..222ab0f 100644
+--- a/tests/test_mode.py
++++ b/tests/test_mode.py
+@@ -479,11 +479,67 @@ start(cc, "066-no-report")
+ close(cc, "066-no-report", report=False)
+ check("negative — no report.md: missing in every mode", closing(cc, "066-no-report") == ("соло", ["у tasks/done/066-no-report/ немає report.md"]),
+       closing(cc, "066-no-report"))
+-start(cc, "067-sketch", "Режим: ескіз")
+-code(cc, "src/e.py", "E = 1\n")
+-commit_all(cc, "a sketch")
+-close(cc, "067-sketch")
+-check("ескіз: report.md for now — the quarantine and the record come with board 099", closing(cc, "067-sketch") == ("ескіз", []), closing(cc, "067-sketch"))
++# board 099: the sketch's minimum — nothing outside the quarantine, the record, a reader's PASS on it as it is
++reader_mod = load("reader_for_mode", HOOKS / "reader.py")
++RECORD = "# Ескіз rate\n\n## Питання\nЧи ріже API після 60 викликів?\n\n## Що пробували\nprobe.py\n\n## Команда і вивід\n```\n$ python3 sketches/rate/probe.py\n61: 429\n```\n\n## Відповідь\nтак\n"
++
++
++def read_it(at: Path, name: str, record_rel: str, verdict_word: str = "PASS") -> str:
++    """A reader reads the record through reader.py itself: the request, the guard, the answer recorded."""
++    saved = os.environ.get("CLAUDE_PROJECT_DIR")
++    os.environ["CLAUDE_PROJECT_DIR"] = str(at)
++    try:
++        code_, said_ = reader_mod.request(at, name, record_rel)
++        rid = said_.rsplit("READER_REQUEST ", 1)[-1].strip()
++        refused = reader_mod.guard(at, {"tool_name": "Agent", "tool_input": {"subagent_type": "reader", "prompt": f"READER_REQUEST {rid}"}})
++        answer = {"verdict": verdict_word, "reason": "the output line 61: 429 shows the cut the answer claims", "evidence": [f"{record_rel}:10"]}
++        reader_mod.record(at, {"hook_event_name": "SubagentStop", "agent_type": "reader", "agent_id": "r1",
++                               "last_assistant_message": "```json\n" + json.dumps(answer) + "\n```"})
++    finally:
++        if saved is None:
++            os.environ.pop("CLAUDE_PROJECT_DIR", None)
++        else:
++            os.environ["CLAUDE_PROJECT_DIR"] = saved
++    return "" if code_ == 0 and refused is None else said_
++
++
++for name, rel in (("067-sketch-src", "src/e.py"), ("068-sketch-docs", "docs/how.md")):
++    start(cc, name, "Режим: ескіз")
++    code(cc, f"sketches/{name}/probe.py", "print(1)\n")
++    code(cc, f".engine/sketches/{name}.md", RECORD)
++    code(cc, rel, "x = 1\n")
++    commit_all(cc, "a sketch that went outside")
++    close(cc, name)
++    read_it(cc, name, f".engine/sketches/{name}.md")
++    check(f"negative — a sketch changed {rel.split('/')[0]}/ (outside sketches/, .engine/, tasks/): refused, the file named",
++          closing(cc, name) == ("ескіз", [f"задача-ескіз змінила файл поза карантином (sketches/, .engine/, tasks/): {rel}"]), closing(cc, name))
++start(cc, "069-sketch-no-record", "Режим: ескіз")
++code(cc, "sketches/norec/probe.py", "print(1)\n")
++commit_all(cc, "a sketch with no record")
++close(cc, "069-sketch-no-record")
++check("negative — a sketch without its record does not close", closing(cc, "069-sketch-no-record")[1] == ["запису ескізу (.engine/sketches/<назва>.md) серед змін задачі немає"],
++      closing(cc, "069-sketch-no-record"))
++start(cc, "070-sketch-unread", "Режим: ескіз")
++code(cc, ".engine/sketches/unread.md", RECORD)
++commit_all(cc, "a record nobody read")
++close(cc, "070-sketch-unread")
++check("negative — a record with no PASS of a reader does not close", any("немає PASS агента-читача" in line for line in closing(cc, "070-sketch-unread")[1]),
++      closing(cc, "070-sketch-unread"))
++read_it(cc, "070-sketch-unread", ".engine/sketches/unread.md", "BLOCK")
++check("negative — a BLOCK of the reader is no PASS", any("немає PASS агента-читача" in line for line in closing(cc, "070-sketch-unread")[1]),
++      closing(cc, "070-sketch-unread"))
++start(cc, "071-sketch", "Режим: ескіз")
++code(cc, "sketches/rate/probe.py", "print(429)\n")
++code(cc, ".engine/sketches/rate.md", RECORD)
++commit_all(cc, "the sketch and its record")
++close(cc, "071-sketch")
++said_read = read_it(cc, "071-sketch", ".engine/sketches/rate.md")
++check("a sketch that changed only sketches/ and has its record with a reader's PASS closes", said_read == "" and closing(cc, "071-sketch") == ("ескіз", []),
++      (said_read, closing(cc, "071-sketch")))
++code(cc, ".engine/sketches/rate.md", RECORD.replace("так", "ні"))
++check("negative — the record changed after the reader's PASS: the PASS was on another text", any("немає PASS агента-читача" in line for line in closing(cc, "071-sketch")[1]),
++      closing(cc, "071-sketch"))
++code(cc, ".engine/sketches/rate.md", RECORD)
+ start(cc, "068-pipeline-bare", "Режим: конвеєр")
+ code(cc, "src/f.py", "F = 1\n")
+ audited(cc, "068-pipeline-bare", "r068")
+diff --git a/tests/test_model_roles.py b/tests/test_model_roles.py
+index f08cf39..1af52a3 100755
+--- a/tests/test_model_roles.py
++++ b/tests/test_model_roles.py
+@@ -35,7 +35,7 @@ SETTINGS = (CLAUDE / "settings.json", ROOT / "user" / "settings.json", ROOT / "t
+ STRONGEST = (
+     "agents/overseer.md", "skills/overseer/SKILL.md", "skills/slice-builder/SKILL.md", "commands/feature-architect.md",
+     "commands/master-architect.md", "commands/plan-slice.md", "commands/mvp-architect.md",
+-    "agents/test-manager.md", "agents/slice-tester.md",
++    "agents/test-manager.md", "agents/slice-tester.md", "agents/reader.md",
+ )
+ ALLOWED = re.compile(r"^(sonnet|opus|haiku|fable|inherit|claude-[a-z0-9-]+)$")
+ PASS = FAIL = 0
+diff --git a/tests/test_reader.py b/tests/test_reader.py
+new file mode 100755
+index 0000000..b9155ff
+--- /dev/null
++++ b/tests/test_reader.py
+@@ -0,0 +1,167 @@
++#!/usr/bin/env python3
++"""The fresh reader of a sketch's record (board 099): reader.py request, guard, record.
++
++  - `request` takes only a sketch record of the project and prints the one launch line;
++  - `guard`: the reader starts with exactly `READER_REQUEST <id>` of the pending request and nothing
++    else; with no request, or with any other prompt, it is refused; the reader starts no agent;
++  - `record` writes the verdict from the agent's answer — never the author: the row with the record's
++    content when it was read, the journal entry; an answer that does not fit goes back once, then is
++    INVALID; a record that changed while it was read is INVALID; the answer handed back through
++    SubagentHandback (no last_assistant_message) is read too;
++  - `passed()` holds only for the record as it is now;
++  - three BLOCKs in a row on one record leave the marker the runner parks the task on; a PASS between
++    them resets the count.
++
++Run:   python3 tests/test_reader.py       Exit: 0 all green, 1 otherwise.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import json
++import shutil
++import subprocess
++import sys
++import tempfile
++from pathlib import Path
++
++from hook_env import hook_env
++
++ROOT = Path(__file__).resolve().parent.parent
++READER = ROOT / ".claude/hooks/reader.py"
++PASS = FAIL = 0
++RECORD = "# Ескіз rate\n\n## Питання\nЧи ріже API після 60 викликів?\n\n## Команда і вивід\n```\n$ python3 sketches/rate/probe.py\n61: 429\n```\n\n## Відповідь\nтак\n"
++GOOD = {"verdict": "PASS", "reason": "the output line «61: 429» shows the cut the answer claims", "evidence": [".engine/sketches/rate.md:8"]}
++
++
++def check(name: str, ok: bool, detail: object = "") -> None:
++    global PASS, FAIL
++    PASS, FAIL = (PASS + 1, FAIL) if ok else (PASS, FAIL + 1)
++    print(f"  {'ok  ' if ok else 'FAIL'} {name}{'' if ok else '   ' + str(detail)[:700]}")
++
++
++spec = importlib.util.spec_from_file_location("reader_under_test", READER)
++assert spec is not None and spec.loader is not None
++reader = importlib.util.module_from_spec(spec)
++sys.modules["reader_under_test"] = reader
++spec.loader.exec_module(reader)
++root = Path(tempfile.mkdtemp(prefix="reader-")).resolve()
++(root / ".engine/sketches").mkdir(parents=True)
++(root / ".engine/sketches/rate.md").write_text(RECORD, encoding="utf-8")
++(root / "README.md").write_text("not a record\n", encoding="utf-8")
++REL = ".engine/sketches/rate.md"
++
++
++def cli(*args: str, envelope: dict[str, object] | None = None) -> subprocess.CompletedProcess[str]:
++    env = hook_env(root)
++    return subprocess.run([sys.executable, str(READER), *args], input=json.dumps(envelope) if envelope is not None else "",
++                          capture_output=True, text=True, env=env, check=False, cwd=root)
++
++
++def launch(prompt: str, agent: str = "reader", inside: str | None = None) -> dict[str, object]:
++    envelope: dict[str, object] = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": {"subagent_type": agent, "prompt": prompt}}
++    if inside:
++        envelope["agent_type"] = inside
++    out = cli("guard", envelope=envelope).stdout
++    return json.loads(out) if out.strip() else {}
++
++
++def answer(reply: dict[str, object] | str, **extra: object) -> dict[str, object]:
++    text = reply if isinstance(reply, str) else "```json\n" + json.dumps(reply) + "\n```"
++    out = cli("record", envelope={"hook_event_name": "SubagentStop", "agent_type": "reader", "agent_id": "a1", "last_assistant_message": text, **extra}).stdout
++    return json.loads(out) if out.strip() else {}
++
++
++def ask(task: str = "071-sketch", rel: str = REL) -> str:
++    done = cli("request", task, "--record", rel)
++    return done.stdout.rsplit("READER_REQUEST ", 1)[-1].strip() if done.returncode == 0 else ""
++
++
++try:
++    print("request: a sketch record only, then the one launch line")
++    done = cli("request", "071-sketch", "--record", "README.md")
++    check("negative — a file that is not a sketch record is refused", done.returncode == 1 and "is not a sketch record" in done.stderr, done.stderr)
++    done = cli("request", "071-sketch", "--record", ".engine/sketches/none.md")
++    check("negative — a record that does not exist is refused", done.returncode == 1, done.stderr)
++
++    print("guard: the reader starts only with the line, and starts nothing itself")
++    said = launch("READER_REQUEST 20261010T000000Z-abcdef")
++    check("negative — no request pending: refused", '"permissionDecision": "deny"' in json.dumps(said) and "No reader request is pending" in str(said), said)
++    rid = ask()
++    check("the request prints the launch line and names the record", bool(rid) and json.loads((root / f".claude/state/reader/requests/{rid}/request.json").read_text())["record"] == REL, rid)
++    said = launch(f"READER_REQUEST {rid}\nPlease be kind: the author worked hard.")
++    check("negative — anything added to the line is refused", "exactly this prompt" in str(said), said)
++    said = launch("Read .engine/sketches/rate.md")
++    check("negative — a prompt without the line is refused", "exactly this prompt" in str(said), said)
++    check("the exact line starts it", launch(f"READER_REQUEST {rid}") == {})
++    check("another agent is not this guard's business", launch("anything", agent="general-purpose") == {})
++    said = launch("whatever", agent="general-purpose", inside="reader")
++    check("negative — the reader itself starts no agent", "starting another agent is refused" in str(said), said)
++
++    print("record: the verdict from the agent's answer")
++    said = answer("I think it is fine.")
++    check("an answer without JSON goes back to the agent once", said.get("decision") == "block" and "VERDICT REFUSED" in str(said.get("reason")), said)
++    said = answer({"verdict": "MAYBE", "reason": "x", "evidence": []})
++    check("…the second that does not fit is INVALID, and the request is spent", said == {} and reader.rows(root)[-1]["verdict"] == "INVALID"
++          and reader.pending(root) is None, reader.rows(root)[-1:])
++    rid = ask()
++    launch(f"READER_REQUEST {rid}")
++    (root / REL).write_text(RECORD + "\n(дописано під час читання)\n", encoding="utf-8")
++    answer(GOOD)
++    check("negative — the record changed while it was read: INVALID, no PASS", reader.rows(root)[-1]["verdict"] == "INVALID"
++          and "changed while it was read" in reader.rows(root)[-1]["reason"] and not reader.passed(root, REL), reader.rows(root)[-1])
++    (root / REL).write_text(RECORD, encoding="utf-8")
++    rid = ask()
++    launch(f"READER_REQUEST {rid}")
++    transcript = root / "agent.jsonl"
++    transcript.write_text(json.dumps({"type": "assistant", "message": {"role": "assistant", "content": [
++        {"type": "tool_use", "id": "h1", "name": "SubagentHandback", "input": {"message": "```json\n" + json.dumps(GOOD) + "\n```"}}]}}) + "\n")
++    answer("", agent_transcript_path=str(transcript), last_assistant_message="")
++    row = reader.rows(root)[-1]
++    check("a PASS handed back through SubagentHandback is recorded, with the record's content when it was read",
++          row["verdict"] == "PASS" and row["record"] == REL and row["record_sha256"] == reader.digest(root / REL) and row["task"] == "071-sketch", row)
++    journal = (root / ".engine/reader/ledger.md").read_text(encoding="utf-8")
++    check("…and in the journal, written by the script", f"— 071-sketch — READER_PASS\n- Record: {REL}" in journal, journal[-400:])
++    check("passed(): the record as it is has a PASS", reader.passed(root, REL))
++    (root / REL).write_text(RECORD.replace("так", "ні"), encoding="utf-8")
++    check("negative — passed(): not for a record changed after its PASS", not reader.passed(root, REL))
++    check("negative — a SubagentStop of another agent records nothing", cli("record", envelope={"hook_event_name": "SubagentStop", "agent_type": "overseer",
++                                                                                             "last_assistant_message": json.dumps(GOOD)}).stdout == "")
++
++    print("three BLOCKs in a row on one record: the runner's marker")
++    block = {"verdict": "BLOCK", "reason": "the output stops at call 40; the answer claims a cut at 61", "evidence": [".engine/sketches/rate.md:8"]}
++    marker = root / ".claude/state/board/reader-blocks-072-sketch.json"
++    for n in (1, 2):
++        launch(f"READER_REQUEST {ask('072-sketch')}")
++        answer(block)
++    check("negative — two BLOCKs: no marker yet; each new request counts its attempt", not marker.exists()
++          and json.loads((root / f".claude/state/reader/requests/{ask('072-sketch')}/request.json").read_text())["attempt"] == 3)
++    launch(f"READER_REQUEST {(reader.pending(root) or {}).get('id')}")
++    answer(block)
++    left = json.loads(marker.read_text(encoding="utf-8")) if marker.exists() else {}
++    check("the third BLOCK leaves the marker: the task, the record, the three verdicts", left.get("task") == "072-sketch" and left.get("record") == REL
++          and len(left.get("blocks", [])) == 3, left)
++    marker.unlink()
++    launch(f"READER_REQUEST {ask('072-sketch')}")
++    answer(GOOD)
++    for n in (1, 2):
++        launch(f"READER_REQUEST {ask('072-sketch')}")
++        answer(block)
++    check("negative — a PASS between them resets the count: two BLOCKs after it leave no marker", not marker.exists())
++    launch(f"READER_REQUEST {ask('072-sketch')}")
++    answer(block)
++    check("…the third leaves the marker, and a PARK row restarts the count", marker.exists() and reader.rows(root)[-1]["verdict"] == "PARK")
++    marker.unlink()   # the owner answered: the runner starts the task afresh and removes the marker
++    for n in (1, 2):
++        launch(f"READER_REQUEST {ask('072-sketch')}")
++        answer(block)
++    check("negative — after the park, two BLOCKs leave no marker: the record has three readings again, as the park question says",
++          not marker.exists() and json.loads((root / f".claude/state/reader/requests/{ask('072-sketch')}/request.json").read_text())["attempt"] == 3)
++    launch(f"READER_REQUEST {(reader.pending(root) or {}).get('id')}")
++    answer(block)
++    check("…the third after the park parks it again", marker.exists())
++finally:
++    shutil.rmtree(root, ignore_errors=True)
++
++print(f"\nPASS {PASS}   FAIL {FAIL}")
++sys.exit(0 if FAIL == 0 else 1)
+diff --git a/tests/test_settings_proposal.py b/tests/test_settings_proposal.py
+index c9ac7a6..bbd59ce 100755
+--- a/tests/test_settings_proposal.py
++++ b/tests/test_settings_proposal.py
+@@ -12,7 +12,7 @@ an agent), so this is the test of that one file. It holds before and after the a
+ - the proposal carries no personal key; against the live file its hooks block drops the retired
+   approve-project-data handler and adds the two stuck-counter handlers (STUCK_HANDLERS) and the
+   two handlers of the fresh-context overseer (OVERSEER_HANDLERS, board 018) and the two of testing.py
+-  (TESTING_HANDLERS, board 062), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
++  (TESTING_HANDLERS, board 062) and the two of the sketch's reader (READER_HANDLERS, board 099), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
+   `cp` of it the one way to apply it;
+ - board 603 (owner, 2026-10-09): the ask list drops the two push rules — park-ask-gated.py decides
+   a push by environment now — and the allow list gains WebFetch and WebSearch, which a cloud
+@@ -75,6 +75,10 @@ TESTING_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py"'
+ TESTING_GUARD_MATCHER = "Agent|Task|Edit|Write|MultiEdit|NotebookEdit"
+ TESTING_HANDLERS = {f"PreToolUse|{TESTING_GUARD_MATCHER}|command|{TESTING_SCRIPT} guard",
+                     f"SubagentStop|test-manager|slice-tester|command|{TESTING_SCRIPT} record"}
++# The fresh reader of a sketch's record (board 099, the design of board 080): started with the script's line
++# only — its guard stands beside the overseer's before the Agent tool — and its answer recorded when it stops.
++READER_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/reader.py"'
++READER_HANDLERS = {f"PreToolUse|Agent|Task|command|{READER_SCRIPT} guard", f"SubagentStop|reader|command|{READER_SCRIPT} record"}
+ 
+ # Differences against the frozen "before" that are intended. Path -> why.
+ INTENDED: dict[str, str] = {
+@@ -174,9 +178,9 @@ def main() -> int:
+     gone = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
+     t.check(
+         "proposal: the only hooks added against the live file are the two stuck-counter handlers, the two "
+-        "overseer handlers, the two testing handlers and protect-paths with NotebookEdit; the only removals are "
++        "overseer handlers, the two testing handlers, the two reader handlers and protect-paths with NotebookEdit; the only removals are "
+         "approve-project-data on PermissionRequest and the two matchers of board 055 as they were",
+-        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | {PROTECT_HANDLER}
++        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | READER_HANDLERS | {PROTECT_HANDLER}
+         and gone <= {APPROVE_HANDLER, OLD_GUARD_HANDLER, OLD_PROTECT_HANDLER},
+         json.dumps({"extra": sorted(extra), "gone": sorted(gone)}),
+     )
+@@ -209,6 +213,11 @@ def main() -> int:
+             wired == TESTING_HANDLERS and json.dumps(proposal["hooks"]).count("testing.py") == 2, str(sorted(wired)))
+     testing_help = subprocess.run([sys.executable, str(ROOT / ".claude/hooks/testing.py"), "--help"], capture_output=True, text=True, check=False)
+     t.check("...and the command names a script that exists with both sub-commands", "guard" in testing_help.stdout and "record" in testing_help.stdout)
++    wired = set(parity.hook_handlers(proposal["hooks"])) & READER_HANDLERS
++    t.check("proposal: the reader's guard and its verdict writer are both wired, each once (board 099)",
++            wired == READER_HANDLERS and json.dumps(proposal["hooks"]).count("reader.py") == 2, str(sorted(wired)))
++    reader_help = subprocess.run([sys.executable, str(ROOT / ".claude/hooks/reader.py"), "--help"], capture_output=True, text=True, check=False)
++    t.check("...and the command names a script that exists with both sub-commands", "guard" in reader_help.stdout and "record" in reader_help.stdout)
+     wired_all = set(parity.hook_handlers(proposal["hooks"]))
+     t.check("proposal (board 055): protect-paths.sh stands before every editing tool, NotebookEdit included, and is wired once",
+             PROTECT_HANDLER in wired_all and OLD_PROTECT_HANDLER not in wired_all and json.dumps(proposal["hooks"]).count("protect-paths.sh") == 1)
+@@ -249,9 +258,9 @@ def main() -> int:
+         json.dumps({"unexpected": unexpected, "intended but absent": missing}, ensure_ascii=False),
+     )
+     t.check(
+-        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer and the two testing "
+-        "handlers, with protect-paths moved to the matcher that names NotebookEdit",
+-        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | {PROTECT_HANDLER}
++        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer, the two testing "
++        "and the two reader handlers, with protect-paths moved to the matcher that names NotebookEdit",
++        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | READER_HANDLERS | {PROTECT_HANDLER}
+         and set(frozen["hooks"]) - set(after["hooks"]) == {OLD_PROTECT_HANDLER},
+         json.dumps(sorted(set(after["hooks"]) ^ set(frozen["hooks"]))),
+     )
+diff --git a/tests/test_settings_proposal_install.py b/tests/test_settings_proposal_install.py
+index bd329f6..a16d2e2 100644
+--- a/tests/test_settings_proposal_install.py
++++ b/tests/test_settings_proposal_install.py
+@@ -255,13 +255,13 @@ rules = engine_module.parse_ownership(text(ROOT / ".claude/ownership.txt"))
+ check("the proposal is the project's, named by a rule of its own", engine_module.owner_of(rules, PROPOSAL) == "project"
+       and any(r.pattern == PROPOSAL and r.seed is None for r in rules))
+ check("the check and the action are the engine's", engine_module.owner_of(rules, CHECK) == "engine" and engine_module.owner_of(rules, ACTION) == "engine")
+-# A proposal may be waiting for the owner's «так» — since board 603 the push rules leaving the ask list and
+-# the web tools joining the allow list (board 062's two testing handlers are applied). Then the shipped
+-# check says the proposal is sound and names exactly those two places; any other difference fails.
++# A proposal may be waiting for the owner's «так» — since board 099 the reader's guard before the Agent tool and
++# its verdict writer on SubagentStop (board 603's lists are applied). Then the shipped check says the proposal is
++# sound and names exactly those two places; any other difference fails.
+ applied = subprocess.run([sys.executable, str(ROOT / CHECK), "--applied"], capture_output=True, text=True, check=False)
+ waiting = subprocess.run([sys.executable, str(ROOT / CHECK)], capture_output=True, text=True, check=False)
+-check("here the live file is the proposal — or the proposal waits with board 603's two lists only — and the shipped check says so",
+-      applied.returncode == 0 or (waiting.returncode == 0 and "differs from .claude/settings.json in: permissions.allow, permissions.ask\n" in waiting.stdout),
++check("here the live file is the proposal — or the proposal waits with board 099's two hook lists only — and the shipped check says so",
++      applied.returncode == 0 or (waiting.returncode == 0 and "differs from .claude/settings.json in: hooks.PreToolUse, hooks.SubagentStop\n" in waiting.stdout),
+       applied.stdout + applied.stderr + waiting.stdout)
+ 
+ print(f"\n{PASS} passed, {FAIL} failed")
+diff --git a/tests/test_sketch_quarantine.py b/tests/test_sketch_quarantine.py
+new file mode 100755
+index 0000000..46bc1cd
+--- /dev/null
++++ b/tests/test_sketch_quarantine.py
+@@ -0,0 +1,138 @@
++#!/usr/bin/env python3
++"""The sketch's quarantine in gate.py (board 099; the design is board 080, «Ескіз докладніше»).
++
++Every case is a synthetic git project with the template's code paths and the real gate.py layer
++`stop` on the files the turn changed:
++
++  - a task in ескіз that changed a file outside sketches/, .engine/ and tasks/ — a file of SOURCE_DIRS
++    or of docs/ — is a block; one that changed only those three closes clean, and the gates do not
++    check its code under sketches/;
++  - in any mode, working code that refers to a sketch is a block: a Python import of `sketches`, a
++    string that is a path into a named sketch, such a path on an added line of a shell script;
++  - not a block: a comment or a docstring that names the quarantine, a test holding a sketch path as
++    data, a reference that was there before the turn; and outside ескіз the quarantine's first rule
++    does not apply.
++
++Run:   python3 tests/test_sketch_quarantine.py       Exit: 0 all green, 1 otherwise.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import shutil
++import subprocess
++import sys
++import tempfile
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parent.parent
++PASS = FAIL = 0
++ENV = 'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py sh js"\nPROJECT_MARKER=""\nLINT_CMD=""\nTYPECHECK_CMD=""\nTEST_CMD=""\n'
++spec = importlib.util.spec_from_file_location("gate_under_test", ROOT / ".claude/hooks/gate.py")
++assert spec is not None and spec.loader is not None
++gate = importlib.util.module_from_spec(spec)
++sys.modules["gate_under_test"] = gate
++spec.loader.exec_module(gate)
++made: list[Path] = []
++
++
++def check(name: str, ok: bool, detail: object = "") -> None:
++    global PASS, FAIL
++    PASS, FAIL = (PASS + 1, FAIL) if ok else (PASS, FAIL + 1)
++    print(f"  {'ok  ' if ok else 'FAIL'} {name}{'' if ok else '   ' + str(detail)[:700]}")
++
++
++def project(mode_line: str = "", before: dict[str, str] | None = None) -> Path:
++    root = Path(tempfile.mkdtemp(prefix="quarantine-")).resolve()
++    made.append(root)
++    for rel, text in {".claude/project.env": ENV, ".gitignore": ".claude/state/\n",
++                      "tasks/doing/010-work.md": f"# 010\n\nЗалежить від: —\n{mode_line + chr(10) if mode_line else ''}Аудит потрібен: ні\n\n## Що зробити\n- щось\n",
++                      **(before or {})}.items():
++        (root / rel).parent.mkdir(parents=True, exist_ok=True)
++        (root / rel).write_text(text, encoding="utf-8")
++    for args in (["init", "-q", "-b", "unattended/work"], ["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"]):
++        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
++    return root
++
++
++def turn(root: Path, files: dict[str, str]) -> list[tuple[str | None, int | None, str]]:
++    for rel, text in files.items():
++        (root / rel).parent.mkdir(parents=True, exist_ok=True)
++        (root / rel).write_text(text, encoding="utf-8")
++    report, _ = gate.run_layer("stop", root, None, None)
++    return [(f.file, f.line, f.rule) for f in report.findings if f.rule.startswith("sketch/") and f.severity == "block"]
++
++
++SKETCH = "Режим: ескіз"
++try:
++    print("a task in ескіз: nothing outside sketches/, .engine/ and tasks/")
++    found = turn(project(SKETCH), {"src/app.py": "x = 1\n"})
++    check("negative — a sketch changed a file of SOURCE_DIRS: a block, the file named", found == [("src/app.py", None, "sketch/outside")], found)
++    found = turn(project(SKETCH), {"docs/how.md": "текст\n"})
++    check("negative — a sketch changed docs/ (no code at all in the turn): a block all the same", found == [("docs/how.md", None, "sketch/outside")], found)
++    found = turn(project(SKETCH), {"sketches/rate/probe.py": "def broken(:\n", ".engine/sketches/rate.md": "# запис\n",
++                                   "tasks/doing/010-work.md": "# 010\n\nРежим: ескіз\n\n## Що зробити\n- спроба\n"})
++    check("a sketch that changed only sketches/, .engine/ and tasks/: no block — and its code is not checked (a syntax error there is no finding)",
++          found == [], found)
++    found = turn(project(), {"src/app.py": "x = 1\n", "docs/how.md": "текст\n"})
++    check("negative — outside ескіз (no mode line: соло) the quarantine's first rule does not apply", found == [], found)
++    raised = project(SKETCH)
++    task_file = raised / "tasks/doing/010-work.md"
++    task_file.write_text(task_file.read_text(encoding="utf-8") + "\n## Режим піднято\n- 2026-10-10T04:00:00Z — ескіз → соло: потрібен робочий код\n",
++                         encoding="utf-8")
++    found = turn(raised, {"src/app.py": "x = 1\n"})
++    check("a sketch raised to соло (mode.py raise, the way out the block names): the mode in force decides — no sketch/outside", found == [], found)
++
++    print("working code that refers to a sketch: a block in any mode")
++    found = turn(project(), {"src/b.py": "import os\nfrom sketches.rate import probe\n"})
++    check("negative — a Python import from sketches: a block on its line", found == [("src/b.py", 2, "sketch/reference")], found)
++    found = turn(project(), {"src/c.py": "import sketches.rate\n"})
++    check("negative — `import sketches.rate`: a block", found == [("src/c.py", 1, "sketch/reference")], found)
++    found = turn(project(), {"src/d.py": "DATA = open('sketches/rate/data.txt').read()\n"})
++    check("negative — a string that is a path into a named sketch: a block", found == [("src/d.py", 1, "sketch/reference")], found)
++    found = turn(project(), {"scripts/run.sh": "#!/bin/sh\n# the probe lives in sketches/rate\nbash sketches/rate/run.sh\n"})
++    check("negative — a shell line that runs a sketch: a block on that line, not on the comment", found == [("scripts/run.sh", 3, "sketch/reference")], found)
++    found = turn(project(), {"src/app/main.js": 'import { f } from "../../sketches/rate/f.js";\n'})
++    check("negative — a JavaScript import two directories up into a sketch: a block", found == [("src/app/main.js", 1, "sketch/reference")], found)
++    found = turn(project(), {"scripts/a/run.sh": "#!/bin/sh\nbash ../../sketches/rate/run.sh\n",
++                             "scripts/b.sh": '#!/bin/sh\nbash "$ROOT/sketches/rate/run.sh"\n',
++                             "scripts/c.sh": '#!/bin/sh\nbash "$(dirname "$0")/../sketches/rate/run.sh"\n',
++                             "scripts/d.sh": '#!/bin/sh\nbash "${ROOT}/sketches/rate/run.sh"\n'})
++    check("negative — shell paths into a sketch after ../../, $ROOT/, ${ROOT}/ and $(dirname \"$0\")/../: each a block",
++          set(found) == {("scripts/a/run.sh", 2, "sketch/reference"), ("scripts/b.sh", 2, "sketch/reference"),
++                         ("scripts/c.sh", 2, "sketch/reference"), ("scripts/d.sh", 2, "sketch/reference")}, found)
++    found = turn(project(), {"scripts/e.sh": '#!/bin/sh\nbash "$ROOT"/sketches/rate/run.sh\n',
++                             "scripts/f.sh": '#!/bin/sh\nbash "$(dirname "$0")"/../sketches/rate/run.sh\n',
++                             "scripts/g.sh": "#!/bin/sh\nbash ${ROOT:-.}/sketches/rate/run.sh\n",
++                             "scripts/h.sh": "#!/bin/sh\nbash `dirname $0`/../sketches/rate/run.sh\n"})
++    check("negative — the variable quoted apart (\"$ROOT\"/, \"$(…)\"/), ${ROOT:-.}/ and a backtick command before the path: each a block",
++          set(found) == {(f"scripts/{n}.sh", 2, "sketch/reference") for n in "efgh"}, found)
++    found = turn(project(), {"src/fs.py": 'import subprocess\nROOT = "."\nsubprocess.run(f"{ROOT}/sketches/rate/run.sh")\n'})
++    check("negative — a Python f-string with the path after a placeholder: a block", found == [("src/fs.py", 3, "sketch/reference")], found)
++    found = turn(project(), {"src/abs.py": "LOGO = '/srv/app/static/sketches/logo.png'\nNAME = f'{ROOT}/static/sketches.png'\n"})
++    check("an absolute path and an f-string that names no sketch directory: no block", found == [], found)
++    found = turn(project(), {"src/p.py": 'import subprocess\nsubprocess.run("bash sketches/rate/run.sh", shell=True)\n'})
++    check("negative — a Python string that runs a sketch, the path inside the string: a block", found == [("src/p.py", 2, "sketch/reference")], found)
++    found = turn(project(SKETCH), {"src/e.py": "from sketches.x import y\n"})
++    check("in ескіз both rules speak: outside the quarantine and a reference", set(found) == {("src/e.py", None, "sketch/outside"), ("src/e.py", 1, "sketch/reference")}, found)
++
++    print("not a reference")
++    found = turn(project(), {"src/f.py": '"""Code of a sketch lives in sketches/<name>/ and never here."""\n# see sketches/rate for the probe\nPREFIX = "sketches/"\n'})
++    check("a docstring and a comment naming the quarantine, a bare prefix string: no block", found == [], found)
++    found = turn(project(), {"src/n.py": "DRAWINGS = 'src/sketches/a.png'\nUP = 'x/../sketches/a'\n"})
++    check("a directory that only shares the name deeper in the tree: no block", found == [], found)
++    found = turn(project(), {"tests/test_g.py": "PROBE = 'sketches/rate/probe.py'\n"})
++    check("a test holding a sketch path as data: no block (tests are not looked at)", found == [], found)
++    spanning = project(before={"src/m.py": 'CMD = """\necho start\n"""\n'})
++    found = turn(spanning, {"src/m.py": 'CMD = """\necho start\nbash sketches/rate/run.sh\n"""\n'})
++    check("negative — a line added in the middle of a string spanning several lines: the string is judged, a block",
++          found == [("src/m.py", 1, "sketch/reference")], found)
++    old = project(before={"src/h.py": "from sketches.rate import probe\n"})
++    found = turn(old, {"src/h.py": "from sketches.rate import probe\nX = 1\n"})
++    check("a reference that was there before the turn: no block on the line the turn did not add", found == [], found)
++finally:
++    for path in made:
++        shutil.rmtree(path, ignore_errors=True)
++
++print(f"\nPASS {PASS}   FAIL {FAIL}")
++sys.exit(0 if FAIL == 0 else 1)
