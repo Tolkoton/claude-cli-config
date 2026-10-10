@@ -53,11 +53,11 @@ def home(autocrlf: str = "") -> str:
     return str(d)
 
 
-def run(project: Path, path: str, proc: str = LINUX, home_dir: str = "") -> subprocess.CompletedProcess[str]:
+def run(project: Path, path: str, proc: str = LINUX, home_dir: str = "", **extra: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", str(HOOK)], capture_output=True, text=True,
         env={"PATH": path, "CLAUDE_PROJECT_DIR": str(project), "HOME": home_dir or home(),
-             "GIT_CONFIG_NOSYSTEM": "1", "ENGINE_PROC_VERSION": kernel(proc), **trace_env()}, check=False)
+             "GIT_CONFIG_NOSYSTEM": "1", "ENGINE_PROC_VERSION": kernel(proc), **trace_env(), **extra}, check=False)
 
 
 bash = shutil.which("bash")
@@ -136,6 +136,88 @@ check("WSL2 without git: the disk and the missing git are named, the git setting
 res = subprocess.run(["bash", str(HOOK)], capture_output=True, text=True, check=False,
                      env={"PATH": full, "CLAUDE_PROJECT_DIR": str(plain), "HOME": home(), "ENGINE_PROC_VERSION": "/nonexistent/version", **trace_env()})
 check("no kernel line to read (macOS has no /proc): silent, exit 0", res.returncode == 0 and res.stdout == "" , res.stdout[:80] + res.stderr[:80])
+
+# Board 750 (owner): in every cloud session a shallow clone gets its whole history and its tags at the start — the
+# engine and every installed project, no switch, nothing said when it works. A git shim records its argv and answers
+# the two questions the hook asks; the last case does it for real on a shallow clone of a local repository.
+FETCH = "fetch -q --unshallow --tags origin"
+
+
+def git_shim(shallow: str, fetch_rc: int = 0, *tools: str) -> tuple[str, Path]:
+    d = Path(tempfile.mkdtemp(prefix="envcheck-git-"))
+    log = d / "git.log"
+    log.write_text("")
+    (d / "git").write_text(
+        "#!/usr/bin/env bash\n"
+        f'printf "%s\\n" "$*" >> "{log}"\n'
+        f'case "$*" in *"rev-parse --is-shallow-repository"*) echo {shallow}; exit 0 ;; *" fetch "*) exit {fetch_rc} ;; esac\n'
+        f'exec "{shutil.which("git")}" "$@"\n')
+    (d / "git").chmod(0o755)
+    for tool in ("bash", "grep", "python3", "jq", *tools):
+        src = shutil.which(tool)
+        if src:
+            os.symlink(src, d / tool)
+    return str(d), log
+
+
+cloud_path, log = git_shim("true", 0, "timeout")
+res = run(plain, cloud_path, CLAUDE_CODE_REMOTE="true")
+check("cloud session, shallow clone: the whole history and the tags are fetched, and nothing is said",
+      res.returncode == 0 and f"-C {plain} {FETCH}" in log.read_text() and res.stdout == "", log.read_text() + res.stdout[:200])
+
+seeded = Path(tempfile.mkdtemp(prefix="envcheck-seed-"))
+(seeded / ".claude").mkdir()
+shutil.copy(ROOT / "templates/project/.claude/project.env", seeded / ".claude/project.env")
+no_timeout, log = git_shim("true")
+res = run(seeded, no_timeout, CLAUDE_CODE_REMOTE="true")
+check("an installed project (the seed project.env, no key for it) on a machine without `timeout`: fetched too, silently",
+      res.returncode == 0 and f"-C {seeded} {FETCH}" in log.read_text() and res.stdout == "", log.read_text() + res.stdout[:200])
+
+failing, log = git_shim("true", 128)
+res = run(plain, failing, CLAUDE_CODE_REMOTE="true")
+check("the fetch fails: exit 0 and one line for the agent naming the command, not a question for the owner",
+      res.returncode == 0 and "git fetch --unshallow --tags origin" in res.stdout and "shallow" in res.stdout
+      and res.stdout.count("\n- ") == 1 and "Tell the user" not in res.stdout, res.stdout[:300])
+
+for name, env, answer in (("negative — not a cloud session (no CLAUDE_CODE_REMOTE), shallow clone", {}, "true"),
+                          ("negative — CLAUDE_CODE_REMOTE=false, shallow clone", {"CLAUDE_CODE_REMOTE": "false"}, "true"),
+                          ("negative — cloud session, the clone is not shallow", {"CLAUDE_CODE_REMOTE": "true"}, "false")):
+    shim_path, log = git_shim(answer, 0, "timeout")
+    res = run(plain, shim_path, **env)
+    check(f"{name}: no fetch, silent", res.returncode == 0 and " fetch " not in log.read_text() and res.stdout == "",
+          log.read_text() + res.stdout[:200])
+
+origin = Path(tempfile.mkdtemp(prefix="envcheck-origin-"))
+GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(origin)]
+subprocess.run(["git", "init", "-q", str(origin)], check=True)
+for n in range(3):
+    (origin / "f.txt").write_text(f"{n}\n")
+    subprocess.run([*GIT, "add", "f.txt"], check=True)
+    subprocess.run([*GIT, "commit", "-qm", f"c{n}"], check=True)
+    if n == 0:
+        subprocess.run([*GIT, "tag", "v0.1"], check=True)
+clone = Path(tempfile.mkdtemp(prefix="envcheck-clone-")) / "repo"
+subprocess.run(["git", "clone", "-q", "--depth", "1", f"file://{origin}", str(clone)], check=True)
+
+
+def in_clone(*args: str) -> str:
+    return subprocess.run(["git", "-C", str(clone), *args], capture_output=True, text=True, check=False).stdout.strip()
+
+
+before = (in_clone("rev-parse", "--is-shallow-repository"), in_clone("rev-list", "--count", "HEAD"), in_clone("tag"))
+res = run(clone, path_with("bash", "git", "grep", "python3", "jq", "timeout"), CLAUDE_CODE_REMOTE="true")
+after = (in_clone("rev-parse", "--is-shallow-repository"), in_clone("rev-list", "--count", "HEAD"), in_clone("tag"))
+check("for real: a shallow clone (1 commit, no tag) comes out whole (3 commits, the tag v0.1), silently",
+      before == ("true", "1", "") and after == ("false", "3", "v0.1") and res.returncode == 0 and res.stdout == "",
+      f"{before} -> {after}; {res.stdout[:200]}")
+
+lost = Path(tempfile.mkdtemp(prefix="envcheck-lost-")) / "repo"
+subprocess.run(["git", "clone", "-q", "--depth", "1", f"file://{origin}", str(lost)], check=True)
+subprocess.run(["git", "-C", str(lost), "remote", "set-url", "origin", f"file://{origin}-gone"], check=True)
+res = run(lost, path_with("bash", "git", "grep", "python3", "jq", "timeout"), CLAUDE_CODE_REMOTE="true")
+check("for real, the origin unreachable: exit 0, the one line, and git's own error kept out of the session",
+      res.returncode == 0 and "git fetch --unshallow --tags origin" in res.stdout and "fatal" not in res.stdout + res.stderr,
+      res.stdout[:200] + res.stderr[:200])
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)

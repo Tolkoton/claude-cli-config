@@ -74,6 +74,21 @@ if [ "${#TRAPS[@]}" -gt 0 ]; then
   echo "Tell the user about the items above: the engine's docs/WINDOWS.md has the steps."
 fi
 
+# Board 750 (owner): a cloud session starts from a shallow clone — no old commits, no tags — and every suite
+# that reads git history then fails the Stop gate on each turn. In every cloud session (CLAUDE_CODE_REMOTE=true),
+# the engine's repository and every installed project alike, the hook fetches the whole history and the tags,
+# with no switch and nothing said when it works. A failed fetch leaves one line for the agent, not a question:
+# the clone is still shallow, and the same command run again is the way on. A non-shallow clone is left alone.
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && have git \
+   && [ "$(git -C "$ROOT" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  LIMIT=()
+  have timeout && LIMIT=(timeout 50)   # under the hook's own time limit; an interrupted fetch leaves the clone as it was
+  if ! "${LIMIT[@]}" git -C "$ROOT" fetch -q --unshallow --tags origin >/dev/null 2>&1; then
+    echo "## engine environment check — git history"
+    echo "- this cloud clone is shallow and \`git fetch --unshallow --tags origin\` failed: suites that read old commits or tags fail until it is run again and succeeds."
+  fi
+fi
+
 # Package B: a bounded digest of the project's lessons (memory headings, the queue's size, the
 # proposals waiting) and, when due, the proposal to run the clean-up protocol. Silent when there
 # is nothing to say. Carried here because this is the SessionStart hook already wired; it needs
