@@ -1,0 +1,2653 @@
+diff --git a/.claude/agents/overseer.md b/.claude/agents/overseer.md
+index a31e5db..6280a1e 100644
+--- a/.claude/agents/overseer.md
++++ b/.claude/agents/overseer.md
+@@ -40,7 +40,8 @@ everything you need is in the request package and in the repository.
+ Then the state:
+ 
+ 4. `.engine/overseer/MEMORY.md` — cross-slice patterns
+-5. `.engine/overseer/ledger.md` — verdicts on prior turns (newest first)
++5. the ledger — verdicts on prior turns (newest first): `.engine/overseer/ledger.md` and every session's own
++   file `.engine/journal/ledger/*.md` (board 739); `python3 .claude/hooks/journal.py show ledger` prints the two whole
+ 6. `.engine/overseer/escalations.md` — human decisions on prior escalations
+ 7. `CLAUDE.md` — project conventions
+ 8. `.engine/PROGRESS.md` — identifies the CURRENT slice (IN PROGRESS / CODE
+diff --git a/.claude/commands/bugfix.md b/.claude/commands/bugfix.md
+index 96dc57e..3ade6c5 100644
+--- a/.claude/commands/bugfix.md
++++ b/.claude/commands/bugfix.md
+@@ -50,7 +50,8 @@ record. "I know where the bug is" without a reproduction is an unverified premis
+   say what would let it resume (a log, a failing input, access to where it happens). With a
+   board task: write that as the question for the owner and move the task to `tasks/blocked/`.
+   Without one: a question on the board (`board.py open-item --to blocked`; a project with no
+-  `tasks/`: an entry in `.engine/overseer/parked.md`, `Class: human-input`). Then stop this
++  `tasks/`: an entry of the parked log `.engine/overseer/parked.md`, `Class: human-input`, added through
++  `python3 .claude/hooks/journal.py add parked`). Then stop this
+   command and continue with the next unblocked item.
+ 
+ ## 3. The failing test
+diff --git a/.claude/commands/feature-architect.md b/.claude/commands/feature-architect.md
+index 96f6363..a1738e8 100644
+--- a/.claude/commands/feature-architect.md
++++ b/.claude/commands/feature-architect.md
+@@ -292,7 +292,8 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
+    decision of point (b), and no testing debt whose event has come is left unrun. On a refusal
+    do what it lists (the manager's point (b), the deferred check) — a feature is not reported
+    built over it.
+-1. `Edit` a ledger entry into `.engine/overseer/ledger.md`:
++1. Add a ledger entry — on stdin to `python3 .claude/hooks/journal.py add ledger`, which writes it into this
++   session's own file of the ledger (board 739; never edit the shared `.engine/overseer/ledger.md`):
+    ```
+    ## <ISO timestamp UTC> — feature:$ARGUMENTS — FEATURE_COMPLETE
+    - Trigger: /feature-architect
+diff --git a/.claude/commands/owner-review.md b/.claude/commands/owner-review.md
+index cda2df4..ad13706 100644
+--- a/.claude/commands/owner-review.md
++++ b/.claude/commands/owner-review.md
+@@ -45,7 +45,7 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
+    Everything open is a task of the board; the logs `escalations.md` and `parked.md` are history and are not part of the review.
+ 4. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
+    whether the follow-up task should move up the queue); then what the runner, the gate, a hook or the agent found odd, wrote into
+-   `tasks/ANOMALIES.md` and worked past (each entry says who wrote it): a task the runner parked in
++   the anomaly journal (`tasks/ANOMALIES.md` and the sessions' files `.engine/journal/anomalies/`) and worked past (each entry says who wrote it): a task the runner parked in
+    `blocked/` itself (its question is in the section above; its uncommitted work is on the `wip/…`
+    branch the entry names), a failed push, a gate escalation, a stop of the whole board. Say each in a sentence; one that needs a fix is a new task.
+ 5. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
+diff --git a/.claude/commands/plan-slice.md b/.claude/commands/plan-slice.md
+index c2714c9..6ce35d5 100644
+--- a/.claude/commands/plan-slice.md
++++ b/.claude/commands/plan-slice.md
+@@ -293,7 +293,8 @@ answer is a product decision: attended — ask the owner; unattended — park it
+ disputed test stays unsealed. An answer that needs the contract changed is a re-plan, and
+ re-approving a sealed contract is the owner's act.
+ 
+-1. `Edit` a ledger entry into `.engine/overseer/ledger.md` (top of entries):
++1. Add a ledger entry — on stdin to `python3 .claude/hooks/journal.py add ledger`, which writes it into this
++   session's own file of the ledger (board 739; never edit the shared `.engine/overseer/ledger.md`):
+    ```
+    ## <ISO timestamp UTC> — $ARGUMENTS — PLANNING_COMPLETE
+    - Trigger: /plan-slice command
+diff --git a/.claude/hooks/gate.py b/.claude/hooks/gate.py
+index 0bef982..7f58563 100755
+--- a/.claude/hooks/gate.py
++++ b/.claude/hooks/gate.py
+@@ -1032,7 +1032,7 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int)
+         return task, busy
+     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
+     entry = (
+-        f"\n## {stamp} — gate stop layer — PARKED\n"
++        f"## {stamp} — gate stop layer — PARKED\n"
+         f"- Blocked on: the Stop gate blocked {blocks} turns in a row and was not satisfied\n"
+         "- Class: human-input\n"
+         # While the escalation is open (.claude/state/gate/escalations.json) overseer_stop.py does
+@@ -1046,13 +1046,13 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int)
+         "Claude Code session; until then no OVERSEER_PASS is accepted for work that holds these files)\n"
+         "- Continued with: the turn was allowed to end\n"
+     )
+-    path = root / PARKED_REL
+     try:
+-        path.parent.mkdir(parents=True, exist_ok=True)
+-        with path.open("a", encoding="utf-8") as handle:
+-            handle.write(entry)
+-    except OSError as exc:
+-        print(f"gate: cannot park the escalation in {path}: {exc}", file=sys.stderr)
++        sys.path.insert(0, str(Path(__file__).resolve().parent))
++        import journal
++
++        journal.add(root, "parked", entry)   # this session's own file of the log (board 739)
++    except (ImportError, OSError) as exc:
++        print(f"gate: cannot park the escalation in {PARKED_REL}: {exc}", file=sys.stderr)
+     return task, None
+ 
+ 
+@@ -1268,7 +1268,7 @@ def finish_stop(report: Report, root: Path, session: str) -> tuple[str, dict[str
+         message += (f"a question to the owner on the task board: {task} — leave its answer line empty; "
+                     f"the board runner acts on the owner's answer. Report: {REPORT_REL}")
+     else:
+-        message += f"parked in {PARKED_REL} for a human. Report: {REPORT_REL}"
++        message += f"parked in the parked log for a human (`python3 .claude/hooks/journal.py show parked`). Report: {REPORT_REL}"
+     return "escalated", {"systemMessage": message}
+ 
+ 
+diff --git a/.claude/hooks/journal.py b/.claude/hooks/journal.py
+new file mode 100755
+index 0000000..e39955e
+--- /dev/null
++++ b/.claude/hooks/journal.py
+@@ -0,0 +1,313 @@
++#!/usr/bin/env python3
++"""The journals every session only adds to, one file per session (board 739).
++
++    python3 .claude/hooks/journal.py show <ledger|parked|anomalies|lessons>
++    python3 .claude/hooks/journal.py add <ledger|parked|anomalies> < entry.md   # an agent's own entry
++    python3 .claude/hooks/journal.py fold
++    python3 .claude/hooks/journal.py contradictions
++
++WHY. Four journals grow by entries: the overseer's ledger, the log of parked units, the task board's
++anomaly journal and the lesson queue. When two sessions on two branches each added an entry to the same
++file, merging the branches conflicted — and git's `merge=union` is no way out: it merges by lines, keeps a
++line two entries share only once, so an entry silently loses its lines, and it gives back a lesson
++candidate another branch had triaged (the probe of board 739). So a session never writes the shared file.
++It adds its entries to a file of its own, `.engine/journal/<journal>/<session>.md`, which no other
++session touches, and branches merge without a conflict.
++
++READING. Every reader takes a journal whole: the shared file (the history before board 739 and what is
++folded since) and every session's file, merged by the time each entry carries — `text()` gives it in the
++shared file's own form, newest first for the ledger, oldest first for the others. An entry present twice
++(folded already and still in its session's file) counts once. Without a session file the shared file is
++returned exactly as it is.
++
++FOLDING (`fold`). After branches are merged, the entries of every session's file are written into the
++shared file, by time and without loss; a session file whose newest entry is older than KEEP_DAYS is then
++removed — its session is long over and no branch will add to it again. No reader needs the fold: it makes
++one file for a person to read. Run it where branches meet, not on two branches at once — the shared file
++is the one thing a fold changes, and two folds are two edits of it.
++
++THE LESSON QUEUE is a state, not only a log: a candidate leaves it when triaged. A session never removes
++the candidate's line; it adds `- <date> | resolved:<where> | <note> #<id>` to its own file, and the queue
++is the candidates without a resolution. A resolution line is never folded away, so a candidate line
++still in an older session's file stays triaged. When two sessions triaged one candidate differently
++(memory in one, discard in the other) the script does not choose: `contradictions()` names it, an agent
++decides (lesson_queue.py puts it on the board), and the decision is one more line,
++`resolved:settled-<where>`.
++
++THE SESSION. CLAUDE_CODE_SESSION_ID (or CLAUDE_SESSION_ID) where Claude Code sets it; elsewhere — a
++script the runner starts outside any session — one id per working tree, kept in
++.claude/state/journal/session-id, behind the UTC date: a new file every day.
++
++Standard library only; Python 3.11+.
++"""
++
++from __future__ import annotations
++
++import argparse
++import os
++import re
++import secrets
++import sys
++from collections.abc import Iterable
++from dataclasses import dataclass
++from datetime import UTC, datetime, timedelta
++from itertools import pairwise
++from pathlib import Path
++
++
++@dataclass(frozen=True)
++class Journal:
++    name: str
++    shared: str              # the shared file, relative to the project root
++    newest_first: bool
++    lines: bool = False      # one line per entry (the lesson queue), else `## <UTC time> — …` blocks
++    head: str = ""           # the shared file's heading when a fold has to create it
++    placeholder: str = ""    # what a heading says while there is no entry; gone once there is one
++
++
++JOURNALS = {j.name: j for j in (
++    Journal("ledger", ".engine/overseer/ledger.md", True, head="# Overseer ledger — append-only\n\n---\n", placeholder="(no entries yet)"),
++    Journal("parked", ".engine/overseer/parked.md", False, head="# Parked items\n"),
++    Journal("anomalies", "tasks/ANOMALIES.md", False, head=(
++        "# Журнал аномалій task board\n\nУсе дивне, що сталося під час роботи runner-а: воно записується сюди, а не зупиняє task board. "
++        "Пишуть runner, gates, hook-и й агент — у кожному записі сказано, хто; найновіший запис унизу. "
++        "Огляд (`board.py review`) показує нові записи окремим розділом. Кожна сесія пише у свій файл "
++        "`.engine/journal/anomalies/<сесія>.md`; увесь журнал — `python3 .claude/hooks/journal.py show anomalies`.\n")),
++    Journal("lessons", ".engine/lesson-queue.md", False, lines=True, head=(
++        "# Lesson queue\n\n"
++        "One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. Filled by hooks "
++        "(gate, overseer, parked, escalation) and by the agent. Triaged with "
++        "`python3 .claude/hooks/lesson_queue.py resolve <id> --to memory|rule|engine|discard`, which adds "
++        "`- <date> | resolved:<where> | <note> #<id>`. Each session writes its own file, "
++        "`.engine/journal/lessons/<session>.md`; `journal.py show lessons` reads the queue whole. Never loaded "
++        "into the persistent context.\n\n")),
++)}
++PIECES_REL = Path(".engine/journal")
++SESSION_REL = Path(".claude/state/journal/session-id")
++KEEP_DAYS = 7
++ENTRY_RE = re.compile(r"^## (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)", re.MULTILINE)
++LINE_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) \| ")
++RESOLVED_RE = re.compile(r"^- (?P<date>\d{4}-\d{2}-\d{2}) \| resolved:(?P<to>[\w-]+) \| (?P<note>.*) #(?P<id>[0-9a-f]{8})$")
++CANDIDATE_RE = re.compile(r"^- \d{4}-\d{2}-\d{2} \| \w+ \| .* #(?P<id>[0-9a-f]{8})$")
++SETTLED = "settled-"
++
++
++def read(path: Path) -> str:
++    try:
++        return path.read_text(encoding="utf-8")
++    except (OSError, UnicodeDecodeError):
++        return ""
++
++
++def session_id(root: Path) -> str:
++    """This session's name for its own files."""
++    given = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID") or ""
++    given = re.sub(r"[^A-Za-z0-9_.-]+", "-", given).strip("-.")[:80]
++    if given:
++        return given
++    path = root / SESSION_REL
++    tree = read(path).strip()
++    if not re.fullmatch(r"[0-9a-f]{12}", tree):
++        tree = secrets.token_hex(6)
++        try:
++            path.parent.mkdir(parents=True, exist_ok=True)
++            path.write_text(tree + "\n", encoding="utf-8")
++        except OSError:
++            pass
++    return f"{datetime.now(UTC):%Y-%m-%d}-{tree}"
++
++
++def piece(root: Path, name: str) -> Path:
++    return root / PIECES_REL / name / f"{session_id(root)}.md"
++
++
++def pieces(root: Path, name: str) -> list[Path]:
++    folder = root / PIECES_REL / name
++    return sorted(folder.glob("*.md")) if folder.is_dir() else []
++
++
++def add(root: Path, name: str, entry: str) -> Path:
++    """Add one entry to this session's file of the journal; the path written."""
++    journal = JOURNALS[name]
++    if not (LINE_RE if journal.lines else ENTRY_RE).match(entry.lstrip("\n")):
++        raise ValueError(f"not an entry of the {name} journal: it starts with "
++                         + ("`- <date> | `" if journal.lines else "`## <UTC time like 2026-10-10T06:30:00Z> — `"))
++    path = piece(root, name)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    body = entry.strip("\n") + "\n"
++    existing = read(path)
++    if existing and not journal.lines:
++        body = "\n" + body
++    with path.open("a", encoding="utf-8") as handle:
++        handle.write(body)
++    return path
++
++
++# ------------------------------------------------------------------ reading
++
++
++def split(text: str, journal: Journal) -> tuple[str, list[str]]:
++    """The heading of a journal file and its entries, in file order."""
++    if journal.lines:
++        head: list[str] = []
++        entries: list[str] = []
++        for line in text.splitlines():
++            (entries if LINE_RE.match(line) else head).append(line)
++        return ("\n".join(head) + "\n") if head else "", entries
++    starts = [m.start() for m in ENTRY_RE.finditer(text)]
++    if not starts:
++        return text, []
++    bounds = [*starts, len(text)]
++    return text[:starts[0]], [text[a:b].strip("\n") for a, b in pairwise(bounds)]
++
++
++def when(entry: str, journal: Journal) -> str:
++    found = (LINE_RE if journal.lines else ENTRY_RE).match(entry)
++    return found.group(1) if found else ""
++
++
++def merged(journal: Journal, shared: str, more: Iterable[str]) -> tuple[str, list[str], bool]:
++    """The heading and every entry once, ordered by time as the shared file orders them; and whether the
++    session files added anything to the shared file."""
++    head, entries = split(shared, journal)
++    seen = {e.strip() for e in entries}
++    added = False
++    for text in more:
++        stray, found = split(text, journal)
++        stray = stray.strip("\n")
++        if stray.strip() and stray not in shared and stray not in head:
++            # Text past the entry format is kept, never dropped — in the heading, where it sticks to no entry
++            # (after a fold it would otherwise join the entry above it, and that entry be read twice).
++            head = head.rstrip("\n") + "\n\n" + stray + "\n"
++            added = True
++        for entry in found:
++            if entry.strip() not in seen:
++                seen.add(entry.strip())
++                entries.append(entry)
++                added = True
++    entries.sort(key=lambda e: when(e, journal), reverse=journal.newest_first)   # stable: equal times keep their order
++    return head, entries, added
++
++
++def render(journal: Journal, head: str, entries: list[str]) -> str:
++    if journal.lines:
++        return head + "".join(e + "\n" for e in entries)
++    if not entries:
++        return head
++    if journal.placeholder:
++        head = "\n".join(line for line in head.split("\n") if line.strip() != journal.placeholder)
++    return head.rstrip("\n") + "\n\n" + "\n".join(e.rstrip() + "\n" for e in entries)
++
++
++def assemble(journal: Journal, shared: str, more: list[str]) -> str:
++    """The whole journal from the shared file's text and the session files' texts. Without an entry
++    beyond the shared file, the shared file exactly as it is. Pure: board_review.py reads through git."""
++    head, entries, added = merged(journal, shared or journal.head, more)
++    return render(journal, head, entries) if added else shared
++
++
++def text(root: Path, name: str) -> str:
++    """The journal whole: the shared file and every session's file."""
++    journal = JOURNALS[name]
++    return assemble(journal, read(root / journal.shared), [read(p) for p in pieces(root, name)])
++
++
++# ------------------------------------------------------------------ the lesson queue
++
++
++def resolutions(lines: Iterable[str]) -> dict[str, list[dict[str, str]]]:
++    found: dict[str, list[dict[str, str]]] = {}
++    for line in lines:
++        match = RESOLVED_RE.match(line)
++        if match:
++            found.setdefault(match["id"], []).append(match.groupdict())
++    return found
++
++
++def open_candidates(lines: Iterable[str]) -> list[str]:
++    """The candidate lines no resolution closes, in order."""
++    lines = list(lines)
++    closed = resolutions(lines)
++    return [line for line in lines if (m := CANDIDATE_RE.match(line)) and not RESOLVED_RE.match(line) and m["id"] not in closed]
++
++
++def contradictions(lines: Iterable[str]) -> dict[str, list[dict[str, str]]]:
++    """Candidates two sessions triaged differently and nobody has settled: id → its resolutions."""
++    return {ident: rows for ident, rows in resolutions(lines).items()
++            if len({r["to"] for r in rows}) > 1 and not any(r["to"].startswith(SETTLED) for r in rows)}
++
++
++def lesson_lines(root: Path) -> list[str]:
++    return split(text(root, "lessons"), JOURNALS["lessons"])[1]
++
++
++# ------------------------------------------------------------------ folding
++
++
++def newest(path: Path, journal: Journal) -> datetime | None:
++    stamps = [when(e, journal) for e in split(read(path), journal)[1]]
++    stamps = [s for s in stamps if s]
++    if not stamps:
++        return None
++    value = max(stamps)
++    try:
++        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ" if "T" in value else "%Y-%m-%d").replace(tzinfo=UTC)
++    except ValueError:
++        return None
++
++
++def fold(root: Path, now: datetime | None = None) -> list[str]:
++    """Every session's entries into the shared files; the session files older than KEEP_DAYS removed.
++    In the lesson queue a triaged candidate's line goes, its resolution line stays."""
++    now = now or datetime.now(UTC)
++    done: list[str] = []
++    for journal in JOURNALS.values():
++        files = pieces(root, journal.name)
++        if not files:
++            continue
++        shared = root / journal.shared
++        head, entries, _ = merged(journal, read(shared) or journal.head, [read(p) for p in files])
++        if journal.lines:   # a triaged candidate goes, unless its triage is contradicted; every resolution stays
++            keep, disputed = set(open_candidates(entries)), contradictions(entries)
++            entries = [e for e in entries if not (m := CANDIDATE_RE.match(e)) or e in keep or m["id"] in disputed]
++        shared.parent.mkdir(parents=True, exist_ok=True)
++        shared.write_text(render(journal, head, entries), encoding="utf-8")
++        gone = [p for p in files if (stamp := newest(p, journal)) is None or now - stamp > timedelta(days=KEEP_DAYS)]
++        for path in gone:
++            path.unlink()
++        done.append(f"{journal.shared}: {len(files)} session file(s) folded, {len(gone)} removed")
++    return done
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 2)[0], formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument("--root", default=os.environ.get("CLAUDE_PROJECT_DIR") or ".")
++    commands = parser.add_subparsers(dest="command", required=True)
++    show = commands.add_parser("show", help="print one journal whole")
++    show.add_argument("name", choices=sorted(JOURNALS))
++    adding = commands.add_parser("add", help="add one `## <UTC time> — …` entry, read from stdin, to this session's file")
++    adding.add_argument("name", choices=sorted(n for n, j in JOURNALS.items() if not j.lines))
++    commands.add_parser("fold", help="write every session's entries into the shared files")
++    commands.add_parser("contradictions", help="the lesson candidates two sessions triaged differently")
++    args = parser.parse_args(argv)
++    root = Path(args.root).resolve()
++    if args.command == "show":
++        sys.stdout.write(text(root, args.name))
++    elif args.command == "add":
++        entry = sys.stdin.read().strip("\n")
++        if not ENTRY_RE.match(entry):
++            print("journal: an entry starts with `## <UTC time like 2026-10-10T06:30:00Z> — `", file=sys.stderr)
++            return 2
++        print(add(root, args.name, entry + "\n").relative_to(root).as_posix())
++    elif args.command == "fold":
++        print("\n".join(fold(root)) or "nothing to fold: no session files")
++    else:
++        found = contradictions(lesson_lines(root))
++        for ident, rows in found.items():
++            print(f"#{ident}: " + "; ".join(f"{r['date']} {r['to']} ({r['note']})" for r in rows))
++        return 1 if found else 0
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/.claude/hooks/lesson_queue.py b/.claude/hooks/lesson_queue.py
+index 08772c3..195bf64 100755
+--- a/.claude/hooks/lesson_queue.py
++++ b/.claude/hooks/lesson_queue.py
+@@ -13,8 +13,14 @@
+     python3 .claude/hooks/lesson_queue.py cleanup-done
+     python3 .claude/hooks/lesson_queue.py stuck            # hook (PostToolUse / PostToolUseFailure): the stuck counter
+ 
+-THE QUEUE. `.engine/lesson-queue.md`, one line per candidate:
++THE QUEUE. One line per candidate:
+     - <date UTC> | <source> | <slice> | <essence> #<id>
++Since board 739 a session adds its lines to its own file, `.engine/journal/lessons/<session>.md`, and
++`.engine/lesson-queue.md` is what a fold gathered (journal.py): branches merge without a conflict. A
++triaged candidate is not removed: its resolution is one more line, `- <date> | resolved:<where> |
++<note> #<id>`, and the queue is the candidates without one. Two sessions that triaged one candidate
++differently are a contradiction the script does not settle: `collect` puts it on the board for an agent,
++whose decision is `settle <id> --keep <where>`.
+ source is one of gate, overseer, parked, escalation, agent, simplifier, analyst (what the business analyst
+ should have asked and the owner had to correct). A candidate is added once: the id is a
+ hash of source + the normalised essence, and every id ever seen is kept in machine state
+@@ -64,6 +70,8 @@ from datetime import UTC, datetime
+ from pathlib import Path
+ from typing import Any
+ 
++import journal  # every session's own file of the queue (board 739)
++
+ SOURCES = ("gate", "overseer", "parked", "escalation", "agent", "simplifier", "analyst")
+ QUEUE_REL = Path(".engine/lesson-queue.md")
+ MEMORY_REL = Path(".engine/overseer/MEMORY.md")
+@@ -79,13 +87,7 @@ DIGEST_LIMIT = 1200
+ ESSENCE_LIMIT = 200
+ STUCK_AT = 3
+ BUDGET = 200
+-QUEUE_HEADER = (
+-    "# Lesson queue\n\n"
+-    "One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. Filled by hooks "
+-    "(gate, overseer, parked, escalation) and by the agent. Triaged with "
+-    "`python3 .claude/hooks/lesson_queue.py resolve <id> --to memory|rule|engine|discard`; a "
+-    "resolved line is removed. Never loaded into the persistent context.\n\n"
+-)
++QUEUE_HEADER = journal.JOURNALS["lessons"].head
+ AT_RE = re.compile(r"(?:(?<=\s)|^)@\S")
+ LINE_RE = re.compile(
+     r"^- (?P<date>\d{4}-\d{2}-\d{2}) \| (?P<source>\w+) \| (?P<slice>[^|]*?) \| (?P<essence>.*) #(?P<id>[0-9a-f]{8})$"
+@@ -165,8 +167,9 @@ def remember(root: Path, ident: str) -> None:
+ 
+ 
+ def entries(root: Path) -> list[dict[str, str]]:
++    """The candidates waiting for triage, from every session's file, without the ones a resolution closes."""
+     found: list[dict[str, str]] = []
+-    for line in read(root / QUEUE_REL).splitlines():
++    for line in journal.open_candidates(journal.lesson_lines(root)):
+         match = LINE_RE.match(line)
+         if match:
+             found.append(match.groupdict())
+@@ -196,16 +199,14 @@ def add(root: Path, source: str, slice_name: str, essence: str, queue: bool = Tr
+     if source not in SOURCES or not essence:
+         return None
+     ident = item_id(source, essence)
+-    if ident in seen_ids(root) or any(e["id"] == ident for e in entries(root)):
++    # Known: seen on this machine, or in the journal at all — queued or triaged by any session (board 739).
++    if ident in seen_ids(root) or any(line.endswith(f"#{ident}") for line in journal.lesson_lines(root)):
+         return None
+     if not queue:
+         remember(root, ident)
+         return ident
+-    text = read(root / QUEUE_REL) or QUEUE_HEADER
+-    if not text.endswith("\n"):
+-        text += "\n"
+     slice_name = re.sub(r"[|\s]+", "-", slice_name.strip()) or "-"
+-    write(root / QUEUE_REL, text + f"- {today()} | {source} | {slice_name} | {essence} #{ident}\n")
++    journal.add(root, "lessons", f"- {today()} | {source} | {slice_name} | {essence} #{ident}")
+     remember(root, ident)
+     return ident
+ 
+@@ -236,7 +237,7 @@ def bullet(body: str, label: str) -> str:
+ 
+ def collect_parked(root: Path, queue: bool = True) -> int:
+     header = re.compile(r"^## (?P<ts>\S+) — (?P<item>.+?) — PARKED[ \t]*$", re.MULTILINE)
+-    text = read(root / ".engine/overseer/parked.md")
++    text = journal.text(root, "parked")
+     resumed = set(re.findall(r"^## \S+ — (.+?) — RESUMED[ \t]*$", text, re.MULTILINE))
+     added = 0
+     for match, body in blocks(text, header):
+@@ -279,10 +280,36 @@ def collect(root: Path) -> int:
+         collect_parked(root, queue=False)
+         collect_escalations(root, slice_name, queue=False)
+         remember(root, "seeded")
++    raise_contradictions(root)
+     return (collect_gate(root, slice_name) + collect_parked(root)
+             + collect_escalations(root, slice_name))
+ 
+ 
++def raise_contradictions(root: Path) -> list[str]:
++    """A candidate two sessions triaged differently goes before an agent as a task of the board, once
++    while it stays open: the script never chooses (board 739, the owner). The tasks' paths."""
++    lines = journal.lesson_lines(root)
++    found = journal.contradictions(lines)
++    board = board_module() if found else None
++    if board is None:
++        return []
++    raised: list[str] = []
++    for ident, rows in found.items():
++        candidate = next((ln for ln in lines if journal.CANDIDATE_RE.match(ln) and ln.endswith(f"#{ident}")), f"#{ident}")
++        how = "; ".join(f"{r['date']} → {r['to']} ({r['note']})" for r in rows)
++        path = board.open_item(
++            board.Board(root / "tasks"), "todo", f"Дві сесії по-різному розібрали кандидата уроку #{ident}",
++            f"Кандидат: {candidate}. Розбори: {how}. Скрипт не вибирає між ними (задача 739).",
++            do=("Вирішити — справа агента: зважити обидва розбори й лишити один. Наслідки іншого прибрати руками (запис у "
++                "`.engine/overseer/MEMORY.md`, пропозицію правила в `.engine/rule-proposals.md` разом із питанням у `tasks/blocked/`, "
++                f"запис у `.engine/engine-feedback.md`), а рішення записати: `python3 .claude/hooks/lesson_queue.py settle {ident} "
++                "--keep <memory|rule|engine|discard> --why \"…\"`."),
++            key=f"lesson-contradiction-{ident}", source="lesson_queue.py")
++        if path:
++            raised.append(path.relative_to(root).as_posix())
++    return raised
++
++
+ VERDICT_BLOCK_RE = re.compile(r"^[ \t]*OVERSEER_BLOCK:\s*(?P<why>.+?)[ \t]*$", re.MULTILINE)
+ 
+ 
+@@ -323,7 +350,7 @@ def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
+     shown = "\n".join(f"  #{e['id']}  {e['date']}  [{e['source']}] {e['slice']}: {e['essence'][:110]}" for e in queue[:12])
+     more = f"\n  … and {len(queue) - 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""
+     return (
+-        f"LESSON_REVIEW_REQUESTED — {len(queue)} candidate(s) in .engine/lesson-queue.md. Triage them now, "
++        f"LESSON_REVIEW_REQUESTED — {len(queue)} candidate(s) in the lesson queue (`lesson_queue.py list`). Triage them now, "
+         "briefly, before the next unit (a candidate with no lasting value: discard it):\n"
+         f"{shown}{more}\n"
+         "For each: `python3 .claude/hooks/lesson_queue.py resolve <id> --to <where> ...` with where = "
+@@ -336,9 +363,20 @@ def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
+     )
+ 
+ 
+-def remove_line(root: Path, ident: str) -> None:
+-    kept = [ln for ln in read(root / QUEUE_REL).splitlines() if not ln.endswith(f"#{ident}")]
+-    write(root / QUEUE_REL, "\n".join(kept) + "\n")
++def close(root: Path, ident: str, to: str, note: str) -> None:
++    """The candidate leaves the queue: a resolution line in this session's file, never a removed line (board 739)."""
++    journal.add(root, "lessons", f"- {today()} | resolved:{to} | {clean_essence(note) or to} #{ident}")
++
++
++def settle(root: Path, ident: str, keep: str, why: str) -> tuple[bool, str]:
++    """The agent's decision on a candidate two sessions triaged differently."""
++    rows = journal.resolutions(journal.lesson_lines(root)).get(ident)
++    if not rows:
++        return False, f"#{ident} has no resolution to settle"
++    if not why.strip():
++        return False, "settle needs --why: the reason the kept triage stands"
++    close(root, ident, journal.SETTLED + keep, why)
++    return True, f"#{ident} settled: {keep}"
+ 
+ 
+ def append(path: Path, text: str, header: str = "") -> None:
+@@ -432,7 +470,7 @@ def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: st
+                "- Status: PROPOSED (the owner decides: the question is in tasks/blocked/; only the owner's «так» lets `lesson_queue.py promote` through)\n",
+                "# Rule proposals\n\nCandidates for the standing rules. Never loaded into the persistent context; "
+                "the ones the owner approves are promoted into `.engine/rules.md`.\n")
+-        remove_line(root, ident)
++        close(root, ident, to, text)
+         return True, f"#{ident} -> rule proposal. " + ask_owner(root, ident)[1]
+     elif to == "engine":
+         if not text:
+@@ -441,7 +479,7 @@ def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: st
+                "# Feedback for the engine\n\nWhat the work learned that belongs in the engine's own repository.\n")
+     elif to != "discard":
+         return False, "--to must be memory, rule, engine or discard"
+-    remove_line(root, ident)
++    close(root, ident, to, text)
+     return True, f"#{ident} -> {to}"
+ 
+ 
+@@ -561,7 +599,7 @@ def digest(root: Path) -> str:
+     if memory:
+         lines.append("Project memory (.engine/overseer/MEMORY.md), latest: " + " · ".join(m[:70] for m in memory[-4:]))
+     if queue:
+-        lines.append(f"Lesson queue: {len(queue)} candidate(s), oldest {queue[0]['date']} (.engine/lesson-queue.md).")
++        lines.append(f"Lesson queue: {len(queue)} candidate(s), oldest {queue[0]['date']} (`python3 .claude/hooks/lesson_queue.py list`).")
+     if proposals:
+         lines.append(f"{proposals} rule proposal(s) wait for the owner's answer in tasks/blocked/ (.engine/rule-proposals.md); nothing for an agent to do.")
+     due = cleanup_due(root)
+@@ -611,7 +649,7 @@ def failure_key(text: str) -> str:
+     return hashlib.sha256(stable(text)[:300].encode()).hexdigest()[:12]
+ 
+ 
+-def journal(root: Path, what: str, done: str) -> None:
++def anomaly(root: Path, what: str, done: str) -> None:
+     """The hook's entry in the board's anomaly journal (board 035). Best effort: no board, no entry."""
+     try:
+         board = board_module()
+@@ -631,7 +669,7 @@ def note_failure(root: Path, text: str) -> str:
+     count = (previous if isinstance(previous, int) else 0) + 1 if state.get("key") == key else 1
+     if count >= STUCK_AT:
+         write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": 0}) + "\n")
+-        journal(root, f"та сама невдача {count} раз(и) поспіль: {clean_essence(stable(text))[:160]}",
++        anomaly(root, f"та сама невдача {count} раз(и) поспіль: {clean_essence(stable(text))[:160]}",
+                 "агентові показано протокол «застряг» (змінити гіпотезу, а не повторювати спробу); лічильник скинуто, роботу продовжено")
+         return STUCK_TEXT.format(n=count, what=clean_essence(text)[:90])
+     write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": count}) + "\n")
+@@ -719,6 +757,10 @@ def main(argv: list[str] | None = None) -> int:
+     p_res.add_argument("--cite", nargs="*", default=[])
+     p_res.add_argument("--why", default="")
+     p_res.add_argument("--recommend", default="", help="the overseer's recommendation to the owner; it decides nothing")
++    p_set = sub.add_parser("settle", help="an agent's decision on a candidate two sessions triaged differently")
++    p_set.add_argument("id")
++    p_set.add_argument("--keep", required=True, choices=("memory", "rule", "engine", "discard"))
++    p_set.add_argument("--why", default="")
+     sub.add_parser("ask").add_argument("id")
+     p_pro = sub.add_parser("promote")
+     p_pro.add_argument("id")
+@@ -747,6 +789,10 @@ def main(argv: list[str] | None = None) -> int:
+             done, message = resolve(root, args.id.lstrip("#"), args.to, args.text, args.cite, args.why, args.recommend)
+             print(message, file=sys.stdout if done else sys.stderr)
+             return 0 if done else 1
++        elif args.command == "settle":
++            done, message = settle(root, args.id.lstrip("#"), args.keep, args.why)
++            print(message, file=sys.stdout if done else sys.stderr)
++            return 0 if done else 1
+         elif args.command in ("ask", "promote", "reject"):
+             ident = args.id.lstrip("#").removeprefix("RP-")
+             if args.command == "ask":
+diff --git a/.claude/hooks/overseer_stop.py b/.claude/hooks/overseer_stop.py
+index 1d3e4f0..9d19776 100755
+--- a/.claude/hooks/overseer_stop.py
++++ b/.claude/hooks/overseer_stop.py
+@@ -258,7 +258,7 @@ FRESH_REQUEST_AGAIN_REASON = (
+ )
+ FRESH_BLOCK_REASON = (
+     "OVERSEER_BLOCK (request {id}; BLOCK {count} of {limit} on this unit): {finding}\n"
+-    "The verdict is the overseer agent's and is recorded in .engine/overseer/ledger.md. Route it as "
++    "The verdict is the overseer agent's and is recorded in the ledger (`python3 .claude/hooks/journal.py show ledger`). Route it as "
+     ".claude/engine-rules.md § \"Verdict routing\" says. If you can resolve it: fix it, verify, and "
+     "claim the unit again (`=== UNIT N COMPLETE ===`) — another overseer, which has seen neither this "
+     "audit nor your fix, will judge the result. If you cannot: put the item on the task board — `python3 "
+@@ -280,8 +280,8 @@ FRESH_THREE_BLOCKS_REASON = (
+ # instead), in the owner's language like everything the board says to the owner.
+ THREE_BLOCKS_HUMAN = (
+     "Overseer тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
+-    "відкладено до вашого рішення (запис — {parked}, вердикти — у "
+-    ".engine/overseer/ledger.md).\n{reasons}"
++    "відкладено до вашого рішення (запис — {parked}, вердикти — у ledger: "
++    "`python3 .claude/hooks/journal.py show ledger`).\n{reasons}"
+ )
+ # Under the board runner nothing is asked of the builder: the session is stopped and the runner
+ # moves the task (board 031 — the rule is carried out by a script, not by an agent on its word).
+@@ -292,7 +292,8 @@ THREE_BLOCKS_RUNNER_STOP = (
+ )
+ FRESH_ROUTE_REASON = (
+     "OVERSEER_{verdict} (request {id}): {finding}\n"
+-    "The draft ADR or the escalation is in the newest entry of .engine/overseer/ledger.md. Route it as "
++    "The draft ADR or the escalation is in the newest entry of the ledger, at the top of what "
++    "`python3 .claude/hooks/journal.py show ledger` prints (the shared .engine/overseer/ledger.md alone may not hold it yet). Route it as "
+     ".claude/engine-rules.md § \"Verdict routing\" says: reversible — write the ADR in docs/adr/, or "
+     "log the AUTONOMOUS entry in .engine/overseer/escalations.md (a log of decisions already made), and "
+     "continue; a one-way door or an Article 5 product decision — ask the owner on the task board (`python3 "
+@@ -659,7 +660,7 @@ def _three_blocks(project_dir: Path, unit: str, request_id: str, finding: str, b
+     if task != "-" and ov.runner_alive(project_dir):
+         ov.write_json(ov.three_blocks_marker(project_dir, task), {"task": task, "unit": unit, "utc": ov.utc_now(), "blocks": kept})
+         _emit_halt(THREE_BLOCKS_RUNNER_STOP.format(unit=unit, id=request_id, finding=finding, task=task, reasons=reasons))
+-    parked = ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_REL.as_posix())
++    parked = ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_SHOWN)
+     _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding, reasons=reasons, parked=parked),
+                 THREE_BLOCKS_HUMAN.format(unit=unit, reasons=reasons, parked=parked))
+ 
+diff --git a/.claude/hooks/overseer_verdict.py b/.claude/hooks/overseer_verdict.py
+index fc3de9b..a769f87 100755
+--- a/.claude/hooks/overseer_verdict.py
++++ b/.claude/hooks/overseer_verdict.py
+@@ -33,7 +33,7 @@ the schema (the first failure goes back to the agent, the second is recorded INV
+ the tree with the fingerprint (HEAD, `git status`, the content of every changed or untracked file;
+ ignored files do not count) and the contract with its sha256 — any difference makes the verdict
+ INVALID, nothing is rolled back — refuses a PASS while the Stop gate's escalation is open, and then
+-writes the entry into .engine/overseer/ledger.md and a row into
++writes the entry into the ledger (this session's own file of it, .engine/journal/ledger/, board 739) and a row into
+ .claude/state/overseer/verdicts.jsonl. Hooks decide on the second file; the ledger is for people
+ and for the next overseer.
+ 
+@@ -64,6 +64,8 @@ from datetime import UTC, datetime
+ from pathlib import Path
+ from typing import Any
+ 
++import journal  # the ledger and the parked log: every session adds to its own file (board 739)
++
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+ 
+ JsonObj = dict[str, Any]
+@@ -77,6 +79,9 @@ PENDING_REL = STATE_REL / "pending.json"
+ VERDICTS_REL = STATE_REL / "verdicts.jsonl"
+ LEDGER_REL = Path(".engine/overseer/ledger.md")
+ PARKED_REL = Path(".engine/overseer/parked.md")
++# Where a person or an agent reads a verdict (board 739): the ledger whole — the shared file holds only what a fold
++# gathered, the newest entries stand in the sessions' own files under .engine/journal/ledger/.
++LEDGER_SHOWN = "the ledger, `python3 .claude/hooks/journal.py show ledger` (newest at the top)"
+ BOARD_STATE_REL = Path(".claude/state/board")   # the board runner's state: its lock, and the marker left for it
+ VERDICTS = ("PASS", "BLOCK", "ADR_REQUIRED", "ESCALATE")
+ INVALID = "INVALID"
+@@ -94,7 +99,6 @@ OUTPUT_TAIL_LINES = 15
+ OUTPUT_TAIL_CHARS = 1500
+ FILE_LINE_RE = re.compile(r"^`?([\w./-]+\.[\w]+):(\d+)\b")
+ ENTRY_HEADER_RE = re.compile(r"^## \d{4}-\d{2}-\d{2}T\S* — (?P<slice>.+?) — (?P<verdict>.+)$", re.MULTILINE)
+-NO_ENTRIES = "(no entries yet)"
+ # The ledger's Action line: what the verdict does next, which is the hook's doing, not the agent's.
+ ACTIONS = {
+     "PASS": "unit accepted; the builder continues",
+@@ -351,11 +355,9 @@ def blocks_in_a_row(root: Path, unit_key: str) -> int:
+ 
+ 
+ def passes_in_a_row(root: Path, slice_name: str) -> int:
+-    """PASS entries at the top of the ledger for this slice (check #12 counts them)."""
+-    try:
+-        text = (root / LEDGER_REL).read_text(encoding="utf-8")
+-    except OSError:
+-        return 0
++    """PASS entries at the top of the ledger for this slice (check #12 counts them), the ledger whole:
++    the shared file and every session's file (board 739)."""
++    text = journal.text(root, "ledger")
+     count = 0
+     for match in ENTRY_HEADER_RE.finditer(text):
+         if match["slice"].strip() != slice_name:
+@@ -574,21 +576,9 @@ def ledger_entry(row: JsonObj, obj: JsonObj | None) -> str:
+ 
+ 
+ def write_ledger(root: Path, entry: str) -> None:
+-    """Newest first: before the first dated entry, or in place of the placeholder, or at the end."""
+-    path = root / LEDGER_REL
+-    try:
+-        text = path.read_text(encoding="utf-8")
+-    except OSError:
+-        text = "# Overseer ledger — append-only\n\n---\n"
+-    first = ENTRY_HEADER_RE.search(text) or re.search(r"^## \d{4}-\d{2}-\d{2}T", text, re.MULTILINE)
+-    if first:
+-        text = text[:first.start()] + entry + "\n" + text[first.start():]
+-    elif NO_ENTRIES in text:
+-        text = text.replace(NO_ENTRIES, entry.rstrip("\n"), 1)
+-    else:
+-        text = text.rstrip("\n") + "\n\n" + entry
+-    path.parent.mkdir(parents=True, exist_ok=True)
+-    path.write_text(text, encoding="utf-8")
++    """Into this session's own file of the ledger (board 739): the shared .engine/overseer/ledger.md is
++    what a fold gathered, newest first, and every reader takes the two together (journal.text)."""
++    journal.add(root, "ledger", entry)
+ 
+ 
+ def open_gate_escalation(root: Path) -> tuple[str, str] | None:
+@@ -646,7 +636,7 @@ def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonOb
+                     tasks, "todo", f"Брак тесту (overseer): {check}",
+                     f"Overseer прийняв юніт `{row.get('unit_key') or row.get('slice')}` (PASS, запит `{row['request']}`) "
+                     f"і знайшов брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
+-                    + f" Вердикт — у `{LEDGER_REL.as_posix()}`.",
++                    + " Вердикт — у ledger: `python3 .claude/hooks/journal.py show ledger`.",
+                     do=(f"Дописати перевірку «{check}»: тест червоніє на тому, що описано вище ({misses}), і зелений "
+                         "на коді, як він є (покажи обидва прогони); код не міняти, якщо тест не знайде справжньої вади; "
+                         "швидкий набір тестів зелений."),
+@@ -747,16 +737,12 @@ def park(root: Path, item: str, blocked_on: str, evidence: str) -> str:
+     asked = board_item(root, item, blocked_on, evidence)
+     if asked:
+         return asked
+-    path = root / PARKED_REL
+-    entry = (f"\n## {utc_now()} — {item} — PARKED\n- Blocked on: {one_line(blocked_on)}\n- Class: human-input\n"
++    entry = (f"## {utc_now()} — {item} — PARKED\n- Blocked on: {one_line(blocked_on)}\n- Class: human-input\n"
+              f"- Evidence: {one_line(evidence)}\n- Unblocks when: the owner answers, or the audit is repeated and passes\n")
+     try:
+-        path.parent.mkdir(parents=True, exist_ok=True)
+-        with path.open("a", encoding="utf-8") as fh:
+-            fh.write(entry)
++        return journal.add(root, "parked", entry).relative_to(root).as_posix()   # this session's file of the log (board 739)
+     except OSError:
+-        pass
+-    return PARKED_REL.as_posix()
++        return PARKED_REL.as_posix()
+ 
+ 
+ def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | None:
+@@ -768,7 +754,7 @@ def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | N
+ 
+         task = board.open_item(
+             board.Board(root / "tasks"), "blocked", f"Overseer відклав юніт: {item}",
+-            f"Юніт `{item}` відкладено до рішення власника: {one_line(blocked_on)}. Докази: `{one_line(evidence)}`; вердикти — у `{LEDGER_REL.as_posix()}`.",
++            f"Юніт `{item}` відкладено до рішення власника: {one_line(blocked_on)}. Докази: `{one_line(evidence)}`; вердикти — у ledger: `python3 .claude/hooks/journal.py show ledger`.",
+             "Що робити з цим юнітом далі? Будь-яка відповідь — вказівка агентові (наприклад: повторити audit, прийняти як є, переробити).",
+             key=item, source="hook overseer-а (overseer_stop.py)")
+         return task.relative_to(root).as_posix() if task else None
+diff --git a/.claude/hooks/park-ask-gated.py b/.claude/hooks/park-ask-gated.py
+index 2924357..aabfa71 100755
+--- a/.claude/hooks/park-ask-gated.py
++++ b/.claude/hooks/park-ask-gated.py
+@@ -104,7 +104,7 @@ REASON_TEMPLATE = (
+     ".claude/unattended/board.py open-item --to blocked --title <what the command "
+     "is for> --what <the exact command above, and what waits for it> --question "
+     "<what you ask the owner> --source 'hook park-ask-gated.py'` (a project "
+-    "without tasks/: a PARKED entry in .engine/overseer/parked.md instead), then "
++    "without tasks/: a PARKED entry through `python3 .claude/hooks/journal.py add parked` instead), then "
+     "continue with the next unblocked item. Blocked by "
+     ".claude/hooks/park-ask-gated.py; attended, this same command would simply "
+     "prompt."
+diff --git a/.claude/hooks/second_opinion.py b/.claude/hooks/second_opinion.py
+index 0f0bd54..56a23f5 100755
+--- a/.claude/hooks/second_opinion.py
++++ b/.claude/hooks/second_opinion.py
+@@ -61,7 +61,7 @@ MAX_NAMES = 6
+ MAX_DIFF_LINES = 400
+ VERDICTS = ("agree", "disagree", "unsure")
+ # The simplifier's own records hold its claims and evidence: showing them would hand the judge the author's reasoning.
+-OWN_RECORDS = (".engine/simplifier/**", ".engine/lesson-queue.md")
++OWN_RECORDS = (".engine/simplifier/**", ".engine/lesson-queue.md", ".engine/journal/**")
+ SCHEMA = {
+     "type": "OBJECT",
+     "properties": {
+diff --git a/.claude/hooks/simplifier.py b/.claude/hooks/simplifier.py
+index 62814a7..8d02655 100755
+--- a/.claude/hooks/simplifier.py
++++ b/.claude/hooks/simplifier.py
+@@ -64,6 +64,7 @@ from pathlib import Path
+ from typing import Any
+ 
+ import complexity_budget as budget
++import journal
+ import lesson_queue
+ import simplify_signals
+ 
+@@ -409,7 +410,7 @@ def applied(root: Path, ident: str, note: str) -> tuple[int, str]:
+     mark = f"  - applied to the plan {simplify_signals.utc_now()}: {note} — nothing is asked of the owner\n"
+     (root / REPORT_REL).write_text(line.sub(lambda m: f"- APPLIED BY THE ARCHITECT {m[1]}\n{mark.rstrip()}", report), encoding="utf-8")
+     essence = lesson_queue.clean_essence(f"{found['category']} {found['target']}: {found['claim']}")
+-    lesson_queue.remove_line(root, lesson_queue.item_id("simplifier", essence))
++    lesson_queue.close(root, lesson_queue.item_id("simplifier", essence), "applied", f"applied to the plan: {note}")
+     return 0, f"marked in {REPORT_REL}: {ident} applied to the plan"
+ 
+ 
+@@ -461,10 +462,10 @@ def accept(root: Path, reason: str, verdict: Path) -> tuple[int, str]:
+            f"\n## {stamp} — overrun accepted\n{figures}\n- Reason: {reason}\n- Simplifier's verdict: {verdict.name} (sha256 {digest}…), "
+            f"{len(result['findings'])} flag_only finding(s), none above\n",
+            f"# Complexity overruns of slice {outcome.slug}\n\nThe contract is sealed; what the simplifier accepted over its budget is recorded here.\n")
+-    append(root / LEDGER_REL,
+-           f"\n## {stamp} — {outcome.slug} — COMPLEXITY_OVERRUN_ACCEPTED\n- Trigger: the complexity budget was exceeded; the simplifier was called\n"
+-           f"- Evidence: {OVERRUNS_REL / (outcome.slug + '.md')}; verdict sha256 {digest}…\n{figures}\n- Reason: {reason}\n- Category: simplifier\n")
+-    return 0, f"recorded: {OVERRUNS_REL / (outcome.slug + '.md')} and {LEDGER_REL}"
++    journal.add(root, "ledger",   # this session's own file of the ledger (board 739)
++                f"## {stamp} — {outcome.slug} — COMPLEXITY_OVERRUN_ACCEPTED\n- Trigger: the complexity budget was exceeded; the simplifier was called\n"
++                f"- Evidence: {OVERRUNS_REL / (outcome.slug + '.md')}; verdict sha256 {digest}…\n{figures}\n- Reason: {reason}\n- Category: simplifier\n")
++    return 0, f"recorded: {OVERRUNS_REL / (outcome.slug + '.md')} and the ledger (`python3 .claude/hooks/journal.py show ledger`)"
+ 
+ 
+ # ------------------------------------------------------------------ the reversal rate
+diff --git a/.claude/references/gate.md b/.claude/references/gate.md
+index 8326ec5..ddc518b 100644
+--- a/.claude/references/gate.md
++++ b/.claude/references/gate.md
+@@ -80,13 +80,13 @@ python3 .claude/hooks/baseline.py show      # what is left
+ ends its work on it only while this session's counter is 0; with the counter above 0 the re-entry is
+ checked again. A block adds one (per `session_id`), a pass resets. On the `GATE_MAX_BLOCKS`th block
+ in a row (default 3) the gate lets the turn end, puts its question to the owner on the task board
+-(`tasks/blocked/9NN-gate-escalation-….md`; a project without `tasks/` gets a PARKED entry in the log
+-`.engine/overseer/parked.md` instead), says so in a `systemMessage`, and starts counting again. That
++(`tasks/blocked/9NN-gate-escalation-….md`; a project without `tasks/` gets a PARKED entry in the parked log —
++the session's own file of it, `.engine/journal/parked/`, board 739 — instead), says so in a `systemMessage`, and starts counting again. That
+ is not the end of it: see "An open escalation refuses the PASS" below.
+ 
+ While a rebase or a merge is in progress (git's `rebase-merge`, `rebase-apply` or `MERGE_HEAD`) the
+ gate writes no file to the board: the working tree is not the branch then, and a number that looks
+-free may be taken. The escalation is recorded as usual and entered in `tasks/ANOMALIES.md`; its
++free may be taken. The escalation is recorded as usual and entered in the anomaly journal; its
+ question is put on the board by the first Stop gate run after the rebase or merge is over, or by
+ the board runner (`gate.py --ask-waiting`).
+ 
+diff --git a/.claude/references/hooks.md b/.claude/references/hooks.md
+index ee89416..97c5222 100644
+--- a/.claude/references/hooks.md
++++ b/.claude/references/hooks.md
+@@ -29,6 +29,7 @@ this file holds the detail they point at. Wiring: `.claude/settings.json`; confi
+ | `bugfix.py` | called by `/bugfix`, by the overseer, and by hand | `prove`: in a temporary copy the code before the fix with the new test must fail (with `--expect`, showing the symptom) and the working tree must pass; refused when the test passes without the fix, fails with it, or there is no fix. `pins`: the other way round — a test passes on the code before a change (the delete guard's first way through). Writes nothing in the project. `.claude/commands/bugfix.md`. |
+ | `testing.py` | `request`, `answer`, `seal`, `check`, `status`, `feature-close`, `mutation`: called by the builder, the planner and `/feature-architect`; `gate`: asked by `overseer_stop.py`; `guard` (before Agent and the edit tools) and `record` (SubagentStop of `test-manager` and `slice-tester`): hooks, wired only after the owner applies `docs/tasks/settings.json` | The testing manager and the slice tester (board 062). `request` collects the facts of a slice with a sealed contract and prints the one line either agent is started with (`TESTING_REQUEST <id>`); it refuses the next slice while the previous one has no decision of point (b). `record` is the only writer: it refuses a manager's decision that contradicts a mandatory case O1–O8 (twice refused — the script writes the mandatory decision itself), runs the tester's contract tests itself (each must fail before the code, and not on an import; `keeps` must pass), seals the undisputed test files and holds the disputed ones until the planner's `answer`. `guard` starts the two agents with that line only, keeps the manager from writing and the tester to test files. `gate`: no audit request before the decision of point (a), an accepted hand-in and unchanged sealed tests. Two rounds of dispute a slice, the third parks it. State: `.claude/state/testing/`; the journal the owner's review reads: `.engine/testing/ledger.md`. Until the two handlers are wired, `record --answer <file>` by hand. O8 («code no test touches») is measured by `test_touch.py`, shared with the delete guard. Invariants (board 064): `invariants <contract>` — run by `/plan-slice` before the seal and by the planner's critic — refuses a contract without an «Invariants» section, an invariant without «Domain», «Source» or «Broken by», and `None` without its reason; `request` gives the manager the invariants as facts; `record` refuses a contract hand-in where an invariant has no test named `test_I<n>_…`, or where such a test carries a number the contract does not have. |
+ | `contract_fingerprint.py` | called by `/plan-slice` and `overseer_stop.py` | `seal` writes `.claude/state/contracts/<slug>.sha256` and refuses to overwrite; `check` compares (and reports in the gate schema). |
++| `journal.py` | called by the writers of the four journals; `show`, `add`, `fold`, `contradictions` by hand | Board 739: the overseer's ledger, the parked log, the anomaly journal and the lesson queue are written one file per session, `.engine/journal/<journal>/<session>.md` (`CLAUDE_CODE_SESSION_ID`, else a working-tree id and the date), so branches merge without a conflict; every reader takes the shared file and all session files together, by time (`show`). `fold`, after branches meet, writes the session files into the shared file and removes those older than 7 days. A lesson candidate is closed by a `resolved:` line, never removed; two different triages of one candidate are a contradiction `lesson_queue.py` puts on the board for an agent (`settle`). |
+ | `env-check.sh` | session start | Names the tools this machine lacks for the hooks to enforce anything and, under WSL, the two traps from the Windows side: a project on a Windows disk (`/mnt/<letter>/`) and `core.autocrlf` on. In a cloud session (`CLAUDE_CODE_REMOTE=true`) a shallow clone gets its whole history and its tags (`git fetch --unshallow --tags origin`, board 750) — in every project, with no switch; only a failed fetch leaves a line. Silent when nothing is missing. |
+ 
+ ## Input parsing — jq or python3, on any operating system
+diff --git a/.claude/references/unattended.md b/.claude/references/unattended.md
+index 61371a3..d0ce565 100644
+--- a/.claude/references/unattended.md
++++ b/.claude/references/unattended.md
+@@ -42,7 +42,7 @@ you forget. A push is not one of them: the runner sends the branch itself, and t
+ a push of the session's own, anywhere in the command (board 603).
+ 
+ `.engine/overseer/parked.md` and `.engine/overseer/escalations.md` are history. They are only
+-appended to — an AUTONOMOUS decision, closed by being logged, still goes to `escalations.md`;
++appended to (since board 739 a script's parked entry goes into the session's own file `.engine/journal/parked/`) — an AUTONOMOUS decision, closed by being logged, still goes to `escalations.md`;
+ a project without `tasks/` parks in `parked.md` — nothing in them is ever marked closed, and
+ nothing reads them to learn what is open: the owner's review shows `tasks/blocked/`.
+ 
+diff --git a/.claude/skills/overseer/SKILL.md b/.claude/skills/overseer/SKILL.md
+index c6d523b..8346bb0 100644
+--- a/.claude/skills/overseer/SKILL.md
++++ b/.claude/skills/overseer/SKILL.md
+@@ -15,8 +15,8 @@ description: |
+ 
+ The audit is never done by the session that did the work. It is done by the
+ agent `overseer` (`.claude/agents/overseer.md`: the 12 checks, fresh context,
+-no editing tool), and its verdict is written into `.engine/overseer/ledger.md`
+-by a script, `.claude/hooks/overseer_verdict.py`, from the agent's own answer.
++no editing tool), and its verdict is written into the ledger (this session's own file of it,
++`.engine/journal/ledger/<session>.md`, board 739) by a script, `.claude/hooks/overseer_verdict.py`, from the agent's own answer.
+ You do not audit, you do not write the ledger, and a line `OVERSEER_PASS` typed
+ by you means nothing. Citing a check number (#1–#12) in your own reasoning is
+ just a reference; it needs no ledger entry.
+diff --git a/.claude/skills/self-learning-orchestrator/SKILL.md b/.claude/skills/self-learning-orchestrator/SKILL.md
+index 23ca41f..cb06cb6 100644
+--- a/.claude/skills/self-learning-orchestrator/SKILL.md
++++ b/.claude/skills/self-learning-orchestrator/SKILL.md
+@@ -40,7 +40,9 @@ Read **only the trigger file that applies**. Do not preload everything — each
+ 
+ ## Lesson capture (lightweight, inline) — the queue is filled by hooks too
+ 
+-`.engine/lesson-queue.md` is one line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`
++The lesson queue is one line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>` — each session's lines in
++its own file `.engine/journal/lessons/<session>.md`, the folded ones in `.engine/lesson-queue.md` (board 739); read it
++with `python3 .claude/hooks/lesson_queue.py list`
+ (source: gate, overseer, parked, escalation, agent). **Hooks fill it without you**: a Stop block of the
+ gate, an `OVERSEER_BLOCK` verdict, a parked item and an escalation are added automatically, once each
+ (`.claude/hooks/lesson_queue.py`). You add a line yourself only when you found a **non-obvious cause** —
+diff --git a/.claude/skills/self-learning-orchestrator/checklists/session-end.md b/.claude/skills/self-learning-orchestrator/checklists/session-end.md
+index cd8b6e8..25e79b0 100644
+--- a/.claude/skills/self-learning-orchestrator/checklists/session-end.md
++++ b/.claude/skills/self-learning-orchestrator/checklists/session-end.md
+@@ -5,7 +5,7 @@ Run before `/clear`, `/bye`, or closing the session. Should take 1–3 minutes i
+ ## The checklist
+ 
+ - [ ] **All commits made**: `git status` is clean OR uncommitted state is intentional and documented.
+-- [ ] **`.engine/lesson-queue.md` is processed**: run `triggers/session-end-dreaming.md` if the queue has any entries.
++- [ ] **The lesson queue (`python3 .claude/hooks/lesson_queue.py list`) is processed**: run `triggers/session-end-dreaming.md` if the queue has any entries.
+ - [ ] **`claude-progress.md` is up to date**: "Last working state" reflects the actual current state. "Next session: pick up here" tells future-you exactly which file and which function to start with.
+ - [ ] **Task status**: if the task is complete, mark `Status: completed` in progress.md; otherwise leave as `in-progress` and ensure the next-session instruction is clear.
+ - [ ] **`docs/adr/` is current**: any ADR-worthy decisions from this session are committed (not pending in your head).
+@@ -18,7 +18,7 @@ If you're rushing and want a minimum-viable check:
+ 
+ ```bash
+ # All three on one line — should produce no errors
+-git status -s && cat .engine/lesson-queue.md 2>/dev/null && cat claude-progress.md 2>/dev/null | grep -A1 "Next session"
++git status -s && python3 .claude/hooks/lesson_queue.py list && cat claude-progress.md 2>/dev/null | grep -A1 "Next session"
+ ```
+ 
+ What this tells you:
+diff --git a/.claude/skills/self-learning-orchestrator/references/memory-pollution-prevention.md b/.claude/skills/self-learning-orchestrator/references/memory-pollution-prevention.md
+index fbaba16..9b467b2 100644
+--- a/.claude/skills/self-learning-orchestrator/references/memory-pollution-prevention.md
++++ b/.claude/skills/self-learning-orchestrator/references/memory-pollution-prevention.md
+@@ -94,7 +94,7 @@ The same observation lives in CLAUDE.md, an ADR, MEMORY.md, AND inline comments.
+ 
+ `.engine/lesson-queue.md` has 30 entries. session-end-dreaming hasn't run in 3 weeks. None of the lessons have been classified.
+ 
+-**Detection**: `.engine/lesson-queue.md` exists and has > 10 entries.
++**Detection**: `python3 .claude/hooks/lesson_queue.py list` prints more than 10 candidates.
+ 
+ **Fix**: process the queue NOW (not at next session end). If processing is taking > 20 minutes, do it in two passes (project-scope this session, tech-scope next).
+ 
+diff --git a/.claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md b/.claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md
+index 43077c7..de13159 100644
+--- a/.claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md
++++ b/.claude/skills/self-learning-orchestrator/triggers/pre-commit-checkpoint.md
+@@ -37,7 +37,7 @@ If yes — follow `triggers/decision-checkpoint.md`. The ADR is staged together
+ 
+ **Q3: Was there a non-obvious bug found and fixed in this work?**
+ 
+-If yes — append to `.engine/lesson-queue.md`:
++If yes — add it to the lesson queue (the command writes this session's own file of it, board 739):
+ 
+ ```bash
+ python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"
+diff --git a/.claude/skills/self-learning-orchestrator/triggers/session-end-dreaming.md b/.claude/skills/self-learning-orchestrator/triggers/session-end-dreaming.md
+index 6fc95a2..f998810 100644
+--- a/.claude/skills/self-learning-orchestrator/triggers/session-end-dreaming.md
++++ b/.claude/skills/self-learning-orchestrator/triggers/session-end-dreaming.md
+@@ -24,7 +24,7 @@ When in doubt: ask the user "Are we wrapping up this task? If so I'd like to do
+ ```
+ Read claude-progress.md
+ Read .engine/architecture/tasks/<active-task>/reflections.md 2>/dev/null
+-Read .engine/lesson-queue.md 2>/dev/null
++python3 .claude/hooks/lesson_queue.py list     # the queue whole: every session's file (board 739)
+ ```
+ 
+ The three input sources, in order:
+diff --git a/.claude/skills/self-learning-orchestrator/triggers/stuck-protocol.md b/.claude/skills/self-learning-orchestrator/triggers/stuck-protocol.md
+index bd4e916..eb434b4 100644
+--- a/.claude/skills/self-learning-orchestrator/triggers/stuck-protocol.md
++++ b/.claude/skills/self-learning-orchestrator/triggers/stuck-protocol.md
+@@ -86,7 +86,7 @@ This is the most important learning moment in the development cycle. The stuck s
+ 
+ ### Lightweight capture (in-flow)
+ 
+-Append to `.engine/lesson-queue.md`:
++Add it to the lesson queue (the command writes this session's own file of it, board 739):
+ 
+ ```bash
+ python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"
+diff --git a/.claude/skills/slice-builder/SKILL.md b/.claude/skills/slice-builder/SKILL.md
+index f65d546..46009fb 100644
+--- a/.claude/skills/slice-builder/SKILL.md
++++ b/.claude/skills/slice-builder/SKILL.md
+@@ -53,7 +53,7 @@ You are extending a known system one isolated logical piece at a time. The user
+ 
+    What is NEVER added at slice level: mutmut / cosmic-ray mutation testing, exhaustive hypothesis property tests, wide-lens enumeration (security/performance/concurrency/encoding lenses) — those belong to a full-feature implementation effort. Adding them to a slice is scope creep.
+ 
+-7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the smoke result is recorded. This is a genuine human-input dependency (reason 1) whenever the verification needs eyes on a real external system — so it **parks**, it does not halt: write the script, append a `PARKED / external-verification` entry to `.engine/overseer/parked.md`, mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. If the smoke can be asserted programmatically against a sandbox, do that instead and close the slice without parking.
++7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the smoke result is recorded. This is a genuine human-input dependency (reason 1) whenever the verification needs eyes on a real external system — so it **parks**, it does not halt: write the script, add a `PARKED / external-verification` entry to the parked log with `python3 .claude/hooks/journal.py add parked` (this session's own file of it, board 739), mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. If the smoke can be asserted programmatically against a sandbox, do that instead and close the slice without parking.
+ 
+ ## When to use this skill
+ 
+diff --git a/.claude/unattended/board-runner.sh b/.claude/unattended/board-runner.sh
+index dd18946..d90d09e 100755
+--- a/.claude/unattended/board-runner.sh
++++ b/.claude/unattended/board-runner.sh
+@@ -305,27 +305,33 @@ fi
+ board_commit() {
+   [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] \
+     || finish error "${TASK_NAME:--}" branch "the checkout left $BRANCH; nothing was committed"
+-  git add -A -- tasks/ || return 1
+-  if git diff --cached --quiet -- tasks/; then return 0; fi
+-  git commit -q -m "$1" -- tasks/ || return 1
++  local paths=(tasks/)   # and the sessions' files of the anomaly journal: a board move's entry goes with it (board 739)
++  [ -d .engine/journal/anomalies ] && paths+=(.engine/journal/anomalies)
++  git add -A -- "${paths[@]}" || return 1
++  if git diff --cached --quiet -- "${paths[@]}"; then return 0; fi
++  git commit -q -m "$1" -- "${paths[@]}" || return 1
+   event "commit $(git rev-parse --short HEAD) $1"
+ }
+ 
+-# commit_journal <message>: commit tasks/ANOMALIES.md when it has uncommitted entries. It never
+-# stops anything: a journal that cannot be committed now is committed with the next change under tasks/.
++# commit_journal <message>: commit the anomaly journal when it has uncommitted entries — since board 739
++# each session's own file of it under .engine/journal/anomalies/, and tasks/ANOMALIES.md a fold wrote. It
++# never stops anything: a journal that cannot be committed now is committed with the next change.
+ commit_journal() {
+-  [ -n "$(git status --porcelain -- tasks/ANOMALIES.md 2>/dev/null)" ] || return 0
++  local paths=() path
++  for path in tasks/ANOMALIES.md .engine/journal/anomalies; do [ -e "$path" ] && paths+=("$path"); done
++  [ "${#paths[@]}" -gt 0 ] || return 0
++  [ -n "$(git status --porcelain -- "${paths[@]}" 2>/dev/null)" ] || return 0
+   [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] || return 0
+-  git add -- tasks/ANOMALIES.md >> "$STATE/logs/git.log" 2>&1 \
+-    && git commit -q -m "$1" -- tasks/ANOMALIES.md >> "$STATE/logs/git.log" 2>&1 \
++  git add -- "${paths[@]}" >> "$STATE/logs/git.log" 2>&1 \
++    && git commit -q -m "$1" -- "${paths[@]}" >> "$STATE/logs/git.log" 2>&1 \
+     && event "commit $(git rev-parse --short HEAD) journal"
+   return 0
+ }
+ # What a hook, the gate or the agent wrote into the journal (board 035) is committed by the runner.
+ JOURNAL_OTHERS="board: anomaly journal — entries written by a hook, the gate or the agent"
+ 
+-# note_anomaly <task|-> <what happened> <what was done>: one entry in tasks/ANOMALIES.md, in a
+-# commit of its own.
++# note_anomaly <task|-> <what happened> <what was done>: one entry of the anomaly journal (the
++# session's own file of it, board 739), in a commit of its own.
+ note_anomaly() {
+   commit_journal "$JOURNAL_OTHERS"
+   board anomaly "$1" "$2" "$3" > /dev/null || return 0
+diff --git a/.claude/unattended/board.py b/.claude/unattended/board.py
+index f67112f..32fe1d7 100755
+--- a/.claude/unattended/board.py
++++ b/.claude/unattended/board.py
+@@ -186,6 +186,7 @@ from datetime import UTC, date, datetime
+ from pathlib import Path
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hooks"))
++import journal  # the anomaly journal: every session adds to its own file (board 739)
+ import mode as mode_reader  # the one reader of the mode and of «nobody is watching» (board 097)
+ 
+ COLUMNS = ("todo", "doing", "blocked", "done")
+@@ -529,8 +530,7 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
+     column = twins[0].parent.name
+     what = (f"файл `{name}` з inbox має номер, який у `{column}/` носять кілька файлів ({', '.join(f'`{p.name}`' for p in twins)}), "
+             "і жоден з них не має такої самої назви")
+-    journal = _text(board.tasks / ANOMALIES)
+-    if " ".join(what.split()) not in journal:
++    if " ".join(what.split()) not in journal.text(board.tasks.parent, "anomalies"):
+         anomaly(board, "-", what, "нічого не видалено й не замінено; файл лишився в inbox. Назвіть його точно так, як файл у task board, "
+                 "якого він стосується, а однакові номери розведіть (`board.py check`)", "task board (import-inbox)")
+ 
+@@ -538,7 +538,7 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
+ def _unread_mode(board: Board, name: str, wrong: str) -> None:
+     """The journal entry of an inbox file whose `Режим:` line names no mode (A MODE), once per file and line."""
+     what = f"файл `{name}` з inbox не взято: {wrong}"
+-    if " ".join(what.split()) not in _text(board.tasks / ANOMALIES):
++    if " ".join(what.split()) not in journal.text(board.tasks.parent, "anomalies"):
+         anomaly(board, "-", what, f"файл лишився в inbox. Виправте рядок на `Режим: {'|'.join(mode_reader.MODES)}` "
+                 "(або приберіть його — тоді соло) і покладіть файл знову", "task board (import-inbox)")
+ 
+@@ -992,9 +992,7 @@ def in_hand(tasks: Path) -> str:
+ 
+ 
+ ANOMALIES = "ANOMALIES.md"
+-ANOMALIES_HEAD = ("# Журнал аномалій task board\n\nУсе дивне, що сталося під час роботи runner-а: воно записується сюди, а не зупиняє task board. "
+-                  "Пишуть runner, gates, hook-и й агент — у кожному записі сказано, хто; найновіший запис унизу. "
+-                  "Огляд (`board.py review`) показує нові записи окремим розділом.\n")
++ANOMALIES_HEAD = journal.JOURNALS["anomalies"].head
+ RUNNER = "runner"  # who writes the journal unless told otherwise
+ WHY = "## Чому зупинилась"
+ # reason → (what happened, the question). {n} is the runner's number: attempts, hours, dollars.
+@@ -1026,14 +1024,12 @@ def utc_now() -> str:
+ 
+ 
+ def anomaly(board: Board, task: str, what: str, done: str, source: str = RUNNER) -> Path:
+-    """Append one entry to tasks/ANOMALIES.md (made with its heading the first time)."""
+-    path = board.tasks / ANOMALIES
+-    text = path.read_text(encoding="utf-8") if path.is_file() else ANOMALIES_HEAD
++    """One entry of the anomaly journal, in this session's own file of it (board 739: tasks/ANOMALIES.md is
++    what a fold gathered; `journal.py show anomalies` reads it whole). The path written."""
+     what, done, source = (" ".join(part.split()) for part in (what, done, source or RUNNER))
+-    entry = (f"\n## {utc_now()} — {task if task and task != '-' else 'task board'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
++    entry = (f"## {utc_now()} — {task if task and task != '-' else 'task board'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
+              f"- Хто записав: {source}\n")
+-    path.write_text(text.rstrip("\n") + "\n" + entry, encoding="utf-8")
+-    return path
++    return journal.add(board.tasks.parent, "anomalies", entry)
+ 
+ 
+ def note(root: Path, source: str, what: str, done: str) -> Path | None:
+diff --git a/.claude/unattended/board_review.py b/.claude/unattended/board_review.py
+index f87d558..5246264 100644
+--- a/.claude/unattended/board_review.py
++++ b/.claude/unattended/board_review.py
+@@ -52,6 +52,7 @@ import board_state
+ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+ import goals  # the goals document's reader lives with the hooks
+ import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
++import journal  # the journals every session adds to in its own file (board 739)
+ import mode as mode_reader  # and the one reader of a task's mode (board 097)
+ import testing  # and the reader of the testing ledger (.engine/testing/ledger.md, board 062)
+ 
+@@ -119,6 +120,27 @@ class Source:
+     def log(self, *args: str) -> str:
+         return git(self.root, "log", *args).stdout.strip()
+ 
++    def whole(self, name: str) -> str:
++        """One journal whole at this commit: the shared file and every session's file (board 739)."""
++        return journal_at(self.files, self.show, name)
++
++
++def whole(src: Any, name: str) -> str:
++    """src.whole(name) for anything with `files` and `show` — a Source, or a suite's stand-in for one."""
++    return journal_at(src.files, src.show, name)
++
++
++def journal_at(files: frozenset[str] | set[str], show: Any, name: str) -> str:
++    kind = journal.JOURNALS[name]
++    prefix = f"{journal.PIECES_REL.as_posix()}/{name}/"
++    return journal.assemble(kind, show(kind.shared), [show(p) for p in sorted(files) if p.startswith(prefix) and p.endswith(".md")])
++
++
++def journal_at_commit(root: Path, commit: str, name: str) -> str:
++    listed = git(root, "ls-tree", "-r", "-z", "--name-only", commit).stdout
++    files = {p for p in listed.split("\0") if p}
++    return journal_at(files, lambda path: git(root, "show", f"{commit}:{path}").stdout if path in files else "", name)
++
+ 
+ def has_commit(root: Path, sha: str) -> bool:
+     return git(root, "cat-file", "-e", f"{sha}^{{commit}}").returncode == 0
+@@ -530,7 +552,8 @@ def goals_section(src: Source) -> list[str]:
+     except ValueError as broken:
+         return [f"- Документ цілей `{goals.GOALS_REL}` зіпсовано: {broken}."]
+     asked = goals.requests(src.show, src.files)
+-    lessons = [line for line in src.show(".engine/lesson-queue.md").splitlines() if re.match(r"^- \S+ \| analyst \|", line)]
++    queue = journal.split(whole(src, "lessons"), journal.JOURNALS["lessons"])[1]
++    lessons = [line for line in journal.open_candidates(queue) if re.match(r"^- \S+ \| analyst \|", line)]
+     if not numbered:
+         lines = [f"- Документа цілей (`{goals.GOALS_REL}`) ще немає: його складає `/business-analyst` разом із вами. Доки його немає, рішення архітекторів звіряти ні з чим."]
+         if not asked and not lessons:
+@@ -624,12 +647,12 @@ def journal_lines(src: Source, period: Since) -> list[str]:
+     """The entries of tasks/ANOMALIES.md written in the period, oldest first. The journal only
+     grows at its end, so after a commit the new entries are those past the ones it already had;
+     after a date they are told by their own time."""
+-    path = f"tasks/{board.ANOMALIES}"
+-    entries = [(match, body) for heading, body in sections(src.show(path)) if (match := ANOMALY.match(heading))]
++    entries = [(match, body) for heading, body in sections(whole(src, "anomalies")) if (match := ANOMALY.match(heading))]
+     if not entries:
+         return ["Журнал аномалій (`tasks/ANOMALIES.md`) порожній: runner не зустрів нічого дивного."]
+-    if period.commit:
+-        fresh = entries[sum(1 for heading, _ in sections(git(src.root, "show", f"{period.commit}:{path}").stdout) if ANOMALY.match(heading)):]
++    if period.commit:   # what the journal did not hold at that commit: every session's file counts (board 739)
++        known = {(heading, body.strip()) for heading, body in sections(journal_at_commit(src.root, period.commit, "anomalies"))}
++        fresh = [(match, body) for match, body in entries if (match.group(0), body.strip()) not in known]
+     else:
+         fresh = [(match, body) for match, body in entries
+                  if period.utc is None or ((when := as_utc(match.group(1).replace("Z", "+00:00"))) is not None and when >= period.utc)]
+diff --git a/.claude/unattended/commit_checkpoint.sh b/.claude/unattended/commit_checkpoint.sh
+index 5dde4e2..99102f6 100755
+--- a/.claude/unattended/commit_checkpoint.sh
++++ b/.claude/unattended/commit_checkpoint.sh
+@@ -91,6 +91,9 @@ esac
+ # is how a review surface becomes unreadable.
+ if [ "$STAGED_ONLY" -eq 0 ]; then
+   git add -u
++  # The journals' session files (board 739: .engine/journal/<journal>/<session>.md) are new files the
++  # work's own hooks and scripts wrote — records of this work, not scratch — so they go with it.
++  [ -d .engine/journal ] && git add -- .engine/journal
+ fi
+ 
+ if git diff --cached --quiet; then
+diff --git a/engine.py b/engine.py
+index ed55f49..8f21efc 100755
+--- a/engine.py
++++ b/engine.py
+@@ -151,6 +151,7 @@ RELEASE_AUDITS = "evals/baseline/*/audit-*.json"
+ RELEASE_NEEDS_AUDIT = "evals/needs_audit.py"
+ RELEASE_AUDIT_COMMAND = "python3 evals/run_audit_scenarios.py --tier full --max-cost 35 --out evals/baseline/@env/audit-{version}.json --owner-approved"
+ RELEASE_JOURNAL = "tasks/ANOMALIES.md"
++RELEASE_JOURNAL_SESSIONS = ".engine/journal/anomalies"   # board 739: each session adds to its own file of the journal
+ RELEASE_BOARD = ".claude/unattended/board.py"
+ # The overseer's handlers (board 033). Every audit is done by the agent `overseer` and recorded by
+ # this script, which works only through its handlers in the project's settings file; the Stop hook
+@@ -1425,8 +1426,22 @@ def audit_gap(src: EngineSource) -> str | None:
+     return f"{len(changed)} file(s) the model reads changed since the last full audit, {record} ({commit[:7]}){unseen}:{listed}"
+ 
+ 
+-def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> None:
+-    """One entry in the anomaly journal, through the board's own writer; no entry, no release."""
++def journal_files(root: Path) -> dict[Path, bytes]:
++    """The anomaly journal's files as they are now: the shared file and every session's file."""
++    paths = [root / RELEASE_JOURNAL, *sorted((root / RELEASE_JOURNAL_SESSIONS).glob("*.md"))]
++    return {path: path.read_bytes() for path in paths if path.is_file()}
++
++
++def restore_journal(root: Path, before: dict[Path, bytes]) -> None:
++    for path in journal_files(root):
++        if path not in before:
++            path.unlink()
++    for path, content in before.items():
++        path.write_bytes(content)
++
++
++def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> str:
++    """One entry in the anomaly journal, through the board's own writer; no entry, no release. The file written."""
+     res = subprocess.run(
+         [
+             sys.executable, RELEASE_BOARD, "anomaly", "-",
+@@ -1438,6 +1453,7 @@ def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> None:
+     )
+     if res.returncode != 0:
+         raise EngineError(f"--without-audit could not be written into {RELEASE_JOURNAL}; nothing was released\n  {res.stderr.strip()[:300]}")
++    return res.stdout.strip() or RELEASE_JOURNAL
+ 
+ 
+ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
+@@ -1480,19 +1496,15 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
+     if src.resolve("HEAD") != head:
+         raise EngineError("HEAD moved while the checks ran; nothing was released")
+ 
+-    journal = src.root / RELEASE_JOURNAL
+-    journal_before = journal.read_bytes() if journal.is_file() else None
+-    if gap:
+-        record_bypass(src, version, head, gap)
++    journal_before = journal_files(src.root)
++    written = record_bypass(src, version, head, gap) if gap else ""
+     git(src.root, "tag", "-a", version, "-m", args.message or f"engine {version}", head)
+     try:
+         git(src.root, "push", "--atomic", remote, f"refs/tags/{version}", *(f"{head}:refs/heads/{b}" for b in RELEASE_BRANCHES))
+     except EngineError as exc:
+         git(src.root, "tag", "-d", version)
+-        if gap and journal_before is None:
+-            journal.unlink(missing_ok=True)
+-        elif gap and journal_before is not None:
+-            journal.write_bytes(journal_before)
++        if gap:
++            restore_journal(src.root, journal_before)
+         raise EngineError(f"the push was refused, the local tag is removed again and nothing was released\n  {exc}") from None
+     print(f"  pushed  {version}, {', '.join(RELEASE_BRANCHES)} -> {remote} (fast-forward)")
+     current = subprocess.run(
+@@ -1506,7 +1518,7 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
+         except EngineError as exc:
+             print(f"  note    the local branch {branch} was not moved (the remote one was): {exc}")
+     if gap:
+-        print(f"  note    released without a fresh full audit: recorded in {RELEASE_JOURNAL}, which is now uncommitted — commit it")
++        print(f"  note    released without a fresh full audit: recorded in {written}, which is now uncommitted — commit it")
+     print(f"released {version} ({head[:7]}): {', '.join(RELEASE_BRANCHES)} and the tag point at it, here and on {remote}")
+     return EXIT_OK
+ 
+diff --git a/evals/run_audit_scenarios.py b/evals/run_audit_scenarios.py
+index 2cb2b56..facf5de 100755
+--- a/evals/run_audit_scenarios.py
++++ b/evals/run_audit_scenarios.py
+@@ -106,7 +106,9 @@ from pathlib import Path
+ from typing import Any
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
++sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude" / "hooks"))   # the ledger's reader (board 739)
+ import environment
++import journal
+ 
+ JsonObj = dict[str, Any]
+ 
+@@ -518,8 +520,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text:
+         (sandbox / gone).unlink(missing_ok=True)
+     if expect.get("ledger_fixture"):
+         shutil.copyfile(SCENARIOS / expect["ledger_fixture"], sandbox / LEDGER)
+-    ledger_file = sandbox / LEDGER
+-    before = ledger_file.read_text(encoding="utf-8") if ledger_file.is_file() else ""
++    before = journal.text(sandbox, "ledger")   # the ledger whole: the shared file and every session's file (board 739)
+ 
+     common: list[str] = []
+     settings_file = sandbox / ".claude" / "settings.json"
+@@ -541,7 +542,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text:
+     if not second:
+         return result | {"error": f"prompt B: {err}"}
+ 
+-    after = ledger_file.read_text(encoding="utf-8") if ledger_file.is_file() else ""
++    after = journal.text(sandbox, "ledger")
+     entries = new_ledger_entries(before, after)
+     limit = usage_limit_message(second)
+     if limit and not entries:
+diff --git a/tasks/README.md b/tasks/README.md
+index 4923b07..fe08004 100644
+--- a/tasks/README.md
++++ b/tasks/README.md
+@@ -354,7 +354,9 @@ python3 .claude/unattended/board.py review --since <дата> > review.md     #
+ runner-а) hook сам кладе питання про цей юніт у `tasks/blocked/` («Усе відкрите — на task board» вище) і
+ показує людині повідомлення з трьома причинами.
+ 
+-**Журнал аномалій — `tasks/ANOMALIES.md`.** Це одне місце для всього дивного: туди пишуть runner,
++**Журнал аномалій — `tasks/ANOMALIES.md` і файли сесій `.engine/journal/anomalies/`.** Кожна сесія дописує у свій файл,
++тож гілки зливаються без конфлікту (задача 739); увесь журнал за часом — `python3 .claude/hooks/journal.py show anomalies`,
++а `journal.py fold` після злиття гілок складає файли сесій у `tasks/ANOMALIES.md`. Це одне місце для всього дивного: туди пишуть runner,
+ gates (коли здаються й питають власника), hook-и (та сама невдача тричі поспіль) і сам агент — і
+ працюють далі. У записі: час (UTC), задача, що сталося, що зроблено, хто записав. Туди ж потрапляє
+ кожна зупинка task board зі станом `error`. Комітить журнал runner; огляд показує нові записи окремим
+diff --git a/templates/project/tasks/README.md b/templates/project/tasks/README.md
+index ed70f90..164e30f 100644
+--- a/templates/project/tasks/README.md
++++ b/templates/project/tasks/README.md
+@@ -354,7 +354,9 @@ python3 .claude/unattended/board.py review --since <дата> > review.md     #
+ runner-а) hook сам кладе питання про цей юніт у `tasks/blocked/` («Усе відкрите — на task board» вище) і
+ показує людині повідомлення з трьома причинами.
+ 
+-**Журнал аномалій — `tasks/ANOMALIES.md`.** Це одне місце для всього дивного: туди пишуть runner,
++**Журнал аномалій — `tasks/ANOMALIES.md` і файли сесій `.engine/journal/anomalies/`.** Кожна сесія дописує у свій файл,
++тож гілки зливаються без конфлікту (задача 739); увесь журнал за часом — `python3 .claude/hooks/journal.py show anomalies`,
++а `journal.py fold` після злиття гілок складає файли сесій у `tasks/ANOMALIES.md`. Це одне місце для всього дивного: туди пишуть runner,
+ gates (коли здаються й питають власника), hook-и (та сама невдача тричі поспіль) і сам агент — і
+ працюють далі. У записі: час (UTC), задача, що сталося, що зроблено, хто записав. Туди ж потрапляє
+ кожна зупинка task board зі станом `error`. Комітить журнал runner; огляд показує нові записи окремим
+diff --git a/tests/journals.py b/tests/journals.py
+new file mode 100644
+index 0000000..0602543
+--- /dev/null
++++ b/tests/journals.py
+@@ -0,0 +1,34 @@
++"""The four journals read whole, for a suite (board 739).
++
++    from journals import journal_text
++    journal_text(root, "anomalies")      # tasks/ANOMALIES.md and every session's file, by time
++    open_lessons(root)                   # the lesson candidates no resolution line closes, one a line
++
++Every writer of the overseer's ledger, the parked log, the anomaly journal and the lesson queue adds to
++its own session's file, `.engine/journal/<journal>/<session>.md`; a suite reads what the engine's
++readers read (.claude/hooks/journal.py `text`), never the shared file alone.
++"""
++
++from __future__ import annotations
++
++import importlib.util
++import sys
++from pathlib import Path
++from typing import Any
++
++_MODULE = Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "journal.py"
++_spec = importlib.util.spec_from_file_location("journal", _MODULE)
++assert _spec is not None and _spec.loader is not None
++journal: Any = sys.modules.get("journal") or importlib.util.module_from_spec(_spec)
++if "journal" not in sys.modules:
++    sys.modules["journal"] = journal   # its dataclass looks itself up there
++    _spec.loader.exec_module(journal)
++
++
++def journal_text(root: str | Path, name: str) -> str:
++    return str(journal.text(Path(root), name))
++
++
++def open_lessons(root: str | Path) -> str:
++    """The lesson queue as the agent sees it: the candidates without a `resolved:` line."""
++    return "".join(line + "\n" for line in journal.open_candidates(journal.lesson_lines(Path(root))))
+diff --git a/tests/test_board.py b/tests/test_board.py
+index e60ec11..1217ebf 100755
+--- a/tests/test_board.py
++++ b/tests/test_board.py
+@@ -33,6 +33,8 @@ import sys
+ import tempfile
+ from pathlib import Path
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ SCRIPT = ROOT / ".claude/unattended/board.py"
+ INBOX = ROOT / "tests/fixtures/board-inbox"
+@@ -334,7 +336,7 @@ check("«Чому зупинилась» stands before the questions, dated in U
+ check("the task's own text is kept as it was", text.startswith(task().rstrip("\n").split("## Питання до власника")[0].rstrip("\n")), text)
+ check("the questions stay the last section and the new one waits for an answer", board.read(parked).answers == ("",)
+       and "1. Задача застрягла" in board.read(parked).questions and cli(root, "unblock").stdout == "", board.read(parked))
+-journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++journal = journal_text(root, "anomalies")
+ check("the journal is made with its heading and one entry: time, task, what happened, what was done", journal.startswith("# Журнал аномалій task board\n")
+       and re.search(r"\n## \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — 007-stuck\n- Що сталося: 3 спроб\(и\).*\n- Що зроблено: задачу перенесено в `blocked/`", journal) is not None, journal)
+ check("the board goes on: the next task is offered", cli(root, "next").stdout.strip() == "tasks/todo/008-next.md")
+@@ -345,7 +347,7 @@ text = parked.read_text(encoding="utf-8")
+ check("a task in todo/ can be parked too; a second stop adds a line to the one section and a second question", r.returncode == 0
+       and text.count("## Чому зупинилась") == 1 and text.count("\n- 20") == 2 and "агент повернув задачу" in text
+       and board.read(parked).answers == ("продовжити", "") and "\n2. Агент не закінчив" in text, text)
+-check("…and a second journal entry under the first", (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8").count("\n## ") == 2)
++check("…and a second journal entry under the first", journal_text(root, "anomalies").count("\n## ") == 2)
+ for reason, words in (("deadline", "довше за 12 год"), ("budget", "`BOARD_MAX_USD`): задача витратила 12 USD")):
+     put(root, "doing", "009-other.md", "# Без розділу питань\n\nЗалежить від: —\n")
+     r = cli(root, "park", "009-other", reason, "--detail", "12")
+@@ -369,7 +371,7 @@ check("three-blocks: the reason names the unit and the three verdicts stand unde
+       and why.index("BLOCK 1 (2026-10-04T10:00:00Z, запит `r1`, перевірка #4): masked test gap") < why.index("BLOCK 2 (2026-10-04T10:05:00Z, запит `r2`): ДРУГА-ПРИЧИНА")
+       < why.index("BLOCK 3 (2026-10-04T10:09:00Z, запит `r3`, перевірка #1): false DONE"), r.stderr + text)
+ check("…with one question that waits for the owner, and a journal entry", board.read(refused).answers == ("",) and "1. Три overseer-и поспіль" in text
+-      and "— 010-refused\n- Що сталося: overseer тричі поспіль" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"), text)
++      and "— 010-refused\n- Що сталося: overseer тричі поспіль" in journal_text(root, "anomalies"), text)
+ put(root, "doing", "011-bare.md", task())
+ r = cli(root, "park", "011-bare", "three-blocks", "--verdicts", str(root / "no-such-marker.json"))
+ text = (root / "tasks/blocked/011-bare.md").read_text(encoding="utf-8")
+@@ -378,20 +380,20 @@ check("the negative case: without a readable marker the task is still parked, wi
+ r = cli(root, "park", "999-nowhere", "no-commit")
+ check("the negative cases: a task that is in neither doing/ nor todo/ is refused, and so is an unknown reason", r.returncode == 2
+       and "neither" in r.stderr and cli(root, "park", "008-next", "because").returncode == 2 and (root / "tasks/todo/008-next.md").is_file(), r.stderr)
+-before = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++before = journal_text(root, "anomalies")
+ r = cli(root, "anomaly", "-", "ЩОСЬ-ДИВНЕ", "ПІШОВ-ДАЛІ")
+-after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++after = journal_text(root, "anomalies")
+ check("anomaly: one more entry at the end, for the board as a whole, nothing above it changed", r.returncode == 0 and after.startswith(before)
+       and re.search(r"\n## \S+Z — task board\n- Що сталося: ЩОСЬ-ДИВНЕ\n- Що зроблено: ПІШОВ-ДАЛІ\n- Хто записав: runner\n$", after) is not None, after)
+ # board 035: one journal for everything odd — the entry says who wrote it
+ r = cli(root, "anomaly", "008-next", "АГЕНТ-ПОБАЧИВ", "АГЕНТ-ЗРОБИВ", "--source", "агент")
+-after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++after = journal_text(root, "anomalies")
+ check("anomaly --source: the agent's entry says the agent wrote it", r.returncode == 0
+       and after.endswith("— 008-next\n- Що сталося: АГЕНТ-ПОБАЧИВ\n- Що зроблено: АГЕНТ-ЗРОБИВ\n- Хто записав: агент\n"), after)
+ put(root, "doing", "012-in-hand.md", task())
+ noted = board.note(root, "gates (gate.py)", "Gates-ЗДАЛИСЯ\nдругий рядок", "ХІД-ЗАКІНЧЕНО")
+-after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+-check("note (a hook, the gate): filed under the task in doing/, on one line, with its writer", noted == root / "tasks/ANOMALIES.md"
++after = journal_text(root, "anomalies")
++check("note (a hook, the gate): filed under the task in doing/, on one line, with its writer", noted is not None and noted.parent == root / ".engine/journal/anomalies"
+       and after.endswith("— 012-in-hand\n- Що сталося: Gates-ЗДАЛИСЯ другий рядок\n- Що зроблено: ХІД-ЗАКІНЧЕНО\n- Хто записав: gates (gate.py)\n"), after)
+ # board 712: the owner's session's task beside the runner's — the entry goes under the writer's own
+ put(root, "doing", "011-with-owner.md", attended_task())
+@@ -399,23 +401,23 @@ kept_session = os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
+ os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
+ board.note(root, "hook x", "ДВІ-СТОРОНИ", "ДАЛІ")
+ check("note, two sides in doing/, the agent alone: filed under the agent's task, not under the board",
+-      "— 012-in-hand\n- Що сталося: ДВІ-СТОРОНИ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"), (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")[-300:])
++      "— 012-in-hand\n- Що сталося: ДВІ-СТОРОНИ" in journal_text(root, "anomalies"), journal_text(root, "anomalies")[-300:])
+ check("…and audit_refusal there speaks of the agent's task only", "012-in-hand.md" in str(board.audit_refusal(root / "tasks")), board.audit_refusal(root / "tasks"))
+ del os.environ["CLAUDE_UNATTENDED_SESSION"]
+ board.note(root, "hook x", "З-ВЛАСНИКОМ", "ДАЛІ")
+ check("…in the owner's session: under the task the owner is working on",
+-      "— 011-with-owner\n- Що сталося: З-ВЛАСНИКОМ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
++      "— 011-with-owner\n- Що сталося: З-ВЛАСНИКОМ" in journal_text(root, "anomalies"))
+ os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
+ (root / "tasks/doing/012-in-hand.md").unlink()
+ board.note(root, "hook x", "ЛИШЕ-ЗАДАЧА-ВЛАСНИКА", "ДАЛІ")
+ check("negative — the agent alone and only the owner's session's task in doing/: under the board, not under that task",
+-      "— task board\n- Що сталося: ЛИШЕ-ЗАДАЧА-ВЛАСНИКА" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
++      "— task board\n- Що сталося: ЛИШЕ-ЗАДАЧА-ВЛАСНИКА" in journal_text(root, "anomalies"))
+ del os.environ["CLAUDE_UNATTENDED_SESSION"]
+ if kept_session is not None:
+     os.environ["CLAUDE_UNATTENDED_SESSION"] = kept_session
+ (root / "tasks/doing/011-with-owner.md").unlink()
+ board.note(root, "hook x", "БЕЗ-ЗАДАЧІ", "ДАЛІ")
+-check("…and under the board when no task is in doing/", "— task board\n- Що сталося: БЕЗ-ЗАДАЧІ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
++check("…and under the board when no task is in doing/", "— task board\n- Що сталося: БЕЗ-ЗАДАЧІ" in journal_text(root, "anomalies"))
+ nowhere = Path(tempfile.mkdtemp(prefix="board-none-"))
+ check("the negative case: a project without a board gets no journal and no tasks/ directory",
+       board.note(nowhere, "hook x", "a", "b") is None and not (nowhere / "tasks").exists())
+@@ -423,7 +425,7 @@ check("the negative case: a project without a board gets no journal and no tasks
+ put(root, "doing", "013-wip.md", task())
+ r = cli(root, "park", "013-wip", "no-commit", "--detail", "3", "--stash", "abc123", "--wip", "wip/013-wip/20261004T110524Z", "--wip-remote", "origin")
+ text = (root / "tasks/blocked/013-wip.md").read_text(encoding="utf-8")
+-journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++journal = journal_text(root, "anomalies")
+ check("park --wip --wip-remote: the task file names the branch in origin, how to bring the work back, and the stash", r.returncode == 0
+       and "у гілці `wip/013-wip/20261004T110524Z` в origin" in text and "git fetch origin wip/013-wip/20261004T110524Z && git cherry-pick -n FETCH_HEAD" in text
+       and "git stash apply abc123" in text, text)
+@@ -578,14 +580,14 @@ stray = inbox / "900-gate-escalation.md"
+ stray.write_text(GATE_Q.format("2026-10-07T07:40:13Z", " так"), encoding="utf-8")
+ before = {q.name: q.read_text(encoding="utf-8") for q in b.files("blocked")}
+ r = cli(root, "import-inbox", str(inbox))
+-journal = (root / "tasks" / board.ANOMALIES).read_text(encoding="utf-8") if (root / "tasks" / board.ANOMALIES).is_file() else ""
++journal = journal_text(root, "anomalies")
+ check("no exact name among two same-numbered files: nothing is deleted, the file stays in the inbox",
+       f"{stray.name} skipped" in r.stdout and stray.is_file() and {q.name: q.read_text(encoding="utf-8") for q in b.files("blocked")} == before, r.stdout + r.stderr)
+ check("…and the anomaly journal names the file and both candidates", stray.name in journal and first.name in journal and second.name in journal
+       and "Хто записав: task board (import-inbox)" in journal, journal)
+ cli(root, "import-inbox", str(inbox))
+ check("…the same file left in the inbox is written to the journal once, not at every intake",
+-      bool(journal) and (root / "tasks" / board.ANOMALIES).read_text(encoding="utf-8") == journal)
++      bool(journal) and journal_text(root, "anomalies") == journal)
+ stray.unlink()
+ put(root, "todo", "020-one.md", "one\n")
+ put(root, "todo", "020-two.md", "two\n")
+diff --git a/tests/test_board_runner.py b/tests/test_board_runner.py
+index a49c364..16f1e80 100755
+--- a/tests/test_board_runner.py
++++ b/tests/test_board_runner.py
+@@ -63,6 +63,15 @@ from datetime import UTC, datetime, timedelta
+ from pathlib import Path
+ from typing import Any
+ 
++from journals import journal_text
++
++
++def journal_named(names: list[str]) -> list[str]:
++    """A commit's files, the anomaly journal's session file named as the journal (board 739: each session
++    adds to its own file of it, .engine/journal/anomalies/<session>.md)."""
++    return ["tasks/ANOMALIES.md" if name.startswith(".engine/journal/anomalies/") else name for name in names]
++
++
+ ROOT = Path(__file__).resolve().parent.parent
+ RUNNER = ROOT / ".claude/unattended/board-runner.sh"
+ FAKE = r'''#!/usr/bin/env python3
+@@ -601,7 +610,7 @@ check("exit 1, state=error reason=pull-conflict, claude not called", r.returncod
+       and "reason=pull-conflict" in w.status() and len(w.calls()) == 0, w.status() + r.stdout)
+ check("the rebase was aborted: nothing of the work moved, no rebase in progress", w.head("HEAD~1") == head and not (w.repo / ".git/rebase-merge").exists()
+       and not (w.repo / ".git/rebase-apply").exists(), w.log()[:3])
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++journal = journal_text(w.repo, "anomalies")
+ check("the one commit on top is the journal entry: the conflict, and that the whole board stopped", w.log()[0].startswith("board: anomaly — the board:")
+       and "конфлікт під час pull" in journal and "task board зупинено (причина `pull-conflict`)" in journal
+       and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal)
+@@ -667,7 +676,7 @@ def alive(pid: int) -> bool:
+ check("TERM: the session goes down with the runner", child > 0 and not alive(child), child)
+ check("…the mode file is restored, the lock released, the status says so", not w.has(".claude/state/overseer/mode") and not (w.state / "lock").exists()
+       and "state=error" in w.status() and "reason=killed" in w.status(), w.status())
+-killed = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++killed = journal_text(w.repo, "anomalies")
+ check("…and the stop is in the anomaly journal, under the task (board 035: every stop with state=error)", "— 001-first\n- Що сталося: runner-а вбито сигналом" in killed
+       and "причина killed" in killed, killed)
+ r = w.run()
+@@ -736,7 +745,7 @@ state = escalations(w)
+ check("the owner answered «так» in the branch: the escalation is closed", state["open"] == []
+       and [e["stamp"] for e in state["closed"]] == [stamp], state)
+ check("…board 037: the gate's question lived on the board only — the log parked.md has no entry of it, open or closed",
+-      not w.has(".engine/overseer/parked.md") or stamp not in (w.repo / ".engine/overseer/parked.md").read_text())
++      stamp not in journal_text(w.repo, "parked"))
+ check("…the task is in done/ with the answer and a report", not w.has(f"tasks/blocked/{name}")
+       and "Відповідь: так" in (w.repo / f"tasks/done/{stem}/task.md").read_text()
+       and stamp in (w.repo / f"tasks/done/{stem}/report.md").read_text())
+@@ -1293,14 +1302,14 @@ why, _, asked = text.partition("## Питання до власника")
+ check("the task file says why it stopped, in a section of its own before the questions", "## Чому зупинилась" in why
+       and "3 спроб(и) поспіль не дали жодного commit-а" in why and "Що зробити" in why.split("## Чому зупинилась")[0], text)
+ check("…and asks the owner, with an empty answer line", "1. Задача застрягла" in asked and asked.rstrip().endswith("Відповідь:"), asked)
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ entry = journal.split("\n## ")[-1]
+ check("the anomaly journal has the entry: UTC time, the task, what happened, what was done", journal.startswith("# Журнал аномалій task board")
+       and entry.split(" — ")[0].endswith("Z") and "T" in entry.split(" — ")[0] and entry.splitlines()[0].endswith("— 001-stuck")
+       and "- Що сталося: 3 спроб(и)" in entry and "- Що зроблено: задачу перенесено в `blocked/`" in entry, journal)
+ subjects = w.log(f"{base}..HEAD")
+ check("one commit holds the move and the journal, and it is pushed", "board: 001-stuck → blocked — the runner parked it (no-commit); the board goes on" in subjects
+-      and set(sh(w.repo, "git", "show", "--name-only", "--format=", f"HEAD~{subjects.index('board: 001-stuck → blocked — the runner parked it (no-commit); the board goes on')}").stdout.split())
++      and set(journal_named(sh(w.repo, "git", "show", "--name-only", "--format=", f"HEAD~{subjects.index('board: 001-stuck → blocked — the runner parked it (no-commit); the board goes on')}").stdout.split()))
+       == {"tasks/ANOMALIES.md", "tasks/blocked/001-stuck.md", "tasks/doing/001-stuck.md"} and w.origin_head() == w.head(), subjects)
+ stash = sh(w.repo, "git", "rev-parse", "-q", "--verify", "refs/stash", ok=False).stdout.strip()
+ check("the uncommitted work of the stuck task is in a stash the task file names; the next task began on a clean tree", stash != ""
+@@ -1315,7 +1324,7 @@ w.put("todo", "001-stuck.md")
+ w.put("todo", "002-stuck-too.md")
+ w.put("todo", "003-fine.md")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++journal = journal_text(w.repo, "anomalies")
+ check("two stuck tasks in a row: both parked, the third done, two journal entries in order", r.returncode == 0 and len(w.calls()) == 7
+       and w.has("tasks/blocked/001-stuck.md") and w.has("tasks/blocked/002-stuck-too.md") and w.has("tasks/done/003-fine/report.md")
+       and journal.count("\n## ") == 2 and journal.index("— 001-stuck") < journal.index("— 002-stuck-too"), journal + w.status())
+@@ -1344,7 +1353,7 @@ w = World("vanish done")
+ w.put("todo", "001-gone.md")
+ w.put("todo", "002-next.md")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("a task that vanished from the board: written into the journal, the next task is done, exit 0", r.returncode == 0 and len(w.calls()) == 2
+       and "— 001-gone" in journal and "задача зникла з task board" in journal and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status()
+       and sh(w.repo, "git", "status", "--porcelain").stdout == "" and w.origin_head() == w.head(), w.status() + journal + r.stderr)
+@@ -1367,7 +1376,7 @@ a = w.argv(1) if len(w.calls()) > 1 else ["", ""]
+ check("the turn continues the task's conversation and asks one thing: commit what is the task's or remove the rest",
+       "--resume" in a and a[a.index("--resume") + 1] == "s1" and "left-0.txt" in a[1] and "001-first" in a[1]
+       and "commit" in a[1].lower() and "remove" in a[1].lower() and "commit_checkpoint.sh" in a[1], a)
+-check("the tree is clean, nothing is in the journal, the cleaning is an event", porcelain(w) == "" and not w.has("tasks/ANOMALIES.md")
++check("the tree is clean, nothing is in the journal, the cleaning is an event", porcelain(w) == "" and not journal_text(w.repo, "anomalies")
+       and " dirty-tree 001-first " in events(w) and " dirty-tree-cleaned 001-first" in events(w), porcelain(w) + events(w))
+ check("the turn is booked on the task: two attempts, its cost", len(w.costs()["001-first"]["attempts"]) == 2
+       and w.costs()["001-first"]["cost_usd"] == 2.0 and w.costs()["001-first"]["outcome"] == "done", w.costs())
+@@ -1377,7 +1386,7 @@ w = World("done-dirty idle done")
+ w.put("todo", "001-first.md")
+ w.put("todo", "002-next.md")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("still dirty after the one turn: no second request, the next task is done, exit 0", r.returncode == 0 and len(w.calls()) == 3
+       and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status(), w.status() + r.stdout + r.stderr)
+ check("the journal has one entry, for that task, with the list of files", journal.count("\n## ") == 1 and "— 001-first" in journal
+@@ -1391,7 +1400,7 @@ check("the next task is not blamed for files that were there before it began", "
+ w = World("block-dirty idle")
+ w.put("todo", "001-ask.md")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("a task the agent moved to blocked/ is held to the same rule", r.returncode == 0 and len(w.calls()) == 2 and "--resume" in w.argv(1)
+       and w.has("tasks/blocked/001-ask.md") and "`left-0.txt`" in journal and "state=waiting-owner" in w.status(), w.status() + journal + r.stderr)
+ 
+@@ -1399,12 +1408,12 @@ w = World("done-dirty limit tidy")
+ w.put("todo", "001-first.md")
+ r = w.run()
+ check("a usage-limit notice is not the one turn: it is waited out and asked again", r.returncode == 0 and len(w.calls()) == 3
+-      and porcelain(w) == "" and not w.has("tasks/ANOMALIES.md"), porcelain(w) + w.status() + r.stderr)
++      and porcelain(w) == "" and not journal_text(w.repo, "anomalies"), porcelain(w) + w.status() + r.stderr)
+ 
+ w = World("done-dirty tidy")
+ w.put("todo", "001-first.md")
+ r = w.run(BOARD_MAX_USD="1")
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("the task's budget is spent: no turn is bought, the journal gets the entry at once", r.returncode == 0 and len(w.calls()) == 1
+       and "`left-0.txt`" in journal and "бюджет" in journal and porcelain(w) == "A  left-0.txt\n", journal + r.stderr)
+ 
+@@ -1413,7 +1422,7 @@ w.put("todo", "001-first.md")
+ (w.repo / "stray.txt").write_text("was here before the task\n")
+ r = w.run()
+ check("a move left uncommitted under tasks/ is the runner's to commit, and a file that was there before the task is not the task's: no turn, no entry",
+-      r.returncode == 0 and len(w.calls()) == 1 and porcelain(w) == "?? stray.txt\n" and not w.has("tasks/ANOMALIES.md"), porcelain(w) + r.stderr)
++      r.returncode == 0 and len(w.calls()) == 1 and porcelain(w) == "?? stray.txt\n" and not journal_text(w.repo, "anomalies"), porcelain(w) + r.stderr)
+ 
+ w = World("dirty idle idle done")
+ w.put("todo", "001-stuck.md")
+@@ -1427,7 +1436,7 @@ for n in range(60):
+     (w.repo / f"gen-{n:02d}.txt").write_text("x\n")
+ w.fake.write_text(FAKE.replace("if leave:", 'if leave:\n    [Path(f"many-{i:02d}.txt").write_text("x\\n") for i in range(60)]'))
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ ask = w.argv(1)[1] if len(w.calls()) > 1 else ""
+ check("many files: the journal names every one of the task's, none of those that were there before; the request stays short",
+       r.returncode == 0 and all(f"`many-{i:02d}.txt`" in journal for i in range(60)) and "gen-" not in journal
+@@ -1438,7 +1447,7 @@ w = World("auth done done")
+ w.put("todo", "001-first.md")
+ w.put("todo", "002-second.md")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("claude is logged out: the whole board stops — exit 1, state=error reason=logged-out, one call, the next task not started", r.returncode == 1
+       and len(w.calls()) == 1 and "state=error task=001-first" in w.status() and "reason=logged-out" in w.status() and w.has("tasks/todo/002-second.md"), w.status() + r.stdout)
+ check("…the task stays in doing/ (it is not its fault), the journal says so and is pushed", w.has("tasks/doing/001-first.md")
+@@ -1460,14 +1469,14 @@ w.put("todo", "001-first.md")
+ w.put("todo", "002-second.md")
+ os.rename(w.origin, w.dir / "origin-away.git")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("origin out of reach is not critical: both tasks are done, each failed push is in the journal", r.returncode == 0 and len(w.calls()) == 2
+       and w.has("tasks/done/002-second/report.md") and journal.count("гілку не вдалося надіслати") >= 2
+       and sh(w.repo, "git", "status", "--porcelain").stdout == "", journal + r.stdout)
+ w = World("done")
+ w.put("todo", "001-first.md")
+ r = w.run()
+-check("the negative case: nothing odd happened — no journal is made", r.returncode == 0 and not w.has("tasks/ANOMALIES.md"))
++check("the negative case: nothing odd happened — no journal is made", r.returncode == 0 and not journal_text(w.repo, "anomalies"))
+ # --- three BLOCKs park the task, and the runner does it (board 031) -----------------------------------
+ print("three BLOCKs in a row on one unit: the hook stops the session, the runner parks the task and takes the next")
+ WIRED = json.dumps({"hooks": {"SubagentStop": [{"matcher": "overseer", "hooks": [
+@@ -1500,7 +1509,7 @@ check("the runner moved the task to blocked/ after ONE session — the fake neve
+ check("«Чому зупинилась» carries the unit and the three overseers' verdicts", "overseer тричі поспіль відхилив один юніт (-|001-refused|unit 1)" in why
+       and all(f"BLOCK {k} (" in why and f"перевірка #1): ПРИЧИНА-{k}:" in why for k in (1, 2, 3)), text)
+ check("…and one question to the owner, unanswered", "1. Три overseer-и поспіль" in text and text.rstrip().endswith("Відповідь:"), text)
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("the event is in the anomaly journal", "— 001-refused\n- Що сталося: overseer тричі поспіль відхилив один юніт" in journal, journal)
+ check("the runner took the next task: it is done by the second call", len(w.calls()) == 2 and w.has("tasks/done/002-next/report.md")
+       and "state=waiting-owner" in w.status(), w.status() + r.stdout)
+@@ -1523,7 +1532,7 @@ w = audited_world("idle done")
+ w.put("todo", "001-quiet.md")
+ r = w.run()
+ check("the negative case: a session without three BLOCKs is simply continued — nothing is parked", r.returncode == 0 and len(w.calls()) == 2
+-      and w.has("tasks/done/001-quiet/report.md") and "task-parked" not in events(w) and not w.has("tasks/ANOMALIES.md"), events(w))
++      and w.has("tasks/done/001-quiet/report.md") and "task-parked" not in events(w) and not journal_text(w.repo, "anomalies"), events(w))
+ w = audited_world("done")
+ w.put("doing", "001-left.md")
+ w.put("todo", "002-next.md")
+@@ -1577,7 +1586,7 @@ check("…still missing after it: blocked/ with «Чому зупинилась
+       bool(text) and "задачу закрито без мінімуму її режиму" in text and "змінив робочий код" in text and text.rstrip().endswith("Відповідь:")
+       and w.has("tasks/blocked/report-001-solo.md") and not w.has("tasks/done/001-solo"), r.stdout + text)
+ check("…in the anomaly journal, in the events, committed, and the board waits for the owner",
+-      "задачу закрито без мінімуму її режиму" in (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++      "задачу закрито без мінімуму її режиму" in journal_text(w.repo, "anomalies")
+       and " minimum-missing 001-solo" in events(w) and " task-parked 001-solo minimum" in events(w)
+       and "board: 001-solo → blocked — the runner parked it (minimum); the board goes on" in w.log() and "state=waiting-owner" in w.status(),
+       events(w) + w.status())
+@@ -1614,7 +1623,7 @@ w.put("todo", "001-broken.md")
+ r = w.run()
+ check("negative — the check itself breaks (exit 3): an anomaly, the task stays in done/, no turn back, no park",
+       w.has("tasks/done/001-broken/task.md") and len(w.calls()) == 1 and "task-parked" not in events(w)
+-      and "мінімум режиму задачі не перевірено: `mode.py check-close` відповів кодом 3" in (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8"),
++      and "мінімум режиму задачі не перевірено: `mode.py check-close` відповів кодом 3" in journal_text(w.repo, "anomalies"),
+       events(w) + r.stdout)
+ 
+ w = World("done")
+@@ -1706,7 +1715,7 @@ r = w.run()
+ remote = wip_refs(w.origin)
+ branch = remote[0] if remote else ""
+ text = (w.repo / "tasks/blocked/001-stuck.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-stuck.md") else ""
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("origin has exactly one branch wip/<task>/<UTC time>", len(remote) == 1 and WIP_NAME.match(branch) is not None, remote)
+ shown = sh(w.origin, "git", "show", "--name-only", "--format=%P%n%s", branch, ok=False).stdout.split("\n")
+ taken = sh(w.repo, "git", "log", "--format=%H", "--grep", "001-stuck → doing").stdout.strip()
+@@ -1745,28 +1754,28 @@ w = World("note done")
+ w.put("todo", "001-first.md")
+ base = w.head()
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("an entry the agent wrote during its attempt says so, and the runner commits it by itself right after the attempt",
+       "— 001-first\n- Що сталося: АГЕНТ-ПОБАЧИВ-ДИВНЕ\n- Що зроблено: АГЕНТ-ПІШОВ-ДАЛІ\n- Хто записав: агент\n" in journal
+       and w.log(f"{base}..HEAD") == ["001-first: done", OTHERS, "board: 001-first → doing"], w.log(f"{base}..HEAD"))
+ check("…the commit holds the journal alone; the board goes on to the end with a clean tree, pushed", r.returncode == 0 and len(w.calls()) == 2
+-      and sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split() == ["tasks/ANOMALIES.md"]
++      and journal_named(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split()) == ["tasks/ANOMALIES.md"]
+       and "state=idle" in w.status() and porcelain(w) == "" and w.origin_head() == w.head(), w.status() + porcelain(w))
+ 
+ w = World("")
+ stamp, name = escalate(w)
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("the gate's escalation is in the journal, written by the gate: the stamp, the reason, the question it asked", journal.count("\n## ") == 1
+       and f"ескалація {stamp}" in journal and f"`tasks/blocked/{name}`" in journal and "- Хто записав: gates (gate.py)" in journal, journal)
+ r = w.run()
+ check("…and the runner commits it, apart from the question", OTHERS in w.log() and "tasks/" not in porcelain(w) and w.origin_head() == w.head()
+-      and sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split() == ["tasks/ANOMALIES.md"], str(w.log()) + porcelain(w))
++      and journal_named(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~1").stdout.split()) == ["tasks/ANOMALIES.md"], str(w.log()) + porcelain(w))
+ 
+ w = World("done")
+ w.put("doing", "001-one.md")
+ w.put("doing", "002-two.md")
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if w.has("tasks/ANOMALIES.md") else ""
++journal = journal_text(w.repo, "anomalies")
+ check("a stop with state=error (two tasks in doing/) is in the journal: the state, the reason word, what to do", r.returncode == 1
+       and "state=error" in w.status() and "reason=board" in w.status() and journal.count("\n## ") == 1 and "— task board\n" in journal
+       and "зі станом `error` (причина `board`)" in journal and "- Хто записав: runner" in journal and len(w.calls()) == 0, w.status() + journal)
+@@ -1776,7 +1785,7 @@ w = World("done", branch="main")
+ w.put("todo", "001-first.md")
+ r = w.run(BOARD_BRANCH="main")
+ check("the negative case: a stop because the branch is not a work branch writes nothing into that branch", r.returncode == 1
+-      and "reason=branch" in w.status() and not w.has("tasks/ANOMALIES.md") and porcelain(w) == "", w.status() + porcelain(w))
++      and "reason=branch" in w.status() and not journal_text(w.repo, "anomalies") and porcelain(w) == "", w.status() + porcelain(w))
+ 
+ print("board 035: a gate question whose escalation was closed another way is removed by the runner")
+ w = World("")
+@@ -1789,7 +1798,7 @@ check("the negative case: while the escalation is open the unanswered question s
+ terminal = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(w.repo)}
+ closed = subprocess.run([sys.executable, str(GATE), "--close-escalation", stamp], cwd=w.repo, env=terminal, capture_output=True, text=True, check=False)
+ r = w.run()
+-journal = (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++journal = journal_text(w.repo, "anomalies")
+ report = (w.repo / f"tasks/done/{stem}/report.md").read_text(encoding="utf-8") if w.has(f"tasks/done/{stem}/report.md") else ""
+ check("the owner closed the escalation in a terminal: the question leaves blocked/ for done/ with a report that says why", closed.returncode == 0
+       and not w.has(f"tasks/blocked/{name}") and w.has(f"tasks/done/{stem}/task.md") and "закрито іншим шляхом" in report and stamp in report, closed.stderr + report)
+@@ -1797,7 +1806,7 @@ check("…with an entry in the journal that names the question and the escalatio
+       and stamp in journal.split(f"— {stem}\n")[-1] and "сам прибрав питання" in journal, journal)
+ check("…in one commit with the journal, pushed; no agent was started; nothing waits any more",
+       w.log("-1") == [f"board: {stem} → done — gate escalation {stamp} was closed another way; the question is removed"]
+-      and "tasks/ANOMALIES.md" in sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD").stdout and w.origin_head() == w.head()
++      and "tasks/ANOMALIES.md" in journal_named(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD").stdout.split()) and w.origin_head() == w.head()
+       and w.calls() == [] and f"gate-question-swept {stamp} {name}" in events(w) and "state=idle" in w.status(), str(w.log("-2")) + w.status())
+ 
+ runner_head = runner_text.split("set -uo pipefail")[0]
+diff --git a/tests/test_cleanup.py b/tests/test_cleanup.py
+index 1db4263..8f04e9f 100644
+--- a/tests/test_cleanup.py
++++ b/tests/test_cleanup.py
+@@ -31,6 +31,8 @@ import sys
+ import tempfile
+ from pathlib import Path
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ BOARD = ROOT / ".claude/unattended/board.py"
+ RUNNER = ROOT / ".claude/unattended/board-runner.sh"
+@@ -229,12 +231,13 @@ try:
+     check("the agent was started for each, with the cleanup task as its task", w.said("calls") == [f"010-work.md | Your task is the file tasks/doing/010-work.md", f"{name}.md | Your task is the file tasks/doing/{name}.md"], w.said("calls"))
+     check("the cleanup ran the simplifier's nightly mode, once, and its answer is in the report",
+           w.said("nightly") == ["nightly"] and "no sharp growth" in w.text(f"tasks/done/{name}/report.md"), w.said("nightly"))
+-    journal = w.text("tasks/ANOMALIES.md")
++    journal = journal_text(w.repo, "anomalies")
+     check("the event is in the anomaly journal: under the task, what happened, what was done, by the runner",
+           journal.count(f"— {name}\n") == 1 and "task board вільна" in journal and f"`tasks/todo/{name}.md`" in journal and "Хто записав: runner" in journal, journal)
+     check("placed in one commit — the task and its journal entry together — and nothing is left uncommitted",
+           sum(PLACED in s for s in w.subjects()) == 1 and w.dirty() == ""
+-          and sorted(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~2").stdout.split()) == ["tasks/ANOMALIES.md", f"tasks/todo/{name}.md"], str(w.subjects()) + w.dirty())
++          and [p.split("/")[:3] for p in sorted(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~2").stdout.split())]
++          == [[".engine", "journal", "anomalies"], ["tasks", "todo", f"{name}.md"]], str(w.subjects()) + w.dirty())
+     check("origin has it all", sh(w.repo, "git", "rev-parse", "HEAD").stdout == sh(w.repo, "git", "rev-parse", "origin/unattended/work").stdout)
+     doc = w.board("review", "--offline", "--state-dir", str(w.repo / ".claude/state"))
+     odd = doc.stdout.split("\n## Аномалії")[1].split("\n## ")[0] if "\n## Аномалії" in doc.stdout else ""
+@@ -248,7 +251,8 @@ try:
+     check("the next day: once more, and once", w.tasks("done") == ["010-work", name, "012-cleanup-2026-10-06"] and len(w.said("calls")) == 3 and w.said("nightly") == ["nightly"] * 2, out(r) + str(w.subjects()))
+ 
+     w = World().task("todo", "010-work")
+-    (w.repo / "tasks/ANOMALIES.md").mkdir()   # board 723: the journal cannot be written — a directory stands where the file goes
++    (w.repo / ".engine/journal").mkdir(parents=True)   # board 723: the journal cannot be written — a file stands where
++    (w.repo / ".engine/journal/anomalies").write_text("")   # the sessions' directory of it goes (board 739)
+     w.commit("the owner's task")
+     r = w.runner("2026-10-05")
+     name = "011-cleanup-2026-10-05"
+@@ -259,7 +263,7 @@ try:
+           r.returncode == 0 and w.tasks("done") == ["010-work", name] and sum(PLACED in s for s in w.subjects()) == 1
+           and w.said("nightly") == ["nightly"] and "state=idle" in w.status() and "reason=todo-empty" in w.status(), out(r) + log)
+     check("…and it says nothing else: one anomaly-failed event, the journal stands where it stood, nothing is left uncommitted",
+-          log.count("anomaly-failed") == 1 and (w.repo / "tasks/ANOMALIES.md").is_dir() and w.dirty() == "", log + w.dirty())
++          log.count("anomaly-failed") == 1 and (w.repo / ".engine/journal/anomalies").is_file() and w.dirty() == "", log + w.dirty())
+ 
+     w = World().task("blocked", "030-asked", ask="1. Що?\n   Відповідь:\n")
+     w.commit("a question waits")
+@@ -284,7 +288,7 @@ try:
+ 
+     w = World(env='CLEANUP_EVERY_DAYS="0"\n')
+     r = w.runner("2026-10-05")
+-    check("NEGATIVE: switched off — the runner stops idle at once, no task, no agent, no journal", r.returncode == 0 and w.tasks("done") == [] and w.said("calls") == [] and w.text("tasks/ANOMALIES.md") == "" and "state=idle" in w.status(), out(r))
++    check("NEGATIVE: switched off — the runner stops idle at once, no task, no agent, no journal", r.returncode == 0 and w.tasks("done") == [] and w.said("calls") == [] and journal_text(w.repo, "anomalies") == "" and "state=idle" in w.status(), out(r))
+ 
+     w = World(weekly=True)
+     r = w.runner("2026-10-05")
+diff --git a/tests/test_commit_checkpoint.py b/tests/test_commit_checkpoint.py
+index c81b7ce..a08a934 100755
+--- a/tests/test_commit_checkpoint.py
++++ b/tests/test_commit_checkpoint.py
+@@ -113,6 +113,16 @@ def main() -> int:
+     t.check("default: the tracked modification is swept in", out.returncode == 0 and "tracked.txt" in shown, shown)
+     t.check("default: an untracked file is never swept in (nothing to commit)", out2.returncode == 0 and "nothing to commit" in out2.stdout, out2.stdout)
+ 
++    # --- board 739: the journals' session files are records of the work, swept in like tracked changes ---
++    (r / ".engine/journal/ledger").mkdir(parents=True)
++    (r / ".engine/journal/ledger/session-x.md").write_text("## 2026-10-10T07:00:00Z — s — PASS\n", encoding="utf-8")
++    (r / "tracked.txt").write_text("v3\n", encoding="utf-8")
++    out = checkpoint(r, "S3j")
++    shown = git(r, "show", "--stat", "--format=", "HEAD")
++    t.check("default: a journal's new session file goes in with the work (board 739)",
++            out.returncode == 0 and ".engine/journal/ledger/session-x.md" in shown and "tracked.txt" in shown, shown)
++    t.check("…while another untracked file still stays out", "scratch.log" not in shown and "scratch.log" in git(r, "status", "--porcelain"), shown)
++
+     # --- nothing staged is not an error ---------------------------------------------------
+     out = checkpoint(r, "--staged", "S4")
+     t.check("nothing staged: exit 0 with a note", out.returncode == 0 and "nothing to commit" in out.stdout, out.stdout)
+diff --git a/tests/test_complexity_budget.py b/tests/test_complexity_budget.py
+index 506eb8e..35644bd 100755
+--- a/tests/test_complexity_budget.py
++++ b/tests/test_complexity_budget.py
+@@ -14,6 +14,8 @@ import sys
+ import tempfile
+ from pathlib import Path
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ HOOK = ROOT / ".claude" / "hooks" / "complexity_budget.py"
+ PASS = FAIL = 0
+@@ -326,9 +328,8 @@ check("accept with a clean verdict records the overrun", code == 0, out)
+ sidecar = repo / ".engine/slices/overruns/tax.md"
+ check("the reason is written next to the contract", sidecar.is_file() and "keep parsing apart" in sidecar.read_text()
+       and "max_new_files: 2" in sidecar.read_text(), sidecar.read_text() if sidecar.is_file() else "absent")
+-ledger = repo / ".engine/overseer/ledger.md"
+-check("...and in the ledger", ledger.is_file() and "COMPLEXITY_OVERRUN_ACCEPTED" in ledger.read_text()
+-      and "keep parsing apart" in ledger.read_text())
++ledger = journal_text(repo, "ledger")   # the shared file and every session's file (board 739)
++check("...and in the ledger", "COMPLEXITY_OVERRUN_ACCEPTED" in ledger and "keep parsing apart" in ledger, ledger[-400:])
+ check("the sealed contract itself is untouched", "keep parsing apart" not in (repo / ".engine/slices/tax.md").read_text())
+ decision, text = run_hook(repo)
+ report_text = (repo / ".claude/state/overseer/complexity-report.md").read_text()
+diff --git a/tests/test_gate.py b/tests/test_gate.py
+index f4f8bc7..69e0b2f 100755
+--- a/tests/test_gate.py
++++ b/tests/test_gate.py
+@@ -20,6 +20,7 @@ import tempfile
+ from pathlib import Path
+ from typing import Any
+ 
++from journals import journal_text
+ from tool_pins import tool_versions as VERSIONS
+ 
+ ROOT = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+@@ -201,7 +202,7 @@ _, other = hook_stop(r, "B")
+ check("another session has its own count", other.get("decision") == "block" and report(r)["stop"]["consecutive_blocks"] == 1, report(r))
+ proc, p3 = hook_stop(r, "A", active=True)
+ check("the 3rd block escalates: the turn may end", p3.get("decision") is None and "GATE ESCALATION" in str(p3.get("systemMessage")), proc.stdout)
+-parked = (r / ".engine/overseer/parked.md").read_text()
++parked = journal_text(r, "parked")
+ check("the escalation is parked for a human", "PARKED" in parked and "Class: human-input" in parked and "last-report.json" in parked, parked)
+ check("escalation is recorded in the report and the counter resets",
+       report(r)["result"] == "escalated" and report(r)["stop"]["escalated"] is True, report(r))
+diff --git a/tests/test_gate_allows.py b/tests/test_gate_allows.py
+index 22e860d..6c280c9 100755
+--- a/tests/test_gate_allows.py
++++ b/tests/test_gate_allows.py
+@@ -30,6 +30,8 @@ import time
+ from pathlib import Path
+ from typing import Any
+ 
++from journals import journal_text
++
+ ROOT = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
+                            check=True).stdout.strip())
+ HOOKS = ROOT / ".claude" / "hooks"
+@@ -386,7 +388,7 @@ r = new_repo()
+ asked = claim(r)
+ check("corrupt collector state is read as no state: the plain request", asked.startswith("OVERSEER_REQUEST") and "GATE-ALLOW" not in asked, asked)
+ broken = Path(tempfile.mkdtemp(prefix="gate-allows-hooks-"))
+-for name in ("overseer_stop.py", "overseer_verdict.py", "gate.py", "lesson_queue.py"):
++for name in ("overseer_stop.py", "overseer_verdict.py", "gate.py", "lesson_queue.py", "journal.py"):
+     shutil.copy(HOOKS / name, broken / name)
+ (broken / "gate_allows.py").write_text("def render(allows: object) -> str:\n    return ''\n\n\n"
+     "def record_request(*a: object, **k: object) -> list[object]:\n    raise OSError('disk went away')\n")
+@@ -444,7 +446,7 @@ r = new_repo()
+ in_slice(r, "tax")
+ commit(r, "the slice is declared")
+ stamp = escalate(r)
+-parked = (r / ".engine/overseer/parked.md").read_text()
++parked = journal_text(r, "parked")
+ check("the gate's PARKED entry names the slice and the owner's command",
+       f"## {stamp} — gate stop layer — PARKED" in parked and "- Slice: tax\n" in parked
+       and f"--close-escalation {stamp}" in parked, parked)
+@@ -478,8 +480,8 @@ done = close(r, stamp, inside_claude=False)
+ state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+ check("the owner's command closes it in the state; board 037: the log is history — its entry is left as it was written",
+       done.returncode == 0 and state["open"] == [] and state["closed"][0]["stamp"] == stamp
+-      and f"## {stamp} — gate stop layer — PARKED" in (r / ".engine/overseer/parked.md").read_text()
+-      and "RESUMED" not in (r / ".engine/overseer/parked.md").read_text(), (done.stderr, state))
++      and f"## {stamp} — gate stop layer — PARKED" in journal_text(r, "parked")
++      and "RESUMED" not in journal_text(r, "parked"), (done.stderr, state))
+ check("...and PASS is accepted again", audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
+ 
+ print("an escalation outside any slice covers its files")
+@@ -520,7 +522,7 @@ r = new_repo()
+ stamp = escalate(r)
+ state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+ check("no tasks/ in the project: no task, no tasks/ directory, the escalation as before",
+-      not (r / "tasks").exists() and "task" not in state["open"][-1] and "«так»" not in (r / ".engine/overseer/parked.md").read_text(), state)
++      not (r / "tasks").exists() and "task" not in state["open"][-1] and "«так»" not in journal_text(r, "parked"), state)
+ r = new_repo()
+ (r / "tasks" / "blocked").mkdir(parents=True)
+ (r / "mod.py").write_text("x = 1\ny = 2\nq = 9\n")
+@@ -547,7 +549,7 @@ check("the gate itself still closes nothing inside a session", close(r, stamp, i
+       and len(json.loads((r / ".claude/state/gate/escalations.json").read_text())["open"]) == 1)
+ lonely = Path(tempfile.mkdtemp(prefix="gate-allows-noboard-")) / "hooks"
+ lonely.mkdir()
+-for name in ("gate.py", "delete_guard.py", "test_touch.py", "lesson_queue.py"):  # the gate and the modules it cannot run without
++for name in ("gate.py", "delete_guard.py", "test_touch.py", "lesson_queue.py", "journal.py"):  # the gate and the modules it cannot run without
+     shutil.copy(HOOKS / name, lonely / name)
+ r = new_repo()
+ (r / "tasks" / "blocked").mkdir(parents=True)
+@@ -557,7 +559,7 @@ commit(r, "env")
+ proc = run(lonely / "gate.py", r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
+ state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+ check("board.py missing beside the hooks: the escalation is still recorded and parked, and the gate says so",
+-      len(state["open"]) == 1 and "PARKED" in (r / ".engine/overseer/parked.md").read_text()
++      len(state["open"]) == 1 and "PARKED" in journal_text(r, "parked")
+       and "not put on the task board" in proc.stderr and "GATE ESCALATION" in proc.stdout, proc.stderr)
+ 
+ 
+@@ -589,8 +591,7 @@ def questions(root: Path) -> list[str]:
+ 
+ 
+ def journal(root: Path) -> str:
+-    path = root / "tasks/ANOMALIES.md"
+-    return path.read_text(encoding="utf-8") if path.is_file() else ""
++    return journal_text(root, "anomalies")
+ 
+ 
+ for marker, word in (("rebase-merge", "rebase"), ("rebase-apply", "rebase"), ("MERGE_HEAD", "merge")):
+@@ -639,7 +640,7 @@ in_progress(r, "rebase-merge", True)
+ escalate(r)
+ state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
+ check("negative — no board in the project: a rebase changes nothing, the escalation is parked in the log as before",
+-      "waiting" not in state["open"][-1] and "PARKED" in (r / ".engine/overseer/parked.md").read_text() and not (r / "tasks").exists(), state)
++      "waiting" not in state["open"][-1] and "PARKED" in journal_text(r, "parked") and not (r / "tasks").exists(), state)
+ check("--ask-waiting with nothing waiting: exit 0, nothing written", run(GATE, r, "--ask-waiting").returncode == 0 and not (r / "tasks").exists())
+ 
+ print()
+diff --git a/tests/test_goals.py b/tests/test_goals.py
+index 8a62ca6..eb7ea93 100644
+--- a/tests/test_goals.py
++++ b/tests/test_goals.py
+@@ -31,6 +31,8 @@ import sys
+ import tempfile
+ from pathlib import Path
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ GOALS = ROOT / ".claude/hooks/goals.py"
+ OWNER_ACTION = ROOT / ".claude/unattended/owner_action.py"
+@@ -218,7 +220,7 @@ with tempfile.TemporaryDirectory() as tmp:
+ 
+     print("the lesson queue and the simplifier")
+     r = run(LESSONS, root, "add", "--source", "analyst", "did not ask who pays for delivery")
+-    queue = (root / ".engine/lesson-queue.md").read_text(encoding="utf-8") if (root / ".engine/lesson-queue.md").is_file() else ""
++    queue = journal_text(root, "lessons")   # the shared file and every session's file (board 739)
+     check("a lesson from the owner's correction of the analyst is queued with the source `analyst`", r.returncode == 0 and "| analyst |" in queue, out(r) + queue)
+     r = run(LESSONS, root, "add", "--source", "nobody", "x")
+     check("an unknown source is still refused", r.returncode != 0, out(r))
+diff --git a/tests/test_journal.py b/tests/test_journal.py
+new file mode 100755
+index 0000000..0975522
+--- /dev/null
++++ b/tests/test_journal.py
+@@ -0,0 +1,349 @@
++#!/usr/bin/env python3
++"""The journals every session adds to in a file of its own (board 739): journal.py and its writers.
++
++The owner's answer: each session writes its entries of the overseer's ledger, the anomaly journal, the
++parked log and the lesson queue into its own file, so merging branches never conflicts; the entries are
++put together by time without loss, and two sessions that triaged one candidate differently are settled
++by an agent, not by the script. Pinned against real throwaway repositories:
++
++- two branches, two sessions, every journal written through its real writer: `git merge` and `git rebase`
++  pass without a conflict, every entry of both is there whole — the lines entries share included, which
++  `merge=union` loses — and the readers see what a single folded file gives them;
++- negative: the same two branches writing the shared file the old way conflict, and so does a file
++  outside the four (MEMORY.md);
++- the lesson queue: a triaged candidate stays triaged through merge and fold; two different triages are a
++  contradiction put on the board once, and `settle` closes it; two equal triages are none;
++- `fold`: lossless, idempotent, removes only session files older than KEEP_DAYS;
++- without a session file a reader gets the shared file byte for byte (nothing changes for a project
++  that never wrote one);
++- the session's name, `journal.py add/show/contradictions`, and board_review reading through git.
++
++Run:   python3 tests/test_journal.py       Exit: 0 all green, 1 otherwise.
++"""
++
++from __future__ import annotations
++
++import contextlib
++import os
++import shutil
++import subprocess
++import sys
++import tempfile
++from collections.abc import Iterator
++from datetime import UTC, datetime, timedelta
++from pathlib import Path
++
++from hook_env import hook_env
++
++sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude/hooks"))
++sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude/unattended"))
++import board
++import board_review
++import journal
++import lesson_queue
++import overseer_verdict
++
++ROOT = Path(__file__).resolve().parent.parent
++
++JOURNAL = ROOT / ".claude/hooks/journal.py"
++PASS = FAIL = 0
++
++
++def check(name: str, cond: bool, detail: object = "") -> None:
++    global PASS, FAIL
++    if cond:
++        PASS += 1
++        print(f"  ok   {name}")
++    else:
++        FAIL += 1
++        print(f"  FAIL {name}\n         {str(detail)[:700]}")
++
++
++def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=root, capture_output=True, text=True, check=False)
++
++
++@contextlib.contextmanager
++def session(name: str | None) -> Iterator[None]:
++    """Run the writers as one Claude Code session (CLAUDE_CODE_SESSION_ID), or as none."""
++    saved = {k: os.environ.pop(k) for k in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID") if k in os.environ}
++    if name is not None:
++        os.environ["CLAUDE_CODE_SESSION_ID"] = name
++    try:
++        yield
++    finally:
++        os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
++        os.environ.update(saved)
++
++
++LEDGER_HEAD = (ROOT / "templates/project/.engine/overseer/ledger.md").read_text(encoding="utf-8")
++OLD_ENTRY = "## 2026-10-01T10:00:00Z — slice-s — BLOCK\n- Verdict: BLOCK\n- Auditor: overseer agent\n"   # a BLOCK: the shared file alone counts no PASS
++
++
++def base() -> Path:
++    """A project as it stands before the two sessions: the four shared files committed."""
++    root = Path(tempfile.mkdtemp(prefix="journal-"))
++    git(root, "init", "-q", "-b", "main")
++    (root / ".gitignore").write_text(".claude/state/\n")
++    for column in ("todo", "doing", "blocked", "done"):
++        (root / "tasks" / column).mkdir(parents=True)
++        (root / "tasks" / column / ".gitkeep").write_text("")
++    (root / ".engine/overseer").mkdir(parents=True)
++    (root / ".engine/overseer/ledger.md").write_text(LEDGER_HEAD.rstrip("\n") + "\n\n" + OLD_ENTRY)
++    (root / ".engine/overseer/parked.md").write_text("# Parked items\n")
++    (root / ".engine/overseer/MEMORY.md").write_text("# Memory\n")
++    (root / "tasks/ANOMALIES.md").write_text(board.ANOMALIES_HEAD + "\n## 2026-10-01T09:00:00Z — task board\n- Що сталося: old\n- Що зроблено: nothing\n- Хто записав: runner\n")
++    (root / ".engine/lesson-queue.md").write_text(lesson_queue.QUEUE_HEADER + "- 2026-10-01 | agent | s | the first old lesson #aaaa1111\n"
++                                                  "- 2026-10-01 | agent | s | the second old lesson #bbbb2222\n")
++    git(root, "add", "-A")
++    git(root, "commit", "-qm", "base")
++    return root
++
++
++def ledger_entry(stamp: str, slice_name: str, verdict: str) -> str:
++    return f"## {stamp} — {slice_name} — {verdict}\n- Verdict: {verdict}\n- Request: {stamp}-r (attempt 1, hook)\n- Auditor: overseer agent\n"
++
++
++def parked_entry(stamp: str, item: str) -> str:
++    return f"## {stamp} — {item} — PARKED\n- Blocked on: the owner\n- Class: human-input\n- Unblocks when: the owner answers\n"
++
++
++def write_session(root: Path, name: str, minute: int, resolve: tuple[str, str] | None) -> dict[str, list[str]]:
++    """One session's work, through the real writers. What it wrote, per journal."""
++    def stamp(second: int) -> str:
++        return f"2026-10-10T07:{minute:02d}:{second:02d}Z"
++
++    written: dict[str, list[str]] = {"ledger": [], "anomalies": [], "parked": [], "lessons": []}
++    with session(name):
++        for second, verdict in ((1, "BLOCK"), (2, "PASS")):
++            entry = ledger_entry(stamp(second), "slice-s", verdict)
++            overseer_verdict.write_ledger(root, entry)
++            written["ledger"].append(entry.strip())
++        path = board.anomaly(board.Board(root / "tasks"), f"0{minute}-task", f"odd thing of {name}", "worked past it")
++        written["anomalies"].append(journal.split(path.read_text(encoding="utf-8"), journal.JOURNALS["anomalies"])[1][-1])
++        entry = parked_entry(stamp(3), f"unit-{name}")
++        journal.add(root, "parked", entry)
++        written["parked"].append(entry.strip())
++        ident = lesson_queue.add(root, "agent", "s", f"a lesson session {name} learned")
++        written["lessons"].append(str(ident))
++        if resolve:
++            ok, message = lesson_queue.resolve(root, resolve[0], resolve[1], f"{name} decided {resolve[1]}", ["c1", "c2"], "")
++            assert ok, message
++    return written
++
++
++def commit_all(root: Path, message: str) -> None:
++    git(root, "add", "-A")
++    git(root, "commit", "-qm", message)
++
++
++def two_branches() -> tuple[Path, dict[str, list[str]], dict[str, list[str]]]:
++    root = base()
++    git(root, "switch", "-qc", "a")
++    a = write_session(root, "session-A", 1, ("aaaa1111", "discard"))
++    commit_all(root, "a")
++    git(root, "switch", "-q", "main")
++    shutil.rmtree(root / ".claude/state", ignore_errors=True)   # another machine: its own seen ids
++    git(root, "switch", "-qc", "b")
++    b = write_session(root, "session-B", 2, ("bbbb2222", "discard"))
++    commit_all(root, "b")
++    return root, a, b
++
++
++def main() -> int:
++    print("without a session file: the shared file byte for byte")
++    root = base()
++    for name in journal.JOURNALS:
++        check(f"{name}: text() is the shared file exactly", journal.text(root, name) == (root / journal.JOURNALS[name].shared).read_text())
++    check("an empty project: every journal reads as empty", all(journal.text(Path(tempfile.mkdtemp()), n) == "" for n in journal.JOURNALS))
++
++    print("the session's name")
++    with session("session_01HPq/x y"):
++        check("CLAUDE_CODE_SESSION_ID, made safe for a file name", journal.session_id(root) == "session_01HPq-x-y", journal.session_id(root))
++    with session(None):
++        first, second = journal.session_id(root), journal.session_id(root)
++        today = f"{datetime.now(UTC):%Y-%m-%d}-"
++        check("no session id: the date and one id per working tree, kept in machine state",
++              first == second and first.startswith(today) and len(first) == len(today) + 12
++              and (root / journal.SESSION_REL).read_text().strip() == first[len(today):], first)
++
++    print("two branches, two sessions, every journal")
++    root, a, b = two_branches()
++    a_head = git(root, "rev-parse", "a").stdout.strip()
++    git(root, "switch", "-q", "a")
++    merged = git(root, "merge", "--no-edit", "b")
++    check("git merge of the two branches: no conflict", merged.returncode == 0 and "CONFLICT" not in merged.stdout, merged.stdout + merged.stderr)
++    for name in ("ledger", "anomalies", "parked"):
++        whole = journal.text(root, name)
++        check(f"{name}: every entry of both sessions is there whole, the lines they share included",
++              all(entry in whole for entry in a[name] + b[name]), whole[-1500:])
++    whole = journal.text(root, "ledger")
++    stamps = [m.group(1) for m in journal.ENTRY_RE.finditer(whole)]
++    check("ledger: newest first across the sessions' files and the shared file", stamps == sorted(stamps, reverse=True) and len(stamps) == 5, stamps)
++    check("…and the old entry of the shared file is still there", OLD_ENTRY.strip() in whole)
++    check("the overseer's PASS count reads the sessions' files (newest is session-B's PASS above its BLOCK; the shared file alone holds none)",
++          overseer_verdict.passes_in_a_row(root, "slice-s") == 1, overseer_verdict.passes_in_a_row(root, "slice-s"))
++    pending = {e["id"] for e in lesson_queue.entries(root)}
++    check("lessons: both sessions' candidates wait, both triaged old ones are gone", pending == set(a["lessons"] + b["lessons"]), pending)
++    rebased = Path(tempfile.mkdtemp(prefix="journal-rebase-"))
++    shutil.rmtree(rebased)
++    shutil.copytree(root, rebased)
++    git(rebased, "switch", "-q", "b")
++    replay = git(rebased, "rebase", a_head)
++    check("git rebase of one branch onto the other: no conflict", replay.returncode == 0, replay.stdout + replay.stderr)
++    check("…and the rebased branch reads the same journals as the merge", all(journal.text(rebased, n) == journal.text(root, n) for n in journal.JOURNALS))
++
++    print("negative — the old way and a file outside the four still conflict")
++    old = base()
++    git(old, "switch", "-qc", "a")
++    with (old / "tasks/ANOMALIES.md").open("a") as fh:
++        fh.write("\n## 2026-10-10T07:01:00Z — 01-task\n- Що сталося: a\n- Хто записав: runner\n")
++    with (old / ".engine/overseer/MEMORY.md").open("a") as fh:
++        fh.write("\n## 2026-10-10 — a learned\n")
++    commit_all(old, "a")
++    git(old, "switch", "-qc", "b", "main")
++    with (old / "tasks/ANOMALIES.md").open("a") as fh:
++        fh.write("\n## 2026-10-10T07:02:00Z — 02-task\n- Що сталося: b\n- Хто записав: runner\n")
++    with (old / ".engine/overseer/MEMORY.md").open("a") as fh:
++        fh.write("\n## 2026-10-10 — b learned\n")
++    commit_all(old, "b")
++    git(old, "switch", "-q", "a")
++    clash = git(old, "merge", "--no-edit", "b")
++    check("both branches appending to tasks/ANOMALIES.md itself: a conflict (what board 739 removes)",
++          clash.returncode != 0 and "tasks/ANOMALIES.md" in clash.stdout, clash.stdout)
++    check("…and MEMORY.md, a file outside the four journals, conflicts as before", ".engine/overseer/MEMORY.md" in clash.stdout, clash.stdout)
++    git(old, "merge", "--abort")
++
++    print("fold: one file, lossless, idempotent")
++    before = {n: journal.text(root, n) for n in journal.JOURNALS}
++    queue_before = lesson_queue.entries(root)
++    done = journal.fold(root, now=datetime.now(UTC) + timedelta(days=30))
++    check("fold names what it gathered", len(done) == 4 and all("folded" in line for line in done), done)
++    check("old session files are removed", not any(journal.pieces(root, n) for n in journal.JOURNALS), list((root / ".engine/journal").rglob("*.md")))
++    for name in ("ledger", "anomalies", "parked"):
++        check(f"{name}: the shared file now holds what the reader saw before, byte for byte",
++              (root / journal.JOURNALS[name].shared).read_text() == before[name], (root / journal.JOURNALS[name].shared).read_text()[-600:])
++    shared_queue = (root / ".engine/lesson-queue.md").read_text()
++    check("lessons: the same queue after the fold", lesson_queue.entries(root) == queue_before)
++    check("…the triaged candidates' lines are gone, their resolution lines stay",
++          "#aaaa1111" in shared_queue and "the first old lesson" not in shared_queue and "resolved:discard" in shared_queue, shared_queue)
++    again = {n: (root / journal.JOURNALS[n].shared).read_text() for n in journal.JOURNALS}
++    journal.fold(root, now=datetime.now(UTC) + timedelta(days=30))
++    check("a second fold changes nothing", all((root / journal.JOURNALS[n].shared).read_text() == again[n] for n in journal.JOURNALS))
++    commit_all(root, "folded")
++
++    recent = base()
++    with session("session-R"):
++        overseer_verdict.write_ledger(recent, ledger_entry(datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "slice-r", "PASS"))
++        lesson_queue.resolve(recent, "aaaa1111", "discard", "r decided", [], "")
++    journal.fold(recent)
++    check("fold keeps a session file younger than KEEP_DAYS (its session may still add to it)…",
++          len(journal.pieces(recent, "ledger")) == 1 and len(journal.pieces(recent, "lessons")) == 1)
++    check("…and the reader counts its entry once, though it now stands in both files",
++          journal.text(recent, "ledger").count("— slice-r — PASS") == 1 and journal.text(recent, "lessons").count("resolved:discard") == 1)
++    (recent / ".engine/lesson-queue.md").write_text(lesson_queue.QUEUE_HEADER + "- 2026-10-01 | agent | s | the first old lesson #aaaa1111\n")
++    check("a triaged candidate whose line comes back (an older branch's copy) stays triaged: the resolution line stays",
++          "aaaa1111" not in {e["id"] for e in lesson_queue.entries(recent)})
++    shutil.rmtree(recent / ".claude/state", ignore_errors=True)   # a fresh clone: no seen ids on this machine
++    with session("session-S"):
++        again = lesson_queue.add(recent, "agent", "s", "a lesson session session-A learned")
++        known = lesson_queue.item_id("agent", "a lesson session session-A learned")
++        lesson_queue.close(recent, known, "discard", "triaged on another machine")
++        shutil.rmtree(recent / ".claude/state", ignore_errors=True)   # …and its seen ids gone again: only the journal knows
++        back = lesson_queue.add(recent, "agent", "s", "a lesson session session-A learned")
++    check("a fresh clone does not queue again a candidate the journal holds as triaged (no seen ids needed)",
++          again == known and back is None and known not in {e["id"] for e in lesson_queue.entries(recent)}, (again, back))
++
++    print("the lesson queue: contradictions go to an agent")
++    root = base()
++    git(root, "switch", "-qc", "c")
++    with session("session-C"):
++        lesson_queue.resolve(root, "aaaa1111", "discard", "C saw nothing in it", [], "")
++    commit_all(root, "c")
++    git(root, "switch", "-qc", "d", "main")
++    with session("session-D"):
++        lesson_queue.resolve(root, "aaaa1111", "engine", "D sent it to the engine", [], "")
++        lesson_queue.resolve(root, "bbbb2222", "discard", "D discarded it", [], "")
++    commit_all(root, "d")
++    git(root, "switch", "-q", "c")
++    merged = git(root, "merge", "--no-edit", "d")
++    found = journal.contradictions(journal.lesson_lines(root))
++    check("git merge: no conflict, though both sessions triaged #aaaa1111", merged.returncode == 0, merged.stdout)
++    check("the script names the contradiction and does not choose", list(found) == ["aaaa1111"] and {r["to"] for r in found["aaaa1111"]} == {"discard", "engine"}, found)
++    check("…the candidate is out of the queue either way (both sessions triaged it)", "aaaa1111" not in {e["id"] for e in lesson_queue.entries(root)})
++    raised = lesson_queue.raise_contradictions(root)
++    task = (root / raised[0]).read_text() if raised else ""
++    check("collect puts it on the board for an agent: one task in todo/ with both triages and the settle command",
++          len(raised) == 1 and raised[0].startswith("tasks/todo/") and "discard" in task and "engine" in task and "settle aaaa1111" in task, raised)
++    check("…once: a second collect finds the open task", lesson_queue.raise_contradictions(root) == raised)
++    lesson_queue.collect(root)
++    check("…and collect() itself raises nothing new", len(list((root / "tasks/todo").glob("*-open-item-*.md"))) == 1)
++    cli = subprocess.run([sys.executable, str(JOURNAL), "--root", str(root), "contradictions"], capture_output=True, text=True, env=hook_env(root), check=False)
++    check("journal.py contradictions: exit 1 and the candidate named", cli.returncode == 1 and "#aaaa1111" in cli.stdout, cli.stdout + cli.stderr)
++    check("negative — settle without a reason is refused", lesson_queue.settle(root, "aaaa1111", "discard", " ")[0] is False)
++    check("negative — settle of a candidate nobody triaged is refused", lesson_queue.settle(root, "cccc3333", "discard", "why")[0] is False)
++    with session("session-E"):
++        ok, message = lesson_queue.settle(root, "aaaa1111", "engine", "the engine is where it belongs")
++    check("settle records the agent's decision and closes the contradiction", ok and journal.contradictions(journal.lesson_lines(root)) == {}, message)
++    same = base()
++    with session("session-F"):
++        lesson_queue.resolve(same, "aaaa1111", "discard", "F", [], "")
++    with session("session-G"):
++        lesson_queue.resolve(same, "aaaa1111", "discard", "G, in other words", [], "")
++    check("negative — two equal triages of one candidate are no contradiction", journal.contradictions(journal.lesson_lines(same)) == {})
++
++    print("the command line and board_review")
++    root = base()
++    env = hook_env(root, CLAUDE_CODE_SESSION_ID="session-cli")
++    good = subprocess.run([sys.executable, str(JOURNAL), "--root", str(root), "add", "ledger"], input=ledger_entry("2026-10-10T08:00:00Z", "slice-c", "PASS"),
++                          capture_output=True, text=True, env=env, check=False)
++    check("journal.py add ledger: the entry goes into the session's own file", good.returncode == 0 and good.stdout.strip() == ".engine/journal/ledger/session-cli.md"
++          and "— slice-c — PASS" in journal.text(root, "ledger"), good.stdout + good.stderr)
++    bad = subprocess.run([sys.executable, str(JOURNAL), "--root", str(root), "add", "ledger"], input="- Verdict: PASS\n", capture_output=True, text=True, env=env, check=False)
++    check("negative — an entry without its `## <UTC time> — ` heading is refused (exit 2), nothing written",
++          bad.returncode == 2 and journal.text(root, "ledger").count("## 2026-10-10T") == 1, bad.stderr)
++    try:
++        journal.add(root, "ledger", "- Verdict: PASS\n")
++        refused = False
++    except ValueError:
++        refused = True
++    check("negative — journal.add refuses an entry without its heading rather than write what no reader would find", refused)
++    stray_file = root / journal.PIECES_REL / "ledger" / "hand-written.md"
++    now_entry = ledger_entry(datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "slice-n", "PASS")
++    stray_file.write_text("a note written past the format\n\n" + now_entry)   # a young file: one entry of today
++    check("text a hand put in a session file past the entry format is still read, never dropped",
++          "a note written past the format" in journal.text(root, "ledger"))
++    journal.fold(root)   # the session file is young: it stays, and its text is now in the shared file too
++    check("…after a fold that keeps its young file, that text is read exactly once",
++          stray_file.is_file() and journal.text(root, "ledger").count("a note written past the format") == 1, journal.text(root, "ledger")[-400:])
++    stray_file.unlink()
++    fresh = base()
++    (fresh / ".engine/overseer/ledger.md").write_text(LEDGER_HEAD)   # the template: no entry yet
++    young = fresh / journal.PIECES_REL / "ledger" / "by-hand.md"
++    young.parent.mkdir(parents=True)
++    young.write_text("a note written past the format\n\n" + ledger_entry(datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "slice-z", "PASS"))
++    before_fold = journal.text(fresh, "ledger")
++    journal.fold(fresh)
++    after_fold = journal.text(fresh, "ledger")
++    check("a shared ledger with no entry yet and a young session file with a note and one entry: before and after a fold, "
++          "the entry and the note each once, and the PASS counted once",
++          young.is_file() and [t.count("— slice-z — PASS") for t in (before_fold, after_fold)] == [1, 1]
++          and [t.count("a note written past the format") for t in (before_fold, after_fold)] == [1, 1]
++          and overseer_verdict.passes_in_a_row(fresh, "slice-z") == 1, after_fold[-500:])
++    shown = subprocess.run([sys.executable, str(JOURNAL), "--root", str(root), "show", "ledger"], capture_output=True, text=True, env=hook_env(root), check=False)
++    check("journal.py show ledger prints the journal whole", shown.stdout == journal.text(root, "ledger"))
++    with session("session-review"):
++        board.anomaly(board.Board(root / "tasks"), "01-x", "a fresh oddity", "noted")
++    commit_all(root, "pieces")
++    src = board_review.Source(root, git(root, "rev-parse", "HEAD").stdout.strip(), "main", "")
++    check("board_review reads a journal whole through git (the session's file at that commit)",
++          "a fresh oddity" in src.whole("anomalies") and src.whole("anomalies") == journal.text(root, "anomalies"))
++    old_commit = git(root, "rev-parse", "HEAD~1").stdout.strip()
++    check("…and at an older commit, without the file added since", "a fresh oddity" not in board_review.journal_at_commit(root, old_commit, "anomalies"))
++
++    print(f"\nPASS {PASS}   FAIL {FAIL}")
++    return 1 if FAIL else 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/tests/test_lesson_queue.py b/tests/test_lesson_queue.py
+index 5874d8b..0f38bcf 100755
+--- a/tests/test_lesson_queue.py
++++ b/tests/test_lesson_queue.py
+@@ -21,6 +21,8 @@ from datetime import UTC, datetime, timedelta
+ from pathlib import Path
+ from typing import Any
+ 
++from journals import journal_text, open_lessons
++
+ ROOT = Path(__file__).resolve().parent.parent
+ LQ = ROOT / ".claude/hooks/lesson_queue.py"
+ GATE = ROOT / ".claude/hooks/gate.py"
+@@ -114,8 +116,8 @@ def answer(path: Path, word: str) -> None:
+ 
+ 
+ def queue(root: Path) -> list[str]:
+-    p = root / ".engine/lesson-queue.md"
+-    return [ln for ln in p.read_text().splitlines() if ln.startswith("- ")] if p.exists() else []
++    """The candidates waiting, from every session's file (board 739): a triaged one has a resolution line."""
++    return open_lessons(root).splitlines()
+ 
+ 
+ def ids(root: Path) -> list[str]:
+@@ -141,7 +143,7 @@ lq(r, "resolve", discard, "--to", "discard")
+ check("a resolved candidate leaves the queue", discard not in ids(r) and len(queue(r)) == 1, queue(r))
+ added = lq(r, "add", "--source", "agent", "--slice", "s1", "The cache key ignores the locale / so tests pass in CI only")
+ check("...and does not come back when the same lesson is added again (seen ids are kept)", len(queue(r)) == 1 and "not added" in added.stdout, queue(r))
+-check("the file says it is never loaded into the persistent context", "persistent context" in (r / ".engine/lesson-queue.md").read_text())
++check("the file says it is never loaded into the persistent context", "persistent context" in journal_text(r, "lessons"))
+ 
+ # ---------------------------------------------------------------- the collectors
+ print("the collectors: gate, parked, escalation, overseer — no model")
+@@ -481,9 +483,9 @@ for column in ("todo", "doing", "blocked", "done"):
+ (r / "tasks/doing/041-in-hand.md").write_text("# 041\n\nЗалежить від: —\n", encoding="utf-8")
+ for n in range(2):
+     stuck(varying(n))
+-check("the negative case: two failures write nothing", not (r / "tasks/ANOMALIES.md").exists())
++check("the negative case: two failures write nothing", journal_text(r, "anomalies") == "")
+ stuck(varying(2))
+-journal = (r / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if (r / "tasks/ANOMALIES.md").exists() else ""
++journal = journal_text(r, "anomalies")
+ check("the third writes one entry under the task in doing/: what, what was done, and that a hook wrote it", journal.count("\n## ") == 1
+       and "— 041-in-hand\n- Що сталося: та сама невдача 3 раз(и) поспіль" in journal and "load failed" in journal
+       and "- Хто записав: hook lesson_queue.py" in journal, journal)
+diff --git a/tests/test_mode.py b/tests/test_mode.py
+index 4ec433a..36d2497 100644
+--- a/tests/test_mode.py
++++ b/tests/test_mode.py
+@@ -33,6 +33,7 @@ from pathlib import Path
+ from types import ModuleType
+ 
+ from hook_env import hook_env
++from journals import journal_text
+ 
+ ROOT = Path(__file__).resolve().parent.parent
+ HOOKS = ROOT / ".claude/hooks"
+@@ -111,11 +112,11 @@ check("negative — «Режим: абищо» is not taken from the inbox and t
+       and not (root / "tasks/todo/020-bad.md").exists(), said(r))
+ check("negative — two «Режим:» lines are not taken either", "021-two.md skipped: рядків «Режим:» два" in r.stdout and (inbox / "021-two.md").is_file(), said(r))
+ check("…a good line in another case is taken", "022-good.md imported" in r.stdout and (root / "tasks/todo/022-good.md").is_file(), said(r))
+-journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
++journal = journal_text(root, "anomalies")
+ check("…the journal says why, once per file", journal.count("020-bad.md") == 1 and journal.count("021-two.md") == 1
+       and "Режим: ескіз|соло|конвеєр" in journal, journal)
+ run(BOARD, root, "--root", str(root), "import-inbox", str(inbox))
+-check("…and a second import writes no second entry", (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8") == journal)
++check("…and a second import writes no second entry", journal_text(root, "anomalies") == journal)
+ put(root, "todo", "005-bad-in-todo.md", task("005", "Режим: абищо"))
+ r = run(BOARD, root, "--root", str(root), "next")
+ check("negative — such a task already in todo/ is passed over by next", r.stdout.strip() == "tasks/todo/022-good.md", said(r))
+diff --git a/tests/test_overseer_fresh.py b/tests/test_overseer_fresh.py
+index 506c580..c2e7e6a 100644
+--- a/tests/test_overseer_fresh.py
++++ b/tests/test_overseer_fresh.py
+@@ -17,12 +17,15 @@ import tempfile
+ from pathlib import Path
+ from typing import Any
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ HOOKS = ROOT / ".claude" / "hooks"
+ STOP = HOOKS / "overseer_stop.py"
+ VERDICT = HOOKS / "overseer_verdict.py"
+ WIRED = json.dumps({"hooks": {"SubagentStop": [{"matcher": "overseer", "hooks": [
+     {"type": "command", "command": 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py" record'}]}]}})
++JOURNALS = {".engine/overseer/ledger.md": "ledger", ".engine/overseer/parked.md": "parked"}
+ LEDGER_SEED = "# Overseer ledger — append-only\n\nNewest at the top.\n\n---\n\n(no entries yet)\n"
+ THREE_PASSES = "".join(f"## 2026-09-18T1{n}:00:00Z — ref-tax — OVERSEER_PASS\n- Trigger: none\n\n" for n in range(3))
+ CLAIM = "Implemented with_tax.\n\n    $ pytest -q\n    6 passed\n\n=== UNIT 3 COMPLETE ==="
+@@ -80,6 +83,8 @@ class Project:
+         path.write_text(text, encoding="utf-8")
+ 
+     def read(self, rel: str) -> str:
++        if rel in JOURNALS:   # board 739: the shared file and every session's file, as the engine reads them
++            return journal_text(self.root, JOURNALS[rel])
+         try:
+             return (self.root / rel).read_text(encoding="utf-8")
+         except OSError:
+@@ -232,10 +237,18 @@ p.audit(BLOCK)
+ said = p.stop("The overseer agent answered BLOCK.")
+ check("BLOCK: the finding goes back to the builder, with the check number", "OVERSEER_BLOCK" in said and "#1 false-DONE" in said and "BLOCK 1 of 3" in said, said)
+ check("BLOCK: the ledger names the check", "- Trigger: #1" in p.first_entry() and "OVERSEER_BLOCK" in p.first_entry(), p.first_entry())
++check("board 739 — the BLOCK says where the verdict is read whole, not the shared file", "recorded in the ledger (`python3 .claude/hooks/journal.py show ledger`)" in said, said)
+ p = Project()
+ p.audit({"verdict": "ADR_REQUIRED", "reason": "tax rate as float contradicts the contract", "evidence": ["src/pricing.py:1"], "adr": {"title": "Rate type"}})
+ said = p.stop("The overseer agent asks for an ADR.")
+ check("ADR_REQUIRED: routed, and the draft is in the ledger", "OVERSEER_ADR_REQUIRED" in said and "Verdict routing" in said and "ADR draft:" in p.first_entry(), said)
++whole = journal_text(p.root, "ledger")   # what `journal.py show ledger` prints (tests/test_journal.py pins the two equal)
++shared = (p.root / ".engine/overseer/ledger.md").read_text(encoding="utf-8")
++newest = whole[whole.find("\n## 20") + 1:].split("\n## ")[0] if "\n## 20" in whole else ""
++check("board 739 — the route sends the builder to the whole ledger (`journal.py show ledger`), whose newest entry is this draft",
++      "journal.py show ledger" in said and "newest entry of .engine/overseer/ledger.md" not in said and "ADR draft:" in newest, said + newest)
++check("…and that pointer is needed: the shared ledger.md alone does not hold the new entry (only a fold puts it there)",
++      "ADR draft:" not in shared, shared[-300:])
+ 
+ print("5. The tree is compared before and after the audit")
+ p = Project()
+@@ -392,7 +405,7 @@ p.answer(BLOCK)
+ said, fourth = p.claim("And again.\n\n=== UNIT 3 COMPLETE ===", after_audit=True)
+ check("third BLOCK: park for the owner, and NO fourth audit is requested", "third in a row" in said and "tasks/blocked/" in said and "Launch the agent" not in said and fourth == "", said)
+ check("…the park entry is written by the hook, not left to the builder", "three BLOCKs in a row" in p.read(".engine/overseer/parked.md")
+-      and "already put it before the owner (.engine/overseer/parked.md)" in said and said.count("BLOCK 3: #1 false-DONE") == 1, said + p.read(".engine/overseer/parked.md"))
++      and "already put it before the owner (.engine/journal/parked/" in said and said.count("BLOCK 3: #1 false-DONE") == 1, said + p.read(".engine/overseer/parked.md"))
+ check("…no marker for a runner that is not there", not list((p.root / ".claude/state").rglob("three-blocks-*.json")))
+ 
+ 
+diff --git a/tests/test_owner_terms.py b/tests/test_owner_terms.py
+index 54f8e16..03b677f 100644
+--- a/tests/test_owner_terms.py
++++ b/tests/test_owner_terms.py
+@@ -25,6 +25,8 @@ import sys
+ import tempfile
+ from pathlib import Path
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ PASS = FAIL = 0
+ # The renderings the owner's rule retires. «Аудит потрібен:» is a field the board reads, not prose.
+@@ -101,7 +103,7 @@ with tempfile.TemporaryDirectory(prefix="owner-terms-") as tmp:
+               parked is not None and word in text and "Відповідь:" in text and not retired(text), retired(text) or text[-500:])
+         if parked:
+             parked.unlink()
+-    journal = (tasks / board.ANOMALIES).read_text(encoding="utf-8")
++    journal = journal_text(tasks.parent, "anomalies")
+     check("the anomaly journal: its head and the runner's entries name the runner and the task board, nothing retired",
+           "runner" in journal and "task board" in journal and not retired(journal), retired(journal))
+     check("the budget question says the guard stops a loop and the owner's answer continues the task",
+diff --git a/tests/test_release.py b/tests/test_release.py
+index 225f7d8..9094cd7 100755
+--- a/tests/test_release.py
++++ b/tests/test_release.py
+@@ -23,9 +23,12 @@ import sys
+ import tempfile
+ from pathlib import Path
+ 
++from journals import journal_text
++
+ ROOT = Path(__file__).resolve().parent.parent
+ ENGINE_PY = ROOT / "engine.py"
+-COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
++COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py",   # board.py asks mode.py (board 097)
++          ".claude/hooks/journal.py")   # …and writes the journal through journal.py (board 739)
+ SKILL = ".claude/skills/demo/SKILL.md"
+ JOURNAL = "tasks/ANOMALIES.md"
+ PASS = FAIL = 0
+@@ -94,7 +97,7 @@ class Repo:
+             shutil.copy(ROOT / path, self.work / path)
+         write(self.work / SKILL, "the words a model reads\n")
+         write(self.work / "tasks/README.md", "the board\n")
+-        write(self.work / ".gitignore", "__pycache__/\n")   # as in the engine's repository: board.py imports hooks/mode.py (board 097)
++        write(self.work / ".gitignore", "__pycache__/\n.claude/state/\n")   # as in the engine's repository: board.py imports hooks/mode.py (board 097)
+         write(self.work / "tests/run_all.sh", RUN_ALL_STUB)
+         write(self.work / "evals/run_hook_scenarios.py", GOLDEN_STUB)
+         write(self.work / "evals/baseline/box/results-old.json", "{}\n")
+@@ -119,8 +122,8 @@ class Repo:
+         return git(self.work, "rev-parse", "HEAD")
+ 
+     def journal(self) -> str:
+-        path = self.work / JOURNAL
+-        return path.read_text(encoding="utf-8") if path.exists() else ""
++        """The anomaly journal whole: the shared file and every session's file (board 739)."""
++        return journal_text(self.work, "anomalies")
+ 
+     def release(self, *args: str, session: bool = False, **env: str) -> subprocess.CompletedProcess[str]:
+         environ = {k: v for k, v in os.environ.items() if k != "CLAUDECODE" and not k.startswith("FAKE_")}
+@@ -398,9 +401,10 @@ def main() -> int:
+         check("bypass: one journal entry", entry.count("\n## ") == 1, entry)
+         check("bypass: the entry names the version, the flag, the changed file and the owner",
+               all(part in entry for part in ("v0.2.0", "--without-audit", SKILL, "Хто записав: власник")), entry)
+-        check("bypass: the release says where it is recorded", JOURNAL in out, out)
++        left = git(repo.work, "status", "--porcelain", "--untracked-files=all").split()
++        check("bypass: the release says where it is recorded — the session's own file of the journal", len(left) == 2 and left[1] in out, out)
+         check("bypass: the journal is the only thing left in the work tree",
+-              git(repo.work, "status", "--porcelain").split() == ["??", JOURNAL], git(repo.work, "status", "--porcelain"))
++              left[0] == "??" and left[1].startswith(".engine/journal/anomalies/") and left[1].endswith(".md"), left)
+ 
+         print("the bypass flag with a fresh audit bypasses nothing")
+         repo = fresh(base, "bypass-unneeded")
+diff --git a/tests/test_settings_proposal_install.py b/tests/test_settings_proposal_install.py
+index bd329f6..035121d 100644
+--- a/tests/test_settings_proposal_install.py
++++ b/tests/test_settings_proposal_install.py
+@@ -103,6 +103,7 @@ with tempfile.TemporaryDirectory(prefix="settings-proposal-install-") as tmp:
+     write(eng / ".claude/ownership.txt", MAP_V2)
+     write(eng / ".claude/hooks/overseer_verdict.py", "import sys\nsys.exit(0)\n")
+     shutil.copy2(ROOT / ".claude/hooks/mode.py", eng / ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
++    shutil.copy2(ROOT / ".claude/hooks/journal.py", eng / ".claude/hooks/journal.py")   # …and writes its journal through journal.py (board 739)
+     (eng / ".claude/unattended").mkdir(parents=True)
+     for source in sorted((ROOT / ".claude/unattended").iterdir()):
+         if source.is_file() and source.suffix in (".py", ".sh"):
+diff --git a/tests/test_simplifier.py b/tests/test_simplifier.py
+index 6843f51..c0a0ffe 100755
+--- a/tests/test_simplifier.py
++++ b/tests/test_simplifier.py
+@@ -20,6 +20,8 @@ import tempfile
+ from pathlib import Path
+ from typing import Any
+ 
++from journals import journal_text, open_lessons
++
+ ROOT = Path(__file__).resolve().parent.parent
+ HOOKS = ROOT / ".claude" / "hooks"
+ SCRIPT = HOOKS / "simplifier.py"
+@@ -212,7 +214,7 @@ check("the report lists the confirm and the flag_only finding with their evidenc
+       "### confirm (1)" in report and "### flag_only (1)" in report and "docs/goals.md:3" in report and "vulture: unused function" in report, report)
+ check("the auto_remove finding is handed to the builder, not written for the owner",
+       "1 auto_remove: F-" in done.stdout and "src/demo/pricing.py:5" in done.stdout and "old_total has no caller" not in report, done.stdout)
+-queue = (repo / ".engine/lesson-queue.md").read_text()
++queue = journal_text(repo, "lessons")
+ check("both owner findings are in the lesson queue, source simplifier",
+       queue.count("| simplifier |") == 2 and "nobody asked" in queue, queue)
+ check("nothing was removed", (repo / "src/demo/pricing.py").read_text() == before)
+@@ -229,7 +231,7 @@ for name, args, said in (
+     done = cli(repo, "applied", *args)
+     check(f"refused: {name}", done.returncode == 1 and said in done.stderr
+           and (repo / ".engine/simplifier/report.md").read_text() == report
+-          and (repo / ".engine/lesson-queue.md").read_text() == queue, done.stdout + done.stderr)
++          and journal_text(repo, "lessons") == queue, done.stdout + done.stderr)
+ done = cli(repo, "applied", plan_id, "--note", "dropped the ordering test from the plan")
+ marked = (repo / ".engine/simplifier/report.md").read_text()
+ check("the finding is marked in the report, with what was changed, and nothing else in the report moved",
+@@ -239,7 +241,7 @@ check("the finding is marked in the report, with what was changed, and nothing e
+       == [ln for ln in report.splitlines() if plan_id not in ln], done.stdout + done.stderr + marked)
+ check("it no longer reads as an open finding: no line of the report starts with its id",
+       not re.search(rf"^- `{plan_id}`", marked, re.MULTILINE) and re.search(rf"^- `{code_id}`", marked, re.MULTILINE), marked)
+-after = (repo / ".engine/lesson-queue.md").read_text()
++after = open_lessons(repo)
+ check("its lesson candidate leaves the queue, the other finding's stays",
+       "nobody asked" not in after and "worth a look" in after and after.count("| simplifier |") == 1, after)
+ done = cli(repo, "applied", plan_id, "--note", "dropped the ordering test from the plan")
+@@ -247,7 +249,7 @@ check("marking it a second time is refused and changes nothing",
+       done.returncode == 1 and (repo / ".engine/simplifier/report.md").read_text() == marked, done.stdout + done.stderr)
+ cli(repo, "route", "answer.json", "--title", "second pass")
+ check("a later pass that finds it again does not queue the lesson again",
+-      "nobody asked" not in (repo / ".engine/lesson-queue.md").read_text())
++      "nobody asked" not in open_lessons(repo) and journal_text(repo, "lessons").count("nobody asked") == 1)
+ (repo / "answer.json").write_text(json.dumps([GOOD | {"target": "vendor/keep.py:1", "claim": "vendored copy", "proposed_action": "confirm"}]))
+ cli(repo, "route", "answer.json", "--title", "protected")
+ held = (repo / ".engine/simplifier/report.md").read_text()
