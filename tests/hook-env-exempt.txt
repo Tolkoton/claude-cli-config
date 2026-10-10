@@ -36,7 +36,6 @@ test_overseer_phase.py              # by hand
 test_ownership.py                   # runs git only; the hook paths are rows of the ownership map
 test_personal_layer.py              # runs engine.py only; the word is a key of a settings file
 test_release.py                     # runs engine.py release on synthetic repositories
-test_second_opinion.py              # by hand
 test_settings_proposal.py           # runs two hook scripts with --help only
 test_settings_proposal_install.py   # runs engine.py and settings_check.py, which do not read the variable
 test_settings_wiring.py             # by hand

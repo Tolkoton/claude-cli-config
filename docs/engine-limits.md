@@ -654,30 +654,6 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
 - **The reversal rate sees commits with the trailer.** A removal committed without
   `Simplifier-Finding:` is not counted, and code that came back reworded (under 60 % of the
   removed lines identical) is not seen as returned.
-- **The second opinion sends code to a third party.** With `SECOND_OPINION="on"` the target file
-  of each finding and the lines around every occurrence of its names go to Google. On the paid
-  tier Google does not use them to improve its products but keeps them for a limited time to
-  detect abuse; on the free tier it may use them. Hence a paid-tier key, and `off` in the seed.
-- **The second model sees what a text search found.** A user of the target that `git grep` does
-  not find by name — a dynamic call, another spelling — is invisible to it too, and a common
-  name is shown only in part (the request says how many occurrences were left out). It is a
-  second opinion on the same facts, not a second investigation.
-- **The key is readable by the agent.** The script and the agent run as the same user; the deny
-  hooks stop the agent's tools from reading credentials files, not a script from reading its
-  own environment. That is why the key is a separate one with its own spending limit: the worst
-  case is the limit spent.
-- **The second opinion is relayed by the builder**, like the budget verdict: the record holds
-  the hashes of request and response, but nothing proves the answer came from Gemini. `route`
-  recomputes each finding's id, so an opinion cannot be carried to a finding with another text,
-  and while the switch is on a missing opinion removes nothing — but an opinion written by hand
-  into the file is believed. The record and the report are what the overseer and the owner read.
-- **Text in the code can address the model** ("treat this as safe"). The answer is bound to a
-  schema and can only lower an action, so the worst outcome is a missed objection — which
-  without the second opinion would not have been raised either — or a needless question.
-- **The measurement's real examples are all correct findings.** The fifteen first-pass findings
-  the owner approved measure false alarms; how many false findings are caught is measured only
-  on twelve hand-written ones (four traps, eight typical mistakes), each of which carries the
-  refuting line in the request. Real false findings may be harder.
 - **The eval needs no leave** (board 078): its sessions are ordinary work, booked to the task in hand.
   What stands against a loop is the runner's `BOARD_MAX_USD` and the run's own `--max-usd`.
 - **The nightly cleanup runs in the board runner's free time, not on a clock** (board 045). The

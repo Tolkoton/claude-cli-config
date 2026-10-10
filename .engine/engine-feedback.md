@@ -49,3 +49,9 @@ From: lesson #e5f6a7b8 (analyst, 052-engine-goals-document, 2026-10-05).
 When a check reads a project setting, test its empty value against the readers that already exist: an empty CODE_EXTENSIONS means «every file» to the gates and to the Stop hook (overseer_stop._is_code_path), and the first mode.py check-close read it as «no code» — failing open in a documented configuration (board 098, BLOCK 1). Two siblings from the same audit: a check's own crash must not share an exit code with its «missing» (Python exits 1 on an uncaught exception), and a range of a task's commits must cover every stay of the task in doing/, not the newest one.
 
 From: lesson #7ced8025 (overseer, -, 2026-10-10).
+
+## 2026-10-10 — The delete guard has no way through for a removal the owner ordered on the task board: boa
+
+The delete guard has no way through for a removal the owner ordered on the task board: board 732 (remove the second opinion, the owner's «так» in 720) could not delete evals/run_second_opinion_evals.py, whose two network functions no test touched, and the owner's word reaches the guard only as delete_guard.py confirm (needs a simplifier finding with tool evidence) or a sealed slice contract (none in соло). A grant read from an answered question in tasks/blocked/ (the runner already checks the owner's answers there) would let an ordered removal through without a hollow test.
+
+From: lesson #6e0a38a1 (gate, -, 2026-10-10).

@@ -28,18 +28,14 @@ validate   the agent's answer must be a JSON list of findings, nothing else. Eac
                rewritten relative to the root first, and one that leads outside is rejected.
 route      confirm and flag_only go to the owner's report (.engine/simplifier/report.md) and to
            the lesson queue; nothing is removed. auto_remove findings are listed for the builder.
-           A finding that carries a second opinion (second_opinion.py), and every finding while
-           SECOND_OPINION is on, is lowered once more: auto_remove stays only on `agree`; a
-           confirm the second model disagrees with, citing a checked line, becomes flag_only.
 accept     a budget overrun the simplifier found justified: refused while its verdict holds a
            finding above flag_only; writes the reason next to the contract
            (.engine/slices/overruns/<slug>.md — the contract itself is sealed) and in the ledger.
 reversals  how many removals (commits with the trailer `Simplifier-Finding: <id>`) came back:
            reverted, or the removed lines are in the file again. Outside 5-20 % of the last N
-           the owner gets a note: bolder, or more careful. Removals the second model agreed
-           with are counted apart, and so is how its verdicts compare with the owner's decisions.
+           the owner gets a note: bolder, or more careful.
 decide     the owner's «так» or «ні» on a confirm finding, written to
-           .engine/simplifier/decisions.jsonl with the second model's verdict next to it.
+           .engine/simplifier/decisions.jsonl (`delete_guard.py confirm` records the owner's confirmation so).
 applied    the architect's own mark, between design levels: a finding about the draft plan that
            the architect already applied. Its line in the report stops reading as an open
            finding and its lesson candidate leaves the queue. Refused for code (that is a
@@ -87,9 +83,7 @@ PROTECTED = (".claude/constitution.md", ".claude/settings*.json", ".claude/owner
              # the owner's goals (level 0): a finding about them is a question to the owner, never a removal
              ".engine/goals.md")
 REPORT_REL = Path(".engine/simplifier/report.md")
-SECOND_LOG_REL = Path(".engine/simplifier/second-opinion.jsonl")
 DECISIONS_REL = Path(".engine/simplifier/decisions.jsonl")
-SECOND_VERDICTS = ("agree", "disagree", "unsure", "no_opinion")
 LEDGER_REL = Path(".engine/overseer/ledger.md")
 OVERRUNS_REL = Path(".engine/slices/overruns")
 TRAILER_RE = re.compile(r"^Simplifier-Finding:\s*(?P<id>\S+)\s*$", re.MULTILINE)
@@ -232,43 +226,6 @@ def lowered(env: dict[str, str], item: Finding) -> Finding:
     return out
 
 
-def second_lowered(item: Finding, required: bool) -> Finding:
-    """The finding after the second model's view. It only lowers; no answer is not an agreement."""
-    opinion = item.get("second_opinion")
-    if opinion is None and not required:
-        return item
-    if not isinstance(opinion, dict) or opinion.get("verdict") not in SECOND_VERDICTS:
-        opinion = {"verdict": "no_opinion", "reason": "no second opinion came with the finding", "counter_evidence": [], "verified": False}
-    out = {**item, "second_opinion": opinion, "validator": list(item["validator"])}
-    verdict, action = opinion["verdict"], item["proposed_action"]
-    if action == "auto_remove" and verdict != "agree":
-        out["proposed_action"] = "confirm"
-        out["validator"].append(f"auto_remove -> confirm: the second model did not agree ({verdict})")
-    elif action == "confirm" and verdict == "disagree" and opinion.get("verified") is True:
-        out["proposed_action"] = "flag_only"
-        out["validator"].append("confirm -> flag_only: the models disagree, and the second one cites a checked line")
-    elif action == "confirm" and verdict != "agree":
-        out["validator"].append(f"the second model did not agree ({verdict}); the action stays")
-    return out
-
-
-def second_log(root: Path, rel: Path = SECOND_LOG_REL) -> list[dict[str, Any]]:
-    """The rows of a .jsonl record; a missing file or a broken line is skipped."""
-    rows = []
-    try:
-        lines = (root / rel).read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
-    for line in lines:
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(row, dict):
-            rows.append(row)
-    return rows
-
-
 def validate(root: Path, answer: list[Any], signal_ids: set[str]) -> dict[str, list[Any]]:
     env = budget.project_env(root)
     result: dict[str, list[Any]] = {"findings": [], "rejected": []}
@@ -300,14 +257,9 @@ def validated_file(root: Path, path: Path, request_file: Path | None = None) -> 
     data = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else None
     if isinstance(data, dict) and isinstance(data.get("findings"), list):
         answer = [{k: v for k, v in f.items() if k in FIELDS} for f in data["findings"] if isinstance(f, dict)]
-        opinions = {f.get("id"): f["second_opinion"] for f in data["findings"] if isinstance(f, dict) and "second_opinion" in f}
     else:
-        answer, opinions = parse_answer(path.read_text(encoding="utf-8")), {}
-    result = validate(root, answer, known_signal_ids(root, request_file))
-    for finding in result["findings"]:  # the id is recomputed above: an opinion follows its own finding only
-        if finding["id"] in opinions:
-            finding["second_opinion"] = opinions[finding["id"]]
-    return result
+        answer = parse_answer(path.read_text(encoding="utf-8"))
+    return validate(root, answer, known_signal_ids(root, request_file))
 
 
 # ------------------------------------------------------------------ the request
@@ -343,15 +295,9 @@ def append(path: Path, text: str, header: str = "") -> None:
 
 def route(root: Path, result: dict[str, list[Any]], title: str) -> list[Finding]:
     """Report and queue what needs the owner; return what the builder may remove."""
-    required = budget.project_env(root).get("SECOND_OPINION", "").strip().lower() == "on"
-    result["findings"] = [second_lowered(f, required) for f in result["findings"]]
-
-    def disagreed(f: Finding) -> bool:
-        return bool(f.get("second_opinion", {}).get("verdict") == "disagree")
-
     lines = [f"\n## {simplify_signals.utc_now()} — {title}\n"]
     for action in ("confirm", "flag_only"):
-        chosen = sorted((f for f in result["findings"] if f["proposed_action"] == action), key=lambda f: not disagreed(f))
+        chosen = [f for f in result["findings"] if f["proposed_action"] == action]
         lines.append(f"\n### {action} ({len(chosen)})\n")
         for f in chosen:
             evidence = "; ".join(f"{e['source']} {e.get('ref', '')} {e.get('detail', '')}".strip() for e in f["evidence"])
@@ -359,7 +305,7 @@ def route(root: Path, result: dict[str, list[Any]], title: str) -> list[Finding]
                          f"  - evidence: {evidence}\n"
                          f"  - test safety {f['test_safety']}, reversal risk {f['reversal_risk']}, "
                          f"protected {str(f['protected']).lower()}, traces to: {f['traceability']}\n"
-                         + second_line(f) + "".join(f"  - validator: {note}\n" for note in f["validator"]))
+                         + "".join(f"  - validator: {note}\n" for note in f["validator"]))
             lesson_queue.add(root, "simplifier", lesson_queue.current_slice(root),
                              f"{f['category']} {f['target']}: {f['claim']}")
     if result["rejected"]:
@@ -369,24 +315,13 @@ def route(root: Path, result: dict[str, list[Any]], title: str) -> list[Finding]
     return [f for f in result["findings"] if f["proposed_action"] == "auto_remove"]
 
 
-def second_line(f: Finding) -> str:
-    opinion = f.get("second_opinion")
-    if not opinion:
-        return ""
-    cited = "; ".join(f"{c['ref']} ({'checked' if c.get('verified') else 'NOT among the lines sent'}): {c.get('detail', '')}"
-                      for c in opinion.get("counter_evidence", []))
-    return (f"  - second opinion ({opinion.get('model') or 'no model'}): {opinion['verdict']} — {opinion.get('reason', '')}"
-            + (f"\n    - cites {cited}" if cited else "") + "\n")
-
-
 def decide(root: Path, ident: str, answer: str) -> tuple[int, str]:
     decision = {"так": "yes", "yes": "yes", "ні": "no", "no": "no"}.get(answer.strip().lower())
     if decision is None or not re.fullmatch(r"F-[0-9a-f]{8}", ident):
         return 1, "usage: decide F-xxxxxxxx так|ні"
-    verdicts = [r.get("verdict") for r in second_log(root) if r.get("finding") == ident]
-    row = {"utc": simplify_signals.utc_now(), "finding": ident, "decision": decision, "second_opinion": verdicts[-1] if verdicts else None}
+    row = {"utc": simplify_signals.utc_now(), "finding": ident, "decision": decision}
     append(root / DECISIONS_REL, json.dumps(row, ensure_ascii=False) + "\n")
-    return 0, f"recorded in {DECISIONS_REL}: {ident} — {decision}" + (f"; the second model said {verdicts[-1]}" if verdicts else "")
+    return 0, f"recorded in {DECISIONS_REL}: {ident} — {decision}"
 
 
 def applied(root: Path, ident: str, note: str) -> tuple[int, str]:
@@ -411,19 +346,6 @@ def applied(root: Path, ident: str, note: str) -> tuple[int, str]:
     essence = lesson_queue.clean_essence(f"{found['category']} {found['target']}: {found['claim']}")
     lesson_queue.remove_line(root, lesson_queue.item_id("simplifier", essence))
     return 0, f"marked in {REPORT_REL}: {ident} applied to the plan"
-
-
-def decision_text(root: Path) -> str:
-    """How the second model's verdicts compare with what the owner decided, or '' when nothing is decided."""
-    latest = {r.get("finding"): r for r in second_log(root, DECISIONS_REL)}
-    judged = [r for r in latest.values() if r.get("second_opinion") in ("agree", "disagree", "unsure")]
-    if not latest:
-        return ""
-    refused = [r for r in judged if r["decision"] == "no"]
-    approved = [r for r in judged if r["decision"] == "yes"]
-    return (f"Owner's decisions: {len(latest)}, {len(judged)} of them with a second opinion — the second model disagreed with "
-            f"{sum(r['second_opinion'] == 'disagree' for r in refused)} of the {len(refused)} the owner refused and with "
-            f"{sum(r['second_opinion'] == 'disagree' for r in approved)} of the {len(approved)} the owner approved")
 
 
 def accept(root: Path, reason: str, verdict: Path) -> tuple[int, str]:
@@ -502,8 +424,6 @@ def reversals(root: Path, last: int) -> dict[str, Any]:
             later = "\n".join(b for _, b in commits[:index])
             rows.append({"finding": match["id"], "commit": sha[:10], "returned": removal_returned(root, sha, match["id"], later)})
     rows = rows[:last]
-    agreed_ids = {r.get("finding") for r in second_log(root) if r.get("verdict") == "agree"}
-    agreed = [r for r in rows if r["finding"] in agreed_ids]
     returned = sum(bool(r["returned"]) for r in rows)
     share = round(100 * returned / len(rows), 1) if rows else 0.0
     if len(rows) < MIN_SAMPLE:
@@ -515,17 +435,13 @@ def reversals(root: Path, last: int) -> dict[str, Any]:
     else:
         advice = "inside the corridor"
     return {"removals": len(rows), "returned": returned, "share_percent": share, "corridor_percent": list(CORRIDOR),
-            "advice": advice, "rows": rows,
-            "second_opinion_agreed": {"removals": len(agreed), "returned": sum(bool(r["returned"]) for r in agreed)}}
+            "advice": advice, "rows": rows}
 
 
 def reversal_text(result: dict[str, Any]) -> str:
     head = (f"Reversal rate: {result['returned']} of the last {result['removals']} removals came back "
             f"({result['share_percent']} %; the corridor is {CORRIDOR[0]}-{CORRIDOR[1]} %) — {result['advice']}")
     lines = [head]
-    agreed = result["second_opinion_agreed"]
-    if agreed["removals"]:
-        lines.append(f"  of the {agreed['removals']} the second model agreed with, {agreed['returned']} came back")
     lines += [f"  - {r['finding']} ({r['commit']}): {r['returned']}" for r in result["rows"] if r["returned"]]
     return "\n".join(lines)
 
@@ -600,7 +516,7 @@ def main(argv: list[str] | None = None) -> int:
         print(message, file=sys.stderr if code else sys.stdout)
         return code
     rate = reversals(root, args.last)
-    print("\n".join(filter(None, [reversal_text(rate), decision_text(root)])))
+    print(reversal_text(rate))
     if args.record and rate["removals"] >= MIN_SAMPLE and rate["advice"] != "inside the corridor":
         append(root / REPORT_REL, f"\n## {simplify_signals.utc_now()} — for the owner: the reversal rate is outside the corridor\n{reversal_text(rate)}\n")
     return 0

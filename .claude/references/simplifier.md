@@ -52,55 +52,6 @@ the project sees it: an absolute path, `./`, `..` or a link is first rewritten r
 root — so a protected file is protected however it was written — and a target or a cited line
 outside the project is rejected.
 
-## The second opinion (off unless `SECOND_OPINION="on"`)
-
-A different model — Gemini — looks at each validated finding before it is routed:
-
-```bash
-python3 .claude/hooks/simplifier.py validate answer.json --request request.txt --out valid.json
-python3 .claude/hooks/second_opinion.py review valid.json --out reviewed.json
-python3 .claude/hooks/simplifier.py route reviewed.json --request request.txt --title "code, nightly"
-```
-
-`review` sends one request per finding: the claim (target, category, claim), the target's code,
-the files the claim names, and the lines where a name from the target occurs. It does not send
-the simplifier's evidence, action, risk or test-safety — the judge sees the artifact, not the
-author's reasoning — and never a protected path, `SIMPLIFY_EXCLUDE`, the simplifier's own
-records or a file outside the project, however the path is written. The answer is `agree`, `disagree` or `unsure`, a reason, and lines cited as `path:line`;
-a cited line that was not sent is marked unverified. Whatever fails — no key, a timeout, a broken
-answer, the pass limit `SECOND_OPINION_MAX_USD` — is `no_opinion`, and the pass goes on.
-
-`route` then lowers, and only lowers:
-
-| The simplifier | The second model | The finding becomes |
-|---|---|---|
-| `auto_remove` | agree | `auto_remove` (the builder's three conditions below still hold) |
-| `auto_remove` | anything else, or no answer | `confirm` — the owner decides, both views side by side |
-| `confirm` | disagree, citing a line that was sent | `flag_only`, noted "the models disagree" |
-| `confirm` | disagree without such a line, unsure, no answer | `confirm`, with a note |
-| `flag_only` | anything | `flag_only`; the view is recorded |
-
-While the switch is on, a findings file that skipped `review` is treated as "no answer": nothing
-in it is removed automatically. There is no debate round and no third model: the owner is the
-arbiter. The second model adds no findings of its own and is not asked about a budget overrun
-(`accept`). Findings the models disagree on stand first in the report.
-
-- **The key** is the environment variable `GEMINI_API_KEY_SIMPLIFIER` and nothing else — a
-  paid-tier key of its own with a spending limit in the Google console. It is sent in a header,
-  cut out of error texts, and never written to a file. For a board runner under systemd:
-  `EnvironmentFile=` pointing outside the repository (the owner's step).
-- **The record** is `.engine/simplifier/second-opinion.jsonl`: finding, model, verdict, reason,
-  cited lines, tokens, cost, the hashes of request and response. `second_opinion.py cost` adds
-  it up. The model and its prices are in `.claude/project.env`; reread the prices before use.
-- **Measured live:** `simplifier.py decide <id> так|ні` records the owner's decision on a
-  `confirm` finding; `simplifier.py reversals` then shows the removals the second model agreed
-  with apart, and how its verdicts compare with the owner's decisions.
-- **Measured before switching on:** `python3 evals/run_second_opinion_evals.py --runs 3` — 33
-  findings with a known truth, put to Gemini and, as the control, to a fresh Claude with the
-  same request. Paid, like the eval below. The owner's thresholds (board 012): at least half of
-  the false findings caught, an alarm on at most one correct finding in ten, noticeably more
-  caught than the control. Not passed — the switch stays off.
-
 ## What happens to a finding
 
 - `confirm`, `flag_only` — `route` writes them to `.engine/simplifier/report.md` for the owner
@@ -109,7 +60,8 @@ arbiter. The second model adds no findings of its own and is not asked about a b
   `simplifier.py applied <id> --note "<what was changed in the plan>"`: its line in the report
   becomes `APPLIED BY THE ARCHITECT` with the note, so the owner's review no longer lists it, and
   its lesson candidate leaves the queue. Refused for code and for a protected path; never for a
-  finding about what the owner asked for (Art. 5) — that one waits for `decide`.
+  finding about what the owner asked for (Art. 5) — that one waits for `decide` (`simplifier.py decide <id> так|ні`:
+  the owner's decision, written to `.engine/simplifier/decisions.jsonl`; `delete_guard.py confirm` writes it too).
 - `auto_remove` — the builder removes it, one finding per commit, only when ALL hold:
   the target is outside the protected zones (the validator already checked); a test covers
   what is removed — name it; after the removal the full suite is green (`TEST_CMD_FULL`).

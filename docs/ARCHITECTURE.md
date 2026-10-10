@@ -29,7 +29,7 @@ gates, пропозиції правил, відкриті пункти, дог�
 | test manager | `.claude/agents/test-manager.md` | лише вирішує, нічого не пише й не тестує: у точці (a) — хто пише contract-тести, у точці (b) — catch-up тести, інтеграція, mutation run: зараз, відкладено чи не треба; `.claude/hooks/testing.py` не приймає рішення, що скасовує обов'язкове |
 | tester | `.claude/agents/slice-tester.md` | пише contract-тести, сліпий до коду; розбирає заперечення builder-а до запечатаних тестів; пише інтеграційні тести |
 | overseer | `.claude/agents/overseer.md`, `.claude/skills/overseer/SKILL.md` | audit одного юніта за 12 перевірками; вердикт пише скрипт, не агент |
-| simplifier | `.claude/agents/simplifier.md`, `.claude/references/simplifier.md` | що можна прибрати; лише за сигналом; друга думка моделі іншого постачальника — коли її ввімкнено (`.claude/hooks/second_opinion.py`) |
+| simplifier | `.claude/agents/simplifier.md`, `.claude/references/simplifier.md` | що можна прибрати; лише за сигналом |
 | bugfix, hotfix | `.claude/commands/bugfix.md`, `.claude/commands/hotfix.md` | самі пишуть виправлення: повне з доказом (`bugfix.py prove`) або термінове в жорсткій межі з боргом у .engine/debt.md проєкту |
 | onboard, maintain | `.claude/commands/onboard.md`, `.claude/commands/maintain.md` | знайомство з наявним проєктом; регулярний догляд |
 | пам'ять, документація | `.claude/skills/self-learning-orchestrator/SKILL.md`, `.claude/skills/documentation/SKILL.md` | уроки й прибирання пам'яті; документація |

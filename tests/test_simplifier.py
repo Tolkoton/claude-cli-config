@@ -336,6 +336,33 @@ check("the example in the definition is itself a valid answer",
 check("the request for the agent carries the lens and the signals",
       "LENS: code" in cli(ROOT_TMP, "request", "--lens", "code").stdout and "DETERMINISTIC SIGNALS" in cli(ROOT_TMP, "request", "--lens", "code").stdout)
 
+print("GONE-*    board 732: the second opinion is out of the engine; the simplifier works as before board 013")
+repo = new_repo()
+check("negative — .claude/hooks/second_opinion.py is gone: there is nothing to call",
+      not (ROOT / ".claude/hooks/second_opinion.py").exists())
+listed = subprocess.run([sys.executable, str(ROOT / "evals/run_second_opinion_evals.py"), "--list"], capture_output=True, text=True, check=False)
+check("…and the measurement script left for the owner to remove (the delete guard) no longer runs: it names the missing module",
+      listed.returncode != 0 and "No module named 'second_opinion'" in listed.stderr, listed.stderr[-300:])
+(repo / ".claude/project.env").write_text(FILES[".claude/project.env"] + 'SECOND_OPINION="on"\n')   # an old project's key: read by nobody
+opinion = {"verdict": "disagree", "reason": "it is called", "counter_evidence": [], "verified": True}
+(repo / "answer.json").write_text(json.dumps({"findings": [
+    GOOD | {"second_opinion": opinion},
+    GOOD | {"target": "docs/goals.md:3", "category": "invented_requirement", "claim": "nobody asked", "proposed_action": "confirm",
+            "second_opinion": opinion}]}))
+done = cli(repo, "route", "answer.json", "--title", "an answer of an older engine")
+report = (repo / ".engine/simplifier/report.md").read_text()
+check("an answer that still carries a second opinion, with SECOND_OPINION=\"on\": nothing is lowered — the auto_remove stays one, "
+      "the confirm stays a confirm — and the report says nothing of a second opinion",
+      done.returncode == 0 and "1 auto_remove: F-" in done.stdout and "### confirm (1)" in report and "### flag_only (0)" in report
+      and "second opinion" not in report.lower(), done.stdout + done.stderr + report)
+ident = re.findall(r"^- `(F-[0-9a-f]{8})` \*\*docs/goals.md:3\*\*", report, re.MULTILINE)[0]
+done = cli(repo, "decide", ident, "так")
+row = json.loads((repo / ".engine/simplifier/decisions.jsonl").read_text().splitlines()[-1])
+check("decide still records the owner's decision (delete_guard.py confirm calls it), with no second model in the row",
+      done.returncode == 0 and row.get("finding") == ident and row.get("decision") == "yes" and "second_opinion" not in row, done.stdout + str(row))
+rate = cli(repo, "reversals")
+check("reversals says nothing of a second model", rate.returncode == 0 and "second model" not in rate.stdout, rate.stdout)
+
 for leftover in Path(tempfile.gettempdir()).glob("simplifier-*"):
     shutil.rmtree(leftover, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")
