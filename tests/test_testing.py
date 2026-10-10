@@ -364,6 +364,17 @@ check("inside the manager: Write is refused", "writes nothing" in guard(r, {"age
 check("inside the tester: the implementation is refused", "test files only" in guard(r, {"agent_type": "slice-tester", "tool_name": "Edit", "tool_input": {"file_path": str(r / "src/pricing.py")}}))
 check("inside the tester: the contract is refused", "test files only" in guard(r, {"agent_type": "slice-tester", "tool_name": "Write", "tool_input": {"file_path": str(r / ".engine/slices/discount.md")}}))
 check("inside the tester: a test file is allowed", guard(r, {"agent_type": "slice-tester", "tool_name": "Write", "tool_input": {"file_path": str(r / "tests/test_pricing.py")}}) == "")
+# Bug 007 (board 747): a file_path that is a symlink loop gets the guard's own decision. Up to Python 3.12 Path.resolve()
+# raised RuntimeError on a loop: a traceback, exit 1, and the call went through undecided. Red under python3.12.
+(r / "tests").mkdir(exist_ok=True)
+for loop in ("src/loop.py", "tests/test_loop.py"):
+    (r / loop).symlink_to(Path(loop).name)
+for loop, wanted in (("src/loop.py", "test files only"), ("tests/test_loop.py", "")):
+    looped = cli(r, "guard", stdin=json.dumps({"agent_type": "slice-tester", "tool_name": "Write", "tool_input": {"file_path": str(r / loop)}}))
+    reason = json.loads(looped.stdout)["hookSpecificOutput"]["permissionDecisionReason"] if looped.stdout.strip() else ""
+    check(f"inside the tester: the symlink loop {loop} gets the decision its name gets ({'refused' if wanted else 'allowed'}), "
+          "no traceback (bug 007)", looped.returncode == 0 and "Traceback" not in looped.stderr and (wanted in reason if wanted else reason == ""),
+          f"rc={looped.returncode} {looped.stderr.strip().splitlines()[-1:] if looped.stderr.strip() else ''} {reason}")
 check("inside the tester: starting an agent is refused", "starts no agent" in guard(r, {"agent_type": "slice-tester", "tool_name": "Agent", "tool_input": {}}))
 answer(r, TESTER | {"slice": "discount"})
 tester_line = cli(r, "request", "discount", "--tester", "contract").stdout.strip()

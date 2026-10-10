@@ -950,7 +950,8 @@ def guard(root: Path, envelope: JsonObj) -> JsonObj | None:
         if tool in AGENT_TOOLS:
             return deny("The tester starts no agent.")
         target = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
-        rel = Path(target).resolve().relative_to(root).as_posix() if target and Path(target).resolve().is_relative_to(root) else target
+        real = Path(os.path.realpath(target))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
+        rel = real.relative_to(root).as_posix() if target and real.is_relative_to(root) else target
         if tool in EDIT_TOOLS and not test_touch.is_test_path(rel):
             return deny(f"The tester writes test files only: {rel} is not one. It does not write the implementation and does not edit the contract.")
         return None
