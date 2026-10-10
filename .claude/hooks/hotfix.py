@@ -35,7 +35,6 @@ wrong: who declares, the name, the files); 3 a question for the owner. Standard 
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import sys
 from dataclasses import dataclass
@@ -44,6 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import complexity_budget as budget  # the measurement and the project root live there
+import mode as mode_reader  # the task's mode and «nobody is watching» (board 097)
 
 TERM_DAYS = 7
 MAX_OPEN = 3
@@ -104,8 +104,8 @@ def today() -> date:
 
 
 def unattended(root: Path) -> bool:
-    """Nobody is watching: the runner's environment says so, or the mode file does (as board.py reads it)."""
-    return os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1" or read(root / ".claude/state/overseer/mode").strip() == "unattended"
+    """Nobody is watching: the runner's environment says so, or the mode file does (mode.py reads both)."""
+    return mode_reader.unattended(root)[0]
 
 
 def refuse(code: int, why: str) -> int:
@@ -161,6 +161,9 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
     if isinstance(declared, str):
         return refuse(2, declared)
     words, task_text = declared
+    forbidden = mode_reader.refusal(root, "hotfix", root / args.task if args.task else None)
+    if forbidden:
+        return refuse(2, forbidden)
     open_debts = [d for d in debts(read(root / DEBT_REL)) if d.open]
     answer = (args.owner_answer or "").strip()
     if len(open_debts) >= MAX_OPEN:

@@ -107,7 +107,8 @@ def build_sandbox(target: Path, variant: str, ref: str) -> Path:
             else:
                 shutil.copy2(source, target / rel)
         (target / ".claude/hooks").mkdir()
-        shutil.copy2(ROOT / ".claude/hooks/goals.py", target / ".claude/hooks/goals.py")
+        for hook in ("goals.py", "mode.py"):   # goals.py asks mode.py whether anybody is watching (board 097)
+            shutil.copy2(ROOT / ".claude/hooks" / hook, target / ".claude/hooks" / hook)
         (target / ".engine/goals/requests").mkdir(parents=True)
         (target / ".engine/goals.md").write_text(fixture("goals.md"), encoding="utf-8")
         (target / ".engine/goals/requests/001.md").write_text(fixture("d-request.md"), encoding="utf-8")

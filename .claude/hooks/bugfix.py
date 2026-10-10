@@ -193,6 +193,13 @@ def refused(reason: str, *runs: tuple[str, Run]) -> int:
 
 
 def cmd_prove(root: Path, args: argparse.Namespace) -> int:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mode  # the task's mode (board 097): a fix is never made in quarantine
+
+    forbidden = mode.refusal(root, "bugfix")
+    if forbidden:
+        print(f"REFUSED: {forbidden}")
+        return 1
     sha = resolve_base(root, args.base, args.record)
     tests = test_files(root, args.test)
     fix = the_fix(root, sha, tests)

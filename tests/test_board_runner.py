@@ -284,6 +284,9 @@ check("claude was called once, with -p and the three flags the owner named",
       and a[a.index("--permission-mode") + 1] == "auto" and a[a.index("--output-format") + 1] == "json", a)
 check("a fresh conversation: no --resume, no -c", "--resume" not in a and "-c" not in a and "--continue" not in a, a)
 check("the prompt names the task file and the manual", "tasks/doing/001-first.md" in a[1] and "tasks/README.md" in a[1], a[1])
+check("…and carries the task's mode, as its one reader prints it (board 097)",
+      "The task's mode, as python3 .claude/hooks/mode.py show reads it: режим: соло (рядка «Режим:» немає → соло), задача 001-first" in a[1]
+      and "без нагляду: так (змінна runner-а CLAUDE_UNATTENDED_SESSION=1)" in a[1], a[1])
 check("no budget flag unless a cap is set", "--max-budget-usd" not in a, a)
 check("it ran in the repository", w.calls()[0]["cwd"] == str(w.repo))
 check("status: idle, todo empty", w.status().startswith("state=idle task=- since=") and "reason=todo-empty" in w.status(), w.status())

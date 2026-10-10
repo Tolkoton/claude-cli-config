@@ -17,7 +17,8 @@ the builder's conversation, under .claude/state/overseer/requests/<id>/:
   evidence.md   the commands that really ran in that turn, in order, with the tail of their output,
                 and the files that were edited; taken from the transcript, not from the message
   request.json  id, unit, attempt, the contract and its sha256, the gate-allow list, the open gate
-                escalation, PASS verdicts in a row on the slice, the fingerprint of the tree
+                escalation, PASS verdicts in a row on the slice, the task's mode (mode.py show,
+                board 097), the fingerprint of the tree
 and names it in .claude/state/overseer/pending.json. The builder is told to launch the agent with
 the prompt `OVERSEER_REQUEST <id>` and nothing else.
 
@@ -378,6 +379,16 @@ def board_task(root: Path) -> str:
     return names[0] if names else "-"
 
 
+def mode_line(root: Path) -> str:
+    """The session's task's mode as its one reader prints it (mode.py show, board 097); "" when it cannot be read."""
+    try:
+        import mode
+
+        return str(mode.show_line(root))
+    except (ImportError, OSError, ValueError):
+        return ""
+
+
 def contract_of(root: Path, slice_name: str | None) -> JsonObj | None:
     if not slice_name:
         return None
@@ -412,7 +423,7 @@ def make_request(root: Path, turn: str, *, origin: str, unit: str = "1", transcr
         "contract": contract_of(root, slice_name),
         "passes_in_a_row": passes_in_a_row(root, slice_name or "unknown"),
         "gate_allows": gate_allows_text.strip(), "gate_escalation": gate_escalation.strip(),
-        "tree": tree_fingerprint(root),
+        "mode": mode_line(root), "tree": tree_fingerprint(root),
     }
     folder = request_dir(root, request_id)
     folder.mkdir(parents=True, exist_ok=True)

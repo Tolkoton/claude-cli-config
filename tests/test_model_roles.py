@@ -19,6 +19,7 @@ Run:   python3 tests/test_model_roles.py       Exit: 0 all green, 1 otherwise.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import sys
@@ -125,6 +126,22 @@ print("overseer and architects: the session's model, never a cheaper one")
 for rel in STRONGEST:
     fields = frontmatter(CLAUDE / rel)
     check(f"{rel}: has frontmatter and names no model", bool(fields) and "model" not in fields, fields)
+
+print("modes: a mode says which roles run and how strictly, never who runs them (board 097)")
+reader = (CLAUDE / "hooks" / "mode.py").read_text(encoding="utf-8")
+NAMED = re.compile(r"(?i)\b(sonnet|opus|haiku|fable)\b|claude-[a-z]+-\d|\bmodel\s*[:=]")
+check("mode.py names no model and has no model field", not NAMED.search(reader), NAMED.findall(reader))
+sys.path.insert(0, str(CLAUDE / "hooks"))
+spec = importlib.util.spec_from_file_location("mode", CLAUDE / "hooks" / "mode.py")
+assert spec is not None and spec.loader is not None
+mode = importlib.util.module_from_spec(spec)
+sys.modules["mode"] = mode
+spec.loader.exec_module(mode)
+for value in ("конвеєр, opus", "соло (sonnet)", "ескіз model: haiku"):
+    check(f"the line «Режим: {value}» is no mode: the board does not take it", bool(mode.parse(f"# x\n\nРежим: {value}\n").error))
+manual = (ROOT / "tasks" / "README.md").read_text(encoding="utf-8")
+section = manual[manual.index("## Режим задачі"):manual.index("\n## ", manual.index("## Режим задачі") + 1)]
+check("the manual's section on modes names no model", not NAMED.search(section), NAMED.findall(section))
 
 print("/feature-architect: two critic rounds per plan")
 text = (CLAUDE / "commands" / "feature-architect.md").read_text(encoding="utf-8")

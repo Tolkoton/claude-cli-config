@@ -25,7 +25,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE_PY = ROOT / "engine.py"
-COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py")
+COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
 SKILL = ".claude/skills/demo/SKILL.md"
 JOURNAL = "tasks/ANOMALIES.md"
 PASS = FAIL = 0
@@ -94,6 +94,7 @@ class Repo:
             shutil.copy(ROOT / path, self.work / path)
         write(self.work / SKILL, "the words a model reads\n")
         write(self.work / "tasks/README.md", "the board\n")
+        write(self.work / ".gitignore", "__pycache__/\n")   # as in the engine's repository: board.py imports hooks/mode.py (board 097)
         write(self.work / "tests/run_all.sh", RUN_ALL_STUB)
         write(self.work / "evals/run_hook_scenarios.py", GOLDEN_STUB)
         write(self.work / "evals/baseline/box/results-old.json", "{}\n")

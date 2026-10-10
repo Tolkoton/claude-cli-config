@@ -52,12 +52,14 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import mode as mode_reader  # the one reader of «nobody is watching» (board 097)
+
 GOALS_REL = ".engine/goals.md"
 PROPOSED_REL = ".engine/goals/proposed.md"
 REVIEW_REL = ".engine/goals/to-review.md"
 REQUESTS_PREFIX = ".engine/goals/requests/"
 STATE_REL = Path(".claude") / "state" / "goals" / "goals.sha256"
-MODE_REL = Path(".claude") / "state" / "overseer" / "mode"
 EXIT_OK, EXIT_USAGE, EXIT_REFUSED, EXIT_NONE = 0, 2, 3, 4
 
 KINDS = "GPNCDQ"
@@ -294,8 +296,7 @@ STATE_EXIT = {"absent": EXIT_NONE, "unsealed": EXIT_NONE, "sealed": EXIT_OK, "ch
 
 
 def unattended(root: Path) -> bool:
-    mode = root / MODE_REL
-    return os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1" or (mode.is_file() and mode.read_text(encoding="utf-8").strip() == "unattended")
+    return mode_reader.unattended(root)[0]
 
 
 def write_seal(root: Path) -> str:

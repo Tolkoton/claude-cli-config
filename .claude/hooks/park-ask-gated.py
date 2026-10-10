@@ -190,17 +190,16 @@ def project_dir() -> Path:
 
 
 def is_unattended(root: Path) -> bool:
-    """True when nobody is watching: .claude/state/overseer/mode names the unattended mode, or
-    the board runner's CLAUDE_UNATTENDED_SESSION=1 (as board.py reads it). Absent or unreadable
-    -> attended, which is the safe default: the normal permission prompt fires and a human
-    decides."""
-    if os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1":
-        return True
+    """True only when nobody is watching, as the one reader says (mode.py, board 097): the runner's
+    CLAUDE_UNATTENDED_SESSION=1, or .claude/state/overseer/mode saying `unattended`. Absent,
+    unreadable, or the reader missing -> attended, which is the safe default: the normal
+    permission prompt fires and a human decides."""
     try:
-        return "unattended" in (root / ".claude" / "state" / "overseer" / "mode").read_text(
-            encoding="utf-8"
-        ).lower()
-    except OSError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import mode
+
+        return mode.unattended(root)[0]
+    except ImportError:
         return False
 
 

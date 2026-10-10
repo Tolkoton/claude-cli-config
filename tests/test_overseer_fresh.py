@@ -345,9 +345,13 @@ check("…the item in todo/ is work for an agent and names the check to write",
       str([i.name for i in items]))
 check("…the ledger entry says so", "- Test gaps: " in p.first_entry() and GAP["check"] in p.first_entry() and "OVERSEER_PASS" in p.first_entry(), p.first_entry())
 check("…and the Stop hook continues as on any PASS", "OVERSEER_PASS recorded" in p.stop("Answered."))
+# The shell command only stands in the transcript; the tree changes for real, so the hook's tree signal holds
+# whichever request it takes for the last one (seen 2026-10-10: a scene that wrote nothing went red).
+(p.root / "src/pricing.py").open("a", encoding="utf-8").write("# more\n")
 p.audit(GOOD | {"test_gaps": [GAP]}, "More.\n\n=== UNIT 3 COMPLETE ===", shell="echo more >> src/pricing.py")
 check("negative — the same gap found again by the next overseer returns the item still open, not a second one",
       len(sorted((p.root / "tasks/todo").glob("*.md"))) == 1 and p.rows()[-1]["verdict"] == "PASS", str(sorted((p.root / "tasks/todo").glob("*.md"))))
+(p.root / "src/pricing.py").open("a", encoding="utf-8").write("# again\n")
 p.audit(GOOD | {"test_gaps": [GAP]}, "Again.\n\n=== UNIT 3 COMPLETE ===", shell="echo again >> src/pricing.py")
 said = p.stop("Answered.")
 check("…and passes with gaps never count toward the three BLOCKs: three in a row park nothing",

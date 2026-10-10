@@ -157,7 +157,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     git(work, "switch", "-q", "-c", BRANCH)
     commits = {}
 
-    write(work, "tasks/done/001-first/task.md", task("001 — Перша"))
+    write(work, "tasks/done/001-first/task.md", task("001 — Перша") + "\n## Режим піднято\n- 2026-01-01T00:00:00Z — соло → конвеєр: ОБСЯГ-ЗРІС\n")
     write(work, "tasks/done/001-first/report.md", report("001-first"))
     git(work, "add", "-A")
     git(work, "commit", "-q", "-m", "board: 001-first → done", date="2026-01-01T00:00:00Z")
@@ -175,6 +175,8 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "tasks/todo/040-attended.md", task("040 — ЗАДАЧА-З-ВЛАСНИКОМ").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
     write(work, "tasks/doing/045-with-owner.md", task("045 — ВЕДЕ-ВЛАСНИК").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
     write(work, "tasks/todo/950-answered.md", task("950 — ВЛАСНИК-ВІДПОВІВ"))
+    write(work, "tasks/todo/060-pipeline.md", task("060 — Конвеєрна").replace("Аудит потрібен:", "Режим: конвеєр\nАудит потрібен:"))
+    write(work, "tasks/todo/070-bad-mode.md", task("070 — Без режиму").replace("Аудит потрібен:", "Режим: абищо\nАудит потрібен:"))
     write(work, "tasks/.first", "950-answered.md\n007-gone.md\n")
     write(work, "docs/tasks/settings.json", '{"proposal": true}\n')
     write(work, ".claude/settings.json", '{"proposal": false}\n')
@@ -243,6 +245,9 @@ check("without --since the newest version tag is the start: both finished tasks"
 check("a finished task shows what changed, the demo, the decisions, the cost, the commits", all(
     f"{word}-002-second" in done_part for word in ("ЗМІНА", "$ demo", "РІШЕННЯ", "ВИТРАТИ", "COMMITS")) and commits["second"][:7] in done_part, done_part)
 check("a `## ` line inside a code block of a report is not taken for a heading", "## not a heading\n```" in done_part, done_part)
+check("board 097: a finished task says the mode it was closed in, the raise and its reason included",
+      "Режим: конвеєр (рядка «Режим:» немає → соло; піднято 2026-01-01T00:00:00Z з соло на конвеєр — ОБСЯГ-ЗРІС)." in done_part
+      and "Режим: соло (рядка «Режим:» немає → соло)." in done_part, done_part)
 
 # --- nothing is changed ---------------------------------------------------------------------
 print("read-only")
@@ -292,6 +297,7 @@ check("the document has every unfilled one, and the gate's", all(f"ПИТАНН�
 check("a filled answer and the template's hint are not asked again", "ПИТАННЯ-ДВА" not in waiting and "Питання-з-коментаря" not in waiting, waiting)
 check("the count is said: six unfilled answers in three tasks", any("відповідей: 6, у задачах: 3" in line for line in waiting.splitlines()[:4]) and "008-asks.md" in waiting and "900-gate-escalation" in waiting, waiting.splitlines()[:4])
 check("the draft report of a blocked task is pointed at", "tasks/blocked/report-008-asks.md" in waiting, waiting)
+check("board 097: a blocked task says its mode under its title", "— Питає\nРежим: соло (рядка «Режим:» немає → соло)." in waiting, waiting)
 check("a settings proposal that waits for «так» is named as one, and that it differs from the live file", "apply-settings" in waiting
       and "docs/tasks/settings.json" in waiting and "відрізняється" in waiting, waiting)
 check("the gate's question is named as one", "20260101T000000Z" in waiting and "відповідь `так` (рівно це слово) закриє її" in waiting and "закрити`" not in waiting, waiting)
@@ -340,6 +346,11 @@ check("…and the one that can start is not said to stand", "стоїть" not i
 line_040 = next(line for line in plan.splitlines() if "040-attended.md" in line)
 check("…an attended task is in the plan as one the runner does not take, never as «наступна»", "лише з присутнім власником" in line_040
       and "наступна" not in line_040, line_040)
+line_060, line_070 = (next(line for line in plan.splitlines() if name in line) for name in ("060-pipeline.md", "070-bad-mode.md"))
+check("board 097: every task of the plan says its mode and where it was read", "режим: соло (рядка «Режим:» немає → соло)" in line_020
+      and "режим: конвеєр (рядок «Режим: конвеєр»)" in line_060, (line_020, line_060))
+check("…a line that names no mode: the plan says the runner does not take it, never «наступна»", "**не береться**" in line_070
+      and "«Режим: абищо» — такого режиму немає" in line_070 and "наступна" not in line_070 and "стоїть" not in line_070, line_070)
 check("board 049: a task the owner answered heads the plan, whatever its number, and says why", plan.find("950-answered.md") != -1
       and plan.find("950-answered.md") < plan.find("020-free.md") and "власник відповів" in next(line for line in plan.splitlines() if "950-answered.md" in line)
       and "власник відповів" not in line_020 and "007-gone" not in plan, plan)
@@ -397,6 +408,7 @@ check("a runner that is not working has no attempt in hand, whatever the log's l
       "Спроба, що триває" not in section(cli(clone, state=state_files(top, "state=stalled task=009-in-work since=2026-02-01T00:00:00Z reason=no-commit")).stdout, "Стан зараз"))
 now = section(doc, "Стан зараз")
 check("without the state files: from git — the task in doing/ and since when", "009-in-work.md" in now and "2026-02-01" in now and "git" in now, now)
+check("board 097: the task in doing/ says its mode", "режим: соло (рядка «Режим:» немає → соло)" in next(line for line in now.splitlines() if "009-in-work.md" in line), now)
 line_045 = next((line for line in now.splitlines() if "045-with-owner.md" in line), "")
 line_009 = next((line for line in now.splitlines() if "009-in-work.md" in line), "")
 check("board 049: an attended task in doing/ is shown as worked on with the owner; the runner's own task is not",

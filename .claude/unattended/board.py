@@ -3,8 +3,9 @@
 
 The board is four directories under tasks/ — todo/, doing/, blocked/, done/. A task is one
 file `NNN-name.md`; the number is its place in the queue. Under the title it carries plain
-lines — `Залежить від:` (task numbers), `Аудит потрібен: так|ні` and, when the task may be worked
-on only with the owner present, `Потрібна присутність власника: так` — and its last section,
+lines — `Залежить від:` (task numbers), `Аудит потрібен: так|ні`, when the task may be worked
+on only with the owner present, `Потрібна присутність власника: так`, and its mode, `Режим:` (read by
+.claude/hooks/mode.py, see A MODE) — and its last section,
 `## Питання до власника`, holds questions, each with an `Відповідь:` line. A finished task is
 a directory done/NNN-name/ with task.md and report.md. tasks/README.md is the manual.
 
@@ -118,7 +119,7 @@ that session's and stops nobody (board 049): a plain `next` neither continues it
 it — it offers the next task of todo/ — and a plain `start` puts the runner's task beside it, so
 doing/ holds at most one task of each side. `summary` and the review call it «в роботі з
 власником». `start --attended` is still refused while doing/ holds any task. Whoever asks «which
-task is in hand» — the paid-run checks, the overseer's unit key, a hook's journal entry — gets
+task is in hand» — the audit permission, the overseer's unit key, a hook's journal entry — gets
 its own side's (`own`, board 712): an agent alone the plain one, the owner's session the attended
 one, or the plain one when no attended task is there.
 
@@ -162,6 +163,12 @@ A gate question whose escalation was CLOSED ANOTHER WAY (board 035) — the owne
 .claude/state/gate/escalations.json — and that nobody answered asks nothing any more:
 `gate-closed` lists it and the runner moves it to done/ (`gate-done <name> elsewhere`).
 
+A MODE (board 097) is the task's: `Режим: ескіз|соло|конвеєр` under its title, соло without the
+line. The mode itself is read by .claude/hooks/mode.py — the one reader of the mode and of «nobody
+is watching»; here it decides one thing: a line that names no mode is nobody's clear word, so such a
+task is not taken — `import-inbox` leaves the file in the inbox (with an entry in the journal) and
+`next` passes it over (`summary` says why).
+
 `--root DIR` names the repository (default: the one this file is installed in).
 """
 
@@ -177,6 +184,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hooks"))
+import mode as mode_reader  # the one reader of the mode and of «nobody is watching» (board 097)
 
 COLUMNS = ("todo", "doing", "blocked", "done")
 FIRST = ".first"  # tasks/.first: the todo/ tasks the owner answered (THE OWNER'S ANSWERS FIRST)
@@ -229,6 +239,7 @@ class Task:
     action_arg: str = ""
     rule: str = ""
     attended: bool = False
+    mode_error: str = ""  # the `Режим:` line names no mode: the task is not taken (A MODE)
 
     @property
     def answered(self) -> bool:
@@ -298,6 +309,7 @@ def parse(text: str) -> Task:
         gate=gate.group(1) if gate else "",
         rule=rule.group(1) if rule else "",
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
+        mode_error=mode_reader.parse(text).error,
     )
 
 
@@ -367,7 +379,7 @@ class Board:
         """The first task of the queue that can start: for an agent alone, never an attended one;
         with attended=True (the owner's session), the first attended one."""
         return next((p for p in self.queue() for task in [read(p)]
-                     if task.attended == attended and not self.unmet(task)), None)
+                     if task.attended == attended and not self.unmet(task) and not task.mode_error), None)
 
     def shown(self, path: Path) -> str:
         return path.relative_to(self.tasks.parent).as_posix()
@@ -377,11 +389,8 @@ class Board:
 
 
 def unattended_session(root: Path) -> bool:
-    """Nobody is watching: the runner's environment says so, or the mode file does."""
-    if os.environ.get("CLAUDE_UNATTENDED_SESSION") == "1":
-        return True
-    mode = root / ".claude/state/overseer/mode"
-    return mode.is_file() and mode.read_text(encoding="utf-8").strip() == "unattended"
+    """Nobody is watching: the runner's environment says so, or the mode file does (mode.py reads both)."""
+    return mode_reader.unattended(root)[0]
 
 
 def own(tasks: Path) -> list[Path]:
@@ -479,6 +488,11 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
         if number is None or not source.is_file():
             continue
         content = source.read_bytes()
+        wrong = parse(content.decode("utf-8", "replace")).mode_error
+        if wrong:
+            lines.append(f"{source.name} skipped: {wrong} — the board does not take it; the file stays in the inbox")
+            _unread_mode(board, source.name, wrong)
+            continue
         busy = next((c for c in ("doing", "done") if number in board.numbers(c)), None)
         blocked = board.with_number("blocked", number)
         if busy:
@@ -519,6 +533,14 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
     if " ".join(what.split()) not in journal:
         anomaly(board, "-", what, "нічого не видалено й не замінено; файл лишився в inbox. Назвіть його точно так, як файл у task board, "
                 "якого він стосується, а однакові номери розведіть (`board.py check`)", "task board (import-inbox)")
+
+
+def _unread_mode(board: Board, name: str, wrong: str) -> None:
+    """The journal entry of an inbox file whose `Режим:` line names no mode (A MODE), once per file and line."""
+    what = f"файл `{name}` з inbox не взято: {wrong}"
+    if " ".join(what.split()) not in _text(board.tasks / ANOMALIES):
+        anomaly(board, "-", what, f"файл лишився в inbox. Виправте рядок на `Режим: {'|'.join(mode_reader.MODES)}` "
+                "(або приберіть його — тоді соло) і покладіть файл знову", "task board (import-inbox)")
 
 
 def duplicate_lines(columns: dict[str, list[str]]) -> list[str]:
@@ -1105,6 +1127,8 @@ def summary(board: Board) -> list[str]:
         waiting = read(path)
         if waiting.attended:
             lines.append(f"чекає на присутність власника: {path.name} — лише в інтерактивній сесії з власником")
+        if waiting.mode_error:
+            lines.append(f"не береться: {path.name} — {waiting.mode_error}")
         unmet = board.unmet(waiting)
         if unmet:
             waits = ", ".join(f"{n:03d}" + ("" if n in known else " (такої задачі ніде немає)") for n in unmet)

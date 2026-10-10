@@ -648,6 +648,9 @@ run_task() {
   local file="$1" stem place
   stem=$(basename "$file" .md)
   local first="You are working from the task board, unattended: nobody will answer a question in this conversation. Your task is the file $file. Read tasks/README.md (the section «Правила для агента») and follow it. If work on this task has already begun (see git log and the working tree), continue it instead of starting over. The task is finished only when you have moved it to tasks/done/$stem/ (task.md and report.md) or, if it cannot proceed without the owner, to tasks/blocked/ with your questions, and committed that. Do not push. If the usage limit runs out, just end the turn; you will be continued."
+  local mode
+  mode=$(python3 "$HERE/../hooks/mode.py" --root "$PROJECT_ROOT" show --task "$file" 2>/dev/null) || mode=""   # board 097: the task's mode, from its one reader
+  [ -z "$mode" ] || first+=" The task's mode, as python3 .claude/hooks/mode.py show reads it: $mode"
   local again="Continue the task $file from where you stopped. It is finished only when it is in tasks/done/$stem/ (task.md and report.md) or in tasks/blocked/ with your questions, and that is committed."
   while :; do
     place=$(board where "$stem")

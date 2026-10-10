@@ -33,7 +33,9 @@ everything you need is in the request package and in the repository.
    contract's path and sha256, `gate_allows` (every gate exemption the work
    adds that no accepted PASS has covered; empty means none), `gate_escalation`
    (when not empty the Stop gate's escalation is open and a PASS will not be
-   accepted — audit as usual and say what you found), `passes_in_a_row`.
+   accepted — audit as usual and say what you found), `passes_in_a_row`, `mode`
+   (the task's mode as `mode.py show` prints it: in «соло» a missing slice contract is
+   no finding; in «конвеєр» every slice has a sealed one, and its absence is #1).
 
 Then the state:
 

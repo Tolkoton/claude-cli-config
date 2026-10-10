@@ -42,14 +42,18 @@ out cwd "$(pwd)"
 out probe_location "$HERE"
 
 # --- what kind of session ---------------------------------------------------------------
+# Whether anybody is watching is the reader's answer (.claude/hooks/mode.py, board 097), not this file's.
+reader="$HERE/../hooks/mode.py"
 if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
   out session_kind cloud
-elif [ -n "${CLAUDE_UNATTENDED_SESSION:-}" ]; then
-  out session_kind unattended-supervised
-elif [ -f "$PROJECT/.claude/state/overseer/mode" ] && grep -qx 'unattended' "$PROJECT/.claude/state/overseer/mode" 2>/dev/null; then
-  out session_kind unattended-mode-file
+elif ! have python3 || [ ! -f "$reader" ]; then
+  out session_kind "unknown (no python3 or no $reader to ask)"
 else
-  out session_kind attended-local
+  case "$(python3 "$reader" --root "$PROJECT" unattended 2>/dev/null)" in
+    "unattended env") out session_kind unattended-supervised ;;
+    "unattended mode-file") out session_kind unattended-mode-file ;;
+    *) out session_kind attended-local ;;
+  esac
 fi
 for v in "${SAFE_VALUE_VARS[@]}"; do
   if [ -n "${!v+x}" ]; then out "env.$v" "${!v}"; else out "env.$v" "<unset>"; fi

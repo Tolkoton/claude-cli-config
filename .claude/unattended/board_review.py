@@ -52,6 +52,7 @@ import board_state
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 import goals  # the goals document's reader lives with the hooks
 import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
+import mode as mode_reader  # and the one reader of a task's mode (board 097)
 import testing  # and the reader of the testing ledger (.engine/testing/ledger.md, board 062)
 
 CONTEXT_BUDGET = 200
@@ -175,6 +176,11 @@ def since(src: Source, given: str | None) -> Since:
     if moment is None:
         raise ReviewError(f"--since {label}: neither a commit of this repository nor a date (2026-10-03 or 2026-10-03T14:00:00Z)")
     return Since(f"від {stamp(moment)}", (f"--since={moment.isoformat()}", src.sha), moment)
+
+
+def mode_of(text: str) -> str:
+    """The task's mode as the one reader shows it (.claude/hooks/mode.py, board 097)."""
+    return mode_reader.parse(text).shown()
 
 
 def stamp(moment: datetime | None) -> str:
@@ -337,7 +343,7 @@ def now_section(src: Source, state: Path, now: datetime) -> list[str]:
         text = src.show(path)
         with_owner = " (**у роботі з власником** — runner її не чіпає і бере наступні)" if board.parse(text).attended else ""
         lines.append(f"- У гілці в `doing/`: `{posixpath.basename(path)}` — {title_of(text, 'без назви')}{with_owner}; "
-                     f"узято в роботу {stamp(moved)}" + (f", {elapsed(moved, now)} тому" if moved else "") + ".")
+                     f"узято в роботу {stamp(moved)}" + (f", {elapsed(moved, now)} тому" if moved else "") + f"; режим: {mode_of(text)}.")
     if not doing:
         unpushed = status is not None and status.group(2) != "-"
         lines.append("- У гілці в `doing/` зараз порожньо" + (" (commit, яким задачу взято в роботу, ще не надіслано)." if unpushed else "."))
@@ -389,7 +395,8 @@ def done_section(src: Source, stems: list[str], costs: dict[str, dict[str, Any]]
     for stem in stems:
         folder = f"tasks/done/{stem}"
         report = src.show(f"{folder}/report.md")
-        lines += [f"### {stem} — {title_of(src.show(f'{folder}/task.md'), stem)}", ""]
+        task = src.show(f"{folder}/task.md")
+        lines += [f"### {stem} — {title_of(task, stem)}", "", f"Режим: {mode_of(task)}."]
         closed = src.log("-1", "--diff-filter=AR", "--format=%h%x09%cI%x09%s", src.sha, "--", f"{folder}/report.md", f"{folder}/task.md").split("\t")
         if len(closed) == 3:
             lines.append(f"Закрито {stamp(as_utc(closed[1]))}, commit `{closed[0]}` — {closed[2]}")
@@ -438,7 +445,7 @@ def question_lines(src: Source, asked: list[Asked]) -> list[str]:
         if not blocks:
             continue
         name = posixpath.basename(path)
-        lines.append(f"### {name} — {title_of(text, name)}")
+        lines += [f"### {name} — {title_of(text, name)}", f"Режим: {mode_of(text)}."]
         draft = f"tasks/blocked/report-{name}"
         if draft in src.files:
             lines.append(f"Що зроблено і чому питання — у чернетці звіту `{draft}`.")
@@ -654,7 +661,10 @@ def plan_section(src: Source) -> list[str]:
         unmet = [n for n in depends if place.get(n) != "done"]
         line = f"{index}. `{posixpath.basename(path)}` — {title_of(text, 'без назви')}"
         line += "; **першою — власник відповів**" if posixpath.basename(path) in first else ""
-        if task.attended:
+        line += f"; режим: {mode_of(text)}"
+        if task.mode_error:
+            line += "; **не береться** — рядок «Режим:» не називає режиму"
+        elif task.attended:
             line += "; **лише з присутнім власником** — runner не бере"
             line += ("; чекає на: " + ", ".join(f"{n:03d} ({place.get(n) or 'такої задачі ніде немає'})" for n in unmet)) if unmet else ""
         elif unmet:

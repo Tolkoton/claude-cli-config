@@ -109,7 +109,10 @@ test_audit_noise.py
 test_core_units.py
 test_architecture_doc.py
 test_tool_versions.py
+test_mode.py
 # Board 738: test_shell_text 35 s stays out (about three hundred and fifty runs of the real block-dangerous.sh).
 # Board 089: test_architecture_doc 0.1 s is in (in-process: every path docs/ARCHITECTURE.md names exists, the hooks map equals the settings both ways, matcher by matcher).
 # Board 107: test_tool_versions 0.4 s is in (the check tools' versions stay in one place; in-process, and a dozen runs
 # of tool_versions.py with stand-ins on a PATH built from nothing).
+# Board 097: test_mode 4.9 s is in (the one reader of the mode and of «nobody is watching», which five places, the park hook
+# among them, now ask; a dozen synthetic projects, three runs of hotfix.py and one of bugfix.py, env-probe.sh four times).
