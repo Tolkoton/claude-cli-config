@@ -83,6 +83,9 @@ REPO_ROOT = Path(
 # handed over unproven.
 HOOK = Path(os.environ.get("FOE_HOOK") or REPO_ROOT / ".claude" / "hooks" / "format-on-edit.sh")
 REAL_PROJECT_ENV = REPO_ROOT / ".claude" / "project.env"
+# What every installed project starts from (FORMAT_CMD="": the built-in handlers). The engine's own
+# project.env switches formatting off (board 749), so the cases of the default path copy the seed.
+SEED_PROJECT_ENV = REPO_ROOT / "templates" / "project" / ".claude" / "project.env"
 
 PASS = 0
 FAIL = 0
@@ -102,11 +105,11 @@ def bad(msg: str, expected: object, actual: object) -> None:
     print(f"  FAIL {msg}\n         expected: {expected!r}\n         actual:   {actual!r}")
 
 
-def new_root(with_real_env: bool = False) -> Path:
+def new_root(with_seed_env: bool = False) -> Path:
     root = Path(tempfile.mkdtemp(prefix="foe-"))
     (root / ".claude").mkdir()
-    if with_real_env:
-        shutil.copy(REAL_PROJECT_ENV, root / ".claude" / "project.env")
+    if with_seed_env:
+        shutil.copy(SEED_PROJECT_ENV, root / ".claude" / "project.env")
     return root
 
 
@@ -206,11 +209,11 @@ print()
 
 # ---------------------------------------------------------------------------
 # ACT-1  .json built-in, REAL jq. No shim, no simulation.
-#        Uses this repo's actual project.env (FORMAT_CMD="", CODE_EXTENSIONS="py")
+#        Uses the seed project.env (FORMAT_CMD="", CODE_EXTENSIONS="py")
 #        so the configured branch is correctly skipped and the built-in runs.
 # ---------------------------------------------------------------------------
 print("ACT-1  .json built-in handler, real jq -- the hook is seen to ACT")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 target = r / "data.json"
 target.write_text('{"b":2,"a":[1,2]}')
 before = target.read_text()
@@ -230,7 +233,7 @@ else:
 #        could not reach.
 # ---------------------------------------------------------------------------
 print("ACT-2  .py built-in branch (ruff shim records argv)")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 shims, log = r / "shims", r / "ruff.log"
 log.write_text("")
 make_shim(shims, "ruff", log)
@@ -257,7 +260,7 @@ else:
 # ACT-3  uv.lock takes precedence over bare ruff (first branch of the case).
 # ---------------------------------------------------------------------------
 print("ACT-3  uv.lock present -> 'uv run ruff', bare ruff must NOT fire")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 (r / "uv.lock").touch()
 shims = r / "shims"
 uv_log, ruff_log = r / "uv.log", r / "ruff.log"
@@ -334,7 +337,7 @@ else:
 # NEG-1  Extension with no handler and no config match -> byte-identical.
 # ---------------------------------------------------------------------------
 print("NEG-1  unhandled extension is left alone")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 target = r / "notes.txt"
 target.write_text("ragged   text\n\n\n")
 before_sha = sha(target)
@@ -399,7 +402,7 @@ else:
 #        difference instead of leaving both hooks under one blanket caveat.
 # ---------------------------------------------------------------------------
 print("NEG-5  jq absent -> silent no-op (benign here, unlike the deny hooks)")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 target = r / "data.json"
 target.write_text('{"b":2,"a":1}')
 before_sha = sha(target)
@@ -445,7 +448,7 @@ else:
 #         eval on line 86 -- that is the point of running both.
 # ---------------------------------------------------------------------------
 print("EDGE-2  path with a space through the built-in ruff branch")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 shims, ruff_log = r / "shims", r / "ruff.log"
 ruff_log.write_text("")
 make_shim(shims, "ruff", ruff_log)
@@ -467,7 +470,7 @@ else:
 #        it, which the earlier pass did not try.
 # ---------------------------------------------------------------------------
 print("ACT-7  .py built-in branch with a REAL ruff (uvx) -- hook seen to ACT")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 rr = real_ruff_dir(r)
 if rr is None:
     print("  SKIP uvx unavailable -- cannot supply a real ruff")
@@ -507,7 +510,7 @@ else:
 #        passes it vacuously, so it skips rather than lying.
 # ---------------------------------------------------------------------------
 print("NEG-6  hook stays silent on stdout even when the formatter chatters")
-r = new_root(with_real_env=True)
+r = new_root(with_seed_env=True)
 rr = real_ruff_dir(r)
 if rr is None:
     print("  SKIP uvx unavailable -- a shim cannot exercise this")
@@ -530,6 +533,78 @@ else:
         ok("the model is told the file was rewritten (additionalContext)")
     else:
         bad("a rewritten file is reported through additionalContext", "mentions rewritten", context)
+
+# ---------------------------------------------------------------------------
+# OFF-*  FORMAT_CMD="true" is the off switch for EVERY file (board 749). A cloud container carries
+#        ruff, black and prettier; with FORMAT_CMD empty one edit of 8 lines became a diff of
+#        593+/149-, and before 749 the key covered only CODE_EXTENSIONS: prettier still rewrote .md.
+#        Same shims and the same one-line edits in all three cases; OFF-3 is the control that shows
+#        the shims and the edits would have inflated the diff.
+# ---------------------------------------------------------------------------
+UNFORMATTED = {  # name: (the file as committed, the one line changed, its new text)
+    "mod.py": ("import sys\nimport os\nx=1\ndef  f( a,b ):\n    return a\n", "x=1", "x=2"),
+    "notes.md": ("# Title\nsome_name here\n* item\n", "some_name here", "some_name there"),
+    "data.json": ('{"b":2,"a":[1,2]}\n', '{"b":2', '{"b":3'),
+    "conf.yml": ("a:   1\nb:    [1,2]\n", "a:   1", "a:   2"),
+}
+
+
+def edit_each_line(env_from: Path | None, **kv: str) -> tuple[str, dict[str, str]]:
+    """Commit the unformatted files, change one line of each, run the hook on it; the formatters' log and each numstat."""
+    r = new_root()
+    if env_from is not None:
+        shutil.copy(env_from, r / ".claude" / "project.env")
+    else:
+        write_env(r, **kv)
+    shims, log = r / "shims", r / "fmt.log"
+    log.write_text("")
+    for name in ("ruff", "black", "prettier"):
+        make_shim(shims, name, log)
+    real_jq = shutil.which("jq")
+    if real_jq:  # jq rewrites through the hook's own write: log the call, let the real one answer
+        (shims / "jq").write_text(f'#!/usr/bin/env bash\nprintf "%s\\n" "jq $*" >> "{log}"\nexec {real_jq} "$@"\n')
+        (shims / "jq").chmod(0o755)
+    git = ["git", "-C", str(r), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    for name, (text, _, _) in UNFORMATTED.items():
+        (r / name).write_text(text)
+    subprocess.run([*git, "add", *UNFORMATTED], check=True)
+    subprocess.run([*git, "commit", "-qm", "base"], check=True)
+    stats = {}
+    for name, (text, old, new) in UNFORMATTED.items():
+        (r / name).write_text(text.replace(old, new, 1))
+        run_hook(r / name, r, extra_path=shims)
+        numstat = subprocess.run([*git, "diff", "--numstat", "--", name], capture_output=True, text=True, check=True).stdout
+        stats[name] = "1 1" if numstat.split("\t")[:2] == ["1", "1"] else "more"
+    return log.read_text(), stats
+
+
+print('OFF-1  the engine\'s own project.env: no formatter for any file, a one-line edit stays a one-line diff')
+logtext, stats = edit_each_line(REAL_PROJECT_ENV)
+if logtext == "":
+    ok("no ruff, black, prettier or jq call for .py, .md, .json, .yml")
+else:
+    bad("the engine formats nothing (FORMAT_CMD=\"true\", board 749)", "", logtext)
+if set(stats.values()) == {"1 1"}:
+    ok("each one-line edit is a one-line diff (git diff --numstat 1 1)")
+else:
+    bad("a one-line edit must stay a one-line diff", {n: "1 1" for n in UNFORMATTED}, stats)
+
+print('OFF-2  FORMAT_CMD="true" switches off files outside CODE_EXTENSIONS too')
+logtext, stats = edit_each_line(None, CODE_EXTENSIONS="ts", FORMAT_CMD="true")
+if logtext == "" and set(stats.values()) == {"1 1"}:
+    ok("no formatter call, every diff one line — .py, .md, .json and .yml are not in CODE_EXTENSIONS")
+else:
+    bad("the off switch covers the built-in handlers", ("", "1 1 each"), (logtext, stats))
+
+print("OFF-3  control: the seed project.env (FORMAT_CMD empty) with the same shims and edits")
+logtext, stats = edit_each_line(SEED_PROJECT_ENV)
+called = {name for name in ("ruff", "prettier", "jq") if f"{name} " in logtext}
+expected = {"ruff", "prettier", "jq"} if shutil.which("jq") else {"ruff", "prettier"}
+if called == expected and stats["mod.py"] == stats["notes.md"] == stats["conf.yml"] == "more":
+    ok("the built-in handlers ran and the diffs grew: OFF-1 and OFF-2 are not vacuous")
+else:
+    bad("the default path still formats", (expected, "more"), (called, stats))
 
 print()
 print("---------------------------------------------")

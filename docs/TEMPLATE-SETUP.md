@@ -95,6 +95,9 @@ your project's language and toolchain. Every hook reads this file at runtime.
   check commands are set, the hook prints a **clear warning** and skips — no silent pass.
 - **`FORMAT_CMD` empty**: built-in Python auto-detect (ruff/black) and generic
   handlers (json/md/yaml via prettier) remain active.
+- **`FORMAT_CMD="true"`**: no file is formatted after an edit, whatever its extension — the
+  built-in handlers included, so a formatter that merely happens to be installed never rewrites
+  a whole file for a one-line edit (the engine's own setting, board 749).
 
 ### List format: `SOURCE_DIRS`, `CODE_EXTENSIONS`, `CHECK_CMDS`
 

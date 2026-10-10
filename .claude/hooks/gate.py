@@ -1155,6 +1155,10 @@ def format_file(root: Path, env: dict[str, str], path: Path) -> bool:
     ext = path.suffix.lstrip(".").lower() if path.suffix else ""
     configured_exts = code_extensions(env)
     fmt = env.get("FORMAT_CMD", "")
+    if fmt.strip() == "true":
+        # The off switch project.env names: no file is formatted, the built-in handlers included — a ruff, black or
+        # prettier that merely happens to be installed must not rewrite a whole file for a one-line edit (board 749).
+        return True
 
     def quiet_run(cmd: list[str]) -> None:
         subprocess.run(cmd, cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
