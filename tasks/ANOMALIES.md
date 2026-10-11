@@ -154,3 +154,8 @@
 - Що сталося: три BLOCK overseer-а поспіль на юніт 1 (запити 20261008T222941Z-ab3426, 20261008T230546Z-9340e7, 20261008T234702Z-1473c0); задачу відклав агент хмарної сесії, а не runner
 - Що зроблено: незакомічену роботу збережено patch-ем .engine/artifacts/744-paid-answer/wip.patch (і в git stash контейнера); чернетка звіту — tasks/blocked/report-744-open-item-paid-consent-written-in-an-answer.md; агент узяв наступну задачу (743)
 - Хто записав: агент
+
+## 2026-10-11T07:16:42Z — 732-open-item-720-second-opinion-remove-build
+- Що сталося: check-close: мінімуму режиму соло немає через commit 7f9c831 — його два PASS записані в ledger.md, але стан запитів (.claude/state/overseer/) лишився в іншому клоні, а файли commit-а потім змінив commit власника ed7a4af
+- Що зроблено: новий audit на HEAD 969ec8c — PASS 20261011T065410Z-7e3795; відкрито пункт check-close-pass-from-another-clone; задачу лишено в done/ зі звітом
+- Хто записав: агент
