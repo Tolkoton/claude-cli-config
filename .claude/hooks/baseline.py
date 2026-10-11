@@ -16,9 +16,11 @@ list, a (file, rule) count above the recorded one. Without the file everything i
 "must be clean". Test coverage is not in the snapshot.
 
 `record` runs the gate's full commands (those of the pre_commit / ci layers) and writes what it
-saw. It may LOOSEN the snapshot — a new name, a higher count, a first snapshot — so it is the
-owner's command: refused inside a Claude Code session (CLAUDECODE is set in every shell the
-agent's tools start) whenever the result is looser than the file on disk. Run in the owner's
+saw. It may LOOSEN the snapshot — a new name, a higher count — so it is the owner's command:
+refused inside a Claude Code session (CLAUDECODE is set in every shell the agent's tools start)
+whenever the result is looser than the file on disk. A first snapshot loosens nothing, and
+whether the project has one is the owner's decision all the same: in a session `record` shows
+what the first snapshot would record and writes nothing. Run in the owner's
 terminal it also writes the approval, `.claude/state/baseline/approved.sha256`; the gate's
 bypass guard lets a loosening diff of the snapshot through only when that approval matches.
 
@@ -244,6 +246,13 @@ def summary(snapshot: dict[str, Any]) -> str:
     return f"{tests} failing test(s), {lint} lint finding(s), {types} type finding(s)"
 
 
+def entries(snapshot: dict[str, Any]) -> list[str]:
+    """One line per thing the snapshot lists: a failing test, a (file, rule) count."""
+    return [f"test   {name}" for name in snapshot["tests"]] + [
+        f"{part:6} {file} [{rule}] {n}"
+        for part in COUNTED for file, rules in snapshot[part].items() for rule, n in rules.items()]
+
+
 def in_session() -> bool:
     return bool(os.environ.get("CLAUDECODE"))
 
@@ -260,14 +269,18 @@ def cmd_record(root: Path) -> int:
     except (OSError, UnicodeDecodeError):
         old_text = None
     text = render(snapshot)
-    looser = loosened(old_text, text) or ([] if current is not None else ["there is no snapshot yet"])
-    if looser and in_session():
+    first = current is None
+    looser = entries(snapshot) if first else loosened(old_text, text)
+    if (first or looser) and in_session():
         print(f"baseline: measured {summary(snapshot)}.", file=sys.stderr)
-        print("baseline: `record` would loosen the snapshot:", *[f"  - {line}" for line in looser[:20]],
-              sep="\n", file=sys.stderr)
-        print("baseline: that is the owner's decision and is refused inside a Claude Code session "
-              "(CLAUDECODE is set). The owner runs `python3 .claude/hooks/baseline.py record` in their "
-              "own terminal. Nothing was written.", file=sys.stderr)
+        head = ("there is no snapshot yet; this is what the first one would record:" if first
+                else "`record` would loosen the snapshot:")
+        more = [f"  … and {len(looser) - 20} more"] if len(looser) > 20 else []
+        print(f"baseline: {head}", *[f"  - {line}" for line in looser[:20]] or ["  nothing: no check fails today"],
+              *more, sep="\n", file=sys.stderr)
+        print(f"baseline: {'whether the project has a snapshot' if first else 'that'} is the owner's decision: "
+              "`record` is refused inside a Claude Code session (CLAUDECODE is set). The owner runs "
+              "`python3 .claude/hooks/baseline.py record` in their own terminal. Nothing was written.", file=sys.stderr)
         return 2
     write(root, text)
     if not in_session():
@@ -315,12 +328,8 @@ def cmd_show(root: Path) -> int:
         print(f"baseline: {problem or f'no {BASELINE_REL}: the gate asks for clean'}")
         return 1 if problem else 0
     print(f"baseline: {summary(current)} (recorded {current.get('recorded_utc', '?')})")
-    for name in current["tests"]:
-        print(f"  test   {name}")
-    for part in COUNTED:
-        for file, rules in current[part].items():
-            for rule, n in rules.items():
-                print(f"  {part:6} {file} [{rule}] {n}")
+    for line in entries(current):
+        print(f"  {line}")
     return 0
 
 

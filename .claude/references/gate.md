@@ -70,7 +70,8 @@ python3 .claude/hooks/baseline.py show      # what is left
   first snapshot included — is a bypass (`bypass/baseline`), like an added suppression. It passes one
   way: `record` run outside a Claude Code session, which writes its approval of exactly that text
   to `.claude/state/baseline/approved.sha256`. Inside a session `record` refuses to loosen and
-  writes nothing. No `gate-allow` and no contract grant opens this.
+  writes nothing; with no snapshot yet it loosens nothing, shows what the first one would record
+  and writes nothing either. No `gate-allow` and no contract grant opens this.
 - **The debt stays visible.** `board.py review` lists every old test failure by name under
   «Кандидати в нові задачі», with the lint and type totals; the engine files no task for them.
 

@@ -176,6 +176,16 @@ check("step 6: no number of rules — the 200-line test and the simplifier hold 
 snapshot = flat(section(command, "7."))
 check("step 7: the owner takes the snapshot in their own terminal; the agent only shows it",
       "baseline.py record" in snapshot and "own terminal" in snapshot and "refuses to write" in snapshot, snapshot[:300])
+# board 095 — the full trial (board 057): the snapshot measured with the commands of an older project.env, which
+# differed from the ones step 2 had run (other directories for the type check, tests stopping at the first failure)
+check("step 7 (095): first the owner agrees the project.env of step 6, then the snapshot — `record` measures with the file on disk",
+      0 < snapshot.find("First the owner agrees the `project.env` of step 6") < snapshot.find("The owner takes it")
+      and "measures with the commands of `.claude/project.env` as it is on disk" in snapshot
+      and "not the ones step 2 ran" in snapshot and "the snapshot waits" in snapshot, snapshot[:700])
+check("step 7 (095): the warning about tests that stop at the first failure is the script's, and is not passed over",
+      "stops at the first failure" in snapshot and "`record` prints a warning" in snapshot, snapshot[:900])
+check("step 7 (095): in a session the first `record` shows what the first snapshot would hold; nothing in the step calls that a loosening",
+      "what the first snapshot would record" in snapshot and "loosen" not in snapshot, snapshot[-700:])
 premises = flat(section(command, "8."))
 check("step 8: what could not be checked goes into the premise log", ".engine/premises/premise-log.md" in premises and "unverified premise" in premises)
 
@@ -261,6 +271,31 @@ check("the risk zones (092): a part whose checks did not run has its row", "No c
 check("the hot places (093): the table is of code files, and what changes often but is not code has its own line",
       "among the files of code" in flat(profile) and "Not code that changes often" in profile, profile[900:1500])
 check("a rule's source (093): the template names «written, in code» for a comment or docstring", "written, in code" in flat(profile))
+# board 095 — the full trial (board 057): what step 1 and step 2 collected and the template had no place for
+MAP, COMMANDS = section(profile, "1."), section(profile, "2.")
+check("the map (095): reverts and the places fixed again and again have their table, with the commits",
+      "Reverts, and places fixed again and again" in MAP
+      and "| Path | What happened (reverted / fixed N times) | Commits |" in MAP, MAP[-1500:])
+check("the map (095): a claim with no reference has a named place — marked, a question for the owner, never the opening sentence",
+      "The project in one sentence: <" in MAP and "Claims of the map with no reference" in MAP
+      and "the opening sentence included" in flat(MAP) and "section 6" in flat(MAP), MAP[:900])
+check("the template's opening (095): a claim with nothing to cite is not written as a fact, and the map says where it goes",
+      "a claim with nothing to cite is not written as a fact" in flat(profile)
+      and "a claim with nothing to cite is not written." not in flat(profile), profile[:700])
+check("the commands (095): a row names the part of the project the command belongs to",
+      "| Purpose | Part of the project | Command | Found in | Status (ran / not run / variant) | Exit, duration | What fails, or why not run |" in COMMANDS,
+      COMMANDS[:900])
+check("the commands (095): «Found in» of a variant is the found command it varies and what was changed",
+      "\"Found in\" of a variant" in flat(COMMANDS) and "the `file:line` of the found command it varies" in flat(COMMANDS)
+      and "what was changed" in flat(COMMANDS), COMMANDS[:900])
+check("the commands (095): tests and scripts that need a secret or the network — the number and the paths, in two lines",
+      "Tests and scripts that need a secret or the network" in COMMANDS
+      and re.search(r"^- Need a secret or a credential: <number> — <paths>$", COMMANDS, re.MULTILINE) is not None
+      and re.search(r"^- Need the network or a running service: <number> — <paths>$", COMMANDS, re.MULTILINE) is not None, COMMANDS[-700:])
+check("the command fills the new places (095): step 1 names the reverts' table and the unreferenced claims, step 2 the part, the variant's source and the count",
+      "«Reverts, and places fixed again and again»" in survey and "«Claims of the map with no reference»" in survey
+      and "«Part of the project»" in commands and "«Found in» of a variant" in commands
+      and "the number and the paths" in commands, (survey[-600:], commands[-600:]))
 check("a command row carries its status and the evidence of the run", "Status (ran / not run / variant)" in profile and "Exit, duration" in profile)
 check("a rule row carries source, evidence, counter-evidence, the owner's verdict and whether it goes into AGENTS.md",
       "| Source | Evidence | Counter-evidence | Owner's verdict | Goes into AGENTS.md |" in profile)

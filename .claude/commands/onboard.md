@@ -107,10 +107,14 @@ you go; nothing else is written in this step.
   look current and which contradict the code — as an observation, not a fix.
 - **History**: `git log` — which files change most often and are at the same time the largest
   (commits touching the file, and its lines: the places where work will most likely land);
-  reverts; the same file fixed again and again. On a long history, say how far back you looked.
+  reverts; the same file fixed again and again — these go into the profile's table «Reverts, and
+  places fixed again and again», with the commits. On a long history, say how far back you looked.
   Hot places are counted among the files of code only: lock files, logs and journals, manifests
   and the records of an engine change often and are large without being where work lands — they
   go under the table as one line, «not code».
+- **A claim of the map you can cite nothing for** — the opening sentence about what the project
+  is as much as any row — goes under «Claims of the map with no reference» and becomes a question
+  for the owner; it is not written among the facts.
 - **A large project is not read whole.** Read the hot places first — a hot source file is read
   in full before any rule about it is offered — and write in the profile's «Not read» section
   what you only searched and what you did not open. A count from a search over files you did not
@@ -132,7 +136,9 @@ through the runner — probe it there, and its run is «ran» through the runner
 Then run every command found in step 1, one at a time, each with a time limit (ten minutes
 unless the owner names another; a timeout is recorded as «ran, timed out»), and record for each:
 the exact command, the exit code, how long it took, and what failed (counts and names, not a
-pasted log).
+pasted log). In a project of several parts the row's «Part of the project» names the part the
+command checks. Tests and scripts that need a secret or the network are counted apart, under the
+table: the number and the paths, told by what they read or call.
 
 - **A command that was not run does not go into `project.env`** — it would be an unverified
   premise about someone else's system (constitution, Article 1). It goes into the profile as
@@ -167,7 +173,8 @@ pasted log).
   does not go into `project.env`, and before the snapshot of step 7 the owner is told that it
   would record this consequence as the project's «as it was».
 - A variant of a found command (fewer arguments, another interpreter) may be run to learn
-  something; it is recorded as a variant and does not go into `project.env`.
+  something; it is recorded as a variant and does not go into `project.env`. «Found in» of a
+  variant is the `file:line` of the found command it varies and what was changed.
 - **If none of lint, type-check and tests could be run**, say so in the first line of the profile
   and make it the first question: the meeting is not complete until the owner has prepared the
   environment, and steps 6–7 wait for it.
@@ -269,14 +276,25 @@ looks at what is extra. Show the owner the three files before writing them.
 ## 7. The snapshot "as it was"
 
 The project's checks fail today in ways nobody will fix today; the snapshot lets the gate ask
-"no worse than it was". **The owner takes it, in their own terminal**:
+"no worse than it was".
+
+**First the owner agrees the `project.env` of step 6, then the snapshot.** `record` measures with
+the commands of `.claude/project.env` as it is on disk. A file left by an earlier setup may name
+other commands, not the ones step 2 ran — another list of directories for the type check, tests
+that stop at the first failure — and the snapshot would then be of checks nobody verified. Until
+the file on disk holds the commands step 2 ran, the snapshot waits. When the test command stops
+at the first failure `record` prints a warning; it is not passed over — the option goes out of
+`project.env` first, or the owner is told what the snapshot will not see.
+
+**The owner takes it, in their own terminal**:
 
 ```bash
 python3 .claude/hooks/baseline.py record
 ```
 
-Inside this session `record` prints what it measured and refuses to write — use that to show the
-owner what would be recorded, then wait for them to run it. `python3 .claude/hooks/baseline.py show`
+Inside this session `record` prints what it measured — with no snapshot yet, what the first
+snapshot would record — and refuses to write: use that to show the owner, then wait for them to
+run it. `python3 .claude/hooks/baseline.py show`
 confirms it. Then print `python3 .claude/hooks/complexity_budget.py calibrate`: it proposes
 complexity limits from the project's own code, and applying them is the owner's choice.
 

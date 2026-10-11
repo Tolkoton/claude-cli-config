@@ -225,6 +225,7 @@ before = (r / SNAPSHOT).read_text()
 p = record(r, session=True)
 check("`record` inside the agent's session refuses to loosen: exit 2, the file untouched",
       p.returncode == 2 and (r / SNAPSHOT).read_text() == before and FOURTH in p.stderr and "own terminal" in p.stderr, (p.returncode, p.stderr))
+check("…and there, with a snapshot on disk, it is called what it is: a loosening (095)", "would loosen the snapshot" in p.stderr, p.stderr)
 (r / SNAPSHOT).write_text(before.replace('"tests": [', '"tests": [\n    "tests/test_x.py::test_only_listed",'))
 check("a line for a test that does not even fail is still a loosening: block", gate(r).returncode == 2 and found(r, "bypass/baseline"), report(r)["findings"])
 (r / SNAPSHOT).write_text("{ not json")
@@ -248,6 +249,15 @@ check("no snapshot yet: the agent's `record` refuses the first one", p.returncod
 clean = project()
 p = record(clean, session=True)
 check("…even an empty one: whether a project has a snapshot is the owner's decision", p.returncode == 2 and not (clean / SNAPSHOT).exists() and "no snapshot yet" in p.stderr, p.stderr)
+# board 095 — a first snapshot loosens nothing: the refusal says there is none yet and shows what would be recorded
+check("the first snapshot is not called a loosening: the word is nowhere in the output (095)",
+      "loosen" not in (p.stdout + p.stderr).lower() and "there is no snapshot yet" in p.stderr, p.stdout + p.stderr)
+check("…an empty first one says that nothing fails today (095)", "nothing: no check fails today" in p.stderr, p.stderr)
+p = record(r, session=True)
+check("…with failures it lists what the first snapshot would record, and still refuses in the session (095)",
+      p.returncode == 2 and not (r / SNAPSHOT).exists() and "loosen" not in (p.stdout + p.stderr).lower()
+      and "this is what the first one would record" in p.stderr and all(name in p.stderr for name in OLD)
+      and "own terminal" in p.stderr and "Nothing was written" in p.stderr, p.stdout + p.stderr)
 (r / ".engine").mkdir()
 (r / SNAPSHOT).write_text(baseline.render(baseline.empty() | {"tests": OLD}))
 check("…and a first snapshot written by hand is a loosening: block", gate(r).returncode == 2 and found(r, "bypass/baseline"), report(r)["findings"])
