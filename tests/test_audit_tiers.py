@@ -144,6 +144,22 @@ def main() -> int:
         check("its cost is kept as dropped_cost_usd", data["dropped_cost_usd"] == COST_B, data.get("dropped_cost_usd"))
         check("...and counts against the limit: the redo does not fit", r.returncode == 4 and b.sessions() == 0,
               (r.returncode, b.sessions(), r.stdout[-200:]))
+
+        print("board 110: the project's weekly cap on extra sessions")
+        capped = b.work / "capped"
+        shutil.copytree(ROOT / "tests/fixtures/board-audit-yes", capped / "tasks")
+        (capped / ".claude").mkdir()
+        (capped / ".claude/project.env").write_text(f'EXTRA_SESSIONS_WEEK_USD="{1.5 * COST_B}"\n', encoding="utf-8")
+        out = b.out()
+        r = b.run("--tier", "full", "--only", "02", "--out", str(out), "--tasks-dir", str(capped / "tasks"))
+        data = load(out)
+        check("NEGATIVE — the third session would start at the cap: it does not (exit 4), and the reason and the way to wait are said",
+              r.returncode == 4 and b.sessions() == 2 and "weekly cap" in r.stdout and "extra-wait" in r.stdout, (r.returncode, b.sessions(), r.stdout[-400:]))
+        check("…what was paid for is kept for --resume", data["status"] == "partial" and runs_of(data) == {"02-false-done-generic": 2}, runs_of(data))
+        (capped / ".claude/project.env").write_text("", encoding="utf-8")
+        r = b.run("--tier", "full", "--only", "02", "--out", str(out), "--tasks-dir", str(capped / "tasks"), "--resume")
+        check("…and with no cap the same command finishes it with one more session", r.returncode == 0 and b.sessions() == 1 and load(out)["status"] == "complete",
+              (r.returncode, b.sessions(), r.stdout[-300:]))
     finally:
         shutil.rmtree(b.work, ignore_errors=True)
     print(f"\nPASS {PASS}   FAIL {FAIL}")

@@ -72,7 +72,13 @@ test. A «Платні прогони:» line in an old task is ignored. Every s
 hand (`.claude/state/board/extra-sessions.jsonl`), and the runner's summary and the review show how
 many each task started and what they cost. One decision stays the owner's: the overseer's audit run
 (`run_audit_scenarios.py`) needs `Аудит потрібен: так` in the task, or `--owner-approved` by hand outside
-a session. Only the runner's per-task
+a session. Since board 110 such work has its place and its weekly sum: a task that says
+`Додаткові сесії: так` is taken only when no ordinary task can start, and the extra sessions of all
+tasks over the last seven days — every session booked to a task, plus the own sessions of the marked
+tasks — stay under `EXTRA_SESSIONS_WEEK_USD` of `.claude/project.env` (no key: no cap). At the cap
+the eval runners start no new session and marked tasks wait in `tasks/todo/`; a task that meets it
+mid-work commits what is done and runs `board.py extra-wait` — it is not parked and nobody is asked
+(`board.py`, A TASK WITH EXTRA SESSIONS). Only the runner's per-task
 guard (`BOARD_MAX_USD`) stands against a loop: it does not cut the work, it parks the task with a
 question, and the owner's answer continues it with the same budget again. Where something
 proves too long or too dear — measure first, then simplify in a task of its own.

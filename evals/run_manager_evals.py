@@ -230,7 +230,7 @@ def main() -> int:
     runs: list[JsonObj] = []
     with tempfile.TemporaryDirectory(prefix="engine-manager-eval-") as tmp:
         for name in args.scenes:
-            stop = analyst.shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            stop = analyst.shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit) or analyst.shared.week_cap(args.tasks_dir)
             if stop:
                 print(stop)
                 break

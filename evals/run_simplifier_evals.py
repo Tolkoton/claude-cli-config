@@ -131,6 +131,14 @@ def book_session(tasks_dir: Path, tool: str, cost_usd: float) -> None:
     state_module().book_extra(tasks_dir, tool, cost_usd)
 
 
+def week_cap(tasks_dir: Path) -> str | None:
+    """The line to print instead of starting a session while the extra sessions of seven days are at
+    the project's cap (board 110: EXTRA_SESSIONS_WEEK_USD), or None."""
+    refusal = state_module().extra_refusal(tasks_dir)
+    return refusal and (f"weekly cap: {refusal}. Nothing more is started: commit what is done and let the task wait — "
+                        "python3 .claude/unattended/board.py extra-wait")
+
+
 def over_limit(spent: float, next_cost: float, limit: float | None) -> str | None:
     """The line to print instead of starting a session that could pass the ceiling, or None."""
     if limit is None or spent + next_cost <= limit:
@@ -383,7 +391,7 @@ def main() -> int:
         limit = args.max_usd
         runs: list[JsonObj] = []
         for number in range(1, args.runs + 1):
-            stop = over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            stop = over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit) or week_cap(args.tasks_dir)
             if stop:
                 print(stop)
                 break

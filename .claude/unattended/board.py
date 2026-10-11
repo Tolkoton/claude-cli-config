@@ -17,14 +17,25 @@ exception reads only: `review` takes the board from the work branch in origin (b
 
     board.py next [--attended]       the task to work on: the one in doing/, else the first in
                                      todo/ whose dependencies are all in done/ — a task the owner
-                                     answered before any other (THE OWNER'S ANSWERS FIRST).
-                                     exit 3: todo/ is empty; exit 4: tasks wait, none is eligible
+                                     answered before any other (THE OWNER'S ANSWERS FIRST), a task
+                                     with extra sessions after every ordinary one.
+                                     exit 3: todo/ is empty; exit 4: tasks wait, none is eligible;
+                                     exit 5: only tasks with extra sessions could start, and the
+                                     weekly sum is at its cap (A TASK WITH EXTRA SESSIONS)
     board.py start [--attended] <todo file>   move it to doing/ (refused while doing/ holds a task
                                      of the same side: see AN ATTENDED TASK)
     board.py where <NNN-name>        todo | doing | blocked | done | missing
     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
     board.py audit-allowed           exit 0 only when this session's task in doing/ asks for the audit
+    board.py extra-allowed           exit 0: one more extra session of Claude may start; exit 1: the
+                                     weekly sum is at its cap. Prints the sum either way
+    board.py extra-book <tool> <usd> book a session this session's task started without a tool that
+                                     books it itself (a sandbox runner, `claude -p` by hand)
+    board.py extra-wait              the weekly sum is at its cap: this session's task goes from
+                                     doing/ back to todo/, marked, to wait there; exit 2 under the cap
+    board.py extra-waits <NNN-name>  exit 0: that task lies in todo/, marked, and the sum is at its
+                                     cap — it waits, the runner does not park it; exit 1 otherwise
     board.py gate-answers            the gate's questions in blocked/ that the owner answered
                                      «так»: one `name<TAB>stamp<TAB>sha256` line each
     board.py gate-done <name> <closed|absent|elsewhere>   such a task goes to done/ with its report
@@ -163,6 +174,19 @@ A gate question whose escalation was CLOSED ANOTHER WAY (board 035) — the owne
 .claude/state/gate/escalations.json — and that nobody answered asks nothing any more:
 `gate-closed` lists it and the runner moves it to done/ (`gate-done <name> elsewhere`).
 
+A TASK WITH EXTRA SESSIONS (board 110, the owner's decision) says `Додаткові сесії: так` under its
+title: its work is sessions of Claude beyond its own — evals, measurements, a release audit, a full
+pass of the simplifier. No leave is asked (board 078 stands), but: (1) `next` offers such a task only
+when no ordinary task can start, the owner's answers included; (2) the extra sessions of all tasks
+over the last seven days stay under the project's cap, EXTRA_SESSIONS_WEEK_USD in
+`.claude/project.env` (no key, or not a number — no cap). The sum (board_state.extra_week) is every
+session a tool booked to a task in extra-sessions.jsonl plus the own sessions of the marked tasks.
+At the cap a marked task is not offered (`next` exits 5 when that is all that holds the board), the
+cleanup task is not placed, and a tool starts no new session (board_state.extra_refusal). A task
+that meets the cap in the middle of its work commits what is done and calls `extra-wait`: it goes
+back to todo/ with the mark, with no question, and is taken again when the sum has fallen — the
+runner does not park it. In the owner's own session (`--attended`) neither rule holds.
+
 A MODE (board 097) is the task's: `Режим: ескіз|соло|конвеєр` under its title, соло without the
 line. The mode itself is read by .claude/hooks/mode.py — the one reader of the mode and of «nobody
 is watching»; here it decides one thing: a line that names no mode is nobody's clear word, so such a
@@ -199,6 +223,8 @@ AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
 # starts — an eval, a measurement — is ordinary work, like a test, and needs no leave. An old task
 # that carries the line works on: the line is ignored.
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
+EXTRA = re.compile(r"^Додаткові сесії:\s*(\S+)", re.MULTILINE)  # A TASK WITH EXTRA SESSIONS (board 110)
+EXTRA_LINE, EXTRA_KEY = "Додаткові сесії: так", "EXTRA_SESSIONS_WEEK_USD"
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
 ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILINE)
@@ -226,7 +252,7 @@ FIRST_RESERVED = 800  # ordinary tasks are numbered under the rule questions and
 ITEM = re.compile(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
 ITEM_FIRST = 700  # open items (board 037) are numbered from here, under the rule questions
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
-EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE = 2, 3, 4
+EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_EXTRA_WAIT = 2, 3, 4, 5
 
 
 @dataclass(frozen=True)
@@ -241,6 +267,7 @@ class Task:
     rule: str = ""
     attended: bool = False
     mode_error: str = ""  # the `Режим:` line names no mode: the task is not taken (A MODE)
+    extra: bool = False  # «Додаткові сесії: так»: after the ordinary tasks, under the weekly sum
 
     @property
     def answered(self) -> bool:
@@ -287,6 +314,7 @@ def parse(text: str) -> Task:
     audit = AUDIT.search(header)
     attended = ATTENDED.search(header)
     gate = GATE.search(header)
+    extra = EXTRA.search(header)
     section = QUESTIONS.search(text)
     questions = ""
     if section:
@@ -306,6 +334,7 @@ def parse(text: str) -> Task:
         rule=rule.group(1) if rule else "",
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
         mode_error=mode_reader.parse(text).error,
+        extra=extra is not None and extra.group(1).strip(".,;*_").lower() == "так",
     )
 
 
@@ -371,11 +400,22 @@ class Board:
         an agent alone the others (AN ATTENDED TASK)."""
         return [p for p in self.files("doing") if read(p).attended == attended]
 
+    def ready(self, attended: bool = False) -> list[tuple[Path, Task]]:
+        """The tasks of the queue that could start, in its order: for an agent alone, never an
+        attended one; with attended=True (the owner's session), the attended ones."""
+        return [(p, task) for p in self.queue() for task in [read(p)]
+                if task.attended == attended and not self.unmet(task) and not task.mode_error]
+
     def eligible(self, attended: bool = False) -> Path | None:
-        """The first task of the queue that can start: for an agent alone, never an attended one;
-        with attended=True (the owner's session), the first attended one."""
-        return next((p for p in self.queue() for task in [read(p)]
-                     if task.attended == attended and not self.unmet(task) and not task.mode_error), None)
+        """The first task that can start. For an agent alone a task with extra sessions comes after
+        every ordinary one and not at all while the weekly sum is at its cap (A TASK WITH EXTRA SESSIONS)."""
+        ready = self.ready(attended)
+        if attended:
+            return ready[0][0] if ready else None
+        ordinary = [p for p, task in ready if not task.extra]
+        if ordinary or not ready or extra_refusal(self.tasks):
+            return ordinary[0] if ordinary else None
+        return ready[0][0]
 
     def shown(self, path: Path) -> str:
         return path.relative_to(self.tasks.parent).as_posix()
@@ -419,6 +459,8 @@ def cmd_next(board: Board, attended: bool = False) -> int:
         return 0
     task = board.eligible(attended)
     if task is None:
+        if not attended and board.ready():   # only tasks with extra sessions, held by the weekly sum
+            return EXIT_EXTRA_WAIT
         return EXIT_NONE_ELIGIBLE if board.files("todo") else EXIT_TODO_EMPTY
     print(board.shown(task))
     return 0
@@ -855,11 +897,72 @@ def action_done(board: Board, path: Path, outcome: str) -> Path:
     return target
 
 
+def _setting(root: Path, key: str) -> str:
+    """The value of one key of `.claude/project.env`; empty when the key is not there."""
+    found = re.search(rf'^{key}="?([^"\n]*)"?\s*$', _text(root / ".claude/project.env"), re.MULTILINE)
+    return found.group(1).strip() if found else ""
+
+
 def _every(root: Path, key: str, default: int) -> int:
     """How often, in days, the runner places a task of its own: the key of `.claude/project.env`, else the default."""
-    found = re.search(rf'^{key}="?([^"\n]*)"?\s*$', _text(root / ".claude/project.env"), re.MULTILINE)
-    raw = found.group(1).strip() if found else ""
+    raw = _setting(root, key)
     return int(raw) if raw.isdigit() else default
+
+
+def task_file(tasks: Path, stem: str) -> Path | None:
+    """Where the task `stem` lies now: its file in todo/, doing/ or blocked/, or done/<stem>/task.md."""
+    places = [tasks / column / f"{stem}.md" for column in ("todo", "doing", "blocked")] + [tasks / "done" / stem / "task.md"]
+    return next((p for p in places if p.is_file()), None)
+
+
+def extra_sum(tasks: Path) -> tuple[float, float | None]:
+    """(what the extra sessions of the last seven days cost, the project's cap or None) — A TASK WITH EXTRA SESSIONS."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import board_state  # here, not at the top: board_state books through this module
+
+    def marked(stem: str) -> bool:
+        path = task_file(tasks, stem)
+        try:
+            return path is not None and read(path).extra
+        except (OSError, UnicodeDecodeError):
+            return False
+
+    raw = _setting(tasks.parent, EXTRA_KEY)
+    cap = float(raw) if re.fullmatch(r"\d+(?:\.\d+)?", raw) else None
+    state = Path(os.environ.get("BOARD_STATE_DIR") or tasks.parent / ".claude" / "state" / "board")
+    return board_state.extra_week(state, marked), cap
+
+
+def extra_words(spent: float, cap: float | None) -> str:
+    return (f"додаткові сесії Claude за сім днів: {spent:.2f} USD"
+            + (" (межі немає)" if cap is None else f" із {cap:.2f} USD (`{EXTRA_KEY}` у `.claude/project.env`)"))
+
+
+def extra_refusal(tasks: Path) -> str | None:
+    """Why no new extra session may start and no task with extra sessions is taken; None under the cap or with none."""
+    spent, cap = extra_sum(tasks)
+    if cap is None or spent < cap:
+        return None
+    return f"межу вичерпано — {extra_words(spent, cap)}; нова сесія і задачі з додатковими сесіями чекають, доки сума не спаде"
+
+
+def extra_wait(board: Board) -> Path | str:
+    """This session's task goes from doing/ back to todo/, marked, to wait for the weekly sum; a
+    string — why not."""
+    doing = own(board.tasks)
+    if len(doing) != 1:
+        return "tasks/doing/ holds no task of this session (or more than one)"
+    if not extra_refusal(board.tasks):
+        return "the weekly sum is under its cap — " + extra_words(*extra_sum(board.tasks)) + "; the task goes on"
+    text = doing[0].read_text(encoding="utf-8")
+    if not read(doing[0]).extra:
+        heading = HEADING.search(text)
+        head, rest = (text[: heading.start()], text[heading.start():]) if heading else (text, "")
+        text = head.rstrip("\n") + f"\n{EXTRA_LINE}\n" + ("\n" + rest if rest else "")
+    target = board.tasks / "todo" / doing[0].name
+    target.write_text(text, encoding="utf-8")
+    doing[0].unlink()
+    return target
 
 
 def _due(board: Board, name: re.Pattern[str], today: date, every: int) -> bool:
@@ -914,6 +1017,8 @@ def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
         return None
     if board.files("doing") or board.eligible() is not None:   # the owner's attended task too (board 723, the owner's answer)
         return None
+    if extra_refusal(board.tasks):   # a simplifier pass is extra sessions: it waits for the weekly sum (board 110)
+        return None
     number, often = _own_number(board), "раз на добу" if every == 1 else f"раз на {every} діб"
     path = board.tasks / "todo" / f"{number:03d}-cleanup-{today.isoformat()}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -922,6 +1027,7 @@ def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
 Залежить від: —
 Потрібна присутність власника: ні
 Аудит потрібен: ні
+{EXTRA_LINE}
 
 Цю задачу поклав runner: йому не було чого брати, а вільний час іде на боротьбу зі
 складністю — не частіше ніж {often}.
@@ -1131,12 +1237,15 @@ def summary(board: Board) -> list[str]:
     lines += [f"в роботі з власником: {p.name}" if read(p).attended else f"в роботі: {p.name}" for p in doing]
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
+    held = extra_refusal(board.tasks)
     for path in todo:
         waiting = read(path)
         if waiting.attended:
             lines.append(f"чекає на присутність власника: {path.name} — лише в інтерактивній сесії з власником")
         if waiting.mode_error:
             lines.append(f"не береться: {path.name} — {waiting.mode_error}")
+        if waiting.extra:
+            lines.append(f"з додатковими сесіями: {path.name} — " + (f"чекає: {held}" if held else "після звичайних задач"))
         unmet = board.unmet(waiting)
         if unmet:
             waits = ", ".join(f"{n:03d}" + ("" if n in known else " (такої задачі ніде немає)") for n in unmet)
@@ -1145,6 +1254,9 @@ def summary(board: Board) -> list[str]:
     task = board.eligible() if not board.in_hand() else None
     if task:
         lines.append(f"наступна: {task.name}")
+    spent, cap = extra_sum(board.tasks)
+    if cap is not None:
+        lines.append(extra_words(spent, cap))
     return lines
 
 
@@ -1175,6 +1287,12 @@ def main() -> int:
     commands.add_parser("import-inbox").add_argument("inbox", type=Path)
     commands.add_parser("unblock")
     commands.add_parser("audit-allowed").add_argument("--tasks-dir", type=Path, default=None)
+    commands.add_parser("extra-allowed")
+    book_parser = commands.add_parser("extra-book")
+    book_parser.add_argument("tool", help="what started the session: a script's name, `claude -p`")
+    book_parser.add_argument("usd", type=float, help="what the session reported it cost")
+    commands.add_parser("extra-wait")
+    commands.add_parser("extra-waits").add_argument("name")
     commands.add_parser("gate-answers")
     gate_done_parser = commands.add_parser("gate-done")
     gate_done_parser.add_argument("name")
@@ -1309,6 +1427,25 @@ def main() -> int:
             print(f"paid audit not allowed: {refusal}")
             return 1
         return 0
+    if args.command == "extra-allowed":
+        refusal = extra_refusal(board.tasks)
+        print(refusal or extra_words(*extra_sum(board.tasks)))
+        return 1 if refusal else 0
+    if args.command == "extra-book":
+        import board_state  # the script's own directory is on the path here
+
+        board_state.book_extra(board.tasks, args.tool, args.usd)
+        return 0
+    if args.command == "extra-wait":
+        waits = extra_wait(board)
+        if isinstance(waits, str):
+            print(f"board: extra-wait: {waits}", file=sys.stderr)
+            return EXIT_REFUSED
+        print(board.shown(waits))
+        return 0
+    if args.command == "extra-waits":
+        waiting = board.tasks / "todo" / f"{args.name.removesuffix('.md')}.md"
+        return 0 if waiting.is_file() and read(waiting).extra and extra_refusal(board.tasks) else 1
     if args.command == "check":
         found = duplicates(board)
         print("\n".join(found), end="\n" if found else "")

@@ -119,6 +119,14 @@ and one the runner closes itself (a gate's escalation, an owner action), is not 
 breaks (exit 3, or any code but 0 and 1) is a journal entry and the task stays in `done/` — never a
 park, never a stop.
 
+A task that says `Додаткові сесії: так` (evals, measurements, a release audit, a full simplifier
+pass — board 110) is taken only when no ordinary task can start, and not at all while the extra
+sessions of the last seven days are at `EXTRA_SESSIONS_WEEK_USD` of `.claude/project.env` (no key:
+no cap). A task that met the cap mid-work and went back to `todo/` through `board.py extra-wait`
+waits there: it is not parked and nobody is asked; what it left uncommitted goes to a `wip/` branch
+named in the journal. When only such tasks are left the runner stops with `state=idle
+reason=extra-cap`, and the next start takes them once the seven-day sum has fallen.
+
 It stops — always with `.claude/state/board/summary.md` — when `todo/` is empty or everything
 left waits for the owner, or on a soft stop (exit 0); and with `state=error` (exit 1) only on what
 it cannot work past: a pull that conflicts (`reason=pull-conflict`), claude logged out

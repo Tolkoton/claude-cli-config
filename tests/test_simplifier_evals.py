@@ -582,6 +582,26 @@ check("an old «Платні прогони: ні» stops nothing: the line is i
 done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim), "--max-usd", "1"],
                       capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
 check("negative — --max-usd under one run's reserve starts nothing", "cost limit" in done.stdout and not (work / "started").exists(), done.stdout)
+# board 110: the project's weekly cap on extra sessions. The books hold 0.50 USD booked to tasks just now.
+(work / "started").unlink(missing_ok=True)
+(work / ".claude").mkdir(exist_ok=True)
+(work / ".claude/project.env").write_text('EXTRA_SESSIONS_WEEK_USD="0.5"\n')
+done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
+check("NEGATIVE — board 110: the extra sessions of seven days are at the project's cap — no new session starts, and the way to wait is named",
+      "weekly cap" in done.stdout and "extra-wait" in done.stdout and not (work / "started").exists(), done.stdout + done.stderr)
+(work / ".claude/project.env").write_text('EXTRA_SESSIONS_WEEK_USD="0.51"\n')
+done = subprocess.run([sys.executable, str(RUNNER), "--runs", "2", "--tasks-dir", str(board), "--claude", str(shim)],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
+check("…a cent under it one session starts, is booked, and the second is refused",
+      (work / "started").read_text().count("started") == 1 and "weekly cap" in done.stdout, done.stdout + done.stderr)
+(board / "doing" / "010-x.md").rename(work / "010-x.md")
+done = subprocess.run([sys.executable, str(RUNNER), "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1", "BOARD_STATE_DIR": str(books)})
+check("…and a run by hand, with no task in doing/, is not held by the cap", "weekly cap" not in done.stdout and (work / "started").read_text().count("started") == 2, done.stdout)
+(work / "010-x.md").rename(board / "doing" / "010-x.md")
+(work / ".claude/project.env").unlink()
+(work / "started").unlink(missing_ok=True)
 kept = work / "kept.json"
 done = subprocess.run([sys.executable, str(RUNNER), "--runs", "2", "--tasks-dir", str(board), "--claude", str(work / "no-such-claude"),
                        "--out", str(kept)], capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})

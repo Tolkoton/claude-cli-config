@@ -30,6 +30,12 @@ every such tool books it with `book_extra` into extra-sessions.jsonl beside cost
 task in doing/ (empty when the tool was started by hand), the tool, what the session reported it
 cost. `report` adds the count and the sum to each task's line.
 
+THE WEEKLY SUM (board 110, the owner's decision after 11 October). `extra_week` is what the extra
+sessions of the last seven days cost: every booked session of a task, and the own sessions of the
+tasks that carry the line «Додаткові сесії: так» (board.py, A TASK WITH EXTRA SESSIONS). A project
+names its cap in `.claude/project.env`, EXTRA_SESSIONS_WEEK_USD; `extra_refusal` is what a tool
+asks before it starts one more session for the task in hand. With no key there is no cap.
+
 COST. `total_cost_usd` of a continued conversation is taken to be that conversation's running
 total (premise PR-board-02: seen in the operator's log, not provable without a paid call), so a
 task costs the sum, over its conversations, of the highest figure each one reported. Every
@@ -48,6 +54,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -169,27 +176,39 @@ def get(found: JsonObj, field: str, cap: str) -> str:
     raise SystemExit(f"board_state: unknown field {field!r}")
 
 
+def stamped(text: object) -> datetime | None:
+    try:
+        return datetime.strptime(str(text), STAMP).replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
+def growth(found: object) -> list[tuple[datetime | None, float]]:
+    """One task's attempts as (when, what the conversation's running total grew by); None — no time."""
+    highest: dict[str, float] = {}
+    grown: list[tuple[datetime | None, float]] = []
+    attempts = found.get("attempts") if isinstance(found, dict) else None
+    for index, attempt in enumerate(attempts if isinstance(attempts, list) else []):
+        if not isinstance(attempt, dict):
+            continue
+        key = str(attempt.get("session_id") or f"(no session {index})")
+        reported = attempt.get("reported_usd", 0.0)
+        figure = float(reported) if isinstance(reported, (int, float)) else 0.0
+        grown.append((stamped(attempt.get("utc")), max(0.0, figure - highest.get(key, 0.0))))
+        highest[key] = max(highest.get(key, 0.0), figure)
+    return grown
+
+
 def spending(tasks: JsonObj) -> tuple[dict[str, float], float]:
     """(UTC day → what the attempts of that day cost, what attempts with no time cost) — THE DAYS."""
     days: dict[str, float] = {}
     untimed = 0.0
     for found in tasks.values():
-        highest: dict[str, float] = {}
-        attempts = found.get("attempts") if isinstance(found, dict) else None
-        for index, attempt in enumerate(attempts if isinstance(attempts, list) else []):
-            if not isinstance(attempt, dict):
-                continue
-            key = str(attempt.get("session_id") or f"(no session {index})")
-            reported = attempt.get("reported_usd", 0.0)
-            figure = float(reported) if isinstance(reported, (int, float)) else 0.0
-            grew = max(0.0, figure - highest.get(key, 0.0))
-            highest[key] = max(highest.get(key, 0.0), figure)
-            try:
-                day = datetime.strptime(str(attempt.get("utc")), STAMP).replace(tzinfo=UTC).date().isoformat()
-            except ValueError:
+        for when, grew in growth(found):
+            if when is None:
                 untimed += grew
-                continue
-            days[day] = days.get(day, 0.0) + grew
+            else:
+                days[when.date().isoformat()] = days.get(when.date().isoformat(), 0.0) + grew
     return days, untimed
 
 
@@ -247,22 +266,57 @@ def book_extra(tasks_dir: Path, tool: str, cost_usd: float) -> None:
         pass
 
 
-def extra_sessions(state_dir: Path) -> dict[str, tuple[int, float]]:
-    """task -> (how many extra sessions, what they cost); "" is the sessions started with no task."""
-    found: dict[str, tuple[int, float]] = {}
+def extra_rows(state_dir: Path) -> list[tuple[str, float, datetime | None]]:
+    """The booked sessions: (task, what it cost, when); a broken line is stepped over."""
+    rows: list[tuple[str, float, datetime | None]] = []
     try:
         lines = (state_dir / EXTRA_FILE).read_text(encoding="utf-8").splitlines()
     except OSError:
-        return found
+        return rows
     for line in lines:
         try:
             row = json.loads(line)
-            task, cost = str(row.get("task") or ""), float(row.get("cost_usd") or 0.0)
+            rows.append((str(row.get("task") or ""), float(row.get("cost_usd") or 0.0), stamped(row.get("utc"))))
         except (ValueError, TypeError, AttributeError):
             continue
+    return rows
+
+
+def extra_sessions(state_dir: Path) -> dict[str, tuple[int, float]]:
+    """task -> (how many extra sessions, what they cost); "" is the sessions started with no task."""
+    found: dict[str, tuple[int, float]] = {}
+    for task, cost, _ in extra_rows(state_dir):
         count, spent = found.get(task, (0, 0.0))
         found[task] = (count + 1, spent + cost)
     return found
+
+
+EXTRA_DAYS = 7
+
+
+def extra_week(state_dir: Path, marked: Callable[[str], bool], now: datetime | None = None) -> float:
+    """THE WEEKLY SUM: the booked sessions of tasks in the last seven days (one started by hand, with
+    no task, is the owner's own and is not counted), plus the own sessions of the tasks `marked` names."""
+    since = (now or datetime.now(UTC)) - timedelta(days=EXTRA_DAYS)
+    spent = sum(cost for task, cost, when in extra_rows(state_dir) if task and when is not None and when > since)
+    for name, found in load(state_dir / "costs.json")["tasks"].items():
+        if marked(name):
+            spent += sum(grew for when, grew in growth(found) if when is not None and when > since)
+    return round(spent, 4)
+
+
+def extra_refusal(tasks_dir: Path) -> str | None:
+    """Why a tool may NOT start one more session of Claude: this session has a task in doing/ of
+    `tasks_dir` and THE WEEKLY SUM is at the project's cap. None — start it (no cap, under it, or a
+    run by hand with no task)."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import board
+
+        tasks = Path(os.path.realpath(tasks_dir))
+        return board.extra_refusal(tasks) if board.in_hand(tasks) else None
+    except (ImportError, OSError):
+        return None
 
 
 def extra_words(count: int, spent: float) -> str:

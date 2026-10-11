@@ -911,6 +911,14 @@ def main() -> int:
                     if 0 < len(rows[unfinished]["runs"]) < args.runs:
                         report_row(unfinished)
                 return EXIT_BUDGET
+            week = state_module().extra_refusal(args.tasks_dir)
+            if week:   # board 110: the extra sessions of seven days are at the project's cap — what is recorded is kept
+                if args.out:
+                    save_results(args.out, payload())
+                print(f"\nweekly cap: {week}. Stopping before {scenario_id} run {n + 1}. "
+                      + (f"Continue later with --resume: {args.out}. " if args.out else "Nothing was saved (no --out). ")
+                      + "Commit what is done and let the task wait: python3 .claude/unattended/board.py extra-wait")
+                return EXIT_BUDGET
             if scenario_id not in texts:
                 texts[scenario_id] = (SCENARIOS / f"{scenario_id}.md").read_text(encoding="utf-8")
             row["runs"].append(run_once(args, scenario_id, expected[scenario_id], texts[scenario_id],

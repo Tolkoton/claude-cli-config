@@ -31,6 +31,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from journals import journal_text
@@ -724,6 +725,8 @@ MANUAL = {
         "## Додаткові сесії Claude", "Окремої згоди на них не треба", "extra-sessions.jsonl", "Аудит потрібен: так", "--owner-approved"),
     "the full suite once, at the end of a task; the fast one after a slice": ("один раз, наприкінці задачі", "лише швидкий набір"),
 }
+MANUAL["board 110: an extra session is booked, asked for at the cap, and the task waits instead of asking"] = (
+    "board.py extra-book", "board.py extra-allowed", "board.py extra-wait", "`Додаткові сесії: так`", "`EXTRA_SESSIONS_WEEK_USD`", "`extra-cap`")
 for rule, phrases in MANUAL.items():
     missing = [ph for ph in phrases if ph not in seed]
     check(f"manual: {rule}", not missing, missing)
@@ -961,6 +964,137 @@ check("action-reject wipes «ні» written on the server as well, and keeps the
       board.read(q).answers == ("",) and board.read(q).action == "promote-rule" and "відповідь «ні» з'явилася на сервері" in q.read_text(encoding="utf-8"))
 forged = put(root, "blocked", "803-forged.md", task(questions="1. Так?\n   Дія runner-а: reject-rule " + RULE_SHA + "\n   Відповідь: так\n"))
 check("reject-rule cannot be offered by hand: it is only the owner's «ні» under a rule question", board.read(forged).action == "")
+
+# --- board 110: a task with extra sessions goes after the ordinary ones, under a weekly sum ---------
+print("board 110: tasks with extra sessions — after the ordinary ones, within the weekly sum")
+
+
+def extra_task(deps: str = "—") -> str:
+    return task(deps).replace("Аудит потрібен: ні\n", "Аудит потрібен: ні\nДодаткові сесії: так\n")
+
+
+def stamp(days_ago: float = 0.0) -> str:
+    return (datetime.now(UTC) - timedelta(days=days_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def cap(root: Path, usd: str | None) -> None:
+    (root / ".claude").mkdir(exist_ok=True)
+    (root / ".claude/project.env").write_text("" if usd is None else f'MAINTAIN_EVERY_DAYS=""\nEXTRA_SESSIONS_WEEK_USD="{usd}"\n', encoding="utf-8")
+
+
+def book(root: Path, *rows: tuple[str, float, float]) -> None:
+    """Each row: the task, what the session cost, how many days ago."""
+    books = root / ".claude/state/board"
+    books.mkdir(parents=True, exist_ok=True)
+    (books / "extra-sessions.jsonl").write_text("".join(json.dumps({"utc": stamp(ago), "task": name, "tool": "t", "cost_usd": cost}) + "\n"
+                                                        for name, cost, ago in rows), encoding="utf-8")
+
+
+check("the line «Додаткові сесії: так» marks the task; no line, «ні», or the words in the body do not",
+      board.parse(extra_task()).extra and not board.parse(task()).extra
+      and not board.parse(extra_task().replace("сесії: так", "сесії: ні")).extra
+      and not board.parse(task() + "\nДодаткові сесії: так\n").extra)
+root = new_board()
+cap(root, "5")
+put(root, "todo", "010-measure.md", extra_task())
+put(root, "todo", "020-plain.md", task())
+put(root, "todo", "030-waits.md", task(deps="999"))
+r = cli(root, "next")
+check("an ordinary task that can start is taken before a task with extra sessions, whatever the numbers",
+      r.returncode == 0 and r.stdout.strip() == "tasks/todo/020-plain.md", r.stdout + r.stderr)
+(root / "tasks/.first").write_text("010-measure.md\n", encoding="utf-8")
+check("…and before one the owner has just answered", cli(root, "next").stdout.strip() == "tasks/todo/020-plain.md")
+(root / "tasks/.first").unlink()
+check("the summary says the task goes after the ordinary ones", any("010-measure.md" in line and "після звичайних" in line for line in board.summary(board.Board(root / "tasks"))),
+      board.summary(board.Board(root / "tasks")))
+(root / "tasks/todo/020-plain.md").unlink()
+done(root, "020-plain")
+r = cli(root, "next")
+check("with no ordinary task that can start (one waits for a dependency), the task with extra sessions is taken",
+      r.returncode == 0 and r.stdout.strip() == "tasks/todo/010-measure.md", r.stdout + r.stderr)
+book(root, ("001-old", 100.0, 7.5), ("002-eval", 3.0, 0.1), ("", 50.0, 0.1))
+check("under the sum: sessions older than seven days and sessions started by hand (no task) do not count",
+      cli(root, "next").stdout.strip() == "tasks/todo/010-measure.md" and cli(root, "extra-allowed").returncode == 0, cli(root, "extra-allowed").stdout)
+book(root, ("001-old", 100.0, 7.5), ("002-eval", 3.0, 0.1), ("003-eval", 2.0, 6.9))
+r, allowed = cli(root, "next"), cli(root, "extra-allowed")
+check("NEGATIVE — the sum of seven days reached: the task waits (exit 5), and it is said why",
+      r.returncode == 5 and r.stdout == "" and allowed.returncode == 1 and "5.00" in allowed.stdout and "EXTRA_SESSIONS_WEEK_USD" in allowed.stdout,
+      (r.returncode, r.stdout, allowed.stdout))
+put(root, "todo", "040-plain.md", task())
+check("…while an ordinary task goes on", cli(root, "next").stdout.strip() == "tasks/todo/040-plain.md")
+said = board.summary(board.Board(root / "tasks"))
+check("the summary shows the sum against the cap and the waiting task", any("5.00" in line and "010-measure.md" in line and "чекає" in line for line in said), said)
+(root / "tasks/todo/040-plain.md").unlink()
+book(root, ("001-old", 100.0, 7.5), ("002-eval", 3.0, 0.1), ("003-eval", 2.0, 7.1))
+check("the old session leaves the window: the task is taken again, nobody asked", cli(root, "next").stdout.strip() == "tasks/todo/010-measure.md")
+book(root, ("002-eval", 3.0, 0.1))
+(root / ".claude/state/board/costs.json").write_text(json.dumps({"tasks": {
+    "010-measure": {"attempts": [{"utc": stamp(1), "session_id": "s1", "reported_usd": 1.5}, {"utc": stamp(0.5), "session_id": "s1", "reported_usd": 2.5}]},
+    "020-plain": {"attempts": [{"utc": stamp(1), "session_id": "s2", "reported_usd": 40.0}]}}}), encoding="utf-8")
+check("the own sessions of a marked task count (3 + 2.5 reaches 5); those of an ordinary task do not", cli(root, "next").returncode == 5,
+      cli(root, "extra-allowed").stdout)
+(root / ".claude/state/board/costs.json").write_text(json.dumps({"tasks": {
+    "010-measure": {"attempts": [{"utc": stamp(1), "session_id": "s1", "reported_usd": 1.5}]},
+    "020-plain": {"attempts": [{"utc": stamp(1), "session_id": "s2", "reported_usd": 40.0}]}}}), encoding="utf-8")
+check("…and 3 + 1.5 does not reach it", cli(root, "next").returncode == 0, cli(root, "extra-allowed").stdout)
+book(root, ("002-eval", 1000.0, 0.1))
+cap(root, None)
+check("a project without the key has no cap: the task is taken whatever was spent",
+      cli(root, "next").stdout.strip() == "tasks/todo/010-measure.md" and cli(root, "extra-allowed").returncode == 0)
+cap(root, "багато")
+check("…and a value that is not a number is no cap either", cli(root, "next").returncode == 0)
+
+root = new_board()
+cap(root, "5")
+plain = put(root, "doing", "050-grew.md", task())
+before = plain.read_text(encoding="utf-8")
+r = cli(root, "extra-book", "sandbox-runner", "1.25")
+rows = [json.loads(line) for line in (root / ".claude/state/board/extra-sessions.jsonl").read_text(encoding="utf-8").splitlines()]
+check("extra-book: a session a task started by hand is booked to the task in doing/",
+      r.returncode == 0 and [(x["task"], x["tool"], x["cost_usd"]) for x in rows] == [("050-grew", "sandbox-runner", 1.25)], r.stderr + str(rows))
+r = cli(root, "extra-wait")
+check("NEGATIVE — extra-wait under the cap is refused: the task stays in doing/, untouched",
+      r.returncode == 2 and plain.read_text(encoding="utf-8") == before, r.stdout + r.stderr)
+cli(root, "extra-book", "sandbox-runner", "4")
+r = cli(root, "extra-wait")
+waiting = root / "tasks/todo/050-grew.md"
+text = waiting.read_text(encoding="utf-8") if waiting.is_file() else ""
+check("extra-wait at the cap: the task goes back to todo/ with the mark, and nothing else in it changes",
+      r.returncode == 0 and not plain.exists() and board.parse(text).extra and text.replace("Додаткові сесії: так\n", "") == before
+      and text.index("Додаткові сесії: так") < text.index("## Що зробити"), r.stdout + r.stderr + text)
+check("…no question is asked and the board waits for the sum, not for the owner",
+      board.parse(text).answers == () and cli(root, "next").returncode == 5 and not list((root / "tasks/blocked").glob("*.md")))
+check("extra-wait with no task in doing/ is refused", cli(root, "extra-wait").returncode == 2)
+marked = put(root, "doing", "060-marked.md", extra_task())
+before = marked.read_text(encoding="utf-8")
+cli(root, "extra-wait")
+check("a task that carries the mark already goes back byte for byte", (root / "tasks/todo/060-marked.md").read_text(encoding="utf-8") == before)
+
+root = new_board()
+(root / ".claude/hooks").mkdir(parents=True)
+(root / ".claude/hooks/simplifier.py").touch()
+(root / ".claude/project.env").write_text('EXTRA_SESSIONS_WEEK_USD="5"\n', encoding="utf-8")
+book(root, ("002-eval", 5.0, 0.1))
+r = cli(root, "cleanup-task", "--today", "2026-10-12")
+check("NEGATIVE — the cleanup task (a simplifier pass) is not placed while the sum is at the cap", r.stdout == "" and not list((root / "tasks/todo").glob("*.md")), r.stdout)
+book(root, ("002-eval", 4.0, 0.1))
+r = cli(root, "cleanup-task", "--today", "2026-10-12")
+placed = list((root / "tasks/todo").glob("*-cleanup-2026-10-12.md"))
+check("under the cap it is placed, and it carries the mark", len(placed) == 1 and board.read(placed[0]).extra, r.stdout + r.stderr)
+check("the owner's template shows the line", "Додаткові сесії: ні" in (ROOT / "tasks/TEMPLATE.md").read_text(encoding="utf-8")
+      and "Додаткові сесії: ні" in (ROOT / "templates/project/tasks/TEMPLATE.md").read_text(encoding="utf-8"))
+check("this repository carries the cap; the shipped project.env sets none (the key is empty)",
+      board._setting(ROOT, "EXTRA_SESSIONS_WEEK_USD") == "60" and board._setting(ROOT / "templates/project", "EXTRA_SESSIONS_WEEK_USD") == ""
+      and 'EXTRA_SESSIONS_WEEK_USD=""' in (ROOT / "templates/project/.claude/project.env").read_text(encoding="utf-8"))
+tools = {t.name: t.read_text(encoding="utf-8") for t in sorted((ROOT / "evals").glob("*.py"))}
+booking = sorted(name for name, text in tools.items() if re.search(r"\bbook_(?:session|extra)\(", text))
+check("every tool that books a session of Claude asks the weekly cap before it starts one",
+      len(booking) == 5 and all(re.search(r"\b(?:week_cap|extra_refusal)\(", tools[name]) for name in booking), booking)
+root = new_board()
+cap(root, "")
+book(root, ("002-eval", 1000.0, 0.1))
+put(root, "todo", "010-measure.md", extra_task())
+check("…and with the empty key a project has no cap", cli(root, "next").returncode == 0 and cli(root, "extra-allowed").returncode == 0)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

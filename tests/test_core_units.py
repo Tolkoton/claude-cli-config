@@ -675,6 +675,26 @@ def extra_cases() -> None:
             os.environ["BOARD_STATE_DIR"] = saved
     (books / state.EXTRA_FILE).open("a", encoding="utf-8").write("not json\n")
     check("NEGATIVE — a broken line is stepped over, the sums stand", state.extra_sessions(books) == extra)
+    # board 110: the weekly sum — booked sessions of tasks in the last seven days, plus the own sessions of marked tasks.
+    week = box / "week"
+    week.mkdir()
+    at = datetime(2026, 10, 12, 12, 0, 0, tzinfo=timezone.utc)
+    rows = [("2026-10-05T12:00:00Z", "a", 10.0), ("2026-10-05T12:00:01Z", "a", 1.0), ("2026-10-12T11:00:00Z", "b", 2.0),
+            ("2026-10-12T11:00:00Z", "", 30.0), ("no time", "b", 50.0)]
+    (week / state.EXTRA_FILE).write_text("".join(json.dumps({"utc": u, "task": t, "tool": "x", "cost_usd": c}) + "\n" for u, t, c in rows) + "not json\n",
+                                         encoding="utf-8")
+    (week / "costs.json").write_text(json.dumps({"tasks": {
+        "marked": {"attempts": [{"utc": "2026-10-04T10:00:00Z", "session_id": "s", "reported_usd": 5.0},
+                                {"utc": "2026-10-11T10:00:00Z", "session_id": "s", "reported_usd": 7.5},
+                                {"utc": "2026-10-11T11:00:00Z", "session_id": "t", "reported_usd": 0.25}]},
+        "plain": {"attempts": [{"utc": "2026-10-11T10:00:00Z", "session_id": "u", "reported_usd": 99.0}]}}}), encoding="utf-8")
+    check("the weekly sum: booked sessions of tasks inside seven days (1 + 2), not the one exactly seven days old, by hand, or with no time",
+          state.extra_week(week, lambda name: False, at) == 3.0, state.extra_week(week, lambda name: False, at))
+    check("…plus what the own conversations of a marked task grew by inside the window (2.5 + 0.25), never an ordinary task's",
+          state.extra_week(week, lambda name: name == "marked", at) == 5.75, state.extra_week(week, lambda name: name == "marked", at))
+    check("NEGATIVE — no books at all: the sum is zero, nothing fails", state.extra_week(box / "no-books", lambda name: True, at) == 0.0)
+    check("a tool asks before a session: no project's cap beside the board — never refused; no such board — never refused",
+          state.extra_refusal(tasks_dir) is None and state.extra_refusal(box / "no-such-board") is None)
     report = state.report({"tasks": {"078-a": {"cost_usd": 4.0, "attempts": [{}], "outcome": "done"}}, "total_cost_usd": 4.0},
                           extra=extra | {"080-owner": (1, 0.1)})
     check("the runner's summary shows each task's extra sessions after its own cost",

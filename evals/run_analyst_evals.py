@@ -269,7 +269,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="engine-analyst-eval-") as tmp:
         sandboxes = {variant: build_sandbox(Path(tmp) / variant, variant, args.before_ref) for variant in ("before", "after")}
         for scene, variant in todo:
-            stop = shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit)
+            stop = shared.over_limit(sum(r["cost_usd"] for r in runs), args.max_usd_per_run, limit) or shared.week_cap(args.tasks_dir)
             if stop:
                 print(stop)
                 break

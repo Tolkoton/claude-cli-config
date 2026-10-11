@@ -171,6 +171,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "tasks/blocked/800-rule-proposal-ab12.md", RULE_QUESTION)
     write(work, "tasks/doing/009-in-work.md", task("009 — У роботі"))
     write(work, "tasks/todo/020-free.md", task("020 — Вільна", deps="001"))
+    write(work, "tasks/todo/015-extra.md", task("015 — ВИМІР").replace("Аудит потрібен:", "Додаткові сесії: так\nАудит потрібен:"))
     write(work, "tasks/todo/030-stands.md", task("030 — Стоїть", deps="008, 020"))
     write(work, "tasks/todo/040-attended.md", task("040 — ЗАДАЧА-З-ВЛАСНИКОМ").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
     write(work, "tasks/doing/045-with-owner.md", task("045 — ВЕДЕ-ВЛАСНИК").replace("Аудит потрібен:", "Потрібна присутність власника: так\nАудит потрібен:"))
@@ -351,6 +352,10 @@ check("board 097: every task of the plan says its mode and where it was read", "
       and "режим: конвеєр (рядок «Режим: конвеєр»)" in line_060, (line_020, line_060))
 check("…a line that names no mode: the plan says the runner does not take it, never «наступна»", "**не береться**" in line_070
       and "«Режим: абищо» — такого режиму немає" in line_070 and "наступна" not in line_070 and "стоїть" not in line_070, line_070)
+line_015 = next(line for line in plan.splitlines() if "015-extra.md" in line)
+check("board 110: a task with extra sessions stands after every ordinary task of the plan, says so, and is not «наступна» while one can start",
+      all(plan.find("015-extra.md") > plan.find(name) for name in ("020-free.md", "030-stands.md", "060-pipeline.md", "950-answered.md"))
+      and "з додатковими сесіями" in line_015 and "наступна" not in line_015 and "з додатковими сесіями" not in line_020, plan)
 check("board 049: a task the owner answered heads the plan, whatever its number, and says why", plan.find("950-answered.md") != -1
       and plan.find("950-answered.md") < plan.find("020-free.md") and "власник відповів" in next(line for line in plan.splitlines() if "950-answered.md" in line)
       and "власник відповів" not in line_020 and "007-gone" not in plan, plan)

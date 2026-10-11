@@ -30,6 +30,13 @@
 #                       hours; the task's budget spent; three overseer BLOCKs in a row on one of
 #                       its units: the runner PARKS the task and takes the next one (see below)
 #                       — one task never stops the board
+#   extra sessions      a task that says «Додаткові сесії: так» (evals, measurements, a release
+#                       audit, a full simplifier pass) is taken only when no ordinary task can
+#                       start, and not at all while the extra sessions of the last seven days are
+#                       at the project's cap (EXTRA_SESSIONS_WEEK_USD, board 110). A task that met
+#                       the cap mid-work went back to todo/ itself (`board.py extra-wait`): it
+#                       WAITS there — not parked, nobody asked — and the next task is taken. When
+#                       only such tasks are left: state=idle reason=extra-cap
 #   nothing to take     once a day the runner puts a cleanup task into todo/ itself and takes it
 #                       (THE CLEANUP TASK below)
 #   it stops            todo/ empty or everything left waiting for the owner; a soft stop; and the
@@ -693,6 +700,26 @@ Make what is missing — for a commit of working code with no PASS, get the over
 
 # run_task <tasks/doing/NAME.md>: attempts until the task left doing/ — moved by the agent to
 # done/ or blocked/, or parked in blocked/ by the runner. Sets OUTCOME to done, blocked or missing.
+# wait_task <stem>: the task met the weekly cap on extra sessions and went back to todo/ to wait for
+# the sum to fall (board 110). Not parked: no question, no blocked/. What it left uncommitted
+# outside tasks/ is kept the way a parked task's is — a wip branch and a stash, named in the journal.
+wait_task() {
+  local stem="$1" stash="" before after
+  commit_journal "$JOURNAL_OTHERS"
+  save_wip "$stem" extra-cap
+  before=$(git rev-parse -q --verify refs/stash 2>/dev/null)
+  git stash push -q -u -m "board: $stem waits (extra-cap)" -- . ':(exclude)tasks' >> "$STATE/logs/git.log" 2>&1
+  after=$(git rev-parse -q --verify refs/stash 2>/dev/null)
+  [ "$after" != "$before" ] && stash="$after"
+  if [ -n "$WIP$stash" ]; then
+    note_anomaly "$stem" "задача повернулась у \`todo/\` чекати тижневої межі додаткових сесій (\`EXTRA_SESSIONS_WEEK_USD\`) і лишила незакомічену роботу" \
+      "роботу збережено${WIP:+: гілка \`$WIP\` (${WIP_AT:-лише на сервері})}${stash:+; git stash \`$stash\` на сервері}; задача чекає в \`todo/\`, runner узяв наступну"
+  fi
+  event "task-waiting $stem extra-cap${stash:+ stash=$stash}${WIP:+ wip=$WIP}"
+  say "$stem: waits in todo/ for the weekly sum of extra sessions${WIP:+; uncommitted work kept in the branch $WIP (${WIP_AT:-this machine only})}"
+  OUTCOME=waiting
+}
+
 run_task() {
   local file="$1" stem place
   stem=$(basename "$file" .md)
@@ -706,7 +733,9 @@ run_task() {
     case "$place" in
       done|blocked) OUTCOME="$place"; CLOSED_BY=agent; return 0 ;;
       doing) stop_after_attempt "$stem" ;;
-      todo) park_task "$stem" returned ""; return 0 ;;
+      todo)
+        if board extra-waits "$stem"; then wait_task "$stem"; else park_task "$stem" returned ""; fi
+        return 0 ;;
       *) note_anomaly "$stem" "задача зникла з task board: її немає ні в doing/, ні в done/, ні в blocked/, ні в todo/" "runner узяв наступну задачу; файл задачі можна повернути з історії git"
          OUTCOME=missing; return 0 ;;
     esac
@@ -752,7 +781,7 @@ while :; do
   TASK=$(board next); RC=$?
   case "$RC" in
     0) ;;
-    3|4)
+    3|4|5)
       PLACED=$(board cleanup-task) || finish error - cleanup "board.py cleanup-task failed"
       if [ -n "$PLACED" ]; then
         event "cleanup-task $PLACED"
@@ -763,6 +792,9 @@ while :; do
         continue
       fi
       push_branch
+      if [ "$RC" -eq 5 ]; then
+        finish idle - extra-cap "what is left are tasks with extra sessions, and the extra sessions of the last seven days are at the cap (EXTRA_SESSIONS_WEEK_USD): they wait in tasks/todo/ until the sum falls, nobody is asked ($FINISHED task(s) closed in this run)"
+      fi
       if [ "$RC" -eq 4 ] || [ -n "$(find tasks/blocked -maxdepth 1 -name '[0-9]*.md' 2>/dev/null | head -1)" ]; then
         finish waiting-owner - owner "nothing can move: what is left waits for the owner's answers, for the owner's presence or for tasks that are not done ($FINISHED task(s) closed in this run)"
       fi
@@ -792,7 +824,7 @@ while :; do
   memo finish "$TASK_NAME" "$OUTCOME"
   event "task-$OUTCOME $TASK_NAME cost=$(memo get "$TASK_NAME" cost)"
   say "$TASK_NAME: $OUTCOME ($(memo get "$TASK_NAME" cost) USD)"
-  FINISHED=$((FINISHED + 1))
+  [ "$OUTCOME" = waiting ] || FINISHED=$((FINISHED + 1))
   push_branch
   if [ "$ONCE" -eq 1 ]; then
     finish stopped "$TASK_NAME" once "one task was asked for (--once); it ended in $OUTCOME/"

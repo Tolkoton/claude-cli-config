@@ -17,6 +17,8 @@ and then does what its script for that call says — the things tasks/README.md 
     auth            answer only that claude is logged out
     return          move the task back to todo/ and commit — neither done nor a question
     vanish          delete the task file and commit
+    wait            the task met the weekly cap on extra sessions (board 110): book a session of
+                    FAKE_EXTRA USD to it (`board.py extra-book`), then `board.py extra-wait` and commit the move
     tidy            commit everything that is uncommitted (what the runner asks for when a closed
                     task left the tree dirty, board 029)
     <step>-dirty    do <step>, then stage a file outside tasks/ and leave it uncommitted
@@ -245,6 +247,10 @@ elif step == "refused":
         hook("overseer_verdict.py", ["record"], {"hook_event_name": "SubagentStop", "agent_type": "overseer", "agent_id": f"a{turn}",
                                                 "last_assistant_message": "```json\n" + json.dumps(reply) + "\n```"})
     (home / "hook-said").write_text(said)
+elif step == "wait" and doing:
+    for words in (["extra-book", "an-eval", os.environ.get("FAKE_EXTRA", "5")], ["extra-wait"]):
+        subprocess.run([sys.executable, os.environ["FAKE_BOARD"], "--root", ".", *words], check=True, capture_output=True)
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", "the task waits for the weekly sum", "--", "tasks")
 elif step == "limit":
     result = "You've hit your session limit · resets 3pm (UTC)"
 elif step == "auth":
@@ -1374,6 +1380,79 @@ journal = journal_text(w.repo, "anomalies")
 check("a task that vanished from the board: written into the journal, the next task is done, exit 0", r.returncode == 0 and len(w.calls()) == 2
       and "— 001-gone" in journal and "задача зникла з task board" in journal and w.has("tasks/done/002-next/report.md") and "state=idle" in w.status()
       and sh(w.repo, "git", "status", "--porcelain").stdout == "" and w.origin_head() == w.head(), w.status() + journal + r.stderr)
+
+# --- tasks with extra sessions: after the ordinary ones, under the weekly sum (board 110) ------------------------------------
+print("board 110: a task with extra sessions is taken after the ordinary ones")
+EXTRA_TASK = task().replace("Аудит потрібен: ні\n", "Аудит потрібен: ні\nДодаткові сесії: так\n")
+
+
+def capped_world(plan: str, usd: str = "5") -> World:
+    w = World(plan)
+    (w.repo / ".claude/project.env").write_text(f'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\nCLEANUP_EVERY_DAYS="0"\nEXTRA_SESSIONS_WEEK_USD="{usd}"\n')
+    sh(w.repo, "git", "commit", "-q", "-am", "the cap")
+    return w
+
+
+def booked(w: World, usd: float) -> None:
+    w.state.mkdir(parents=True, exist_ok=True)
+    (w.state / "extra-sessions.jsonl").write_text(json.dumps({"utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "task": "000-earlier",
+                                                              "tool": "an-eval", "cost_usd": usd}) + "\n" if usd else "")
+
+
+w = capped_world("done done")
+w.put("todo", "001-measure.md", EXTRA_TASK)
+w.put("todo", "002-plain.md")
+r = w.run()
+order = [str(c["argv"][1]).split("tasks/doing/")[1].split(".md")[0] for c in w.calls()]
+check("the ordinary task first, whatever the numbers; then, with none left, the task with extra sessions",
+      r.returncode == 0 and order == ["002-plain", "001-measure"] and w.has("tasks/done/001-measure/report.md"), (order, w.status(), r.stdout + r.stderr))
+
+print("board 110: the weekly sum is at the cap — such tasks wait, ordinary ones go on")
+w = capped_world("done done")
+booked(w, 5.0)
+w.put("todo", "001-measure.md", EXTRA_TASK)
+w.put("todo", "002-plain.md")
+r = w.run()
+check("NEGATIVE — only the ordinary task is worked on; the task with extra sessions stays in todo/, untouched",
+      r.returncode == 0 and len(w.calls()) == 1 and w.has("tasks/done/002-plain/report.md") and w.has("tasks/todo/001-measure.md")
+      and (w.repo / "tasks/todo/001-measure.md").read_text(encoding="utf-8") == EXTRA_TASK, (len(w.calls()), w.status(), r.stdout + r.stderr))
+check("the runner stops idle and says why; nobody is asked", "state=idle" in w.status() and "reason=extra-cap" in w.status()
+      and not list((w.repo / "tasks/blocked").glob("*.md")) and "EXTRA_SESSIONS_WEEK_USD" in (w.state / "summary.md").read_text(encoding="utf-8"), w.status())
+booked(w, 0)
+(w.home / "plan").write_text("done")
+(w.home / "calls.jsonl").unlink()
+r = w.run()
+check("the sum fell: the next start takes the task, with no word from the owner",
+      r.returncode == 0 and len(w.calls()) == 1 and w.has("tasks/done/001-measure/report.md") and "todo-empty" in w.status(), w.status() + r.stdout + r.stderr)
+
+print("board 110: a task that meets the cap in the middle of its work waits — it is not parked")
+w = capped_world("wait-dirty done")
+w.put("todo", "001-grew.md")
+w.put("todo", "002-plain.md")
+r = w.run(FAKE_EXTRA="5")
+text = (w.repo / "tasks/todo/001-grew.md").read_text(encoding="utf-8") if w.has("tasks/todo/001-grew.md") else ""
+check("it is back in todo/ with the mark, with no question and no «Чому зупинилась»; the next task is done; the runner ends idle",
+      r.returncode == 0 and "Додаткові сесії: так" in text and "Чому зупинилась" not in text and "Відповідь:" not in text
+      and not list((w.repo / "tasks/blocked").glob("*.md")) and w.has("tasks/done/002-plain/report.md") and len(w.calls()) == 2
+      and "reason=extra-cap" in w.status(), w.status() + r.stdout + r.stderr + text)
+log = (w.state / "events.log").read_text()
+branches = sh(w.repo, "git", "branch", "--list", "wip/001-grew/*").stdout.split()
+check("the work it left uncommitted is not lost: a wip branch holds it, and the journal names the branch",
+      "task-waiting 001-grew extra-cap" in log and "task-parked" not in log and len(branches) == 1
+      and "left-0.txt" in sh(w.repo, "git", "show", "--name-only", "--format=", branches[0]).stdout and branches[0] in journal_text(w.repo, "anomalies"),
+      log + str(branches))
+check("the books keep what it cost, as a task that waits", w.costs()["001-grew"].get("outcome") == "waiting" and w.costs()["001-grew"]["cost_usd"] == 1.0, w.costs().get("001-grew"))
+booked(w, 0)
+(w.home / "plan").write_text("done")
+r = w.run()
+check("when the sum has fallen it is taken again in a fresh conversation and finished",
+      r.returncode == 0 and w.has("tasks/done/001-grew/report.md") and "--resume" not in w.argv(len(w.calls()) - 1), w.status() + r.stdout + r.stderr)
+w = capped_world("return done")
+booked(w, 5.0)
+w.put("todo", "001-plain-returned.md")
+r = w.run()
+check("NEGATIVE — an ordinary task the agent merely put back is still parked with a question, cap or no cap",
+      w.has("tasks/blocked/001-plain-returned.md") and "task-parked 001-plain-returned returned" in (w.state / "events.log").read_text(), w.status() + r.stdout)
 
 # --- a task closes with a clean tree only (board 029) ----------------------------------------------------------------------
 print("board 029: a closed task that left uncommitted files gets one turn to commit or remove them")

@@ -670,7 +670,8 @@ def journal_lines(src: Source, period: Since) -> list[str]:
 def plan_section(src: Source) -> list[str]:
     first = src.show(f"tasks/{board.FIRST}").split()
     rank = board.first_rank(first)
-    todo = sorted(src.column("todo"), key=lambda p: rank(posixpath.basename(p)))   # the order the runner takes them in
+    # The order the runner takes them in: a task with extra sessions after every ordinary one (board 110).
+    todo = sorted(src.column("todo"), key=lambda p: (board.parse(src.show(p)).extra, rank(posixpath.basename(p))))
     if not todo:
         return ["У `todo/` порожньо."]
     place = {board.number_of(posixpath.basename(p)): c for c in ("todo", "doing", "blocked") for p in src.column(c)}
@@ -685,6 +686,7 @@ def plan_section(src: Source) -> list[str]:
         line = f"{index}. `{posixpath.basename(path)}` — {title_of(text, 'без назви')}"
         line += "; **першою — власник відповів**" if posixpath.basename(path) in first else ""
         line += f"; режим: {mode_of(text)}"
+        line += "; **з додатковими сесіями** — після звичайних задач і в межах тижневої суми" if task.extra else ""
         if task.mode_error:
             line += "; **не береться** — рядок «Режим:» не називає режиму"
         elif task.attended:

@@ -90,10 +90,10 @@ work runs through the task board only (below); detail: `.claude/references/unatt
 Work arrives as files in `tasks/` (`tasks/README.md`): take the first `todo/` task with its
 dependencies in `done/`, move it to `doing/` in its own commit, end in `done/NNN-name/` with
 `report.md` — or in `blocked/` with a question for the owner. Extra Claude sessions (evals, critics,
-measurements) are ordinary work; the overseer's audit run needs `Аудит потрібен: так`. Full tests once.
-Quality over price: a task carries no dollar limit — sessions take what an honest result needs;
-only the runner's `BOARD_MAX_USD` guards a loop (it parks the task with a question). Wherever the
-owner reads, technical terms stay English (overseer, slice, gates, runner…): `unattended.md`.
+measurements) are ordinary work under a weekly cap: at it start none, commit, `board.py extra-wait`
+(README rule 12). The overseer's audit run needs `Аудит потрібен: так`. Full tests once.
+Quality over price: no dollar limit on a task; only the runner's `BOARD_MAX_USD` guards a loop (it
+parks the task with a question). Wherever the owner reads, technical terms stay English: `unattended.md`.
 
 ## Constitution
 Every agent reads and obeys `.claude/constitution.md`. It overrides any conflicting
