@@ -1,15 +1,16 @@
 # Project profile — <project name>
 
 <!-- The template of `.engine/onboard/profile.md`. `/onboard` copies it there and fills it; write it
-in the owner's language. Read on demand by the maintenance commands, the architects and their
+in the owner's language (without the owner: the language of what started the session — the
+command's opening says how it is known). Read on demand by the maintenance commands, the architects and their
 critics — it is not imported into CLAUDE.md. Every claim below cites what it rests on
 (`file:line`, a commit, a command that was run); a claim with nothing to cite is not written.
 Delete these comments as the sections fill. -->
 
-Status: **draft — not confirmed by the owner** <!-- without the owner add: "steps 1–3 only";
-after step 4: "confirmed by the owner, <date>". If no lint, type-check or test command could be
-run, say so here, first. -->
-Surveyed at commit: `<sha>` · Fresh reader: <not yet | date, N references checked, M corrected>
+Status: **draft — not confirmed by the owner** <!-- without the owner add: "steps 1–4 only";
+after step 5: "confirmed by the owner, <date>". If no lint, type-check or test command could be
+run, say so here, first; if one part of the project ran none, name that part here. -->
+Surveyed at commit: `<sha>` · Fresh reader: <not yet | date, N references checked, M corrected, K rules reworded>
 
 ## 1. Map
 
@@ -60,6 +61,7 @@ Guesses (no source strong enough to offer as a rule):
 |---|---|---|
 | Tests exist (a test file names it — or measured, say which) | | |
 | No tests | | |
+| No check ran (a part of the project none of whose checks could be run) | | |
 | Do not touch — candidates the survey saw (generated, vendored) | | |
 | Do not touch — the owner's words | | |
 

@@ -1,13 +1,15 @@
 ---
-description: Get to know an existing project together with its owner. Surveys the code read-only, runs every check command it found for real, recovers the project's rules as candidates each with its source, takes the owner's verdict on every one, has a fresh reader verify every reference, and leaves the profile `.engine/onboard/profile.md`, `.claude/project.env`, a short AGENTS.md and the snapshot "as it was". Fixes nothing, installs nothing, writes no decisions in hindsight. Use once, after `engine.py install`, in a project that was not built with the engine. Needs the owner in the conversation; without the owner it does steps 1–3 and stops with questions.
+description: Get to know an existing project together with its owner. Surveys the code read-only, runs every check command it found for real, recovers the project's rules as candidates each with its source, has a fresh reader verify every reference and every rule's wording against its source, takes the owner's verdict on every one, and leaves the profile `.engine/onboard/profile.md`, `.claude/project.env`, a short AGENTS.md and the snapshot "as it was". Fixes nothing, installs nothing, writes no decisions in hindsight. Use once, after `engine.py install`, in a project that was not built with the engine. Needs the owner in the conversation; without the owner it does steps 1–4 and stops with questions.
 ---
 
 You are running **/onboard**: the engine's first meeting with a project it did not build. The
 rules of such a project live in its owner's head, not in its code — so this is a session with the
 owner present, and everything you conclude alone is a *candidate* until the owner has said yes.
 
-Speak the owner's language; with no owner present, write in the language of the project's own
-documents. `$ARGUMENTS` may name a directory to start the survey from; empty means the whole project.
+Speak and write — the profile, every question — in the owner's language. With no owner present
+that is the language of the task or request that started the session; the language of the
+project's own documents only when neither says anything. A quotation stays as its source has it.
+`$ARGUMENTS` may name a directory to start the survey from; empty means the whole project.
 
 ## What /onboard never does
 
@@ -31,11 +33,26 @@ documents. `$ARGUMENTS` may name a directory to start the survey from; empty mea
 
 Unattended — `CLAUDE_UNATTENDED_SESSION=1`, or `.claude/state/overseer/mode` says `unattended` —
 or the session has no way to ask (no interactive question, or whoever started it said so): do
-**steps 1–3 only**, write the profile as a draft (its first line says so,
-every candidate rule has the verdict «waits for the owner»), and stop with the questions of
-step 4. They are written into the profile's «Open questions» section and printed; on the task
-board they also go into the task's «Питання до власника» and the task to `blocked/`. Do not touch `.claude/project.env`, `AGENTS.md`, the snapshot
-or the premise log, and do not act out the owner's part. Steps 4–8 are for a session the owner sits in.
+**steps 1–4 only** — the fresh reader of step 4 needs no owner and is not skipped —, write the
+profile as a draft (its first line says so, every candidate rule has the verdict «waits for the
+owner»), and stop with the questions of the draft. Step 5 is a procedure, not a list; the
+draft's questions are these, in this order:
+
+- that no check could be run (step 2), when that is so;
+- one for each contradiction «document against code» — a written rule the code does not follow,
+  a document the code contradicts: which of the two is the rule;
+- one for each command whose effect is unclear (step 2);
+- one for the do-not-touch zones: the candidates the survey saw, and what else there is;
+- one for each part that was not read: read it, or leave it alone;
+- one common question for all the remaining candidates — they wait for the owner's yes, no or
+  corrected text in a session the owner sits in; never a question per candidate.
+
+They are written, numbered, into the profile's «Open questions» section. On the task board they
+also go into the task's «Питання до власника» and the task to `blocked/`. With no board and no
+owner «print them» has no addressee: the questions stay in the profile, and whoever started the
+session gets only the profile's path and the number of questions. Do not touch
+`.claude/project.env`, `AGENTS.md`, the snapshot or the premise log, and do not act out the
+owner's part. Steps 5–8 are for a session the owner sits in.
 
 ## If the project already has agent files or an older engine
 
@@ -111,6 +128,11 @@ pasted log).
 - **If none of lint, type-check and tests could be run**, say so in the first line of the profile
   and make it the first question: the meeting is not complete until the owner has prepared the
   environment, and steps 6–7 wait for it.
+- **In a project of several parts where one part ran its checks and another ran none**, the
+  first line of the profile names the part with no check that ran, and that part is the first
+  question. Steps 6–7 do not wait: `project.env` and the snapshot take the commands that ran,
+  the owner is told before taking the snapshot which part it does not measure, and that part
+  goes into the risk zones as «no check ran» and into the premise log (step 8).
 - Run nothing that deploys, publishes, migrates, pushes, or writes outside the project. If a
   command's effect is unclear, it is «not run» and a question for the owner.
 - A command that runs and fails is still a verified command: the failures are what the snapshot
@@ -132,26 +154,49 @@ the code does not follow is offered as it is — with both the citation and the 
 and the owner decides which of the two is the rule. A candidate is something a change could
 break: one linter setting or one sentence of a document is not by itself a rule.
 
-## 4. The owner decides
+## 4. A fresh reader checks every reference and every rule's wording
+
+Before the owner sees a candidate, and in a session without the owner too: the reader needs no
+owner. Start one agent in a fresh context (`Agent`, no part of this conversation in its prompt)
+with only the path of the profile and two jobs. It edits nothing.
+
+- **Every reference.** For every `file:line`, commit and command the profile cites, open it and
+  say whether it says what the profile claims — «holds», «does not hold» (with what it does say)
+  or «could not check».
+- **Every rule's wording against its source.** Is the rule worded more strongly than what it
+  cites: «only», «always», «every», «never» with no count and no quotation that carries the word;
+  a general rule from a source that speaks of one case; a commit that says less than the rule
+  claims. The answer is «no stronger than its source», or «stronger» with the wording the source
+  does support.
+
+You have just read thousands of lines and see order where there may be none (Article 6); the
+reader has not.
+
+Correct or remove every reference that does not hold, and reword every rule that is stronger than
+its source to what the source supports. A candidate whose source fell away altogether is not
+offered: it moves to the guesses. «Could not check» stays written next to its reference. The
+profile's second line says how many references were checked, how many corrected and how many
+rules reworded.
+
+**After the owner's verdicts (step 5)** the reader runs again only over what the owner's words
+changed: a reference that a corrected text or a rule the owner added brought with it, the paths
+of a do-not-touch zone. What it has checked and nobody changed is not checked twice. A rule whose
+source fell away in this second check goes back to the owner as a question; it does not stay
+confirmed.
+
+## 5. The owner decides
 
 One candidate at a time (`AskUserQuestion` is right here): **yes**, **no**, or the owner's
-corrected text, recorded verbatim next to the candidate. Then ask separately for the
+corrected text, recorded verbatim next to the candidate. Many candidates are a long sitting, so
+keep an order: first the contradicted ones (a written rule the code does not follow, a rule the
+reader had you reword), then the ones you would propose for `AGENTS.md`, then the rest. Candidates
+of one kind go under one «yes» only if the owner asks for it — never offer it: the question then
+names each of them by its number, and the verdict is written on each. Then ask separately for the
 **do-not-touch zones**: generated code, vendored code, what is about to be removed. They go into
 the profile and into `SIMPLIFIER_PROTECTED`.
 
 Ask too which of the confirmed rules a conversation cannot do without — only those go into
 `AGENTS.md` (step 6).
-
-## 5. A fresh reader checks every reference
-
-Start one agent in a fresh context (`Agent`, no part of this conversation in its prompt) with
-only the path of the profile and one job: for every `file:line`, commit and command the profile
-cites, open it and say whether it says what the profile claims — «holds», «does not hold» (with
-what it does say) or «could not check». It edits nothing. You have just read thousands of lines
-and see order where there may be none (Article 6); the reader has not.
-
-Correct or remove every reference that does not hold. A rule whose source fell away goes back to
-the owner as a question; it does not stay confirmed.
 
 ## 6. What stays after the meeting
 
@@ -159,7 +204,7 @@ the owner as a question; it does not stay confirmed.
 |---|---|
 | `.engine/onboard/profile.md` | the map; the commands with the evidence of their run; **every** rule with the owner's verdict and its source; the risk zones (tested / untested / do not touch); what was not read |
 | `AGENTS.md` | written with the skill `documentation` (its bootstrap workflow): the project in one sentence, the key paths, and only the rules without which any conversation would go wrong. The rest is read from the profile on demand |
-| `.claude/project.env` | `SOURCE_DIRS`, `CODE_EXTENSIONS`, the check commands — only those step 2 ran; `SIMPLIFIER_PROTECTED` from step 4 |
+| `.claude/project.env` | `SOURCE_DIRS`, `CODE_EXTENSIONS`, the check commands — only those step 2 ran; `SIMPLIFIER_PROTECTED` from step 5 |
 | `.engine/baseline.json` | step 7 |
 | `.engine/premises/premise-log.md` | step 8 |
 

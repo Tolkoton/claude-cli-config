@@ -320,9 +320,9 @@ python3 .claude/unattended/board.py start --attended tasks/todo/NNN-onboard.md
 
 What it does, in order: surveys the project read-only; **runs** every check command it found (a
 command that was not run never reaches `project.env`); offers the project's rules as candidates,
-each with its source — written, seen in the code, seen in the history; takes the owner's «yes»,
-«no» or corrected text on each, and the do-not-touch zones; has a fresh reader check every
-reference; then writes the files below. The owner takes the snapshot "as it was" in their own
+each with its source — written, seen in the code, seen in the history; has a fresh reader check
+every reference and whether a rule is worded more strongly than its source; takes the owner's «yes»,
+«no» or corrected text on each, and the do-not-touch zones; then writes the files below. The owner takes the snapshot "as it was" in their own
 terminal (`python3 .claude/hooks/baseline.py record`), so the gate asks "no worse than it was".
 
 | File | What it holds |
@@ -333,8 +333,8 @@ terminal (`python3 .claude/hooks/baseline.py record`), so the gate asks "no wors
 | `.engine/premises/premise-log.md` | what could not be verified |
 
 `/onboard` fixes nothing, installs nothing, reads no secrets and writes no decisions in hindsight.
-Without the owner it does the survey, the command check and the candidates, and stops with
-questions. A project installed before this command existed has no `tasks/TEMPLATE-onboard.md`
+Without the owner it does the survey, the command check, the candidates and the fresh reader's
+check, and stops with questions. A project installed before this command existed has no `tasks/TEMPLATE-onboard.md`
 (seeds are copied once): take it from `templates/project/tasks/` of the engine.
 
 ---

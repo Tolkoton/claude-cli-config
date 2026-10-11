@@ -3,7 +3,7 @@
 
 WHY. The command is prose a model follows; nothing executes it. What can be checked for free is
 its structure: the eight steps in the approved order, the things it must never do, the path
-without the owner (steps 1–3, then stop), the profile template the maintenance commands will
+without the owner (steps 1–4, then stop), the profile template the maintenance commands will
 read, and the board task that needs the owner present. A step or a prohibition lost in a later
 edit of the command would otherwise be noticed only in somebody's real project.
 
@@ -67,9 +67,16 @@ command = text(".claude/commands/onboard.md")
 check("/onboard exists with a description", command.startswith("---\ndescription:"), command[:120])
 steps = re.findall(r"^## (\d)\. (.+)$", command, re.MULTILINE)
 check("eight numbered steps, 1 to 8", [n for n, _ in steps] == list("12345678"), steps)
-WORDS = ("Survey", "commands", "rules", "owner decides", "fresh reader", "stays", "snapshot", "premises")
+WORDS = ("Survey", "commands", "rules", "fresh reader", "owner decides", "stays", "snapshot", "premises")
 check("the steps are the approved ones, in the approved order",
       len(steps) == 8 and all(word.lower() in title.lower() for word, (_, title) in zip(WORDS, steps)), steps)
+# board 092 — the full trial (board 057): 9 references of 327 did not hold and 7 rules were worded more
+# strongly than their source; with the reader after the verdicts the owner would have said «yes» to them
+place = {word: next((int(n) for n, title in steps if word in title.lower()), 0) for word in ("fresh reader", "owner decides")}
+check("the fresh reader stands before the owner's verdicts (092)", 0 < place["fresh reader"] < place["owner decides"], place)
+check("the description names the reader before the owner's verdict and the path without the owner as steps 1–4 (092)",
+      0 < command.find("has a fresh reader") < command.find("takes the owner's verdict") and "without the owner it does steps 1–4" in command,
+      command[:700])
 
 survey = flat(section(command, "1."))
 check("step 1 is read-only and says what was not read", "read only" in steps[0][1] and "nothing else is written in this step" in survey
@@ -97,6 +104,9 @@ check("step 2 (091): one check spelled differently in several documents is one r
 check("step 2 (091): exit 0 with nothing checked is «ran, checked nothing» and stays out of project.env",
       "«ran, checked nothing»" in commands and "is not «ran»" in commands
       and "«ran, checked nothing» does not go into `project.env`" in commands, commands[:300])
+check("step 2 (092): one part ran its checks and another none — the first line names the part, steps 6–7 do not wait",
+      "one part ran its checks and another ran none" in commands and "names the part with no check that ran" in commands
+      and "Steps 6–7 do not wait" in commands and "which part it does not measure" in commands, commands[-900:])
 rules = flat(section(command, "3."))
 check("step 3: three sources, each named", all(f"**{s}**" in rules for s in ("written", "seen in the code", "seen in the history")), rules[:300])
 check("step 3: no source, no candidate; a guess is called a guess", "no source is not offered" in rules and "guess is called a guess" in rules)
@@ -108,13 +118,30 @@ check("an older engine or existing agent files (from the trial): surveyed as doc
       "documents to survey" in older and "not a candidate rule of the project" in older and "is not replaced" in older, older[:300])
 check("step 1 (from the trial): a hot file is read in full before a rule about it; a search count is marked",
       "read in full before any rule about it" in survey and "«counted, not read»" in survey)
-owner = flat(section(command, "4."))
-check("step 4: yes / no / corrected text, and the do-not-touch zones into SIMPLIFIER_PROTECTED",
-      all(w in owner for w in ("**yes**", "**no**", "corrected text", "do-not-touch zones", "SIMPLIFIER_PROTECTED")), owner[:300])
-reader = flat(section(command, "5."))
-check("step 5: a fresh agent with only the profile checks every reference and edits nothing",
+reader = flat(section(command, "4."))
+check("step 4: a fresh agent with only the profile checks every reference and edits nothing",
       "fresh context" in reader and "only the path of the profile" in reader and "edits nothing" in reader, reader[:300])
+check("step 4 (092): the reader runs before the owner sees a candidate, and without the owner too — it needs no owner",
+      "Before the owner sees a candidate" in reader and "in a session without the owner too" in reader
+      and "the reader needs no owner" in reader, reader[:300])
+check("step 4 (092): the reader's second job — is a rule worded more strongly than its source",
+      "worded more strongly than" in reader and "«only», «always», «every»" in reader and "with no count" in reader
+      and "speaks of one case" in reader, reader[:600])
+check("step 4 (092): what does not hold is corrected before the owner; a rule stronger than its source is reworded; no source left, no candidate",
+      "reword every rule that is stronger than its source" in reader and "is not offered: it moves to the guesses" in reader, reader[:900])
+check("step 4 (092): after the verdicts the reader checks only what the owner's words changed",
+      "only over what the owner's words changed" in reader and "is not checked twice" in reader
+      and "does not stay confirmed" in reader, reader[-500:])
+owner = flat(section(command, "5."))
+check("step 5: yes / no / corrected text, and the do-not-touch zones into SIMPLIFIER_PROTECTED",
+      all(w in owner for w in ("**yes**", "**no**", "corrected text", "do-not-touch zones", "SIMPLIFIER_PROTECTED")), owner[:300])
+check("step 5 (092): a long sitting has an order — the contradicted first, then those proposed for AGENTS.md",
+      "first the contradicted ones" in owner and "then the ones you would propose for `AGENTS.md`" in owner, owner[:600])
+check("step 5 (092): candidates of one kind go under one «yes» only when the owner asks for it; each still gets its verdict",
+      "under one «yes» only if the owner asks for it" in owner and "never offer it" in owner
+      and "the verdict is written on each" in owner, owner[:800])
 stays = flat(section(command, "6."))
+check("step 6 (092): the do-not-touch zones come from the owner's step, which is now step 5", "`SIMPLIFIER_PROTECTED` from step 5" in stays, stays[:600])
 check("step 6: the profile, AGENTS.md by the documentation skill, project.env",
       all(w in stays for w in (".engine/onboard/profile.md", "skill `documentation`", ".claude/project.env", "only those step 2 ran")), stays[:300])
 check("step 6: every rule in the profile, only the indispensable in AGENTS.md",
@@ -142,8 +169,22 @@ check("never (091): a check's cache the project itself ignores is not a change t
       "cache" in never and "the project itself ignores" in never and "is not a change to the project" in never, never[:400])
 check("the prohibitions stand before the first step", 0 < command.find("## What /onboard never does") < command.find("## 1."))
 alone = flat(section(command, "Who is here"))
-check("without the owner: steps 1–3 only, a draft, then stop with questions written into the profile",
-      "steps 1–3 only" in alone and "draft" in alone and "stop with the questions" in alone and "«Open questions»" in alone, alone[:300])
+check("without the owner: steps 1–4 only, a draft, then stop with questions written into the profile",
+      "steps 1–4 only" in alone and "draft" in alone and "stop with the questions" in alone and "«Open questions»" in alone, alone[:300])
+check("without the owner (092): the fresh reader is not skipped, and the owner's steps are 5–8",
+      "the fresh reader of step 4 needs no owner and is not skipped" in alone and "Steps 5–8 are for a session the owner sits in" in alone
+      and "1–3" not in command, alone[:400])
+check("without the owner (092): step 5 is a procedure, not a list — the draft's questions are named",
+      "a procedure, not a list" in alone and all(w in alone for w in (
+          "«document against code»", "effect is unclear", "do-not-touch zones", "was not read", "one common question")), alone[:900])
+check("without the owner (092): the common question is one, not a question per candidate", "never a question per candidate" in alone, alone[:900])
+check("without the owner and without the board (092): the questions stay in the profile; the starter gets the path and the number",
+      "has no addressee" in alone and "stay in the profile" in alone and "the profile's path and the number of questions" in alone, alone[-600:])
+opening = flat(command.split("## What /onboard never does")[0])
+check("one language (092): the owner's — in the command and in the template; without the owner it is the language of what started the session",
+      "in the owner's language" in opening and "the task or request that started the session" in opening
+      and "write in the language of the project's own documents" not in opening
+      and "in the owner's language" in flat(text(".claude/references/onboard-profile.md")), opening[-500:])
 check("without the owner: project.env, AGENTS.md, the snapshot and the premise log are not touched",
       all(w in alone for w in ("Do not touch", "`.claude/project.env`", "`AGENTS.md`", "snapshot", "premise log")), alone[:400])
 check("without the owner: both signs of an unattended session are named, and the owner is not acted out",
@@ -159,6 +200,10 @@ heads = re.findall(r"^## \d\. (.+)$", profile, re.MULTILINE)
 check("six sections: map, commands, rules, risk zones, not read, open questions",
       heads == ["Map", "Commands", "Rules", "Risk zones", "Not read", "Open questions for the owner"], heads)
 check("it starts as a draft the owner has not confirmed", "draft — not confirmed by the owner" in profile)
+check("the status line (092): without the owner it is steps 1–4, the owner confirms in step 5, the reader's count has the reworded rules",
+      'add: "steps 1–4 only"' in flat(profile) and "after step 5" in flat(profile) and "K rules reworded" in profile
+      and "1–3" not in profile and "after step 4" not in flat(profile), profile[:900])
+check("the risk zones (092): a part whose checks did not run has its row", "No check ran" in profile)
 check("a command row carries its status and the evidence of the run", "Status (ran / not run / variant)" in profile and "Exit, duration" in profile)
 check("a rule row carries source, evidence, counter-evidence, the owner's verdict and whether it goes into AGENTS.md",
       "| Source | Evidence | Counter-evidence | Owner's verdict | Goes into AGENTS.md |" in profile)
@@ -182,6 +227,8 @@ parsed = board.parse(seed) if seed else None
 check("the seed exists and parses as a task that needs the owner present, with no audit and no dependency",
       parsed is not None and parsed.attended and not parsed.audit and parsed.depends == (), parsed)
 check("it has the owner's sections and names the command", all(h in seed for h in ("## Що зробити", "## Готово, коли", "## Питання до власника", "/onboard", "--attended")))
+check("the seed (092): the fresh reader comes before the owner's answers, and checks the wording too",
+      0 < seed.find("Свіжий читач") < seed.find("власник відповідає") and "формулювання" in seed, seed[:900])
 check("it repeats the prohibitions", all(w in seed for w in ("Нічого не виправляти", "не встановлювати", "заднім числом", "секрети не читати")))
 ownership = engine.parse_ownership(text(".claude/ownership.txt"))
 rule = next((r for r in ownership if r.pattern == "tasks/TEMPLATE-onboard.md"), None)
@@ -214,6 +261,8 @@ print("the documents")
 setup = text("docs/TEMPLATE-SETUP.md")
 check("TEMPLATE-SETUP has the onboarding step with the task template and the profile",
       "`/onboard`" in setup and "tasks/TEMPLATE-onboard.md" in setup and ".engine/onboard/profile.md" in setup and "--attended" in setup)
+check("TEMPLATE-SETUP (092): the fresh reader before the owner's verdicts, and without the owner too",
+      0 < setup.find("has a fresh reader check") < setup.find("takes the owner's «yes»") and "the candidates and the fresh reader's check" in flat(setup))
 check("TEMPLATE-SETUP says what the command never does", "fixes nothing, installs nothing" in setup)
 check("the engine's AGENTS.md names the command and the profile", "`/onboard`" in text("AGENTS.md") and ".engine/onboard/profile.md" in text("AGENTS.md"))
 check("nothing of the trial project is in the engine", not (ROOT / ".engine/onboard").exists())
