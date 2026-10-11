@@ -2,3 +2,11 @@
 # A CRLF ending on a shebang line breaks bash and python alike, so these stay LF everywhere.
 *.sh text eol=lf
 *.py text eol=lf
+
+# A registry: different tasks append independent lines, and the order of the lines means nothing.
+# `merge=union` keeps both sides instead of a conflict (board 104; in the replay of the board's
+# history this one file was 50 of 256 file conflicts, the most of any file). Union can leave the same line twice, and can bring back a
+# line the other branch deleted: tests/run_all.sh runs a suite named twice once, and refuses a
+# line for a suite that is gone. A file goes here by its full path, and only when every reader of
+# it survives that (tests/test_registry_merge.py); journals do not — board 739, .engine/journal/.
+tests/fast-suites.txt merge=union

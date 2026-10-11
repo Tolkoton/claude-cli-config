@@ -19,6 +19,18 @@ python3 evals/hook_coverage.py run --data /tmp/cov-tests -- bash tests/run_all.s
 python3 evals/hook_coverage.py report /tmp/cov-tests --missing                       # what no suite ran, by function
 ```
 
+## A registry file that merges by union
+
+`tests/fast-suites.txt` is a registry: every task that adds a fast suite appends a line, and the
+order means nothing. `.gitattributes` gives it `merge=union`, so two branches that both append
+merge without a conflict (board 104). Add a suite as a line of its own at the end; do not edit
+another task's line. Union can leave a line twice (`run_all.sh` runs the suite once) and can bring
+back a line the other branch deleted: a line for a suite that is gone stops `run_all.sh --fast`
+with exit 2 and the name — delete the line. A suite you only moved OUT of the subset comes back
+without a word, so look at the list after a merge that touched it. Another file gets the attribute
+only when every reader of it survives a duplicate and a returned line
+(`tests/test_registry_merge.py`); journals do not — they use `.engine/journal/` (board 739).
+
 ## A suite that runs a hook
 
 The Stop gate runs `TEST_CMD` with `CLAUDE_PROJECT_DIR` naming this repository; by hand the

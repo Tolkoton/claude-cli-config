@@ -1,5 +1,7 @@
 # The Stop-gate subset: `bash tests/run_all.sh --fast` runs exactly these suites, in this
-# order. Budget: 20 seconds wall on the author's machine (package 2b, item 8); the full set
+# order. This file merges by union (.gitattributes, board 104): add a suite as a line of its own
+# at the end, never by editing another line; a suite named twice runs once.
+# Budget: 20 seconds wall on the author's machine (package 2b, item 8); the full set
 # (`bash tests/run_all.sh`, about 135 s) is the check before a tag.
 #
 # In: every suite under about 2 s plus the two hook negative-case suites. Out, with their
@@ -117,3 +119,6 @@ test_sketch_quarantine.py
 # Board 099: test_reader 2.6 s and test_sketch_quarantine 2.0 s are in (the reader's guard and verdict writer on its real
 # envelopes; the quarantine through gate.py's stop layer in-process on a dozen synthetic projects). test_mode grew
 # with the closing minimum (boards 098, 099): about 17 s while another suite ran beside it.
+test_registry_merge.py
+# Board 104: test_registry_merge is in (the real run_all.sh and .gitattributes on seven synthetic repositories:
+# two branches, a merge, the fast subset run).

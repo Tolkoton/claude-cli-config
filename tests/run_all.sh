@@ -54,6 +54,8 @@ if [ "$FAST" -eq 1 ]; then
     line="${line%%#*}"; line="${line//[[:space:]]/}"
     [ -n "$line" ] || continue
     if [ ! -f "tests/$line" ]; then echo "run_all.sh: tests/fast-suites.txt names a missing suite: $line" >&2; exit 2; fi
+    # The list merges by union (.gitattributes, board 104), which can leave a line twice: once is enough.
+    case " ${SUITES[*]-} " in *" tests/$line "*) continue ;; esac
     SUITES+=("tests/$line")
   done < tests/fast-suites.txt
   [ ${#SUITES[@]} -gt 0 ] || { echo "run_all.sh: tests/fast-suites.txt names no suite" >&2; exit 2; }
