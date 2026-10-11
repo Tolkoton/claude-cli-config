@@ -32,3 +32,20 @@
    `python3 evals/run_second_opinion_evals.py` закінчується traceback-ом `ModuleNotFoundError`. Будь-яка відповідь
    поверне задачу в чергу.
    Відповідь: (а), готово: evals/run_second_opinion_evals.py видалено разом із перевіркою GONE в tests/test_simplifier.py одним commit-ом власника — тепер вона перевіряє, що скрипта немає. Онови рядок в evals/README.md, де сказано, що скрипт ще стоїть, перевір і закрий задачу.
+2. Роботу зроблено й перевірено, але перевірка закриття `mode.py check-close` не пускає задачу в `done/`. Вона не
+   знаходить PASS overseer-а на commit `7f9c831` (прибирання другої думки). Агент цього виправити не може:
+   - PASS на цей commit є, навіть два (`20261010T100144Z-f733a2`, `20261010T103208Z-66db60`), і вони записані в
+     `.engine/overseer/ledger.md`. Але перевірка читає стан hooks у `.claude/state/overseer/`, а він не лежить у git, і
+     на цьому сервері записів тих audit-ів немає.
+   - Новий audit цей commit не закриє: `tests/test_simplifier.py` і `evals/README.md` після нього змінили ваш commit
+     `ed7a4af` і commit закриття `969ec8c`. Перевірка порівнює вміст файлів, а він уже інший.
+   - Код у теперішньому стані overseer бачив: PASS `20261011T065410Z-7e3795` на `969ec8c`, повний набір тестів — 90
+     наборів зелені. Звіт лежить поруч: `tasks/blocked/report-732-open-item-720-second-opinion-remove-build.md`.
+
+   Як закрити задачу? Раджу (а): закрийте її самі у своєму терміналі, бо закриття агентом знову впреться в ту саму
+   перевірку:
+   `mkdir -p tasks/done/732-open-item-720-second-opinion-remove-build && git mv tasks/blocked/732-open-item-720-second-opinion-remove-build.md tasks/done/732-open-item-720-second-opinion-remove-build/task.md && git mv tasks/blocked/report-732-open-item-720-second-opinion-remove-build.md tasks/done/732-open-item-720-second-opinion-remove-build/report.md && git commit -m "board: 732 → done, by the owner"`
+   Інші варіанти:
+   - (б) лишити задачу тут, доки не виправлено саму перевірку (задача 776 у `todo/`), і закрити після того;
+   - (в) інше — напишіть як.
+   Відповідь:
