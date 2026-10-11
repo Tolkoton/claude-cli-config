@@ -1,0 +1,23 @@
+[
+  {
+    "target": "tasks/doing/401-task-numbers-by-class-build.md:45-46",
+    "category": "invented_requirement",
+    "claim": "The requirement that the entries of `tasks/RENUMBERED.md` live in per-session files «як журнали задачі 739, щоб сам файл не конфліктував» may no longer be needed: after the owner's amendment only the runner runs `renumber`, so the map has one writer and could be a plain file the runner appends to and commits; the old-name lookup for inbox answers stays the same. The words «поруч із `journal.py fold` (задача 739)» on line 41 lean on the same assumption and point at a runner step that does not exist.",
+    "evidence": [
+      {"source": "read", "ref": "tasks/done/741-open-item-attended-session-task-numbers-600-699/design.md:75", "detail": "The design gave `renumber` two callers: the runner after `sync_branch` and a cloud session after merge. The session-file rule on lines 81-83 is there so those two writers do not conflict on the map."},
+      {"source": "read", "ref": "tasks/done/741-open-item-attended-session-task-numbers-600-699/task.md:61", "detail": "Owner's answer (4): «так, але однакові номери розводить лише runner після синхронізації гілки — хмарних сесій зараз немає». The second writer is removed."},
+      {"source": "read", "ref": "tasks/doing/401-task-numbers-by-class-build.md:40", "detail": "The task itself says «Запускає лише runner», yet lines 45-46 keep the per-session-file rule written for two writers."},
+      {"source": "grep", "ref": ".claude/unattended/board-runner.sh:779", "detail": "`sync_branch` is called here; a grep for `journal.py` in board-runner.sh finds nothing, so the runner has no `journal.py fold` step for `renumber` to stand beside."},
+      {"source": "read", "ref": ".claude/hooks/journal.py:9", "detail": "Per-session files exist because two sessions on two branches each added to the same file (lines 9-15). A file written only by the runner where branches meet does not have that problem."},
+      {"source": "read", "ref": ".engine/architecture/feature/task-numbers-by-class.md:224", "detail": "Cost of keeping the rule: «`tasks/RENUMBERED.md` appears only after a `journal.py fold`, which nothing calls by itself», so the file the task names for the owner does not exist until a manual fold, and the documents must explain `journal.py show renumbered`. Lines 33-35 confirm the runner calls no fold."},
+      {"source": "read", "ref": ".engine/goals.md:19", "detail": "P7 forbids building «на виріст»; line 24 (N3) says tasks are handed out by one place, the task board through the runner."},
+      {"source": "judgement", "ref": "", "detail": "Reason it might still hold: two runners on two clones would each write the map and conflict on `pull --rebase`, and reusing journal.py is cheap (one more `JOURNALS` entry, feature doc K10). The owner read design §6 in full, so this is the owner's call, not a removal."}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": "design 741 §6 (session files for RENUMBERED.md), narrowed by the owner's answer (4) in tasks/done/741-open-item-attended-session-task-numbers-600-699/task.md:61; goals P7",
+    "reversal_risk": "medium"
+  }
+]

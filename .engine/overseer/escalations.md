@@ -732,3 +732,30 @@ one; do not reopen the old one in conversation.
 - Door: two-way
 - Evidence: tests/test_lesson_queue.py "the promotion path (board 040)", tests/test_board.py "the rule question", tests/test_board_runner.py "board 040".
 - Status: CLOSED
+
+## 2026-10-11T23:00:05Z — AUTONOMOUS — board-401-task-numbers-by-class-decisions
+- Decision: the agent's decisions K1–K14 of `.engine/architecture/feature/task-numbers-by-class.md` (a class is one digit and a continuation is read from the number; class 0 is never issued; successor of the largest, 00 never issued; an unnumbered inbox file needs a `Клас:` line; `board.py next-number`; no table → today's order; the initial row order 0…9; who keeps a number and which dependents follow, by git ancestry; `renumber` over the whole board; the map as a fifth journal; the runner's step after `sync_branch`; the hotfix follow-up from the shared function; documents as a closing step), and two more. (a) K14, the answer to the feature-critic's round-2 blocking objection (a rename between `local_gate_answers` and `intake` would pass an answer written on this machine as the owner's): `renumber` never renames an answered gate or action question — the guard's code is untouched; the critic's fix (carry the perimeter's lists across a rename) was rejected because a miss there fails open. (b) `CLASSES.md` through the inbox is deferred, against the words «через inbox» of design 741 §5 that task 401 item 5 no longer carries: the owner reorders rows in the branch.
+- Door: two-way
+- Cost to reverse: each is one function or one condition of `.claude/unattended/task_classes.py` / `board.py` and its test; no task is renamed by any of them, so nothing on the board has to be undone. (b): one more branch of `import_inbox` plus the perimeter's rule for it — a task of its own.
+- Why not escalated: none sets a threshold or a user-visible product choice the owner has not already made in task 401 and the answers of 741; all are how, not what. The critic had its two rounds; round 2's objection is recorded with the critic's words in the artifact's appendix.
+- Evidence: the artifact's «Decisions» and both appendices; spike `.engine/artifacts/spikes/task-numbers-renumber-git-2026-10-11.txt`.
+- Falsified by: —
+- Status: CLOSED
+
+## 2026-10-11T23:24:50Z — AUTONOMOUS — board-401-s1-exit-criterion-four-critic-rounds
+- Decision: Phase 4 (exit criterion) of the slice contract `numbers-class-overflow` reached the planner-critic loop's fourth round — the circuit breaker. It was not an oscillation: four fresh critics each found a different factual defect of the criterion, and each was fixed as asked (the smoke's literal 1701 → relative to the copy; `grep -rn` over git-ignored state → `git grep`; the `cleanup-task` seed moved to `blocked/`; `tests/test_release.py` and its copy list named, the list of suites derived by `git grep -l` instead of enumerated). No position of the critic is left unaccepted, so there is nothing for the owner to rule on; the revised criterion goes to the cold reader (a fresh critic on the whole contract), whose verdict decides.
+- Door: two-way
+- Cost to reverse: the contract is not sealed yet; a line of its exit criterion.
+- Why not escalated: the breaker asks the owner to rule on an open objection; none is open.
+- Evidence: `.engine/slices/numbers-class-overflow.md` «Critic notes»; the four critics' verdicts in this session.
+- Falsified by: —
+- Status: CLOSED
+
+## 2026-10-11T23:30:49Z — AUTONOMOUS — board-401-s1-full-test-set-in-the-tracer (supersedes the fix named in board-401-s1-exit-criterion-four-critic-rounds)
+- Decision: the exit criterion of `numbers-class-overflow` is the FULL set (`bash tests/run_all.sh`) green at the end of the slice, not the fast subset plus a list of suites (the list derived by `git grep -l` named in the entry above was dropped before the seal: it came to 46 files and still missed suites that reach `board.py` through another hook). This departs, for this one slice, from "the fast subset after every slice, the full set once at the end" (the feature's build parameters, tasks/README.md rule «Додаткові сесії Claude», engine-rules "Full tests once"). The later slices keep the rule.
+- Door: two-way
+- Cost to reverse: none in code; the cost of keeping it is one extra full run, about 677 s (`.claude/state/health/tests-full.json` at a9ef3bc).
+- Why not escalated: no threshold and no product choice — a stricter check than the rule asks, paid once, on the slice that changes what `board.py` imports.
+- Evidence: `.engine/slices/numbers-class-overflow.md` «Exit criterion»; the cold reader's note N4.
+- Falsified by: —
+- Status: CLOSED

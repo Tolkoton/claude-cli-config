@@ -1,0 +1,22 @@
+[
+  {
+    "target": ".engine/architecture/feature/task-numbers-by-class.md:137",
+    "category": "invented_requirement",
+    "claim": "K5 `board.py next-number [--class N]` (also carried in A2 line 44 and in S2 lines 186-189 as the second refusal site, exit 2) is a new CLI command that neither task 401 nor design 741 asks for; without it every number the owner listed is still issued by the five converted sites and by the unnumbered inbox file with a `Клас:` line, and the one standing instruction that tells a session to pick a number by hand (owner-review.md line 90) is already redirected by the plan's closing step to the unnumbered inbox file, not to this command.",
+    "evidence": [
+      {"source": "read", "ref": ".engine/architecture/feature/task-numbers-by-class.md:137", "detail": "K5 is listed under 'Decisions (agent; two-way doors)': its stated reason is convenience - 'one command to ask instead of reading four folders'"},
+      {"source": "read", "ref": "tasks/doing/401-task-numbers-by-class-build.md:27", "detail": "item 2 'Хто дає номер' names who issues a number: board.py from the `Клас:` line, the fixed classes 7/8/9, the unnumbered inbox file at import, `_own_number` in class 4 - no command that prints a number"},
+      {"source": "read", "ref": "tasks/done/741-open-item-attended-session-task-numbers-600-699/design.md:48", "detail": "design 741 section 2 lists the same sources; sections 1-6 and the test list contain no such command"},
+      {"source": "grep", "ref": ".engine/architecture/feature/task-numbers-by-class.md:44", "detail": "'next-number' across the repository appears only in this plan (lines 44, 137, 186, 189) and in the escalation entry that logs the plan's decisions; no owner text, goal or document mentions it"},
+      {"source": "read", "ref": ".engine/architecture/feature/task-numbers-by-class.md:222", "detail": "the closing step rewrites owner-review.md's hand-numbering line to point at the unnumbered inbox file with a `Клас:` line, so the plan names no reader who is told to run next-number"},
+      {"source": "read", "ref": ".engine/overseer/escalations.md:737", "detail": "K5 is recorded as an AUTONOMOUS agent decision, i.e. not an owner requirement"},
+      {"source": "judgement", "ref": "", "detail": "The fence, checked: A2 (lines 43-45) uses `next-number` with no `--class` as one of two places where the owner's test 'a task without a `Клас:` line is in class 1' is shown, because K4 gives the inbox no file without the line; the other place, the hotfix follow-up (class 1, K12), remains. A session that writes a numbered file straight into todo/ by hand would lose its one command and read the folders, with `renumber` and `check` still catching a clash. The reason is convenience plus a second demonstration point, not an owner criterion - hence a lead for the owner, not a removal."}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": "none found - task 401 item 2 and design 741 section 2 enumerate the number sources and do not include a command; A2's parenthetical cites it only as a place to show the class-1 default",
+    "reversal_risk": "medium"
+  }
+]

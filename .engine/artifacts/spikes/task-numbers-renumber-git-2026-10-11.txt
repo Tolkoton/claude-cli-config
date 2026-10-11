@@ -1,0 +1,6 @@
+REBASE: keeper(a) ancestor of loser(b): yes; loser ancestor of keeper: no
+  loser ancestor of b's dependent: yes; loser ancestor of a's dependent: no
+MERGE: m1 ancestor of m2: no; m2 ancestor of m1: no; m1 committed earlier: yes
+  loser(m2) ancestor of its own side's dependent: yes; of the other side's dependent: no
+MOVED: first add of the name in any column: side: 401-m1
+git version 2.34.1
