@@ -33,3 +33,4 @@ One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. F
 - 2026-10-10 | parked | golden-set-inherits-cloud-remote | golden-set-inherits-cloud-remote: Golden set у хмарній сесії: сценарій успадковує `CLAUDE_CODE_REMOTE=true` #cc3edf96
 - 2026-10-10 | parked | 721-zero-verdict-rule-small-gaps | 721/zero-verdict-rule-small-gaps: Правило «audit без жодного вердикту» (721): три дрібниці, які побачив overseer #a0a317ec
 - 2026-10-10 | parked | 106-review-days-independent-of-period | 106/review-days-independent-of-period: Доби витрат в огляді не залежать від періоду, але тест цього не тримає (106) #bb32d507
+- 2026-10-11 | parked | test-gap-the-board-746-check-in-test-simplifier-evals-also-asserts-th | test-gap-the-board-746-check-in-test-simplifier-evals-also-asserts-th: Брак тесту (overseer): the board 746 check in test_simplifier_evals also asserts the boundary sentence stands in the «Is it a tra #ba033ecf
