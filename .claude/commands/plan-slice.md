@@ -293,7 +293,8 @@ answer is a product decision: attended — ask the owner; unattended — park it
 disputed test stays unsealed. An answer that needs the contract changed is a re-plan, and
 re-approving a sealed contract is the owner's act.
 
-1. `Edit` a ledger entry into `.engine/overseer/ledger.md` (top of entries):
+1. Add a ledger entry — on stdin to `python3 .claude/hooks/journal.py add ledger`, which writes it into this
+   session's own file of the ledger (board 739; never edit the shared `.engine/overseer/ledger.md`):
    ```
    ## <ISO timestamp UTC> — $ARGUMENTS — PLANNING_COMPLETE
    - Trigger: /plan-slice command

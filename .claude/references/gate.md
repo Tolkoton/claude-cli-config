@@ -80,13 +80,13 @@ python3 .claude/hooks/baseline.py show      # what is left
 ends its work on it only while this session's counter is 0; with the counter above 0 the re-entry is
 checked again. A block adds one (per `session_id`), a pass resets. On the `GATE_MAX_BLOCKS`th block
 in a row (default 3) the gate lets the turn end, puts its question to the owner on the task board
-(`tasks/blocked/9NN-gate-escalation-….md`; a project without `tasks/` gets a PARKED entry in the log
-`.engine/overseer/parked.md` instead), says so in a `systemMessage`, and starts counting again. That
+(`tasks/blocked/9NN-gate-escalation-….md`; a project without `tasks/` gets a PARKED entry in the parked log —
+the session's own file of it, `.engine/journal/parked/`, board 739 — instead), says so in a `systemMessage`, and starts counting again. That
 is not the end of it: see "An open escalation refuses the PASS" below.
 
 While a rebase or a merge is in progress (git's `rebase-merge`, `rebase-apply` or `MERGE_HEAD`) the
 gate writes no file to the board: the working tree is not the branch then, and a number that looks
-free may be taken. The escalation is recorded as usual and entered in `tasks/ANOMALIES.md`; its
+free may be taken. The escalation is recorded as usual and entered in the anomaly journal; its
 question is put on the board by the first Stop gate run after the rebase or merge is over, or by
 the board runner (`gate.py --ask-waiting`).
 

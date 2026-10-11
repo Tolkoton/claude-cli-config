@@ -33,6 +33,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / ".claude/unattended/board.py"
 INBOX = ROOT / "tests/fixtures/board-inbox"
@@ -334,7 +336,7 @@ check("«Чому зупинилась» stands before the questions, dated in U
 check("the task's own text is kept as it was", text.startswith(task().rstrip("\n").split("## Питання до власника")[0].rstrip("\n")), text)
 check("the questions stay the last section and the new one waits for an answer", board.read(parked).answers == ("",)
       and "1. Задача застрягла" in board.read(parked).questions and cli(root, "unblock").stdout == "", board.read(parked))
-journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+journal = journal_text(root, "anomalies")
 check("the journal is made with its heading and one entry: time, task, what happened, what was done", journal.startswith("# Журнал аномалій task board\n")
       and re.search(r"\n## \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — 007-stuck\n- Що сталося: 3 спроб\(и\).*\n- Що зроблено: задачу перенесено в `blocked/`", journal) is not None, journal)
 check("the board goes on: the next task is offered", cli(root, "next").stdout.strip() == "tasks/todo/008-next.md")
@@ -345,7 +347,7 @@ text = parked.read_text(encoding="utf-8")
 check("a task in todo/ can be parked too; a second stop adds a line to the one section and a second question", r.returncode == 0
       and text.count("## Чому зупинилась") == 1 and text.count("\n- 20") == 2 and "агент повернув задачу" in text
       and board.read(parked).answers == ("продовжити", "") and "\n2. Агент не закінчив" in text, text)
-check("…and a second journal entry under the first", (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8").count("\n## ") == 2)
+check("…and a second journal entry under the first", journal_text(root, "anomalies").count("\n## ") == 2)
 for reason, words in (("deadline", "довше за 12 год"), ("budget", "`BOARD_MAX_USD`): задача витратила 12 USD")):
     put(root, "doing", "009-other.md", "# Без розділу питань\n\nЗалежить від: —\n")
     r = cli(root, "park", "009-other", reason, "--detail", "12")
@@ -369,7 +371,7 @@ check("three-blocks: the reason names the unit and the three verdicts stand unde
       and why.index("BLOCK 1 (2026-10-04T10:00:00Z, запит `r1`, перевірка #4): masked test gap") < why.index("BLOCK 2 (2026-10-04T10:05:00Z, запит `r2`): ДРУГА-ПРИЧИНА")
       < why.index("BLOCK 3 (2026-10-04T10:09:00Z, запит `r3`, перевірка #1): false DONE"), r.stderr + text)
 check("…with one question that waits for the owner, and a journal entry", board.read(refused).answers == ("",) and "1. Три overseer-и поспіль" in text
-      and "— 010-refused\n- Що сталося: overseer тричі поспіль" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"), text)
+      and "— 010-refused\n- Що сталося: overseer тричі поспіль" in journal_text(root, "anomalies"), text)
 put(root, "doing", "011-bare.md", task())
 r = cli(root, "park", "011-bare", "three-blocks", "--verdicts", str(root / "no-such-marker.json"))
 text = (root / "tasks/blocked/011-bare.md").read_text(encoding="utf-8")
@@ -378,20 +380,20 @@ check("the negative case: without a readable marker the task is still parked, wi
 r = cli(root, "park", "999-nowhere", "no-commit")
 check("the negative cases: a task that is in neither doing/ nor todo/ is refused, and so is an unknown reason", r.returncode == 2
       and "neither" in r.stderr and cli(root, "park", "008-next", "because").returncode == 2 and (root / "tasks/todo/008-next.md").is_file(), r.stderr)
-before = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+before = journal_text(root, "anomalies")
 r = cli(root, "anomaly", "-", "ЩОСЬ-ДИВНЕ", "ПІШОВ-ДАЛІ")
-after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+after = journal_text(root, "anomalies")
 check("anomaly: one more entry at the end, for the board as a whole, nothing above it changed", r.returncode == 0 and after.startswith(before)
       and re.search(r"\n## \S+Z — task board\n- Що сталося: ЩОСЬ-ДИВНЕ\n- Що зроблено: ПІШОВ-ДАЛІ\n- Хто записав: runner\n$", after) is not None, after)
 # board 035: one journal for everything odd — the entry says who wrote it
 r = cli(root, "anomaly", "008-next", "АГЕНТ-ПОБАЧИВ", "АГЕНТ-ЗРОБИВ", "--source", "агент")
-after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+after = journal_text(root, "anomalies")
 check("anomaly --source: the agent's entry says the agent wrote it", r.returncode == 0
       and after.endswith("— 008-next\n- Що сталося: АГЕНТ-ПОБАЧИВ\n- Що зроблено: АГЕНТ-ЗРОБИВ\n- Хто записав: агент\n"), after)
 put(root, "doing", "012-in-hand.md", task())
 noted = board.note(root, "gates (gate.py)", "Gates-ЗДАЛИСЯ\nдругий рядок", "ХІД-ЗАКІНЧЕНО")
-after = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
-check("note (a hook, the gate): filed under the task in doing/, on one line, with its writer", noted == root / "tasks/ANOMALIES.md"
+after = journal_text(root, "anomalies")
+check("note (a hook, the gate): filed under the task in doing/, on one line, with its writer", noted is not None and noted.parent == root / ".engine/journal/anomalies"
       and after.endswith("— 012-in-hand\n- Що сталося: Gates-ЗДАЛИСЯ другий рядок\n- Що зроблено: ХІД-ЗАКІНЧЕНО\n- Хто записав: gates (gate.py)\n"), after)
 # board 712: the owner's session's task beside the runner's — the entry goes under the writer's own
 put(root, "doing", "011-with-owner.md", attended_task())
@@ -399,23 +401,23 @@ kept_session = os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
 os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
 board.note(root, "hook x", "ДВІ-СТОРОНИ", "ДАЛІ")
 check("note, two sides in doing/, the agent alone: filed under the agent's task, not under the board",
-      "— 012-in-hand\n- Що сталося: ДВІ-СТОРОНИ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"), (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")[-300:])
+      "— 012-in-hand\n- Що сталося: ДВІ-СТОРОНИ" in journal_text(root, "anomalies"), journal_text(root, "anomalies")[-300:])
 check("…and audit_refusal there speaks of the agent's task only", "012-in-hand.md" in str(board.audit_refusal(root / "tasks")), board.audit_refusal(root / "tasks"))
 del os.environ["CLAUDE_UNATTENDED_SESSION"]
 board.note(root, "hook x", "З-ВЛАСНИКОМ", "ДАЛІ")
 check("…in the owner's session: under the task the owner is working on",
-      "— 011-with-owner\n- Що сталося: З-ВЛАСНИКОМ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
+      "— 011-with-owner\n- Що сталося: З-ВЛАСНИКОМ" in journal_text(root, "anomalies"))
 os.environ["CLAUDE_UNATTENDED_SESSION"] = "1"
 (root / "tasks/doing/012-in-hand.md").unlink()
 board.note(root, "hook x", "ЛИШЕ-ЗАДАЧА-ВЛАСНИКА", "ДАЛІ")
 check("negative — the agent alone and only the owner's session's task in doing/: under the board, not under that task",
-      "— task board\n- Що сталося: ЛИШЕ-ЗАДАЧА-ВЛАСНИКА" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
+      "— task board\n- Що сталося: ЛИШЕ-ЗАДАЧА-ВЛАСНИКА" in journal_text(root, "anomalies"))
 del os.environ["CLAUDE_UNATTENDED_SESSION"]
 if kept_session is not None:
     os.environ["CLAUDE_UNATTENDED_SESSION"] = kept_session
 (root / "tasks/doing/011-with-owner.md").unlink()
 board.note(root, "hook x", "БЕЗ-ЗАДАЧІ", "ДАЛІ")
-check("…and under the board when no task is in doing/", "— task board\n- Що сталося: БЕЗ-ЗАДАЧІ" in (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8"))
+check("…and under the board when no task is in doing/", "— task board\n- Що сталося: БЕЗ-ЗАДАЧІ" in journal_text(root, "anomalies"))
 nowhere = Path(tempfile.mkdtemp(prefix="board-none-"))
 check("the negative case: a project without a board gets no journal and no tasks/ directory",
       board.note(nowhere, "hook x", "a", "b") is None and not (nowhere / "tasks").exists())
@@ -423,7 +425,7 @@ check("the negative case: a project without a board gets no journal and no tasks
 put(root, "doing", "013-wip.md", task())
 r = cli(root, "park", "013-wip", "no-commit", "--detail", "3", "--stash", "abc123", "--wip", "wip/013-wip/20261004T110524Z", "--wip-remote", "origin")
 text = (root / "tasks/blocked/013-wip.md").read_text(encoding="utf-8")
-journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+journal = journal_text(root, "anomalies")
 check("park --wip --wip-remote: the task file names the branch in origin, how to bring the work back, and the stash", r.returncode == 0
       and "у гілці `wip/013-wip/20261004T110524Z` в origin" in text and "git fetch origin wip/013-wip/20261004T110524Z && git cherry-pick -n FETCH_HEAD" in text
       and "git stash apply abc123" in text, text)
@@ -578,14 +580,14 @@ stray = inbox / "900-gate-escalation.md"
 stray.write_text(GATE_Q.format("2026-10-07T07:40:13Z", " так"), encoding="utf-8")
 before = {q.name: q.read_text(encoding="utf-8") for q in b.files("blocked")}
 r = cli(root, "import-inbox", str(inbox))
-journal = (root / "tasks" / board.ANOMALIES).read_text(encoding="utf-8") if (root / "tasks" / board.ANOMALIES).is_file() else ""
+journal = journal_text(root, "anomalies")
 check("no exact name among two same-numbered files: nothing is deleted, the file stays in the inbox",
       f"{stray.name} skipped" in r.stdout and stray.is_file() and {q.name: q.read_text(encoding="utf-8") for q in b.files("blocked")} == before, r.stdout + r.stderr)
 check("…and the anomaly journal names the file and both candidates", stray.name in journal and first.name in journal and second.name in journal
       and "Хто записав: task board (import-inbox)" in journal, journal)
 cli(root, "import-inbox", str(inbox))
 check("…the same file left in the inbox is written to the journal once, not at every intake",
-      bool(journal) and (root / "tasks" / board.ANOMALIES).read_text(encoding="utf-8") == journal)
+      bool(journal) and journal_text(root, "anomalies") == journal)
 stray.unlink()
 put(root, "todo", "020-one.md", "one\n")
 put(root, "todo", "020-two.md", "two\n")

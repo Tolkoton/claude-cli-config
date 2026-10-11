@@ -25,6 +25,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 PASS = FAIL = 0
 # The renderings the owner's rule retires. «Аудит потрібен:» is a field the board reads, not prose.
@@ -101,7 +103,7 @@ with tempfile.TemporaryDirectory(prefix="owner-terms-") as tmp:
               parked is not None and word in text and "Відповідь:" in text and not retired(text), retired(text) or text[-500:])
         if parked:
             parked.unlink()
-    journal = (tasks / board.ANOMALIES).read_text(encoding="utf-8")
+    journal = journal_text(tasks.parent, "anomalies")
     check("the anomaly journal: its head and the runner's entries name the runner and the task board, nothing retired",
           "runner" in journal and "task board" in journal and not retired(journal), retired(journal))
     check("the budget question says the guard stops a loop and the owner's answer continues the task",

@@ -42,7 +42,7 @@ you forget. A push is not one of them: the runner sends the branch itself, and t
 a push of the session's own, anywhere in the command (board 603).
 
 `.engine/overseer/parked.md` and `.engine/overseer/escalations.md` are history. They are only
-appended to — an AUTONOMOUS decision, closed by being logged, still goes to `escalations.md`;
+appended to (since board 739 a script's parked entry goes into the session's own file `.engine/journal/parked/`) — an AUTONOMOUS decision, closed by being logged, still goes to `escalations.md`;
 a project without `tasks/` parks in `parked.md` — nothing in them is ever marked closed, and
 nothing reads them to learn what is open: the owner's review shows `tasks/blocked/`.
 

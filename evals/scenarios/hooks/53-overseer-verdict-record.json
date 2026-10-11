@@ -276,7 +276,10 @@
     "agent_id": "a1",
     "last_assistant_message": "```json\n{\"verdict\": \"PASS\", \"check\": null, \"reason\": \"every claim has its evidence\", \"evidence\": [\"command: uv run pytest -q \\u2192 6 passed\"], \"category\": \"none\"}\n```"
    },
-   "check_file": ".engine/overseer/ledger.md",
+   "env": {
+     "CLAUDE_CODE_SESSION_ID": "golden"
+   },
+   "check_file": ".engine/journal/ledger/golden.md",
    "expect": "allow",
    "expect_file_changed": false
   },
@@ -326,7 +329,10 @@
     "agent_id": "a1",
     "agent_transcript_path": "{{TRANSCRIPT}}"
    },
-   "check_file": ".engine/overseer/ledger.md",
+   "env": {
+     "CLAUDE_CODE_SESSION_ID": "golden"
+   },
+   "check_file": ".engine/journal/ledger/golden.md",
    "expect": "allow",
    "expect_file_changed": true
   }

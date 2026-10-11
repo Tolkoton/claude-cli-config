@@ -94,7 +94,7 @@ The same observation lives in CLAUDE.md, an ADR, MEMORY.md, AND inline comments.
 
 `.engine/lesson-queue.md` has 30 entries. session-end-dreaming hasn't run in 3 weeks. None of the lessons have been classified.
 
-**Detection**: `.engine/lesson-queue.md` exists and has > 10 entries.
+**Detection**: `python3 .claude/hooks/lesson_queue.py list` prints more than 10 candidates.
 
 **Fix**: process the queue NOW (not at next session end). If processing is taking > 20 minutes, do it in two passes (project-scope this session, tech-scope next).
 

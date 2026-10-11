@@ -14,6 +14,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # This run's own temporary directories live in RUN, and only RUN is removed at the end (board 735): another run's
@@ -330,9 +332,8 @@ check("accept with a clean verdict records the overrun", code == 0, out)
 sidecar = repo / ".engine/slices/overruns/tax.md"
 check("the reason is written next to the contract", sidecar.is_file() and "keep parsing apart" in sidecar.read_text()
       and "max_new_files: 2" in sidecar.read_text(), sidecar.read_text() if sidecar.is_file() else "absent")
-ledger = repo / ".engine/overseer/ledger.md"
-check("...and in the ledger", ledger.is_file() and "COMPLEXITY_OVERRUN_ACCEPTED" in ledger.read_text()
-      and "keep parsing apart" in ledger.read_text())
+ledger = journal_text(repo, "ledger")   # the shared file and every session's file (board 739)
+check("...and in the ledger", "COMPLEXITY_OVERRUN_ACCEPTED" in ledger and "keep parsing apart" in ledger, ledger[-400:])
 check("the sealed contract itself is untouched", "keep parsing apart" not in (repo / ".engine/slices/tax.md").read_text())
 decision, text = run_hook(repo)
 report_text = (repo / ".claude/state/overseer/complexity-report.md").read_text()

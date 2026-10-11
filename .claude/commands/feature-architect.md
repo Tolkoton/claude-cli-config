@@ -292,7 +292,8 @@ Then resume autonomously. Emit `OVERSEER_SLICE_AWAITING_OWNER:` on any pause.
    decision of point (b), and no testing debt whose event has come is left unrun. On a refusal
    do what it lists (the manager's point (b), the deferred check) — a feature is not reported
    built over it.
-1. `Edit` a ledger entry into `.engine/overseer/ledger.md`:
+1. Add a ledger entry — on stdin to `python3 .claude/hooks/journal.py add ledger`, which writes it into this
+   session's own file of the ledger (board 739; never edit the shared `.engine/overseer/ledger.md`):
    ```
    ## <ISO timestamp UTC> — feature:$ARGUMENTS — FEATURE_COMPLETE
    - Trigger: /feature-architect

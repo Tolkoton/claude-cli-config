@@ -33,7 +33,7 @@ the schema (the first failure goes back to the agent, the second is recorded INV
 the tree with the fingerprint (HEAD, `git status`, the content of every changed or untracked file;
 ignored files do not count) and the contract with its sha256 — any difference makes the verdict
 INVALID, nothing is rolled back — refuses a PASS while the Stop gate's escalation is open, and then
-writes the entry into .engine/overseer/ledger.md and a row into
+writes the entry into the ledger (this session's own file of it, .engine/journal/ledger/, board 739) and a row into
 .claude/state/overseer/verdicts.jsonl. Hooks decide on the second file; the ledger is for people
 and for the next overseer.
 
@@ -64,6 +64,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import journal  # the ledger and the parked log: every session adds to its own file (board 739)
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 JsonObj = dict[str, Any]
@@ -77,6 +79,9 @@ PENDING_REL = STATE_REL / "pending.json"
 VERDICTS_REL = STATE_REL / "verdicts.jsonl"
 LEDGER_REL = Path(".engine/overseer/ledger.md")
 PARKED_REL = Path(".engine/overseer/parked.md")
+# Where a person or an agent reads a verdict (board 739): the ledger whole — the shared file holds only what a fold
+# gathered, the newest entries stand in the sessions' own files under .engine/journal/ledger/.
+LEDGER_SHOWN = "the ledger, `python3 .claude/hooks/journal.py show ledger` (newest at the top)"
 BOARD_STATE_REL = Path(".claude/state/board")   # the board runner's state: its lock, and the marker left for it
 VERDICTS = ("PASS", "BLOCK", "ADR_REQUIRED", "ESCALATE")
 INVALID = "INVALID"
@@ -94,7 +99,6 @@ OUTPUT_TAIL_LINES = 15
 OUTPUT_TAIL_CHARS = 1500
 FILE_LINE_RE = re.compile(r"^`?([\w./-]+\.[\w]+):(\d+)\b")
 ENTRY_HEADER_RE = re.compile(r"^## \d{4}-\d{2}-\d{2}T\S* — (?P<slice>.+?) — (?P<verdict>.+)$", re.MULTILINE)
-NO_ENTRIES = "(no entries yet)"
 # The ledger's Action line: what the verdict does next, which is the hook's doing, not the agent's.
 ACTIONS = {
     "PASS": "unit accepted; the builder continues",
@@ -351,11 +355,9 @@ def blocks_in_a_row(root: Path, unit_key: str) -> int:
 
 
 def passes_in_a_row(root: Path, slice_name: str) -> int:
-    """PASS entries at the top of the ledger for this slice (check #12 counts them)."""
-    try:
-        text = (root / LEDGER_REL).read_text(encoding="utf-8")
-    except OSError:
-        return 0
+    """PASS entries at the top of the ledger for this slice (check #12 counts them), the ledger whole:
+    the shared file and every session's file (board 739)."""
+    text = journal.text(root, "ledger")
     count = 0
     for match in ENTRY_HEADER_RE.finditer(text):
         if match["slice"].strip() != slice_name:
@@ -574,21 +576,9 @@ def ledger_entry(row: JsonObj, obj: JsonObj | None) -> str:
 
 
 def write_ledger(root: Path, entry: str) -> None:
-    """Newest first: before the first dated entry, or in place of the placeholder, or at the end."""
-    path = root / LEDGER_REL
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        text = "# Overseer ledger — append-only\n\n---\n"
-    first = ENTRY_HEADER_RE.search(text) or re.search(r"^## \d{4}-\d{2}-\d{2}T", text, re.MULTILINE)
-    if first:
-        text = text[:first.start()] + entry + "\n" + text[first.start():]
-    elif NO_ENTRIES in text:
-        text = text.replace(NO_ENTRIES, entry.rstrip("\n"), 1)
-    else:
-        text = text.rstrip("\n") + "\n\n" + entry
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    """Into this session's own file of the ledger (board 739): the shared .engine/overseer/ledger.md is
+    what a fold gathered, newest first, and every reader takes the two together (journal.text)."""
+    journal.add(root, "ledger", entry)
 
 
 def open_gate_escalation(root: Path) -> tuple[str, str] | None:
@@ -646,7 +636,7 @@ def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonOb
                     tasks, "todo", f"Брак тесту (overseer): {check}",
                     f"Overseer прийняв юніт `{row.get('unit_key') or row.get('slice')}` (PASS, запит `{row['request']}`) "
                     f"і знайшов брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
-                    + f" Вердикт — у `{LEDGER_REL.as_posix()}`.",
+                    + " Вердикт — у ledger: `python3 .claude/hooks/journal.py show ledger`.",
                     do=(f"Дописати перевірку «{check}»: тест червоніє на тому, що описано вище ({misses}), і зелений "
                         "на коді, як він є (покажи обидва прогони); код не міняти, якщо тест не знайде справжньої вади; "
                         "швидкий набір тестів зелений."),
@@ -747,16 +737,12 @@ def park(root: Path, item: str, blocked_on: str, evidence: str) -> str:
     asked = board_item(root, item, blocked_on, evidence)
     if asked:
         return asked
-    path = root / PARKED_REL
-    entry = (f"\n## {utc_now()} — {item} — PARKED\n- Blocked on: {one_line(blocked_on)}\n- Class: human-input\n"
+    entry = (f"## {utc_now()} — {item} — PARKED\n- Blocked on: {one_line(blocked_on)}\n- Class: human-input\n"
              f"- Evidence: {one_line(evidence)}\n- Unblocks when: the owner answers, or the audit is repeated and passes\n")
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(entry)
+        return journal.add(root, "parked", entry).relative_to(root).as_posix()   # this session's file of the log (board 739)
     except OSError:
-        pass
-    return PARKED_REL.as_posix()
+        return PARKED_REL.as_posix()
 
 
 def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | None:
@@ -768,7 +754,7 @@ def board_item(root: Path, item: str, blocked_on: str, evidence: str) -> str | N
 
         task = board.open_item(
             board.Board(root / "tasks"), "blocked", f"Overseer відклав юніт: {item}",
-            f"Юніт `{item}` відкладено до рішення власника: {one_line(blocked_on)}. Докази: `{one_line(evidence)}`; вердикти — у `{LEDGER_REL.as_posix()}`.",
+            f"Юніт `{item}` відкладено до рішення власника: {one_line(blocked_on)}. Докази: `{one_line(evidence)}`; вердикти — у ledger: `python3 .claude/hooks/journal.py show ledger`.",
             "Що робити з цим юнітом далі? Будь-яка відповідь — вказівка агентові (наприклад: повторити audit, прийняти як є, переробити).",
             key=item, source="hook overseer-а (overseer_stop.py)")
         return task.relative_to(root).as_posix() if task else None

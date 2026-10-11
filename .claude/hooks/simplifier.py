@@ -60,6 +60,7 @@ from pathlib import Path
 from typing import Any
 
 import complexity_budget as budget
+import journal
 import lesson_queue
 import simplify_signals
 
@@ -344,7 +345,7 @@ def applied(root: Path, ident: str, note: str) -> tuple[int, str]:
     mark = f"  - applied to the plan {simplify_signals.utc_now()}: {note} — nothing is asked of the owner\n"
     (root / REPORT_REL).write_text(line.sub(lambda m: f"- APPLIED BY THE ARCHITECT {m[1]}\n{mark.rstrip()}", report), encoding="utf-8")
     essence = lesson_queue.clean_essence(f"{found['category']} {found['target']}: {found['claim']}")
-    lesson_queue.remove_line(root, lesson_queue.item_id("simplifier", essence))
+    lesson_queue.close(root, lesson_queue.item_id("simplifier", essence), "applied", f"applied to the plan: {note}")
     return 0, f"marked in {REPORT_REL}: {ident} applied to the plan"
 
 
@@ -383,10 +384,10 @@ def accept(root: Path, reason: str, verdict: Path) -> tuple[int, str]:
            f"\n## {stamp} — overrun accepted\n{figures}\n- Reason: {reason}\n- Simplifier's verdict: {verdict.name} (sha256 {digest}…), "
            f"{len(result['findings'])} flag_only finding(s), none above\n",
            f"# Complexity overruns of slice {outcome.slug}\n\nThe contract is sealed; what the simplifier accepted over its budget is recorded here.\n")
-    append(root / LEDGER_REL,
-           f"\n## {stamp} — {outcome.slug} — COMPLEXITY_OVERRUN_ACCEPTED\n- Trigger: the complexity budget was exceeded; the simplifier was called\n"
-           f"- Evidence: {OVERRUNS_REL / (outcome.slug + '.md')}; verdict sha256 {digest}…\n{figures}\n- Reason: {reason}\n- Category: simplifier\n")
-    return 0, f"recorded: {OVERRUNS_REL / (outcome.slug + '.md')} and {LEDGER_REL}"
+    journal.add(root, "ledger",   # this session's own file of the ledger (board 739)
+                f"## {stamp} — {outcome.slug} — COMPLEXITY_OVERRUN_ACCEPTED\n- Trigger: the complexity budget was exceeded; the simplifier was called\n"
+                f"- Evidence: {OVERRUNS_REL / (outcome.slug + '.md')}; verdict sha256 {digest}…\n{figures}\n- Reason: {reason}\n- Category: simplifier\n")
+    return 0, f"recorded: {OVERRUNS_REL / (outcome.slug + '.md')} and the ledger (`python3 .claude/hooks/journal.py show ledger`)"
 
 
 # ------------------------------------------------------------------ the reversal rate

@@ -5,7 +5,7 @@ Run before `/clear`, `/bye`, or closing the session. Should take 1–3 minutes i
 ## The checklist
 
 - [ ] **All commits made**: `git status` is clean OR uncommitted state is intentional and documented.
-- [ ] **`.engine/lesson-queue.md` is processed**: run `triggers/session-end-dreaming.md` if the queue has any entries.
+- [ ] **The lesson queue (`python3 .claude/hooks/lesson_queue.py list`) is processed**: run `triggers/session-end-dreaming.md` if the queue has any entries.
 - [ ] **`claude-progress.md` is up to date**: "Last working state" reflects the actual current state. "Next session: pick up here" tells future-you exactly which file and which function to start with.
 - [ ] **Task status**: if the task is complete, mark `Status: completed` in progress.md; otherwise leave as `in-progress` and ensure the next-session instruction is clear.
 - [ ] **`docs/adr/` is current**: any ADR-worthy decisions from this session are committed (not pending in your head).
@@ -18,7 +18,7 @@ If you're rushing and want a minimum-viable check:
 
 ```bash
 # All three on one line — should produce no errors
-git status -s && cat .engine/lesson-queue.md 2>/dev/null && cat claude-progress.md 2>/dev/null | grep -A1 "Next session"
+git status -s && python3 .claude/hooks/lesson_queue.py list && cat claude-progress.md 2>/dev/null | grep -A1 "Next session"
 ```
 
 What this tells you:

@@ -413,7 +413,10 @@
         "hook_event_name": "Stop",
         "stop_hook_active": false
       },
-      "check_file": ".engine/lesson-queue.md",
+      "env": {
+        "CLAUDE_CODE_SESSION_ID": "golden"
+      },
+      "check_file": ".engine/journal/lessons/golden.md",
       "expect": "block",
       "expect_detail_contains": "TYPECHECK FAILED",
       "expect_file_changed": true

@@ -91,6 +91,9 @@ esac
 # is how a review surface becomes unreadable.
 if [ "$STAGED_ONLY" -eq 0 ]; then
   git add -u
+  # The journals' session files (board 739: .engine/journal/<journal>/<session>.md) are new files the
+  # work's own hooks and scripts wrote — records of this work, not scratch — so they go with it.
+  [ -d .engine/journal ] && git add -- .engine/journal
 fi
 
 if git diff --cached --quiet; then

@@ -151,6 +151,7 @@ RELEASE_AUDITS = "evals/baseline/*/audit-*.json"
 RELEASE_NEEDS_AUDIT = "evals/needs_audit.py"
 RELEASE_AUDIT_COMMAND = "python3 evals/run_audit_scenarios.py --tier full --max-cost 35 --out evals/baseline/@env/audit-{version}.json --owner-approved"
 RELEASE_JOURNAL = "tasks/ANOMALIES.md"
+RELEASE_JOURNAL_SESSIONS = ".engine/journal/anomalies"   # board 739: each session adds to its own file of the journal
 RELEASE_BOARD = ".claude/unattended/board.py"
 # The overseer's handlers (board 033). Every audit is done by the agent `overseer` and recorded by
 # this script, which works only through its handlers in the project's settings file; the Stop hook
@@ -1425,8 +1426,22 @@ def audit_gap(src: EngineSource) -> str | None:
     return f"{len(changed)} file(s) the model reads changed since the last full audit, {record} ({commit[:7]}){unseen}:{listed}"
 
 
-def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> None:
-    """One entry in the anomaly journal, through the board's own writer; no entry, no release."""
+def journal_files(root: Path) -> dict[Path, bytes]:
+    """The anomaly journal's files as they are now: the shared file and every session's file."""
+    paths = [root / RELEASE_JOURNAL, *sorted((root / RELEASE_JOURNAL_SESSIONS).glob("*.md"))]
+    return {path: path.read_bytes() for path in paths if path.is_file()}
+
+
+def restore_journal(root: Path, before: dict[Path, bytes]) -> None:
+    for path in journal_files(root):
+        if path not in before:
+            path.unlink()
+    for path, content in before.items():
+        path.write_bytes(content)
+
+
+def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> str:
+    """One entry in the anomaly journal, through the board's own writer; no entry, no release. The file written."""
     res = subprocess.run(
         [
             sys.executable, RELEASE_BOARD, "anomaly", "-",
@@ -1438,6 +1453,7 @@ def record_bypass(src: EngineSource, version: str, head: str, gap: str) -> None:
     )
     if res.returncode != 0:
         raise EngineError(f"--without-audit could not be written into {RELEASE_JOURNAL}; nothing was released\n  {res.stderr.strip()[:300]}")
+    return res.stdout.strip() or RELEASE_JOURNAL
 
 
 def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
@@ -1480,19 +1496,15 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
     if src.resolve("HEAD") != head:
         raise EngineError("HEAD moved while the checks ran; nothing was released")
 
-    journal = src.root / RELEASE_JOURNAL
-    journal_before = journal.read_bytes() if journal.is_file() else None
-    if gap:
-        record_bypass(src, version, head, gap)
+    journal_before = journal_files(src.root)
+    written = record_bypass(src, version, head, gap) if gap else ""
     git(src.root, "tag", "-a", version, "-m", args.message or f"engine {version}", head)
     try:
         git(src.root, "push", "--atomic", remote, f"refs/tags/{version}", *(f"{head}:refs/heads/{b}" for b in RELEASE_BRANCHES))
     except EngineError as exc:
         git(src.root, "tag", "-d", version)
-        if gap and journal_before is None:
-            journal.unlink(missing_ok=True)
-        elif gap and journal_before is not None:
-            journal.write_bytes(journal_before)
+        if gap:
+            restore_journal(src.root, journal_before)
         raise EngineError(f"the push was refused, the local tag is removed again and nothing was released\n  {exc}") from None
     print(f"  pushed  {version}, {', '.join(RELEASE_BRANCHES)} -> {remote} (fast-forward)")
     current = subprocess.run(
@@ -1506,7 +1518,7 @@ def cmd_release(src: EngineSource, args: argparse.Namespace) -> int:
         except EngineError as exc:
             print(f"  note    the local branch {branch} was not moved (the remote one was): {exc}")
     if gap:
-        print(f"  note    released without a fresh full audit: recorded in {RELEASE_JOURNAL}, which is now uncommitted — commit it")
+        print(f"  note    released without a fresh full audit: recorded in {written}, which is now uncommitted — commit it")
     print(f"released {version} ({head[:7]}): {', '.join(RELEASE_BRANCHES)} and the tag point at it, here and on {remote}")
     return EXIT_OK
 

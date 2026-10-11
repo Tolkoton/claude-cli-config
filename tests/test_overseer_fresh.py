@@ -17,12 +17,15 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS = ROOT / ".claude" / "hooks"
 STOP = HOOKS / "overseer_stop.py"
 VERDICT = HOOKS / "overseer_verdict.py"
 WIRED = json.dumps({"hooks": {"SubagentStop": [{"matcher": "overseer", "hooks": [
     {"type": "command", "command": 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py" record'}]}]}})
+JOURNALS = {".engine/overseer/ledger.md": "ledger", ".engine/overseer/parked.md": "parked"}
 LEDGER_SEED = "# Overseer ledger — append-only\n\nNewest at the top.\n\n---\n\n(no entries yet)\n"
 THREE_PASSES = "".join(f"## 2026-09-18T1{n}:00:00Z — ref-tax — OVERSEER_PASS\n- Trigger: none\n\n" for n in range(3))
 CLAIM = "Implemented with_tax.\n\n    $ pytest -q\n    6 passed\n\n=== UNIT 3 COMPLETE ==="
@@ -80,6 +83,8 @@ class Project:
         path.write_text(text, encoding="utf-8")
 
     def read(self, rel: str) -> str:
+        if rel in JOURNALS:   # board 739: the shared file and every session's file, as the engine reads them
+            return journal_text(self.root, JOURNALS[rel])
         try:
             return (self.root / rel).read_text(encoding="utf-8")
         except OSError:
@@ -232,10 +237,18 @@ p.audit(BLOCK)
 said = p.stop("The overseer agent answered BLOCK.")
 check("BLOCK: the finding goes back to the builder, with the check number", "OVERSEER_BLOCK" in said and "#1 false-DONE" in said and "BLOCK 1 of 3" in said, said)
 check("BLOCK: the ledger names the check", "- Trigger: #1" in p.first_entry() and "OVERSEER_BLOCK" in p.first_entry(), p.first_entry())
+check("board 739 — the BLOCK says where the verdict is read whole, not the shared file", "recorded in the ledger (`python3 .claude/hooks/journal.py show ledger`)" in said, said)
 p = Project()
 p.audit({"verdict": "ADR_REQUIRED", "reason": "tax rate as float contradicts the contract", "evidence": ["src/pricing.py:1"], "adr": {"title": "Rate type"}})
 said = p.stop("The overseer agent asks for an ADR.")
 check("ADR_REQUIRED: routed, and the draft is in the ledger", "OVERSEER_ADR_REQUIRED" in said and "Verdict routing" in said and "ADR draft:" in p.first_entry(), said)
+whole = journal_text(p.root, "ledger")   # what `journal.py show ledger` prints (tests/test_journal.py pins the two equal)
+shared = (p.root / ".engine/overseer/ledger.md").read_text(encoding="utf-8")
+newest = whole[whole.find("\n## 20") + 1:].split("\n## ")[0] if "\n## 20" in whole else ""
+check("board 739 — the route sends the builder to the whole ledger (`journal.py show ledger`), whose newest entry is this draft",
+      "journal.py show ledger" in said and "newest entry of .engine/overseer/ledger.md" not in said and "ADR draft:" in newest, said + newest)
+check("…and that pointer is needed: the shared ledger.md alone does not hold the new entry (only a fold puts it there)",
+      "ADR draft:" not in shared, shared[-300:])
 
 print("5. The tree is compared before and after the audit")
 p = Project()
@@ -392,7 +405,7 @@ p.answer(BLOCK)
 said, fourth = p.claim("And again.\n\n=== UNIT 3 COMPLETE ===", after_audit=True)
 check("third BLOCK: park for the owner, and NO fourth audit is requested", "third in a row" in said and "tasks/blocked/" in said and "Launch the agent" not in said and fourth == "", said)
 check("…the park entry is written by the hook, not left to the builder", "three BLOCKs in a row" in p.read(".engine/overseer/parked.md")
-      and "already put it before the owner (.engine/overseer/parked.md)" in said and said.count("BLOCK 3: #1 false-DONE") == 1, said + p.read(".engine/overseer/parked.md"))
+      and "already put it before the owner (.engine/journal/parked/" in said and said.count("BLOCK 3: #1 false-DONE") == 1, said + p.read(".engine/overseer/parked.md"))
 check("…no marker for a runner that is not there", not list((p.root / ".claude/state").rglob("three-blocks-*.json")))
 
 

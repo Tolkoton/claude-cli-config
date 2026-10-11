@@ -37,7 +37,7 @@ If yes — follow `triggers/decision-checkpoint.md`. The ADR is staged together 
 
 **Q3: Was there a non-obvious bug found and fixed in this work?**
 
-If yes — append to `.engine/lesson-queue.md`:
+If yes — add it to the lesson queue (the command writes this session's own file of it, board 739):
 
 ```bash
 python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"

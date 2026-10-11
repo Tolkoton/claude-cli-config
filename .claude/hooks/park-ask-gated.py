@@ -104,7 +104,7 @@ REASON_TEMPLATE = (
     ".claude/unattended/board.py open-item --to blocked --title <what the command "
     "is for> --what <the exact command above, and what waits for it> --question "
     "<what you ask the owner> --source 'hook park-ask-gated.py'` (a project "
-    "without tasks/: a PARKED entry in .engine/overseer/parked.md instead), then "
+    "without tasks/: a PARKED entry through `python3 .claude/hooks/journal.py add parked` instead), then "
     "continue with the next unblocked item. Blocked by "
     ".claude/hooks/park-ask-gated.py; attended, this same command would simply "
     "prompt."

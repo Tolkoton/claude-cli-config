@@ -52,6 +52,7 @@ import board_state
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 import goals  # the goals document's reader lives with the hooks
 import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
+import journal  # the journals every session adds to in its own file (board 739)
 import mode as mode_reader  # and the one reader of a task's mode (board 097)
 import testing  # and the reader of the testing ledger (.engine/testing/ledger.md, board 062)
 
@@ -118,6 +119,27 @@ class Source:
 
     def log(self, *args: str) -> str:
         return git(self.root, "log", *args).stdout.strip()
+
+    def whole(self, name: str) -> str:
+        """One journal whole at this commit: the shared file and every session's file (board 739)."""
+        return journal_at(self.files, self.show, name)
+
+
+def whole(src: Any, name: str) -> str:
+    """src.whole(name) for anything with `files` and `show` — a Source, or a suite's stand-in for one."""
+    return journal_at(src.files, src.show, name)
+
+
+def journal_at(files: frozenset[str] | set[str], show: Any, name: str) -> str:
+    kind = journal.JOURNALS[name]
+    prefix = f"{journal.PIECES_REL.as_posix()}/{name}/"
+    return journal.assemble(kind, show(kind.shared), [show(p) for p in sorted(files) if p.startswith(prefix) and p.endswith(".md")])
+
+
+def journal_at_commit(root: Path, commit: str, name: str) -> str:
+    listed = git(root, "ls-tree", "-r", "-z", "--name-only", commit).stdout
+    files = {p for p in listed.split("\0") if p}
+    return journal_at(files, lambda path: git(root, "show", f"{commit}:{path}").stdout if path in files else "", name)
 
 
 def has_commit(root: Path, sha: str) -> bool:
@@ -530,7 +552,8 @@ def goals_section(src: Source) -> list[str]:
     except ValueError as broken:
         return [f"- Документ цілей `{goals.GOALS_REL}` зіпсовано: {broken}."]
     asked = goals.requests(src.show, src.files)
-    lessons = [line for line in src.show(".engine/lesson-queue.md").splitlines() if re.match(r"^- \S+ \| analyst \|", line)]
+    queue = journal.split(whole(src, "lessons"), journal.JOURNALS["lessons"])[1]
+    lessons = [line for line in journal.open_candidates(queue) if re.match(r"^- \S+ \| analyst \|", line)]
     if not numbered:
         lines = [f"- Документа цілей (`{goals.GOALS_REL}`) ще немає: його складає `/business-analyst` разом із вами. Доки його немає, рішення архітекторів звіряти ні з чим."]
         if not asked and not lessons:
@@ -624,12 +647,12 @@ def journal_lines(src: Source, period: Since) -> list[str]:
     """The entries of tasks/ANOMALIES.md written in the period, oldest first. The journal only
     grows at its end, so after a commit the new entries are those past the ones it already had;
     after a date they are told by their own time."""
-    path = f"tasks/{board.ANOMALIES}"
-    entries = [(match, body) for heading, body in sections(src.show(path)) if (match := ANOMALY.match(heading))]
+    entries = [(match, body) for heading, body in sections(whole(src, "anomalies")) if (match := ANOMALY.match(heading))]
     if not entries:
         return ["Журнал аномалій (`tasks/ANOMALIES.md`) порожній: runner не зустрів нічого дивного."]
-    if period.commit:
-        fresh = entries[sum(1 for heading, _ in sections(git(src.root, "show", f"{period.commit}:{path}").stdout) if ANOMALY.match(heading)):]
+    if period.commit:   # what the journal did not hold at that commit: every session's file counts (board 739)
+        known = {(heading, body.strip()) for heading, body in sections(journal_at_commit(src.root, period.commit, "anomalies"))}
+        fresh = [(match, body) for match, body in entries if (match.group(0), body.strip()) not in known]
     else:
         fresh = [(match, body) for match, body in entries
                  if period.utc is None or ((when := as_utc(match.group(1).replace("Z", "+00:00"))) is not None and when >= period.utc)]

@@ -45,7 +45,7 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    Everything open is a task of the board; the logs `escalations.md` and `parked.md` are history and are not part of the review.
 4. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
    whether the follow-up task should move up the queue); then what the runner, the gate, a hook or the agent found odd, wrote into
-   `tasks/ANOMALIES.md` and worked past (each entry says who wrote it): a task the runner parked in
+   the anomaly journal (`tasks/ANOMALIES.md` and the sessions' files `.engine/journal/anomalies/`) and worked past (each entry says who wrote it): a task the runner parked in
    `blocked/` itself (its question is in the section above; its uncommitted work is on the `wip/…`
    branch the entry names), a failed push, a gate escalation, a stop of the whole board. Say each in a sentence; one that needs a fix is a new task.
 5. **План** — the order of `todo/` and what stands on a dependency. A change of order or a

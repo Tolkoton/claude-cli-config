@@ -20,6 +20,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from journals import journal_text, open_lessons
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # This run's own temporary directories live in RUN, and only RUN is removed at the end (board 735): another run's
@@ -216,7 +218,7 @@ check("the report lists the confirm and the flag_only finding with their evidenc
       "### confirm (1)" in report and "### flag_only (1)" in report and "docs/goals.md:3" in report and "vulture: unused function" in report, report)
 check("the auto_remove finding is handed to the builder, not written for the owner",
       "1 auto_remove: F-" in done.stdout and "src/demo/pricing.py:5" in done.stdout and "old_total has no caller" not in report, done.stdout)
-queue = (repo / ".engine/lesson-queue.md").read_text()
+queue = journal_text(repo, "lessons")
 check("both owner findings are in the lesson queue, source simplifier",
       queue.count("| simplifier |") == 2 and "nobody asked" in queue, queue)
 check("nothing was removed", (repo / "src/demo/pricing.py").read_text() == before)
@@ -233,7 +235,7 @@ for name, args, said in (
     done = cli(repo, "applied", *args)
     check(f"refused: {name}", done.returncode == 1 and said in done.stderr
           and (repo / ".engine/simplifier/report.md").read_text() == report
-          and (repo / ".engine/lesson-queue.md").read_text() == queue, done.stdout + done.stderr)
+          and journal_text(repo, "lessons") == queue, done.stdout + done.stderr)
 done = cli(repo, "applied", plan_id, "--note", "dropped the ordering test from the plan")
 marked = (repo / ".engine/simplifier/report.md").read_text()
 check("the finding is marked in the report, with what was changed, and nothing else in the report moved",
@@ -243,7 +245,7 @@ check("the finding is marked in the report, with what was changed, and nothing e
       == [ln for ln in report.splitlines() if plan_id not in ln], done.stdout + done.stderr + marked)
 check("it no longer reads as an open finding: no line of the report starts with its id",
       not re.search(rf"^- `{plan_id}`", marked, re.MULTILINE) and re.search(rf"^- `{code_id}`", marked, re.MULTILINE), marked)
-after = (repo / ".engine/lesson-queue.md").read_text()
+after = open_lessons(repo)
 check("its lesson candidate leaves the queue, the other finding's stays",
       "nobody asked" not in after and "worth a look" in after and after.count("| simplifier |") == 1, after)
 done = cli(repo, "applied", plan_id, "--note", "dropped the ordering test from the plan")
@@ -251,7 +253,7 @@ check("marking it a second time is refused and changes nothing",
       done.returncode == 1 and (repo / ".engine/simplifier/report.md").read_text() == marked, done.stdout + done.stderr)
 cli(repo, "route", "answer.json", "--title", "second pass")
 check("a later pass that finds it again does not queue the lesson again",
-      "nobody asked" not in (repo / ".engine/lesson-queue.md").read_text())
+      "nobody asked" not in open_lessons(repo) and journal_text(repo, "lessons").count("nobody asked") == 1)
 (repo / "answer.json").write_text(json.dumps([GOOD | {"target": "vendor/keep.py:1", "claim": "vendored copy", "proposed_action": "confirm"}]))
 cli(repo, "route", "answer.json", "--title", "protected")
 held = (repo / ".engine/simplifier/report.md").read_text()

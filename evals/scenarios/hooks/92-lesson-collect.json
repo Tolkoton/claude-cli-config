@@ -25,7 +25,10 @@
       "input": {
         "hook_event_name": "Stop"
       },
-      "check_file": ".engine/lesson-queue.md",
+      "env": {
+        "CLAUDE_CODE_SESSION_ID": "golden"
+      },
+      "check_file": ".engine/journal/lessons/golden.md",
       "expect": "allow",
       "expect_file_changed": true
     },
@@ -35,7 +38,10 @@
       "input": {
         "hook_event_name": "Stop"
       },
-      "check_file": ".engine/lesson-queue.md",
+      "env": {
+        "CLAUDE_CODE_SESSION_ID": "golden"
+      },
+      "check_file": ".engine/journal/lessons/golden.md",
       "expect": "allow",
       "expect_file_changed": false
     },
@@ -53,7 +59,10 @@
       "input": {
         "hook_event_name": "Stop"
       },
-      "check_file": ".engine/lesson-queue.md",
+      "env": {
+        "CLAUDE_CODE_SESSION_ID": "golden"
+      },
+      "check_file": ".engine/journal/lessons/golden.md",
       "expect": "allow",
       "expect_file_changed": false
     }

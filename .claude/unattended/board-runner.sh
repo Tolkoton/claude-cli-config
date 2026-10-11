@@ -306,27 +306,33 @@ fi
 board_commit() {
   [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] \
     || finish error "${TASK_NAME:--}" branch "the checkout left $BRANCH; nothing was committed"
-  git add -A -- tasks/ || return 1
-  if git diff --cached --quiet -- tasks/; then return 0; fi
-  git commit -q -m "$1" -- tasks/ || return 1
+  local paths=(tasks/)   # and the sessions' files of the anomaly journal: a board move's entry goes with it (board 739)
+  [ -d .engine/journal/anomalies ] && paths+=(.engine/journal/anomalies)
+  git add -A -- "${paths[@]}" || return 1
+  if git diff --cached --quiet -- "${paths[@]}"; then return 0; fi
+  git commit -q -m "$1" -- "${paths[@]}" || return 1
   event "commit $(git rev-parse --short HEAD) $1"
 }
 
-# commit_journal <message>: commit tasks/ANOMALIES.md when it has uncommitted entries. It never
-# stops anything: a journal that cannot be committed now is committed with the next change under tasks/.
+# commit_journal <message>: commit the anomaly journal when it has uncommitted entries — since board 739
+# each session's own file of it under .engine/journal/anomalies/, and tasks/ANOMALIES.md a fold wrote. It
+# never stops anything: a journal that cannot be committed now is committed with the next change.
 commit_journal() {
-  [ -n "$(git status --porcelain -- tasks/ANOMALIES.md 2>/dev/null)" ] || return 0
+  local paths=() path
+  for path in tasks/ANOMALIES.md .engine/journal/anomalies; do [ -e "$path" ] && paths+=("$path"); done
+  [ "${#paths[@]}" -gt 0 ] || return 0
+  [ -n "$(git status --porcelain -- "${paths[@]}" 2>/dev/null)" ] || return 0
   [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] || return 0
-  git add -- tasks/ANOMALIES.md >> "$STATE/logs/git.log" 2>&1 \
-    && git commit -q -m "$1" -- tasks/ANOMALIES.md >> "$STATE/logs/git.log" 2>&1 \
+  git add -- "${paths[@]}" >> "$STATE/logs/git.log" 2>&1 \
+    && git commit -q -m "$1" -- "${paths[@]}" >> "$STATE/logs/git.log" 2>&1 \
     && event "commit $(git rev-parse --short HEAD) journal"
   return 0
 }
 # What a hook, the gate or the agent wrote into the journal (board 035) is committed by the runner.
 JOURNAL_OTHERS="board: anomaly journal — entries written by a hook, the gate or the agent"
 
-# note_anomaly <task|-> <what happened> <what was done>: one entry in tasks/ANOMALIES.md, in a
-# commit of its own.
+# note_anomaly <task|-> <what happened> <what was done>: one entry of the anomaly journal (the
+# session's own file of it, board 739), in a commit of its own.
 note_anomaly() {
   commit_journal "$JOURNAL_OTHERS"
   board anomaly "$1" "$2" "$3" > /dev/null || return 0

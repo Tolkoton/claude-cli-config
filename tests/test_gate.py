@@ -20,6 +20,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from journals import journal_text
 from tool_pins import tool_versions as VERSIONS
 
 ROOT = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
@@ -201,7 +202,7 @@ _, other = hook_stop(r, "B")
 check("another session has its own count", other.get("decision") == "block" and report(r)["stop"]["consecutive_blocks"] == 1, report(r))
 proc, p3 = hook_stop(r, "A", active=True)
 check("the 3rd block escalates: the turn may end", p3.get("decision") is None and "GATE ESCALATION" in str(p3.get("systemMessage")), proc.stdout)
-parked = (r / ".engine/overseer/parked.md").read_text()
+parked = journal_text(r, "parked")
 check("the escalation is parked for a human", "PARKED" in parked and "Class: human-input" in parked and "last-report.json" in parked, parked)
 check("escalation is recorded in the report and the counter resets",
       report(r)["result"] == "escalated" and report(r)["stop"]["escalated"] is True, report(r))

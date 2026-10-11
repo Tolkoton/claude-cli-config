@@ -86,7 +86,7 @@ This is the most important learning moment in the development cycle. The stuck s
 
 ### Lightweight capture (in-flow)
 
-Append to `.engine/lesson-queue.md`:
+Add it to the lesson queue (the command writes this session's own file of it, board 739):
 
 ```bash
 python3 .claude/hooks/lesson_queue.py add --source agent --slice <slice> "<what was non-obvious and what is actually true>"

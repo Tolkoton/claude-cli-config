@@ -120,6 +120,7 @@ flowchart LR
         b3["WebFetch|WebSearch →<br/>auto-approve-web.py"]
         b4["Agent|Task → overseer_verdict.py guard"]
         b5["Agent|Task|Edit|Write|MultiEdit|NotebookEdit →<br/>testing.py guard"]
+        b6["Agent|Task → reader.py guard"]
     end
     subgraph PermissionRequest
         r1["WebFetch|WebSearch →<br/>auto-approve-web.py"]
@@ -139,6 +140,7 @@ flowchart LR
     subgraph SubagentStop
         a1["overseer → overseer_verdict.py record"]
         a2["test-manager|slice-tester →<br/>testing.py record"]
+        a3["reader → reader.py record"]
     end
     subgraph SessionStart
         e1["git status, останні commit-и, гілка;<br/>env-check.sh (+ lesson_queue.py session-start)"]
@@ -166,17 +168,19 @@ flowchart LR
   type-check, тести проєкту з `.claude/project.env`, захист від обходу). Ще два — повний набір перед
   commit-ом і в CI (`pre_commit`, `ci`). Три червоні ходи поспіль (`GATE_MAX_BLOCKS`) — escalation і
   питання власникові в `tasks/blocked/9NN-gate-escalation-….md` (без task board — у
-  `.engine/overseer/parked.md`).
+  журналі parked: `python3 .claude/hooks/journal.py show parked`).
 - **Overseer**: `.claude/hooks/overseer_stop.py` робить запит на audit, коли хід заявляє юніт готовим;
   `.claude/hooks/overseer_verdict.py` пускає агента лише з рядком запиту і сам пише вердикт у
-  `.engine/overseer/ledger.md`.
+  ledger — у файл своєї сесії `.engine/journal/ledger/<сесія>.md`; увесь ledger показує
+  `python3 .claude/hooks/journal.py show ledger`.
 - **Бюджет складності**: `.claude/hooks/complexity_budget.py`; simplifier кличеться за сигналом
   (`.claude/hooks/simplify_signals.py`, `.claude/hooks/simplifier.py`).
 
 ## Пам'ять і уроки
 
 Уроки ніколи не стають правилами самі. `.claude/hooks/lesson_queue.py` збирає кандидатів у
-`.engine/lesson-queue.md` (зі звіту gates, BLOCK-ів overseer-а, відкладених пунктів і відкритих
+чергу lessons (кожна сесія — у свій файл `.engine/journal/lessons/<сесія>.md`; уся черга —
+`python3 .claude/hooks/lesson_queue.py list`; зі звіту gates, BLOCK-ів overseer-а, відкладених пунктів і відкритих
 пунктів task board, ескалацій; агент додає сам, коли знайшов неочевидну причину) і на початку кожної
 сесії показує їх і каже, коли час прибирати пам'ять; пам'ять overseer-а — `.engine/overseer/MEMORY.md`.
 Урок, схожий на правило, стає питанням `tasks/blocked/8NN-rule-proposal-….md`, і лише ваше «так»

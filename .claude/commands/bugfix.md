@@ -50,7 +50,8 @@ record. "I know where the bug is" without a reproduction is an unverified premis
   say what would let it resume (a log, a failing input, access to where it happens). With a
   board task: write that as the question for the owner and move the task to `tasks/blocked/`.
   Without one: a question on the board (`board.py open-item --to blocked`; a project with no
-  `tasks/`: an entry in `.engine/overseer/parked.md`, `Class: human-input`). Then stop this
+  `tasks/`: an entry of the parked log `.engine/overseer/parked.md`, `Class: human-input`, added through
+  `python3 .claude/hooks/journal.py add parked`). Then stop this
   command and continue with the next unblocked item.
 
 ## 3. The failing test

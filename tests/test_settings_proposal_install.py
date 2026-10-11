@@ -103,6 +103,7 @@ with tempfile.TemporaryDirectory(prefix="settings-proposal-install-") as tmp:
     write(eng / ".claude/ownership.txt", MAP_V2)
     write(eng / ".claude/hooks/overseer_verdict.py", "import sys\nsys.exit(0)\n")
     shutil.copy2(ROOT / ".claude/hooks/mode.py", eng / ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
+    shutil.copy2(ROOT / ".claude/hooks/journal.py", eng / ".claude/hooks/journal.py")   # …and writes its journal through journal.py (board 739)
     (eng / ".claude/unattended").mkdir(parents=True)
     for source in sorted((ROOT / ".claude/unattended").iterdir()):
         if source.is_file() and source.suffix in (".py", ".sh"):

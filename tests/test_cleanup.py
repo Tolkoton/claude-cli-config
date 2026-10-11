@@ -31,6 +31,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 BOARD = ROOT / ".claude/unattended/board.py"
 RUNNER = ROOT / ".claude/unattended/board-runner.sh"
@@ -229,12 +231,13 @@ try:
     check("the agent was started for each, with the cleanup task as its task", w.said("calls") == [f"010-work.md | Your task is the file tasks/doing/010-work.md", f"{name}.md | Your task is the file tasks/doing/{name}.md"], w.said("calls"))
     check("the cleanup ran the simplifier's nightly mode, once, and its answer is in the report",
           w.said("nightly") == ["nightly"] and "no sharp growth" in w.text(f"tasks/done/{name}/report.md"), w.said("nightly"))
-    journal = w.text("tasks/ANOMALIES.md")
+    journal = journal_text(w.repo, "anomalies")
     check("the event is in the anomaly journal: under the task, what happened, what was done, by the runner",
           journal.count(f"— {name}\n") == 1 and "task board вільна" in journal and f"`tasks/todo/{name}.md`" in journal and "Хто записав: runner" in journal, journal)
     check("placed in one commit — the task and its journal entry together — and nothing is left uncommitted",
           sum(PLACED in s for s in w.subjects()) == 1 and w.dirty() == ""
-          and sorted(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~2").stdout.split()) == ["tasks/ANOMALIES.md", f"tasks/todo/{name}.md"], str(w.subjects()) + w.dirty())
+          and [p.split("/")[:3] for p in sorted(sh(w.repo, "git", "show", "--name-only", "--format=", "HEAD~2").stdout.split())]
+          == [[".engine", "journal", "anomalies"], ["tasks", "todo", f"{name}.md"]], str(w.subjects()) + w.dirty())
     check("origin has it all", sh(w.repo, "git", "rev-parse", "HEAD").stdout == sh(w.repo, "git", "rev-parse", "origin/unattended/work").stdout)
     doc = w.board("review", "--offline", "--state-dir", str(w.repo / ".claude/state"))
     odd = doc.stdout.split("\n## Аномалії")[1].split("\n## ")[0] if "\n## Аномалії" in doc.stdout else ""
@@ -248,7 +251,8 @@ try:
     check("the next day: once more, and once", w.tasks("done") == ["010-work", name, "012-cleanup-2026-10-06"] and len(w.said("calls")) == 3 and w.said("nightly") == ["nightly"] * 2, out(r) + str(w.subjects()))
 
     w = World().task("todo", "010-work")
-    (w.repo / "tasks/ANOMALIES.md").mkdir()   # board 723: the journal cannot be written — a directory stands where the file goes
+    (w.repo / ".engine/journal").mkdir(parents=True)   # board 723: the journal cannot be written — a file stands where
+    (w.repo / ".engine/journal/anomalies").write_text("")   # the sessions' directory of it goes (board 739)
     w.commit("the owner's task")
     r = w.runner("2026-10-05")
     name = "011-cleanup-2026-10-05"
@@ -259,7 +263,7 @@ try:
           r.returncode == 0 and w.tasks("done") == ["010-work", name] and sum(PLACED in s for s in w.subjects()) == 1
           and w.said("nightly") == ["nightly"] and "state=idle" in w.status() and "reason=todo-empty" in w.status(), out(r) + log)
     check("…and it says nothing else: one anomaly-failed event, the journal stands where it stood, nothing is left uncommitted",
-          log.count("anomaly-failed") == 1 and (w.repo / "tasks/ANOMALIES.md").is_dir() and w.dirty() == "", log + w.dirty())
+          log.count("anomaly-failed") == 1 and (w.repo / ".engine/journal/anomalies").is_file() and w.dirty() == "", log + w.dirty())
 
     w = World().task("blocked", "030-asked", ask="1. Що?\n   Відповідь:\n")
     w.commit("a question waits")
@@ -284,7 +288,7 @@ try:
 
     w = World(env='CLEANUP_EVERY_DAYS="0"\n')
     r = w.runner("2026-10-05")
-    check("NEGATIVE: switched off — the runner stops idle at once, no task, no agent, no journal", r.returncode == 0 and w.tasks("done") == [] and w.said("calls") == [] and w.text("tasks/ANOMALIES.md") == "" and "state=idle" in w.status(), out(r))
+    check("NEGATIVE: switched off — the runner stops idle at once, no task, no agent, no journal", r.returncode == 0 and w.tasks("done") == [] and w.said("calls") == [] and journal_text(w.repo, "anomalies") == "" and "state=idle" in w.status(), out(r))
 
     w = World(weekly=True)
     r = w.runner("2026-10-05")

@@ -24,7 +24,7 @@ When in doubt: ask the user "Are we wrapping up this task? If so I'd like to do 
 ```
 Read claude-progress.md
 Read .engine/architecture/tasks/<active-task>/reflections.md 2>/dev/null
-Read .engine/lesson-queue.md 2>/dev/null
+python3 .claude/hooks/lesson_queue.py list     # the queue whole: every session's file (board 739)
 ```
 
 The three input sources, in order:

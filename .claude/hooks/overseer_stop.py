@@ -258,7 +258,7 @@ FRESH_REQUEST_AGAIN_REASON = (
 )
 FRESH_BLOCK_REASON = (
     "OVERSEER_BLOCK (request {id}; BLOCK {count} of {limit} on this unit): {finding}\n"
-    "The verdict is the overseer agent's and is recorded in .engine/overseer/ledger.md. Route it as "
+    "The verdict is the overseer agent's and is recorded in the ledger (`python3 .claude/hooks/journal.py show ledger`). Route it as "
     ".claude/engine-rules.md § \"Verdict routing\" says. If you can resolve it: fix it, verify, and "
     "claim the unit again (`=== UNIT N COMPLETE ===`) — another overseer, which has seen neither this "
     "audit nor your fix, will judge the result. If you cannot: put the item on the task board — `python3 "
@@ -280,8 +280,8 @@ FRESH_THREE_BLOCKS_REASON = (
 # instead), in the owner's language like everything the board says to the owner.
 THREE_BLOCKS_HUMAN = (
     "Overseer тричі поспіль відхилив один юніт ({unit}). Повторювати його агент більше не буде: юніт "
-    "відкладено до вашого рішення (запис — {parked}, вердикти — у "
-    ".engine/overseer/ledger.md).\n{reasons}"
+    "відкладено до вашого рішення (запис — {parked}, вердикти — у ledger: "
+    "`python3 .claude/hooks/journal.py show ledger`).\n{reasons}"
 )
 # Under the board runner nothing is asked of the builder: the session is stopped and the runner
 # moves the task (board 031 — the rule is carried out by a script, not by an agent on its word).
@@ -292,7 +292,8 @@ THREE_BLOCKS_RUNNER_STOP = (
 )
 FRESH_ROUTE_REASON = (
     "OVERSEER_{verdict} (request {id}): {finding}\n"
-    "The draft ADR or the escalation is in the newest entry of .engine/overseer/ledger.md. Route it as "
+    "The draft ADR or the escalation is in the newest entry of the ledger, at the top of what "
+    "`python3 .claude/hooks/journal.py show ledger` prints (the shared .engine/overseer/ledger.md alone may not hold it yet). Route it as "
     ".claude/engine-rules.md § \"Verdict routing\" says: reversible — write the ADR in docs/adr/, or "
     "log the AUTONOMOUS entry in .engine/overseer/escalations.md (a log of decisions already made), and "
     "continue; a one-way door or an Article 5 product decision — ask the owner on the task board (`python3 "
@@ -659,7 +660,7 @@ def _three_blocks(project_dir: Path, unit: str, request_id: str, finding: str, b
     if task != "-" and ov.runner_alive(project_dir):
         ov.write_json(ov.three_blocks_marker(project_dir, task), {"task": task, "unit": unit, "utc": ov.utc_now(), "blocks": kept})
         _emit_halt(THREE_BLOCKS_RUNNER_STOP.format(unit=unit, id=request_id, finding=finding, task=task, reasons=reasons))
-    parked = ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_REL.as_posix())
+    parked = ov.park(project_dir, unit, "three BLOCKs in a row — " + "; ".join(reasons.splitlines()), ov.LEDGER_SHOWN)
     _emit_block(FRESH_THREE_BLOCKS_REASON.format(unit=unit, id=request_id, finding=finding, reasons=reasons, parked=parked),
                 THREE_BLOCKS_HUMAN.format(unit=unit, reasons=reasons, parked=parked))
 

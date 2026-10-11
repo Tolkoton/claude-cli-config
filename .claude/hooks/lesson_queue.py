@@ -13,8 +13,14 @@
     python3 .claude/hooks/lesson_queue.py cleanup-done
     python3 .claude/hooks/lesson_queue.py stuck            # hook (PostToolUse / PostToolUseFailure): the stuck counter
 
-THE QUEUE. `.engine/lesson-queue.md`, one line per candidate:
+THE QUEUE. One line per candidate:
     - <date UTC> | <source> | <slice> | <essence> #<id>
+Since board 739 a session adds its lines to its own file, `.engine/journal/lessons/<session>.md`, and
+`.engine/lesson-queue.md` is what a fold gathered (journal.py): branches merge without a conflict. A
+triaged candidate is not removed: its resolution is one more line, `- <date> | resolved:<where> |
+<note> #<id>`, and the queue is the candidates without one. Two sessions that triaged one candidate
+differently are a contradiction the script does not settle: `collect` puts it on the board for an agent,
+whose decision is `settle <id> --keep <where>`.
 source is one of gate, overseer, parked, escalation, agent, simplifier, analyst (what the business analyst
 should have asked and the owner had to correct). A candidate is added once: the id is a
 hash of source + the normalised essence, and every id ever seen is kept in machine state
@@ -64,6 +70,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import journal  # every session's own file of the queue (board 739)
+
 SOURCES = ("gate", "overseer", "parked", "escalation", "agent", "simplifier", "analyst")
 QUEUE_REL = Path(".engine/lesson-queue.md")
 MEMORY_REL = Path(".engine/overseer/MEMORY.md")
@@ -79,13 +87,7 @@ DIGEST_LIMIT = 1200
 ESSENCE_LIMIT = 200
 STUCK_AT = 3
 BUDGET = 200
-QUEUE_HEADER = (
-    "# Lesson queue\n\n"
-    "One line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`. Filled by hooks "
-    "(gate, overseer, parked, escalation) and by the agent. Triaged with "
-    "`python3 .claude/hooks/lesson_queue.py resolve <id> --to memory|rule|engine|discard`; a "
-    "resolved line is removed. Never loaded into the persistent context.\n\n"
-)
+QUEUE_HEADER = journal.JOURNALS["lessons"].head
 AT_RE = re.compile(r"(?:(?<=\s)|^)@\S")
 LINE_RE = re.compile(
     r"^- (?P<date>\d{4}-\d{2}-\d{2}) \| (?P<source>\w+) \| (?P<slice>[^|]*?) \| (?P<essence>.*) #(?P<id>[0-9a-f]{8})$"
@@ -165,8 +167,9 @@ def remember(root: Path, ident: str) -> None:
 
 
 def entries(root: Path) -> list[dict[str, str]]:
+    """The candidates waiting for triage, from every session's file, without the ones a resolution closes."""
     found: list[dict[str, str]] = []
-    for line in read(root / QUEUE_REL).splitlines():
+    for line in journal.open_candidates(journal.lesson_lines(root)):
         match = LINE_RE.match(line)
         if match:
             found.append(match.groupdict())
@@ -196,16 +199,14 @@ def add(root: Path, source: str, slice_name: str, essence: str, queue: bool = Tr
     if source not in SOURCES or not essence:
         return None
     ident = item_id(source, essence)
-    if ident in seen_ids(root) or any(e["id"] == ident for e in entries(root)):
+    # Known: seen on this machine, or in the journal at all — queued or triaged by any session (board 739).
+    if ident in seen_ids(root) or any(line.endswith(f"#{ident}") for line in journal.lesson_lines(root)):
         return None
     if not queue:
         remember(root, ident)
         return ident
-    text = read(root / QUEUE_REL) or QUEUE_HEADER
-    if not text.endswith("\n"):
-        text += "\n"
     slice_name = re.sub(r"[|\s]+", "-", slice_name.strip()) or "-"
-    write(root / QUEUE_REL, text + f"- {today()} | {source} | {slice_name} | {essence} #{ident}\n")
+    journal.add(root, "lessons", f"- {today()} | {source} | {slice_name} | {essence} #{ident}")
     remember(root, ident)
     return ident
 
@@ -236,7 +237,7 @@ def bullet(body: str, label: str) -> str:
 
 def collect_parked(root: Path, queue: bool = True) -> int:
     header = re.compile(r"^## (?P<ts>\S+) — (?P<item>.+?) — PARKED[ \t]*$", re.MULTILINE)
-    text = read(root / ".engine/overseer/parked.md")
+    text = journal.text(root, "parked")
     resumed = set(re.findall(r"^## \S+ — (.+?) — RESUMED[ \t]*$", text, re.MULTILINE))
     added = 0
     for match, body in blocks(text, header):
@@ -279,8 +280,34 @@ def collect(root: Path) -> int:
         collect_parked(root, queue=False)
         collect_escalations(root, slice_name, queue=False)
         remember(root, "seeded")
+    raise_contradictions(root)
     return (collect_gate(root, slice_name) + collect_parked(root)
             + collect_escalations(root, slice_name))
+
+
+def raise_contradictions(root: Path) -> list[str]:
+    """A candidate two sessions triaged differently goes before an agent as a task of the board, once
+    while it stays open: the script never chooses (board 739, the owner). The tasks' paths."""
+    lines = journal.lesson_lines(root)
+    found = journal.contradictions(lines)
+    board = board_module() if found else None
+    if board is None:
+        return []
+    raised: list[str] = []
+    for ident, rows in found.items():
+        candidate = next((ln for ln in lines if journal.CANDIDATE_RE.match(ln) and ln.endswith(f"#{ident}")), f"#{ident}")
+        how = "; ".join(f"{r['date']} → {r['to']} ({r['note']})" for r in rows)
+        path = board.open_item(
+            board.Board(root / "tasks"), "todo", f"Дві сесії по-різному розібрали кандидата уроку #{ident}",
+            f"Кандидат: {candidate}. Розбори: {how}. Скрипт не вибирає між ними (задача 739).",
+            do=("Вирішити — справа агента: зважити обидва розбори й лишити один. Наслідки іншого прибрати руками (запис у "
+                "`.engine/overseer/MEMORY.md`, пропозицію правила в `.engine/rule-proposals.md` разом із питанням у `tasks/blocked/`, "
+                f"запис у `.engine/engine-feedback.md`), а рішення записати: `python3 .claude/hooks/lesson_queue.py settle {ident} "
+                "--keep <memory|rule|engine|discard> --why \"…\"`."),
+            key=f"lesson-contradiction-{ident}", source="lesson_queue.py")
+        if path:
+            raised.append(path.relative_to(root).as_posix())
+    return raised
 
 
 VERDICT_BLOCK_RE = re.compile(r"^[ \t]*OVERSEER_BLOCK:\s*(?P<why>.+?)[ \t]*$", re.MULTILINE)
@@ -323,7 +350,7 @@ def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
     shown = "\n".join(f"  #{e['id']}  {e['date']}  [{e['source']}] {e['slice']}: {e['essence'][:110]}" for e in queue[:12])
     more = f"\n  … and {len(queue) - 12} more (`lesson_queue.py list`)" if len(queue) > 12 else ""
     return (
-        f"LESSON_REVIEW_REQUESTED — {len(queue)} candidate(s) in .engine/lesson-queue.md. Triage them now, "
+        f"LESSON_REVIEW_REQUESTED — {len(queue)} candidate(s) in the lesson queue (`lesson_queue.py list`). Triage them now, "
         "briefly, before the next unit (a candidate with no lasting value: discard it):\n"
         f"{shown}{more}\n"
         "For each: `python3 .claude/hooks/lesson_queue.py resolve <id> --to <where> ...` with where = "
@@ -336,9 +363,20 @@ def _request_text(queue: list[dict[str, str]], proposals: list[str]) -> str:
     )
 
 
-def remove_line(root: Path, ident: str) -> None:
-    kept = [ln for ln in read(root / QUEUE_REL).splitlines() if not ln.endswith(f"#{ident}")]
-    write(root / QUEUE_REL, "\n".join(kept) + "\n")
+def close(root: Path, ident: str, to: str, note: str) -> None:
+    """The candidate leaves the queue: a resolution line in this session's file, never a removed line (board 739)."""
+    journal.add(root, "lessons", f"- {today()} | resolved:{to} | {clean_essence(note) or to} #{ident}")
+
+
+def settle(root: Path, ident: str, keep: str, why: str) -> tuple[bool, str]:
+    """The agent's decision on a candidate two sessions triaged differently."""
+    rows = journal.resolutions(journal.lesson_lines(root)).get(ident)
+    if not rows:
+        return False, f"#{ident} has no resolution to settle"
+    if not why.strip():
+        return False, "settle needs --why: the reason the kept triage stands"
+    close(root, ident, journal.SETTLED + keep, why)
+    return True, f"#{ident} settled: {keep}"
 
 
 def append(path: Path, text: str, header: str = "") -> None:
@@ -432,7 +470,7 @@ def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: st
                "- Status: PROPOSED (the owner decides: the question is in tasks/blocked/; only the owner's «так» lets `lesson_queue.py promote` through)\n",
                "# Rule proposals\n\nCandidates for the standing rules. Never loaded into the persistent context; "
                "the ones the owner approves are promoted into `.engine/rules.md`.\n")
-        remove_line(root, ident)
+        close(root, ident, to, text)
         return True, f"#{ident} -> rule proposal. " + ask_owner(root, ident)[1]
     elif to == "engine":
         if not text:
@@ -441,7 +479,7 @@ def resolve(root: Path, ident: str, to: str, text: str, cite: list[str], why: st
                "# Feedback for the engine\n\nWhat the work learned that belongs in the engine's own repository.\n")
     elif to != "discard":
         return False, "--to must be memory, rule, engine or discard"
-    remove_line(root, ident)
+    close(root, ident, to, text)
     return True, f"#{ident} -> {to}"
 
 
@@ -561,7 +599,7 @@ def digest(root: Path) -> str:
     if memory:
         lines.append("Project memory (.engine/overseer/MEMORY.md), latest: " + " · ".join(m[:70] for m in memory[-4:]))
     if queue:
-        lines.append(f"Lesson queue: {len(queue)} candidate(s), oldest {queue[0]['date']} (.engine/lesson-queue.md).")
+        lines.append(f"Lesson queue: {len(queue)} candidate(s), oldest {queue[0]['date']} (`python3 .claude/hooks/lesson_queue.py list`).")
     if proposals:
         lines.append(f"{proposals} rule proposal(s) wait for the owner's answer in tasks/blocked/ (.engine/rule-proposals.md); nothing for an agent to do.")
     due = cleanup_due(root)
@@ -611,7 +649,7 @@ def failure_key(text: str) -> str:
     return hashlib.sha256(stable(text)[:300].encode()).hexdigest()[:12]
 
 
-def journal(root: Path, what: str, done: str) -> None:
+def anomaly(root: Path, what: str, done: str) -> None:
     """The hook's entry in the board's anomaly journal (board 035). Best effort: no board, no entry."""
     try:
         board = board_module()
@@ -631,7 +669,7 @@ def note_failure(root: Path, text: str) -> str:
     count = (previous if isinstance(previous, int) else 0) + 1 if state.get("key") == key else 1
     if count >= STUCK_AT:
         write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": 0}) + "\n")
-        journal(root, f"та сама невдача {count} раз(и) поспіль: {clean_essence(stable(text))[:160]}",
+        anomaly(root, f"та сама невдача {count} раз(и) поспіль: {clean_essence(stable(text))[:160]}",
                 "агентові показано протокол «застряг» (змінити гіпотезу, а не повторювати спробу); лічильник скинуто, роботу продовжено")
         return STUCK_TEXT.format(n=count, what=clean_essence(text)[:90])
     write(state_file(root, "stuck.json"), json.dumps({"key": key, "count": count}) + "\n")
@@ -719,6 +757,10 @@ def main(argv: list[str] | None = None) -> int:
     p_res.add_argument("--cite", nargs="*", default=[])
     p_res.add_argument("--why", default="")
     p_res.add_argument("--recommend", default="", help="the overseer's recommendation to the owner; it decides nothing")
+    p_set = sub.add_parser("settle", help="an agent's decision on a candidate two sessions triaged differently")
+    p_set.add_argument("id")
+    p_set.add_argument("--keep", required=True, choices=("memory", "rule", "engine", "discard"))
+    p_set.add_argument("--why", default="")
     sub.add_parser("ask").add_argument("id")
     p_pro = sub.add_parser("promote")
     p_pro.add_argument("id")
@@ -745,6 +787,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(text)
         elif args.command == "resolve":
             done, message = resolve(root, args.id.lstrip("#"), args.to, args.text, args.cite, args.why, args.recommend)
+            print(message, file=sys.stdout if done else sys.stderr)
+            return 0 if done else 1
+        elif args.command == "settle":
+            done, message = settle(root, args.id.lstrip("#"), args.keep, args.why)
             print(message, file=sys.stdout if done else sys.stderr)
             return 0 if done else 1
         elif args.command in ("ask", "promote", "reject"):

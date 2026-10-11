@@ -40,7 +40,9 @@ Read **only the trigger file that applies**. Do not preload everything — each 
 
 ## Lesson capture (lightweight, inline) — the queue is filled by hooks too
 
-`.engine/lesson-queue.md` is one line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>`
+The lesson queue is one line per candidate: `- <date UTC> | <source> | <slice> | <essence> #<id>` — each session's lines in
+its own file `.engine/journal/lessons/<session>.md`, the folded ones in `.engine/lesson-queue.md` (board 739); read it
+with `python3 .claude/hooks/lesson_queue.py list`
 (source: gate, overseer, parked, escalation, agent). **Hooks fill it without you**: a Stop block of the
 gate, an `OVERSEER_BLOCK` verdict, a parked item and an escalation are added automatically, once each
 (`.claude/hooks/lesson_queue.py`). You add a line yourself only when you found a **non-obvious cause** —

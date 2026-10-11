@@ -186,6 +186,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hooks"))
+import journal  # the anomaly journal: every session adds to its own file (board 739)
 import mode as mode_reader  # the one reader of the mode and of «nobody is watching» (board 097)
 
 COLUMNS = ("todo", "doing", "blocked", "done")
@@ -529,8 +530,7 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
     column = twins[0].parent.name
     what = (f"файл `{name}` з inbox має номер, який у `{column}/` носять кілька файлів ({', '.join(f'`{p.name}`' for p in twins)}), "
             "і жоден з них не має такої самої назви")
-    journal = _text(board.tasks / ANOMALIES)
-    if " ".join(what.split()) not in journal:
+    if " ".join(what.split()) not in journal.text(board.tasks.parent, "anomalies"):
         anomaly(board, "-", what, "нічого не видалено й не замінено; файл лишився в inbox. Назвіть його точно так, як файл у task board, "
                 "якого він стосується, а однакові номери розведіть (`board.py check`)", "task board (import-inbox)")
 
@@ -538,7 +538,7 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
 def _unread_mode(board: Board, name: str, wrong: str) -> None:
     """The journal entry of an inbox file whose `Режим:` line names no mode (A MODE), once per file and line."""
     what = f"файл `{name}` з inbox не взято: {wrong}"
-    if " ".join(what.split()) not in _text(board.tasks / ANOMALIES):
+    if " ".join(what.split()) not in journal.text(board.tasks.parent, "anomalies"):
         anomaly(board, "-", what, f"файл лишився в inbox. Виправте рядок на `Режим: {'|'.join(mode_reader.MODES)}` "
                 "(або приберіть його — тоді соло) і покладіть файл знову", "task board (import-inbox)")
 
@@ -992,9 +992,7 @@ def in_hand(tasks: Path) -> str:
 
 
 ANOMALIES = "ANOMALIES.md"
-ANOMALIES_HEAD = ("# Журнал аномалій task board\n\nУсе дивне, що сталося під час роботи runner-а: воно записується сюди, а не зупиняє task board. "
-                  "Пишуть runner, gates, hook-и й агент — у кожному записі сказано, хто; найновіший запис унизу. "
-                  "Огляд (`board.py review`) показує нові записи окремим розділом.\n")
+ANOMALIES_HEAD = journal.JOURNALS["anomalies"].head
 RUNNER = "runner"  # who writes the journal unless told otherwise
 WHY = "## Чому зупинилась"
 # reason → (what happened, the question). {n} is the runner's number: attempts, hours, dollars.
@@ -1030,14 +1028,12 @@ def utc_now() -> str:
 
 
 def anomaly(board: Board, task: str, what: str, done: str, source: str = RUNNER) -> Path:
-    """Append one entry to tasks/ANOMALIES.md (made with its heading the first time)."""
-    path = board.tasks / ANOMALIES
-    text = path.read_text(encoding="utf-8") if path.is_file() else ANOMALIES_HEAD
+    """One entry of the anomaly journal, in this session's own file of it (board 739: tasks/ANOMALIES.md is
+    what a fold gathered; `journal.py show anomalies` reads it whole). The path written."""
     what, done, source = (" ".join(part.split()) for part in (what, done, source or RUNNER))
-    entry = (f"\n## {utc_now()} — {task if task and task != '-' else 'task board'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
+    entry = (f"## {utc_now()} — {task if task and task != '-' else 'task board'}\n- Що сталося: {what}\n- Що зроблено: {done}\n"
              f"- Хто записав: {source}\n")
-    path.write_text(text.rstrip("\n") + "\n" + entry, encoding="utf-8")
-    return path
+    return journal.add(board.tasks.parent, "anomalies", entry)
 
 
 def note(root: Path, source: str, what: str, done: str) -> Path | None:

@@ -15,8 +15,8 @@ description: |
 
 The audit is never done by the session that did the work. It is done by the
 agent `overseer` (`.claude/agents/overseer.md`: the 12 checks, fresh context,
-no editing tool), and its verdict is written into `.engine/overseer/ledger.md`
-by a script, `.claude/hooks/overseer_verdict.py`, from the agent's own answer.
+no editing tool), and its verdict is written into the ledger (this session's own file of it,
+`.engine/journal/ledger/<session>.md`, board 739) by a script, `.claude/hooks/overseer_verdict.py`, from the agent's own answer.
 You do not audit, you do not write the ledger, and a line `OVERSEER_PASS` typed
 by you means nothing. Citing a check number (#1–#12) in your own reasoning is
 just a reference; it needs no ledger entry.

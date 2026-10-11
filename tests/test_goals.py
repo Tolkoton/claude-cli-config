@@ -31,6 +31,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 GOALS = ROOT / ".claude/hooks/goals.py"
 OWNER_ACTION = ROOT / ".claude/unattended/owner_action.py"
@@ -218,7 +220,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
     print("the lesson queue and the simplifier")
     r = run(LESSONS, root, "add", "--source", "analyst", "did not ask who pays for delivery")
-    queue = (root / ".engine/lesson-queue.md").read_text(encoding="utf-8") if (root / ".engine/lesson-queue.md").is_file() else ""
+    queue = journal_text(root, "lessons")   # the shared file and every session's file (board 739)
     check("a lesson from the owner's correction of the analyst is queued with the source `analyst`", r.returncode == 0 and "| analyst |" in queue, out(r) + queue)
     r = run(LESSONS, root, "add", "--source", "nobody", "x")
     check("an unknown source is still refused", r.returncode != 0, out(r))

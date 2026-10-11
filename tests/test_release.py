@@ -23,9 +23,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+from journals import journal_text
+
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE_PY = ROOT / "engine.py"
-COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py")   # board.py asks mode.py (board 097)
+COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py",   # board.py asks mode.py (board 097)
+          ".claude/hooks/journal.py")   # …and writes the journal through journal.py (board 739)
 SKILL = ".claude/skills/demo/SKILL.md"
 JOURNAL = "tasks/ANOMALIES.md"
 PASS = FAIL = 0
@@ -94,7 +97,7 @@ class Repo:
             shutil.copy(ROOT / path, self.work / path)
         write(self.work / SKILL, "the words a model reads\n")
         write(self.work / "tasks/README.md", "the board\n")
-        write(self.work / ".gitignore", "__pycache__/\n")   # as in the engine's repository: board.py imports hooks/mode.py (board 097)
+        write(self.work / ".gitignore", "__pycache__/\n.claude/state/\n")   # as in the engine's repository: board.py imports hooks/mode.py (board 097)
         write(self.work / "tests/run_all.sh", RUN_ALL_STUB)
         write(self.work / "evals/run_hook_scenarios.py", GOLDEN_STUB)
         write(self.work / "evals/baseline/box/results-old.json", "{}\n")
@@ -119,8 +122,8 @@ class Repo:
         return git(self.work, "rev-parse", "HEAD")
 
     def journal(self) -> str:
-        path = self.work / JOURNAL
-        return path.read_text(encoding="utf-8") if path.exists() else ""
+        """The anomaly journal whole: the shared file and every session's file (board 739)."""
+        return journal_text(self.work, "anomalies")
 
     def release(self, *args: str, session: bool = False, **env: str) -> subprocess.CompletedProcess[str]:
         environ = {k: v for k, v in os.environ.items() if k != "CLAUDECODE" and not k.startswith("FAKE_")}
@@ -398,9 +401,10 @@ def main() -> int:
         check("bypass: one journal entry", entry.count("\n## ") == 1, entry)
         check("bypass: the entry names the version, the flag, the changed file and the owner",
               all(part in entry for part in ("v0.2.0", "--without-audit", SKILL, "Хто записав: власник")), entry)
-        check("bypass: the release says where it is recorded", JOURNAL in out, out)
+        left = git(repo.work, "status", "--porcelain", "--untracked-files=all").split()
+        check("bypass: the release says where it is recorded — the session's own file of the journal", len(left) == 2 and left[1] in out, out)
         check("bypass: the journal is the only thing left in the work tree",
-              git(repo.work, "status", "--porcelain").split() == ["??", JOURNAL], git(repo.work, "status", "--porcelain"))
+              left[0] == "??" and left[1].startswith(".engine/journal/anomalies/") and left[1].endswith(".md"), left)
 
         print("the bypass flag with a fresh audit bypasses nothing")
         repo = fresh(base, "bypass-unneeded")

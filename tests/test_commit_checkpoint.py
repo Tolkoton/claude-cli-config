@@ -113,6 +113,16 @@ def main() -> int:
     t.check("default: the tracked modification is swept in", out.returncode == 0 and "tracked.txt" in shown, shown)
     t.check("default: an untracked file is never swept in (nothing to commit)", out2.returncode == 0 and "nothing to commit" in out2.stdout, out2.stdout)
 
+    # --- board 739: the journals' session files are records of the work, swept in like tracked changes ---
+    (r / ".engine/journal/ledger").mkdir(parents=True)
+    (r / ".engine/journal/ledger/session-x.md").write_text("## 2026-10-10T07:00:00Z — s — PASS\n", encoding="utf-8")
+    (r / "tracked.txt").write_text("v3\n", encoding="utf-8")
+    out = checkpoint(r, "S3j")
+    shown = git(r, "show", "--stat", "--format=", "HEAD")
+    t.check("default: a journal's new session file goes in with the work (board 739)",
+            out.returncode == 0 and ".engine/journal/ledger/session-x.md" in shown and "tracked.txt" in shown, shown)
+    t.check("…while another untracked file still stays out", "scratch.log" not in shown and "scratch.log" in git(r, "status", "--porcelain"), shown)
+
     # --- nothing staged is not an error ---------------------------------------------------
     out = checkpoint(r, "--staged", "S4")
     t.check("nothing staged: exit 0 with a note", out.returncode == 0 and "nothing to commit" in out.stdout, out.stdout)

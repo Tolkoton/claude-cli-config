@@ -106,7 +106,9 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # a suite may load this file by path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".claude" / "hooks"))   # the ledger's reader (board 739)
 import environment
+import journal
 
 JsonObj = dict[str, Any]
 
@@ -518,8 +520,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
         (sandbox / gone).unlink(missing_ok=True)
     if expect.get("ledger_fixture"):
         shutil.copyfile(SCENARIOS / expect["ledger_fixture"], sandbox / LEDGER)
-    ledger_file = sandbox / LEDGER
-    before = ledger_file.read_text(encoding="utf-8") if ledger_file.is_file() else ""
+    before = journal.text(sandbox, "ledger")   # the ledger whole: the shared file and every session's file (board 739)
 
     common: list[str] = []
     settings_file = sandbox / ".claude" / "settings.json"
@@ -541,7 +542,7 @@ def run_once(args: argparse.Namespace, scenario_id: str, expect: JsonObj, text: 
     if not second:
         return result | {"error": f"prompt B: {err}"}
 
-    after = ledger_file.read_text(encoding="utf-8") if ledger_file.is_file() else ""
+    after = journal.text(sandbox, "ledger")
     entries = new_ledger_entries(before, after)
     limit = usage_limit_message(second)
     if limit and not entries:

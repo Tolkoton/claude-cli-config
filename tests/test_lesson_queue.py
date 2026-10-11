@@ -21,6 +21,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from journals import journal_text, open_lessons
+
 ROOT = Path(__file__).resolve().parent.parent
 LQ = ROOT / ".claude/hooks/lesson_queue.py"
 GATE = ROOT / ".claude/hooks/gate.py"
@@ -114,8 +116,8 @@ def answer(path: Path, word: str) -> None:
 
 
 def queue(root: Path) -> list[str]:
-    p = root / ".engine/lesson-queue.md"
-    return [ln for ln in p.read_text().splitlines() if ln.startswith("- ")] if p.exists() else []
+    """The candidates waiting, from every session's file (board 739): a triaged one has a resolution line."""
+    return open_lessons(root).splitlines()
 
 
 def ids(root: Path) -> list[str]:
@@ -141,7 +143,7 @@ lq(r, "resolve", discard, "--to", "discard")
 check("a resolved candidate leaves the queue", discard not in ids(r) and len(queue(r)) == 1, queue(r))
 added = lq(r, "add", "--source", "agent", "--slice", "s1", "The cache key ignores the locale / so tests pass in CI only")
 check("...and does not come back when the same lesson is added again (seen ids are kept)", len(queue(r)) == 1 and "not added" in added.stdout, queue(r))
-check("the file says it is never loaded into the persistent context", "persistent context" in (r / ".engine/lesson-queue.md").read_text())
+check("the file says it is never loaded into the persistent context", "persistent context" in journal_text(r, "lessons"))
 
 # ---------------------------------------------------------------- the collectors
 print("the collectors: gate, parked, escalation, overseer — no model")
@@ -481,9 +483,9 @@ for column in ("todo", "doing", "blocked", "done"):
 (r / "tasks/doing/041-in-hand.md").write_text("# 041\n\nЗалежить від: —\n", encoding="utf-8")
 for n in range(2):
     stuck(varying(n))
-check("the negative case: two failures write nothing", not (r / "tasks/ANOMALIES.md").exists())
+check("the negative case: two failures write nothing", journal_text(r, "anomalies") == "")
 stuck(varying(2))
-journal = (r / "tasks/ANOMALIES.md").read_text(encoding="utf-8") if (r / "tasks/ANOMALIES.md").exists() else ""
+journal = journal_text(r, "anomalies")
 check("the third writes one entry under the task in doing/: what, what was done, and that a hook wrote it", journal.count("\n## ") == 1
       and "— 041-in-hand\n- Що сталося: та сама невдача 3 раз(и) поспіль" in journal and "load failed" in journal
       and "- Хто записав: hook lesson_queue.py" in journal, journal)

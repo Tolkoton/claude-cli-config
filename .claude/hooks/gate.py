@@ -1048,7 +1048,7 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
         return task, busy
     top = "\n".join(f"  - {r.splitlines()[0]}" for r in report.reasons[:5])
     entry = (
-        f"\n## {stamp} — gate stop layer — PARKED\n"
+        f"## {stamp} — gate stop layer — PARKED\n"
         f"- Blocked on: the Stop gate blocked {blocks} turns in a row and was not satisfied\n"
         "- Class: human-input\n"
         # While the escalation is open (.claude/state/gate/escalations.json) overseer_stop.py does
@@ -1062,13 +1062,13 @@ def park_escalation(root: Path, report: Report, report_path: Path, blocks: int) 
         "Claude Code session; until then no OVERSEER_PASS is accepted for work that holds these files)\n"
         "- Continued with: the turn was allowed to end\n"
     )
-    path = root / PARKED_REL
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(entry)
-    except OSError as exc:
-        print(f"gate: cannot park the escalation in {path}: {exc}", file=sys.stderr)
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import journal
+
+        journal.add(root, "parked", entry)   # this session's own file of the log (board 739)
+    except (ImportError, OSError) as exc:
+        print(f"gate: cannot park the escalation in {PARKED_REL}: {exc}", file=sys.stderr)
     return task, None
 
 
@@ -1363,7 +1363,7 @@ def finish_stop(report: Report, root: Path, session: str) -> tuple[str, dict[str
         message += (f"a question to the owner on the task board: {task} — leave its answer line empty; "
                     f"the board runner acts on the owner's answer. Report: {REPORT_REL}")
     else:
-        message += f"parked in {PARKED_REL} for a human. Report: {REPORT_REL}"
+        message += f"parked in the parked log for a human (`python3 .claude/hooks/journal.py show parked`). Report: {REPORT_REL}"
     return "escalated", {"systemMessage": message}
 
 

@@ -33,6 +33,7 @@ from pathlib import Path
 from types import ModuleType
 
 from hook_env import hook_env
+from journals import journal_text
 
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS = ROOT / ".claude/hooks"
@@ -111,11 +112,11 @@ check("negative — «Режим: абищо» is not taken from the inbox and t
       and not (root / "tasks/todo/020-bad.md").exists(), said(r))
 check("negative — two «Режим:» lines are not taken either", "021-two.md skipped: рядків «Режим:» два" in r.stdout and (inbox / "021-two.md").is_file(), said(r))
 check("…a good line in another case is taken", "022-good.md imported" in r.stdout and (root / "tasks/todo/022-good.md").is_file(), said(r))
-journal = (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+journal = journal_text(root, "anomalies")
 check("…the journal says why, once per file", journal.count("020-bad.md") == 1 and journal.count("021-two.md") == 1
       and "Режим: ескіз|соло|конвеєр" in journal, journal)
 run(BOARD, root, "--root", str(root), "import-inbox", str(inbox))
-check("…and a second import writes no second entry", (root / "tasks/ANOMALIES.md").read_text(encoding="utf-8") == journal)
+check("…and a second import writes no second entry", journal_text(root, "anomalies") == journal)
 put(root, "todo", "005-bad-in-todo.md", task("005", "Режим: абищо"))
 r = run(BOARD, root, "--root", str(root), "next")
 check("negative — such a task already in todo/ is passed over by next", r.stdout.strip() == "tasks/todo/022-good.md", said(r))

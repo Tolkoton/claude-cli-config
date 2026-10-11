@@ -40,7 +40,8 @@ everything you need is in the request package and in the repository.
 Then the state:
 
 4. `.engine/overseer/MEMORY.md` — cross-slice patterns
-5. `.engine/overseer/ledger.md` — verdicts on prior turns (newest first)
+5. the ledger — verdicts on prior turns (newest first): `.engine/overseer/ledger.md` and every session's own
+   file `.engine/journal/ledger/*.md` (board 739); `python3 .claude/hooks/journal.py show ledger` prints the two whole
 6. `.engine/overseer/escalations.md` — human decisions on prior escalations
 7. `CLAUDE.md` — project conventions
 8. `.engine/PROGRESS.md` — identifies the CURRENT slice (IN PROGRESS / CODE

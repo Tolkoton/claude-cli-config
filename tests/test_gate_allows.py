@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from journals import journal_text
+
 ROOT = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True,
                            check=True).stdout.strip())
 HOOKS = ROOT / ".claude" / "hooks"
@@ -386,7 +388,7 @@ r = new_repo()
 asked = claim(r)
 check("corrupt collector state is read as no state: the plain request", asked.startswith("OVERSEER_REQUEST") and "GATE-ALLOW" not in asked, asked)
 broken = Path(tempfile.mkdtemp(prefix="gate-allows-hooks-"))
-for name in ("overseer_stop.py", "overseer_verdict.py", "gate.py", "lesson_queue.py"):
+for name in ("overseer_stop.py", "overseer_verdict.py", "gate.py", "lesson_queue.py", "journal.py"):
     shutil.copy(HOOKS / name, broken / name)
 (broken / "gate_allows.py").write_text("def render(allows: object) -> str:\n    return ''\n\n\n"
     "def record_request(*a: object, **k: object) -> list[object]:\n    raise OSError('disk went away')\n")
@@ -444,7 +446,7 @@ r = new_repo()
 in_slice(r, "tax")
 commit(r, "the slice is declared")
 stamp = escalate(r)
-parked = (r / ".engine/overseer/parked.md").read_text()
+parked = journal_text(r, "parked")
 check("the gate's PARKED entry names the slice and the owner's command",
       f"## {stamp} — gate stop layer — PARKED" in parked and "- Slice: tax\n" in parked
       and f"--close-escalation {stamp}" in parked, parked)
@@ -478,8 +480,8 @@ done = close(r, stamp, inside_claude=False)
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("the owner's command closes it in the state; board 037: the log is history — its entry is left as it was written",
       done.returncode == 0 and state["open"] == [] and state["closed"][0]["stamp"] == stamp
-      and f"## {stamp} — gate stop layer — PARKED" in (r / ".engine/overseer/parked.md").read_text()
-      and "RESUMED" not in (r / ".engine/overseer/parked.md").read_text(), (done.stderr, state))
+      and f"## {stamp} — gate stop layer — PARKED" in journal_text(r, "parked")
+      and "RESUMED" not in journal_text(r, "parked"), (done.stderr, state))
 check("...and PASS is accepted again", audited(r).startswith("OVERSEER_PASS recorded"), last_verdict(r))
 
 print("an escalation outside any slice covers its files")
@@ -520,7 +522,7 @@ r = new_repo()
 stamp = escalate(r)
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("no tasks/ in the project: no task, no tasks/ directory, the escalation as before",
-      not (r / "tasks").exists() and "task" not in state["open"][-1] and "«так»" not in (r / ".engine/overseer/parked.md").read_text(), state)
+      not (r / "tasks").exists() and "task" not in state["open"][-1] and "«так»" not in journal_text(r, "parked"), state)
 r = new_repo()
 (r / "tasks" / "blocked").mkdir(parents=True)
 (r / "mod.py").write_text("x = 1\ny = 2\nq = 9\n")
@@ -547,7 +549,7 @@ check("the gate itself still closes nothing inside a session", close(r, stamp, i
       and len(json.loads((r / ".claude/state/gate/escalations.json").read_text())["open"]) == 1)
 lonely = Path(tempfile.mkdtemp(prefix="gate-allows-noboard-")) / "hooks"
 lonely.mkdir()
-for name in ("gate.py", "delete_guard.py", "test_touch.py", "lesson_queue.py"):  # the gate and the modules it cannot run without
+for name in ("gate.py", "delete_guard.py", "test_touch.py", "lesson_queue.py", "journal.py"):  # the gate and the modules it cannot run without
     shutil.copy(HOOKS / name, lonely / name)
 r = new_repo()
 (r / "tasks" / "blocked").mkdir(parents=True)
@@ -557,7 +559,7 @@ commit(r, "env")
 proc = run(lonely / "gate.py", r, "--layer", "stop", "--hook", stdin={"session_id": "s1"})
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("board.py missing beside the hooks: the escalation is still recorded and parked, and the gate says so",
-      len(state["open"]) == 1 and "PARKED" in (r / ".engine/overseer/parked.md").read_text()
+      len(state["open"]) == 1 and "PARKED" in journal_text(r, "parked")
       and "not put on the task board" in proc.stderr and "GATE ESCALATION" in proc.stdout, proc.stderr)
 
 
@@ -589,8 +591,7 @@ def questions(root: Path) -> list[str]:
 
 
 def journal(root: Path) -> str:
-    path = root / "tasks/ANOMALIES.md"
-    return path.read_text(encoding="utf-8") if path.is_file() else ""
+    return journal_text(root, "anomalies")
 
 
 for marker, word in (("rebase-merge", "rebase"), ("rebase-apply", "rebase"), ("MERGE_HEAD", "merge")):
@@ -639,7 +640,7 @@ in_progress(r, "rebase-merge", True)
 escalate(r)
 state = json.loads((r / ".claude/state/gate/escalations.json").read_text())
 check("negative — no board in the project: a rebase changes nothing, the escalation is parked in the log as before",
-      "waiting" not in state["open"][-1] and "PARKED" in (r / ".engine/overseer/parked.md").read_text() and not (r / "tasks").exists(), state)
+      "waiting" not in state["open"][-1] and "PARKED" in journal_text(r, "parked") and not (r / "tasks").exists(), state)
 check("--ask-waiting with nothing waiting: exit 0, nothing written", run(GATE, r, "--ask-waiting").returncode == 0 and not (r / "tasks").exists())
 
 print()
