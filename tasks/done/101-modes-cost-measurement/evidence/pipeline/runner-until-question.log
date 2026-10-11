@@ -1,0 +1,4 @@
+[board] 010-split-evenly: closed with 1 uncommitted file(s); the agent is asked once to commit or remove them
+[board] 010-split-evenly: blocked (11.2128 USD)
+[board] stopped (once): one task was asked for (--once); it ended in blocked/
+[board] summary: /home/lao/101-modes/pipeline/.claude/state/board/summary.md

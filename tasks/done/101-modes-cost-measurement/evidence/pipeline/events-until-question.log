@@ -1,0 +1,11 @@
+2026-10-11T17:53:21Z start pid=4262 branch=unattended/work once=1 push=0
+2026-10-11T17:53:21Z fetch-failed
+2026-10-11T17:53:22Z commit fb9a929 board: 010-split-evenly → doing
+2026-10-11T17:53:22Z attempt 010-split-evenly 1 
+2026-10-11T18:19:45Z attempt-end 010-split-evenly 1 cost=11.1070 commit=yes
+2026-10-11T18:19:45Z dirty-tree 010-split-evenly 1 file(s)
+2026-10-11T18:19:45Z attempt 010-split-evenly 2 resume=56c2c68a-6918-4f53-839d-811cba7eeecd
+2026-10-11T18:19:52Z attempt-end 010-split-evenly 2 cost=11.2128 commit=yes
+2026-10-11T18:19:52Z dirty-tree-cleaned 010-split-evenly
+2026-10-11T18:19:52Z task-blocked 010-split-evenly cost=11.2128
+2026-10-11T18:19:52Z stop stopped once 010-split-evenly

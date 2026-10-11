@@ -1,0 +1,82 @@
+{
+ "feature-critic": {
+  "started": 1,
+  "runs": [
+   {
+    "seconds": 50,
+    "tokens": 46418,
+    "model": "claude-opus-5-5"
+   }
+  ]
+ },
+ "simplifier": {
+  "started": 2,
+  "runs": [
+   {
+    "seconds": 62,
+    "tokens": 22254,
+    "model": "claude-fable-5-1"
+   },
+   {
+    "seconds": 90,
+    "tokens": 34129,
+    "model": "claude-fable-5-1"
+   }
+  ]
+ },
+ "slice-planner-critic": {
+  "started": 12,
+  "runs": [
+   {
+    "seconds": 63,
+    "tokens": 53772,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 80,
+    "tokens": 64962,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 83,
+    "tokens": 54361,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 93,
+    "tokens": 62420,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 75,
+    "tokens": 65820,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 92,
+    "tokens": 57380,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 106,
+    "tokens": 64528,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 90,
+    "tokens": 70442,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 91,
+    "tokens": 67510,
+    "model": "claude-opus-5-5"
+   },
+   {
+    "seconds": 146,
+    "tokens": 68909,
+    "model": "claude-opus-5-5"
+   }
+  ]
+ }
+}

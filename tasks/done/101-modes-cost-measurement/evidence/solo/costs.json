@@ -1,0 +1,26 @@
+{
+  "tasks": {
+    "010-split-evenly": {
+      "cost_usd": 0.8849,
+      "attempts": [
+        {
+          "utc": "2026-10-11T16:27:20Z",
+          "session_id": "841c9b5d-b1c4-4b2d-a3e5-19abb8fbd76d",
+          "committed": true,
+          "limit": false,
+          "auth": false,
+          "reported_usd": 0.8848817999999998,
+          "output": "010-split-evenly-1.json"
+        }
+      ],
+      "budget_from": 0.0,
+      "started_utc": "2026-10-11T16:25:23Z",
+      "session_id": "841c9b5d-b1c4-4b2d-a3e5-19abb8fbd76d",
+      "attempts_without_commit": 0,
+      "outcome": "done",
+      "finished_utc": "2026-10-11T16:27:21Z"
+    }
+  },
+  "total_cost_usd": 0.8849,
+  "updated_utc": "2026-10-11T16:27:21Z"
+}

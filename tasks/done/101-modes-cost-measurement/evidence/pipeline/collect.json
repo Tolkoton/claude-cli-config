@@ -1,0 +1,225 @@
+[
+  {
+    "mode": "pipeline",
+    "status": "state=stopped task=010-split-evenly since=2026-10-11T18:39:31Z reason=once",
+    "task_cost_usd": {
+      "010-split-evenly": 20.0166
+    },
+    "attempts": [
+      {
+        "log": "010-split-evenly-1.json",
+        "total_cost_usd": 11.107020300000002,
+        "duration_min": 26.4,
+        "num_turns": 41,
+        "models": {
+          "claude-opus-5-5": 9.48,
+          "claude-fable-5-1": 1.63
+        }
+      },
+      {
+        "log": "010-split-evenly-2.json",
+        "total_cost_usd": 11.212844700000003,
+        "duration_min": 0.1,
+        "num_turns": 2,
+        "models": {
+          "claude-opus-5-5": 9.58,
+          "claude-fable-5-1": 1.63
+        }
+      },
+      {
+        "log": "010-split-evenly-3.json",
+        "total_cost_usd": 8.803743,
+        "duration_min": 18.7,
+        "num_turns": 55,
+        "models": {
+          "claude-opus-5-5": 8.8
+        }
+      }
+    ],
+    "session_minutes": 45.2,
+    "wall": [
+      "2026-10-11T17:53:21Z",
+      "2026-10-11T18:39:31Z"
+    ],
+    "agents_started": {
+      "feature-critic": {
+        "started": 2,
+        "runs": [
+          {
+            "seconds": 84,
+            "tokens": 50274,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 45,
+            "tokens": 47720,
+            "model": "claude-opus-5-5"
+          }
+        ]
+      },
+      "simplifier": {
+        "started": 2,
+        "runs": [
+          {
+            "seconds": 112,
+            "tokens": 33876,
+            "model": "claude-fable-5-1"
+          },
+          {
+            "seconds": 158,
+            "tokens": 37493,
+            "model": "claude-fable-5-1"
+          }
+        ]
+      },
+      "slice-planner-critic": {
+        "started": 19,
+        "runs": [
+          {
+            "seconds": 65,
+            "tokens": 65885,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 73,
+            "tokens": 61832,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 95,
+            "tokens": 64695,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 267,
+            "tokens": 67427,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 80,
+            "tokens": 64315,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 121,
+            "tokens": 68916,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 336,
+            "tokens": 66400,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 93,
+            "tokens": 66664,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 103,
+            "tokens": 69406,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 116,
+            "tokens": 69236,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 151,
+            "tokens": 75704,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 160,
+            "tokens": 74839,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 51,
+            "tokens": 57702,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 76,
+            "tokens": 61211,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 81,
+            "tokens": 60751,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 117,
+            "tokens": 76965,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 96,
+            "tokens": 62366,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 118,
+            "tokens": 72557,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 99,
+            "tokens": 67534,
+            "model": "claude-opus-5-5"
+          }
+        ]
+      },
+      "test-manager": {
+        "started": 2,
+        "runs": [
+          {
+            "seconds": 12,
+            "tokens": 25026,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 29,
+            "tokens": 29273,
+            "model": "claude-opus-5-5"
+          }
+        ]
+      },
+      "slice-tester": {
+        "started": 3,
+        "runs": [
+          {
+            "seconds": 122,
+            "tokens": 42342,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 120,
+            "tokens": 55516,
+            "model": "claude-opus-5-5"
+          },
+          {
+            "seconds": 78,
+            "tokens": 43994,
+            "model": "claude-opus-5-5"
+          }
+        ]
+      },
+      "overseer": {
+        "started": 1,
+        "runs": [
+          {
+            "seconds": 53,
+            "tokens": 60787,
+            "model": "claude-opus-5-5"
+          }
+        ]
+      }
+    },
+    "task_ended_in": [
+      "tasks/done/010-split-evenly"
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+{
+ "reader": {
+  "started": 1,
+  "runs": [
+   {
+    "seconds": 23,
+    "tokens": 14624,
+    "model": "claude-opus-5-5"
+   }
+  ]
+ }
+}

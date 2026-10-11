@@ -1,0 +1,7 @@
+2026-10-11T16:25:22Z start pid=3066284 branch=unattended/work once=1 push=0
+2026-10-11T16:25:22Z fetch-failed
+2026-10-11T16:25:23Z commit 49ebb0f board: 010-split-evenly → doing
+2026-10-11T16:25:23Z attempt 010-split-evenly 1 
+2026-10-11T16:27:20Z attempt-end 010-split-evenly 1 cost=0.8849 commit=yes
+2026-10-11T16:27:21Z task-done 010-split-evenly cost=0.8849
+2026-10-11T16:27:21Z stop stopped once 010-split-evenly

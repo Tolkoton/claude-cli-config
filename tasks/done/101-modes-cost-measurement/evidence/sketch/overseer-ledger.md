@@ -1,0 +1,7 @@
+## 2026-10-11T16:27:23Z — unknown — OVERSEER_PASS
+- Trigger: none — The claim reproduces: lint, type-check and 22 tests are green on the staged tree, the RED was a real tool result and fails again for the quoted reason against HEAD's pricing.py, and every line of the task's «Готово, коли» has a test that a wrong implementation would fail. One disclosed, untested limit remains: an amount beyond 28 significant digits raises decimal.InvalidOperation, not ValueError; the task does not ask for it.
+- Evidence: command: uv run ruff format --check src tests → 5 files already formatted; uv run ruff check . → All checks passed!; uv run mypy → Success: no issues found in 5 source files; uv run pytest -q → 22 pas; command: temporary copy outside the tree with src/refproj/pricing.py from git show HEAD → uv run pytest -q → ImportError: cannot import name 'split_evenly' from 'refproj.pricing', 1 error (matches the; .claude/state/overseer/requests/20261011T162641Z-a4f82f/evidence.md:144 (command 11 is the RED run before the code; command 12 adds the function and then runs format, lint, mypy and pytest — the verif; src/refproj/pricing.py:22; tests/test_pricing.py:26; tests/test_pricing.py:34; tests/test_pricing.py:54; tests/test_pricing.py:60; command: probe with PYTHONPATH=src — 1E+2/3 → 33.34, 33.33, 33.33; 5/2 → 2.50, 2.50; 0.10/4 → 0.03, 0.03, 0.02, 0.02; every sum equals the amount; 1234567890123456
+- Action: unit accepted; the builder continues
+- Category: none
+- Request: 20261011T162641Z-a4f82f (attempt 1, hook)
+- Auditor: overseer agent

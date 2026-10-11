@@ -1,0 +1,12 @@
+{
+ "overseer": {
+  "started": 1,
+  "runs": [
+   {
+    "seconds": 35,
+    "tokens": 34238,
+    "model": "claude-opus-5-5"
+   }
+  ]
+ }
+}
