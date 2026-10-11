@@ -274,9 +274,12 @@ without one.
   `unavailable` with the reason. The edit-time formatter and quick lint never fetch anything: a ruff
   of another version on PATH formats and lints nothing there (a `log` finding says why), and black
   stays the fallback only where there is no ruff at all.
-- **In a project** the project's own version wins: `uv run` / `poetry run` with a lockfile, a tool in
-  its virtual environment (`VIRTUAL_ENV`, `.venv/`, `venv/`), or its `LINT_CMD` / `TYPECHECK_CMD` /
-  `FORMAT_CMD`. A global tool of another version is not the project's choice and is not used.
+- **In a project** the project's own version wins: `uv run` / `poetry run` when the lockfile names the
+  tool and the runner really starts the project's own copy (the gate asks it; one more runner call per
+  check), a tool in its virtual environment (`VIRTUAL_ENV`, `.venv/`, `venv/`), or its `LINT_CMD` /
+  `TYPECHECK_CMD` / `FORMAT_CMD`. A global tool of another version is not the project's choice and is
+  not used — also behind a lockfile: where `uv run` would only pass the call to the tool on PATH (not
+  locked, or locked in an extra or group that is not installed), the engine's version runs (board 108).
 - **pytest in a project is never pinned**: it runs the project's code in the project's environment.
 - The first run on a machine with uvx needs the network once (uv's cache keeps the release).
 

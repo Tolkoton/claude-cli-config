@@ -93,6 +93,7 @@ PASSES_FOR_ADVOCATE = 3
 # no-qa marker, a skip, a loosened setting. A missing or weak test is a test gap, never a BLOCK.
 SILENCED_RE = re.compile(r"gate[- ]?allow|exemption|suppress|ignore|noqa|no-qa|skip|xfail|silenc|loosen", re.IGNORECASE)
 GAP_FIELDS = ("check", "misses")
+GAP_CHECK_CHARS = 2000   # a board item carries the check whole; an auditor's check runs to a few hundred characters
 EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
 AGENT_TOOLS = frozenset({"Agent", "Task"})
 OUTPUT_TAIL_LINES = 15
@@ -611,6 +612,15 @@ def settle(root: Path, row: JsonObj) -> None:
         pass
 
 
+def gap_key(check: str) -> str:
+    """The key of a test gap's board item: a readable slug of the check and a hash of the whole of it.
+    The slug alone gave two checks one item — the same first 60 characters, or no Latin letter at all
+    (every check written in Cyrillic was `test-gap-`) — and the second gap never reached the board (board 108)."""
+    text = " ".join(check.split()).casefold()
+    slug = re.sub(r"[^a-z0-9]+", "-", text).strip("-")[:60].strip("-")
+    return "-".join(part for part in ("test-gap", slug, hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]) if part)
+
+
 def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonObj]:
     """One item in tasks/todo/ per test gap (board 077), named by the check to write; `task` is its
     path, or empty without a board. The item's key is the check, so the same gap found again by the
@@ -627,20 +637,22 @@ def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonOb
     except (ImportError, OSError, ValueError, TypeError, AttributeError):
         tasks = None
     for gap in gaps:
-        check, misses = one_line(gap["check"], 200), one_line(gap["misses"], 600)
+        # The whole check: the key is taken of it and the item carries it — cut to 200 characters, two checks
+        # that differ only after them were one key and read the same (board 108). Only the title is short.
+        check, misses = one_line(gap["check"], GAP_CHECK_CHARS), one_line(gap["misses"], 600)
         where = one_line(gap.get("where") or "", 200)
         task = ""
         if tasks is not None and board is not None:
             try:
                 made = board.open_item(
-                    tasks, "todo", f"Брак тесту (overseer): {check}",
+                    tasks, "todo", f"Брак тесту (overseer): {one_line(check, 200)}",
                     f"Overseer прийняв юніт `{row.get('unit_key') or row.get('slice')}` (PASS, запит `{row['request']}`) "
                     f"і знайшов брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
                     + " Вердикт — у ledger: `python3 .claude/hooks/journal.py show ledger`.",
                     do=(f"Дописати перевірку «{check}»: тест червоніє на тому, що описано вище ({misses}), і зелений "
                         "на коді, як він є (покажи обидва прогони); код не міняти, якщо тест не знайде справжньої вади; "
                         "швидкий набір тестів зелений."),
-                    key="test-gap-" + re.sub(r"[^a-z0-9]+", "-", check.lower()).strip("-")[:60],
+                    key=gap_key(str(gap["check"])),
                     source="overseer (overseer_verdict.py)")
                 task = made.relative_to(root).as_posix() if made else ""
             except (OSError, ValueError, TypeError, KeyError, AttributeError):

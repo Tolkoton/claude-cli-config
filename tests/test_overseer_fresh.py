@@ -370,6 +370,30 @@ said = p.stop("Answered.")
 check("…and passes with gaps never count toward the three BLOCKs: three in a row park nothing",
       [r["verdict"] for r in p.rows()] == ["PASS", "PASS", "PASS"] and not list((p.root / "tasks/blocked").glob("*.md"))
       and "third in a row" not in said and "OVERSEER_PASS recorded" in said, said)
+# board 108 (the overseer on board 077): two different gaps are two items, also when the old key made them one.
+LONG = "overseer_verdict.schema_errors refuses a BLOCK on check 4 whose reason says "
+PAIRS = {"the same first 60 characters": (LONG + "skip of a CASE", LONG + "ignore of an INPUT"),
+         "no Latin letter at all": ("тест округлення половини вгору", "тест порожнього кошика"),
+         "the same first 260 characters": (LONG * 3 + "and the log has no second line", LONG * 3 + "and the report names the tool")}
+for why, (one, two) in PAIRS.items():
+    p = Project()
+    for column in ("todo", "doing", "blocked", "done"):
+        (p.root / "tasks" / column).mkdir(parents=True, exist_ok=True)
+    _, rid = p.claim()
+    p.launch(f"OVERSEER_REQUEST {rid}")
+    p.answer(GOOD | {"test_gaps": [{"check": one, "misses": "the first case"}, {"check": two, "misses": "the second case"}]})
+    items = sorted((p.root / "tasks/todo").glob("*.md"))
+    texts = [i.read_text(encoding="utf-8") for i in items]
+    tasks = [g.get("task") for g in (p.rows()[-1].get("test_gaps") or [])] if p.rows() else []
+    check(f"NEGATIVE — two gaps whose checks share {why}: two items, each with its own check, each gap's row names its own",
+          len(items) == 2 and one in texts[0] and "the first case" in texts[0] and two in texts[1] and "the second case" in texts[1]
+          and len(set(tasks)) == 2, str([i.name for i in items]) + str(tasks))
+    (p.root / "src/pricing.py").open("a", encoding="utf-8").write("# more\n")
+    p.audit(GOOD | {"test_gaps": [{"check": "  " + two.upper().replace(" ", "  "), "misses": "the second case"}]},
+            "More.\n\n=== UNIT 3 COMPLETE ===", shell="echo more >> src/pricing.py")
+    check("…and the second of them found again (other case, other spacing) returns its item, not a third",
+          len(sorted((p.root / "tasks/todo").glob("*.md"))) == 2 and p.rows()[-1]["test_gaps"][0]["task"] == tasks[1],
+          str(sorted((p.root / "tasks/todo").glob("*.md"))))
 p = Project()
 _, rid = p.claim()
 p.launch(f"OVERSEER_REQUEST {rid}")

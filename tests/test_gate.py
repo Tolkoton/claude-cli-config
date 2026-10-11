@@ -280,6 +280,74 @@ log = calls(r)
 check("a project that installed the tools in its own virtual environment keeps its own versions",
       "venv/bin:ruff check --force-exclude mod.py" in log and "venv/bin:mypy mod.py" in log and "shims:ruff" not in log, log)
 
+print("stop: a lockfile runner is the project's pin only when it really starts the project's own tool (board 108)")
+
+
+def runner(root: Path, where: Path, name: str, own: Path | None = None) -> None:
+    """`uv` / `poetry` as the real ones behave: `run <cmd>` starts <cmd> from the project's environment
+    when it is there (`own`, put first on PATH), else whatever PATH holds. Logs its argv."""
+    first = f'export PATH="{own}:$PATH"\n' if own else ""
+    (where / name).write_text(f'#!/usr/bin/env bash\necho "{name} $*" >> "{root}/calls.log"\n[ "$1" = run ] && shift\n{first}'
+                              '[ "$1" = python ] && { shift; exec python3 "$@"; }\nexec "$@"\n')   # the environment's python
+    (where / name).chmod(0o755)
+
+
+def commit_lock(root: Path, lock: str, package: str) -> None:
+    (root / lock).write_text(f'version = 1\n\n[[package]]\nname = "{package}"\nversion = "0.0.1"\n')
+    sh(root, "git", "add", "-A")
+    sh(root, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", f"{lock} {package}")
+
+
+PINNED = f"global:uvx --quiet ruff@{VERSIONS.VERSIONS['ruff']} check --force-exclude mod.py"
+for package, what in (("requests", "does not name ruff"), ("ruff", "names ruff in an extra that is not installed")):
+    r = new_repo()
+    (r / "pyproject.toml").write_text('[tool.ruff]\nline-length = 100\n')
+    commit_lock(r, "uv.lock", package)
+    (r / "mod.py").write_text("x = 5\n")
+    both = shims(r, version="0.0.1", names=("ruff", "uvx"), where="_global")
+    runner(r, both, "uv")
+    proc, payload = hook_stop(r, session="l1", path=both, rest=without_uvx())
+    log = calls(r)
+    check(f"a uv.lock that {what}, another ruff on PATH, uvx at hand: uvx runs the pinned release", PINNED in log, log)
+    check("NEGATIVE: ...and the global ruff never judges the change, through `uv run` or directly",
+          "uv run ruff" not in log and "global:ruff" not in log, log)
+    (r / "calls.log").unlink(missing_ok=True)
+    (both / "uvx").unlink()
+    proc, payload = hook_stop(r, session="l2", path=both, rest=without_uvx())
+    log = calls(r)
+    check("NEGATIVE: ...the same without uvx: the stop is blocked with both versions named, no ruff ran",
+          payload.get("decision") == "block" and "ruff did not run" in str(payload.get("reason"))
+          and "0.0.1" in str(payload.get("reason")) and "uv run ruff" not in log and "global:ruff" not in log, str(payload) + log)
+r = new_repo()
+(r / "pyproject.toml").write_text('[tool.ruff]\nline-length = 100\n')
+commit_lock(r, "uv.lock", "ruff")
+(r / "mod.py").write_text("x = 6\n")
+both = shims(r, version="0.0.1", names=("ruff", "uvx"), where="_global")
+runner(r, both, "uv", own=shims(r, version="9.9.9", names=("ruff",), where="_locked"))
+proc, payload = hook_stop(r, session="l3", path=both, rest=without_uvx())
+log = calls(r)
+check("a uv.lock that names ruff and a `uv run` that starts the project's own: that one judges, whatever its version",
+      "uv run ruff check --force-exclude mod.py" in log and "locked:ruff check --force-exclude mod.py" in log
+      and "global:" not in log and payload.get("decision") != "block", str(payload) + log)
+for package, what in (("requests", "does not name ruff"), ("ruff", "names ruff, and `poetry run` only passes the call to PATH")):
+    r = new_repo()
+    (r / "poetry.lock").write_text(f'[[package]]\nname = "{package}"\nversion = "0.0.1"\n')
+    (r / "mod.py").write_text("import os\nx=1\n")
+    glob = shims(r, version="0.0.1", names=("ruff",), where="_global")
+    runner(r, glob, "poetry")
+    p = gate(r, "--layer", "post_write", "--hook", stdin={"tool_input": {"file_path": str(r / "mod.py")}}, path=glob, rest=without_uvx())
+    check(f"NEGATIVE: post_write with a poetry.lock that {what}: the global ruff of another version neither formats "
+          "nor lints, and the report says why",
+          p.returncode == 0 and "poetry run ruff" not in calls(r) and "global:ruff" not in calls(r)
+          and (r / "mod.py").read_text() == "import os\nx=1\n" and "tools/version" in rules(r), calls(r) + p.stdout)
+r = new_repo()
+(r / "poetry.lock").write_text('[[package]]\nname = "ruff"\nversion = "0.0.1"\n')
+glob = shims(r, version="0.0.1", names=("ruff",), where="_global")
+runner(r, glob, "poetry", own=shims(r, version="9.9.9", names=("ruff",), where="_locked"))
+p = gate(r, "--layer", "post_write", "--hook", stdin={"tool_input": {"file_path": str(r / "mod.py")}}, path=glob, rest=without_uvx())
+check("...and with ruff named in poetry.lock and really started by `poetry run`, the edit goes through it",
+      "poetry run ruff format" in calls(r) and "locked:ruff format" in calls(r) and "global:" not in calls(r), calls(r))
+
 # ---------------------------------------------------------------- pre_commit and ci: the full set
 print("pre_commit / ci: the full set")
 r = new_repo()

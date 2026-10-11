@@ -21,7 +21,7 @@ the same schema. Settings live in `.claude/project.env` and nowhere else.
 | `ci` | pipeline | the whole project: `ruff check .`, `mypy .`, `TEST_CMD_FULL` else `TEST_CMD` | yes |
 
 The default `ruff` and `mypy` run at the versions `.claude/hooks/tool_versions.py` pins (board 107) unless the
-project pins its own: `uv run` / `poetry run` with a lockfile, a tool in its virtual environment, or the
+project pins its own: `uv run` / `poetry run` when the lockfile names the tool and the runner starts the project's own copy (not the one on PATH), a tool in its virtual environment, or the
 command it set. Only another version at hand blocks `stop` with `tools/version` and the reason; in
 `post_write` such a ruff neither formats nor lints (a `log` finding says why). pytest is always the project's.
 

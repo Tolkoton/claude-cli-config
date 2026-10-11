@@ -13,8 +13,8 @@ How a tool is found (`command`):
   3. neither: None and the reason. The check does not judge in silence with another version: the
      caller fails with that reason, or (a signal, a formatter) says it did not run.
 A project that pins a tool itself keeps its own version: `project_tool` finds it in the project's
-virtual environment, and gate.py runs `uv run` / `poetry run` for a project with a lockfile and
-the project's LINT_CMD / TYPECHECK_CMD / FORMAT_CMD as written (docs/engine-limits.md).
+virtual environment, and gate.py runs `uv run` / `poetry run` where the lockfile names the tool and the
+runner starts the project's own copy (board 108), and the project's LINT_CMD / TYPECHECK_CMD / FORMAT_CMD as written (docs/engine-limits.md).
 
 pytest is pinned here only for the engine's own measurements (evals, the simplifier's sets): in a
 project it runs the project's code and so belongs to the project's environment, never to uvx.

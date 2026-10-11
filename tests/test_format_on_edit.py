@@ -261,13 +261,22 @@ else:
 # ---------------------------------------------------------------------------
 print("ACT-3  uv.lock present -> 'uv run ruff', bare ruff must NOT fire")
 r = new_root(with_seed_env=True)
-(r / "uv.lock").touch()
+(r / "uv.lock").write_text('version = 1\n\n[[package]]\nname = "ruff"\nversion = "0.1.0"\n')
 shims = r / "shims"
 uv_log, ruff_log = r / "uv.log", r / "ruff.log"
 uv_log.write_text("")
 ruff_log.write_text("")
-make_shim(shims, "uv", uv_log)
 make_shim(shims, "ruff", ruff_log)
+
+
+def uv_shim(answer: str) -> None:
+    """`uv`: records its argv; asked where the tool is (`run python -c …`, board 108), it answers
+    `answer` — the project's own copy, or the one on PATH when it would only pass the call through."""
+    (shims / "uv").write_text(f'#!/usr/bin/env bash\nprintf "%s\\n" "uv $*" >> "{uv_log}"\n[ "$2" = python ] && echo "{answer}"\nexit 0\n')
+    (shims / "uv").chmod(0o755)
+
+
+uv_shim(str(r / ".cache-env/bin/ruff"))
 target = r / "mod.py"
 target.write_text("x=1\n")
 run_hook(target, r, extra_path=shims)
@@ -279,6 +288,25 @@ if ruff_log.read_text() == "":
     ok("bare ruff NOT invoked (branch precedence is exclusive)")
 else:
     bad("bare ruff must not run when uv.lock exists", "", ruff_log.read_text())
+
+# board 108: the lock names ruff, but `uv run` would only start the ruff on PATH (an extra that is not installed).
+uv_shim(str(shims / "ruff"))
+uv_log.write_text("")
+run_hook(target, r, extra_path=shims)
+if "uv run ruff" not in uv_log.read_text() and f"ruff format --force-exclude {target}" in ruff_log.read_text():
+    ok("uv.lock names ruff but 'uv run' finds only the one on PATH: not routed through it, the engine's version formats")
+else:
+    bad("a runner that only passes the call to PATH must not be used", "no 'uv run ruff'", uv_log.read_text())
+
+# ...and a lockfile that does not name ruff pins nothing: the runner is not even asked.
+(r / "uv.lock").write_text('version = 1\n\n[[package]]\nname = "requests"\nversion = "2.0"\n')
+uv_log.write_text("")
+ruff_log.write_text("")
+run_hook(target, r, extra_path=shims)
+if uv_log.read_text() == "" and f"ruff format --force-exclude {target}" in ruff_log.read_text():
+    ok("uv.lock without ruff: 'uv run' NOT invoked, the ruff of the engine's version formats")
+else:
+    bad("a lockfile that does not name ruff must not route through 'uv run'", "", uv_log.read_text())
 
 # ---------------------------------------------------------------------------
 # ACT-4  Configured path: FORMAT_CMD + CODE_EXTENSIONS, real formatter, real

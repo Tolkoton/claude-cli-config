@@ -339,12 +339,43 @@ def run_shell(root: Path, command: str) -> tuple[int, str, int]:
     return rc, out, int((time.perf_counter() - started) * 1000)
 
 
-def tool_prefix(root: Path) -> str:
-    if (root / "uv.lock").is_file() and shutil.which("uv"):
-        return "uv run "
-    if (root / "poetry.lock").is_file() and shutil.which("poetry"):
-        return "poetry run "
+LOCK_RUNNERS = (("uv.lock", "uv", "uv run "), ("poetry.lock", "poetry", "poetry run "))
+RUNNER_TIMEOUT_S = 60
+WHICH = "import shutil, sys; print(shutil.which(sys.argv[1]) or '')"
+
+
+def tool_prefix(root: Path, tool: str | None = None) -> str:
+    """The lockfile runner of the project, or "". With `tool`: only when the runner really starts
+    the project's own copy of it. A lockfile pins nothing for a tool it does not name, and naming
+    is not enough either — for a tool locked in an extra or a group that is not installed,
+    `uv run` starts whatever PATH holds (board 108, the overseers on board 107)."""
+    for lock, runner, prefix in LOCK_RUNNERS:
+        if (root / lock).is_file() and shutil.which(runner) and (
+                tool is None or (lock_names(root / lock, tool) and runner_has(root, prefix, tool))):
+            return prefix
     return ""
+
+
+def lock_names(lock: Path, tool: str) -> bool:
+    """The lockfile has a package of this name (uv.lock and poetry.lock both write `name = "<package>"`)."""
+    try:
+        text = lock.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return re.search(rf'^name\s*=\s*"{re.escape(tool)}"\s*$', text, re.MULTILINE | re.IGNORECASE) is not None
+
+
+def runner_has(root: Path, prefix: str, tool: str) -> bool:
+    """The runner finds the tool somewhere PATH alone does not: in the project's environment.
+    The same file as on PATH (or none) means the runner would only pass the call through."""
+    try:
+        out = subprocess.run([*prefix.split(), "python", "-c", WHICH, tool], cwd=root, capture_output=True,
+                             text=True, timeout=RUNNER_TIMEOUT_S, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    found = out.stdout.strip().splitlines()[-1].strip() if out.returncode == 0 and out.stdout.strip() else ""
+    outside = shutil.which(tool)
+    return bool(found) and (outside is None or os.path.realpath(found) != os.path.realpath(outside))
 
 
 def tool_versions_module() -> Any:
@@ -356,9 +387,9 @@ def tool_versions_module() -> Any:
 
 def check_tool(root: Path, tool: str) -> tuple[str | None, str]:
     """The shell text that starts a check tool of the default commands, and "" — or None and why.
-    The project's own version when it pins one (a lockfile runner, its virtual environment), else
-    the engine's (tool_versions.py, board 107): a tool on PATH of that version, else uvx."""
-    prefix = tool_prefix(root)
+    The project's own version when it pins one (a lockfile runner that really starts its own copy,
+    its virtual environment), else the engine's (tool_versions.py, board 107): a tool on PATH of that version, else uvx."""
+    prefix = tool_prefix(root, tool)
     if prefix:
         return f"{prefix}{tool}", ""
     versions = tool_versions_module()
@@ -375,7 +406,7 @@ def edit_ruff(root: Path) -> tuple[list[str] | None, str]:
     """ruff for the edit-time layer (the formatter, the quick lint), never fetched: the project's
     own, else one on PATH of the engine's version. None and "" when there is none at all; None and
     why when there is only another version — that one neither formats nor lints (board 107)."""
-    prefix = tool_prefix(root).split()
+    prefix = tool_prefix(root, "ruff").split()
     if prefix:
         return prefix + ["ruff"], ""
     versions = tool_versions_module()
