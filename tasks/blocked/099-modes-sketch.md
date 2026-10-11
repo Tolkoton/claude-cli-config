@@ -38,3 +38,14 @@
    з тестами на проєкті, що має таблицю інструментів, і подавай на audit знову». Будь-яка відповідь поверне задачу в
    чергу, і юніт отримає три нові спроби.
    Відповідь: Код візьми з .engine/artifacts/099-sketch/wip.patch, виправ (а) і (б), як тут написано, з тестами на проєкті, що має таблицю інструментів, і подавай на audit знову.
+2. Застосувати пропозицію налаштувань `docs/tasks/settings.json`? Вона додає до чинного `.claude/settings.json` рівно два
+   рядки: `reader.py guard` (перед запуском агента — `reader` запускається лише рядком `READER_REQUEST <id>` від скрипта) і
+   `reader.py record` (коли агент `reader` закінчив — PASS або BLOCK записує скрипт, а не автор запису). Перевірено:
+   `python3 .claude/unattended/settings_check.py` — «is sound», відрізняється лише в `hooks.PreToolUse` і
+   `hooks.SubagentStop`. Команда, якщо руками: `cp docs/tasks/settings.json .claude/settings.json && python3 tests/test_settings_proposal.py`,
+   потім перезапустити Claude Code. До «так» ці дві перевірки не діють: вердикт читача нікому записати, тож жодна
+   задача в режимі ескіз не закриється (безпечний бік — PASS без hook-а не з'явиться). Решта збудованого діє вже:
+   карантин у `gate.py`, `mode.py check-close` для ескізу, шаблон запису. Код закомічено (`9367ae4`), overseer дав PASS
+   (запит `20261011T061554Z-cefbce`). Звіт — `tasks/blocked/report-099-modes-sketch.md`.
+   Дія runner-а: apply-settings 21d973ef7bb1b72c179b3966ece9af2ea1e8d7949f4a608c712ebc617a817b77
+   Відповідь:
