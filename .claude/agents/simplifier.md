@@ -56,6 +56,10 @@ You do not edit, run or fix anything. You read (Read, Grep, Glob) and you answer
      migration, an error report). One reader is enough.
    A guard is `defensive_for_impossible` only when the code itself rules the state out — the
    value was just built, checked or typed so on every path that reaches the guard.
+   A check of a state the repository only reads and never sets — a file it looks for, an
+   environment variable — may have its owner outside the code: a person, a deploy. That nothing
+   in the repository sets it does not show it unused: `flag_only` at most. A parameter or a
+   constant no caller sets is another matter — every one of its setters would be in the code.
 4. **Is it protected by a test?** `none`: no test would notice the removal or its breakage.
    `characterization_exists`: you found a test that exercises the surrounding behaviour and
    would stay green without the thing. `mutation_verified`: use only when the request says a

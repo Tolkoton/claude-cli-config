@@ -343,6 +343,9 @@ listed = definition[definition.index("is it a trap?"):definition.index("is it pr
 check("the kinds of the new traps are not in the list the agent's definition gives under «Is it a trap?» — what this set is for",
       not any(word in listed for word in ("idempot", "retry", "lock", "kill", "switch", "crash", "atomic", "rounding", "law", "tax")), listed)
 check("negative — and the kinds of the first round are in that list", all(word in listed for word in ("validation", "security", "contract", "edge")))
+flat = " ".join(listed.split())
+check("board 746: a check of a state the repository only reads and never sets is `flag_only` at most, by that step of the definition",
+      "only reads and never sets" in flat and "environment variable" in flat and "`flag_only` at most" in flat, listed)
 traps_request = runner.request_text(traps_box, round2["scope"])
 check("traps: no deterministic signal points at a trap, old or new",
       not any(word in traps_request for word in (*hard_trap_words, "journal", "flock", "ATTEMPTS", "CLOSED", "_write_whole", "vat", "tax")), traps_request)

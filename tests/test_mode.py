@@ -363,10 +363,14 @@ check("negative — the reader missing: the park hook falls back to «attended»
       '"permissionDecision": "ask"' in lone_hook and '"deny"' not in lone_hook and "session_kind=unknown (no python3 or no " in lone_probe,
       (lone_hook[:80], [line for line in lone_probe.splitlines() if "session_kind" in line]))
 # The ways the five decided it themselves; env-probe.sh still PRINTS the file's content as a fact, which decides nothing.
+# The file alone decides here: the runner's own CLAUDE_UNATTENDED_SESSION=1 would answer «unattended» for every text (board 746).
+runner_variable = os.environ.pop("CLAUDE_UNATTENDED_SESSION", None)
 for text, expected in (("not unattended\n", False), ("unattended later\n", False), ("Unattended\n", True), ("**unattended**\n", True)):
     (root / ".claude/state/overseer/mode").write_text(text, encoding="utf-8")
     check(f"the mode file says {text.strip()!r}: {'unattended' if expected else 'attended'} — the word itself, not a word inside a sentence",
           mode.unattended(root)[0] == expected)
+if runner_variable is not None:
+    os.environ["CLAUDE_UNATTENDED_SESSION"] = runner_variable
 own_reading = re.compile(r'environ\.get\("CLAUDE_UNATTENDED_SESSION"\)|"overseer" / "mode"|MODE_REL|CLAUDE_UNATTENDED_SESSION:-|grep -qx .unattended|== "unattended"|"unattended" in ')
 places = (".claude/unattended/board.py", ".claude/unattended/env-probe.sh", ".claude/hooks/goals.py", ".claude/hooks/hotfix.py", ".claude/hooks/park-ask-gated.py")
 readers = {rel: [line.strip() for line in (ROOT / rel).read_text(encoding="utf-8").splitlines() if own_reading.search(line)] for rel in places}
