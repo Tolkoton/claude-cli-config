@@ -326,8 +326,8 @@ check("the repeat written again has come back", "1 of the last 1" in rate(repo),
 print("AGENT-*   the definition matches what the validator enforces")
 text = (ROOT / ".claude/agents/simplifier.md").read_text(encoding="utf-8")
 front = text.split("---")[1]
-check("model fable, tools Read, Grep and Glob only",
-      re.search(r"^model: fable$", front, re.MULTILINE) is not None
+check("model opus, tools Read, Grep and Glob only",
+      re.search(r"^model: opus$", front, re.MULTILINE) is not None
       and re.search(r"^tools: Read, Grep, Glob$", front, re.MULTILINE) is not None, front)
 for group in (simplifier.CATEGORIES, simplifier.TEST_SAFETY, simplifier.ACTIONS, simplifier.RISKS, simplifier.FIELDS,
               simplifier.EVIDENCE_SOURCES):

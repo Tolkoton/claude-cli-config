@@ -9,7 +9,7 @@ there against that growth; what it saves is a side effect. Three parts, strictly
 | Part | What it is | May it judge? | May it change files? |
 |---|---|---|---|
 | signals | `simplify_signals.py` — measured facts with file and line | no | no |
-| agent | `.claude/agents/simplifier.md` — model `fable`, fresh context, blind, Read / Grep / Glob only | yes | no |
+| agent | `.claude/agents/simplifier.md` — model `opus`, fresh context, blind, Read / Grep / Glob only | yes | no |
 | validator and routing | `simplifier.py` — decides what a finding may do | no | only the owner's report, the queue, the ledger |
 
 ## It runs only on a signal

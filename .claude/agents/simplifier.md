@@ -8,7 +8,7 @@ description: |
   of the metrics, the step between design levels, the nightly cleanup — with the request
   `python3 .claude/hooks/simplifier.py request --lens <lens>` prints. Answers with a JSON list
   of findings and nothing else; `simplifier.py validate` decides what a finding may do.
-model: fable
+model: opus
 tools: Read, Grep, Glob
 ---
 

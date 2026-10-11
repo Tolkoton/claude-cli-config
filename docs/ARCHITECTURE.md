@@ -35,7 +35,8 @@ gates, пропозиції правил, відкриті пункти, дог�
 | пам'ять, документація | `.claude/skills/self-learning-orchestrator/SKILL.md`, `.claude/skills/documentation/SKILL.md` | уроки й прибирання пам'яті; документація |
 | огляд власника | `.claude/commands/owner-review.md` | проводить власника через огляд `board.py review` |
 
-Усі critics і overseer — на найсильнішій моделі (`tests/test_model_roles.py`). Агенти спілкуються
+Усі critics і overseer — на моделі сесії, не слабшій за неї; simplifier — на Opus. Найсильніша модель
+двигуна — Opus: жоден агент не закріплений за Fable (`tests/test_model_roles.py`). Агенти спілкуються
 файлами, а не чатом.
 
 ## Рівні проєктування

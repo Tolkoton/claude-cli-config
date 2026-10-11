@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Models by role: critics, judges and architects all on the session's model — the strongest.
+"""Models by role: critics, judges and architects all on the session's model; nothing on Fable.
 
 Facts about the field (code.claude.com/docs/en/sub-agents, checked 2026-10-03): a subagent's
 `model` frontmatter takes an alias (`sonnet`, `opus`, `haiku`, `fable`), a full model id, or
@@ -9,9 +9,11 @@ A skill or a command with no `model` runs on the session's model.
   * no critic names a model weaker than the session's (owner, task 001: a cheaper model for
     critics is a dead end). The session's model is not known here, so the only values that
     cannot be weaker are no `model` at all and `inherit`; any alias or id fails;
-  * the overseer and the architects name NO model, so they stay on the session's — the strongest
-    one the owner runs; a cheaper model written there would be a silent downgrade of the judge;
+  * the overseer and the architects name NO model, so they stay on the session's — the one the
+    owner runs; a cheaper model written there would be a silent downgrade of the judge;
   * no other definition the engine ships, and no settings layer, names a cheaper model;
+  * none of them names Fable either (owner, board 109: the engine's strongest model is Opus;
+    Fable is the dearest and empties the weekly limit first). The simplifier is on `opus`;
   * /feature-architect allows two critic rounds per plan and no third.
 
 Run:   python3 tests/test_model_roles.py       Exit: 0 all green, 1 otherwise.
@@ -29,6 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CLAUDE = ROOT / ".claude"
 CHEAPER = re.compile(r"sonnet|haiku")
+FABLE = re.compile(r"(?i)fable")
 CRITICS = ("critic-core", "feature-critic", "master-critic", "slice-planner-critic", "mvp-critic")
 DEFINITION_DIRS = (CLAUDE / "agents", CLAUDE / "skills", CLAUDE / "commands", ROOT / "templates", ROOT / "user")
 SETTINGS = (CLAUDE / "settings.json", ROOT / "user" / "settings.json", ROOT / "templates" / "project" / ".claude" / "settings.json")
@@ -79,12 +82,20 @@ def names_cheaper_model(fields: dict[str, str]) -> bool:
     return bool(CHEAPER.search(fields.get("model", "")))
 
 
-def cheaper_model_settings(path: Path) -> list[str]:
-    """`model` and `env.*MODEL*` entries of a settings file that name a cheaper model."""
+def names_fable(fields: dict[str, str]) -> bool:
+    return bool(FABLE.search(fields.get("model", "")))
+
+
+def model_settings(path: Path, named: re.Pattern[str]) -> list[str]:
+    """`model` and `env.*MODEL*` entries of a settings file whose value matches `named`."""
     data = json.loads(path.read_text(encoding="utf-8"))
     pairs = [("model", data.get("model", ""))]
     pairs += [(f"env.{key}", value) for key, value in data.get("env", {}).items() if "MODEL" in key]
-    return [f"{key}={value}" for key, value in pairs if CHEAPER.search(str(value))]
+    return [f"{key}={value}" for key, value in pairs if named.search(str(value))]
+
+
+def cheaper_model_settings(path: Path) -> list[str]:
+    return model_settings(path, CHEAPER)
 
 
 print("critics: never weaker than the session's model")
@@ -107,6 +118,29 @@ for path in SETTINGS:
     if path.is_file():
         found = cheaper_model_settings(path)
         check(f"{path.relative_to(ROOT)}: no cheaper model", not found, found)
+
+print("nothing the engine ships is pinned to Fable (board 109)")
+on_fable = [str(path.relative_to(ROOT)) for path in definitions if names_fable(frontmatter(path))]
+check(f"none of the {len(definitions)} definitions names Fable as its model", len(definitions) > 10 and not on_fable, on_fable)
+for path in SETTINGS:
+    if path.is_file():
+        found = model_settings(path, FABLE)
+        check(f"{path.relative_to(ROOT)}: no Fable", not found, found)
+check("the simplifier is on `opus`", frontmatter(CLAUDE / "agents" / "simplifier.md").get("model") == "opus",
+      frontmatter(CLAUDE / "agents" / "simplifier.md").get("model"))
+with tempfile.TemporaryDirectory() as tmp:
+    planted = Path(tmp) / "simplifier.md"
+    for value, refused in (("fable", True), ("claude-fable-5-1", True), ("Fable", True), ("opus", False), ("inherit", False)):
+        planted.write_text(f"---\nname: simplifier\nmodel: {value}\ndescription: x\n---\nbody\n", encoding="utf-8")
+        check(f"a definition with `model: {value}` is {'refused' if refused else 'accepted'}", names_fable(frontmatter(planted)) == refused)
+    planted.write_text("---\nname: simplifier\ndescription: x\n---\nmodel: fable in the body is prose\n", encoding="utf-8")
+    check("a definition with no model field is accepted", not names_fable(frontmatter(planted)))
+    settings = Path(tmp) / "settings.json"
+    settings.write_text(json.dumps({"model": "fable", "env": {"CLAUDE_CODE_SUBAGENT_MODEL": "claude-fable-5-1", "FOO": "fable"}}), encoding="utf-8")
+    check("a settings layer pinning Fable is refused",
+          model_settings(settings, FABLE) == ["model=fable", "env.CLAUDE_CODE_SUBAGENT_MODEL=claude-fable-5-1"], model_settings(settings, FABLE))
+    settings.write_text(json.dumps({"model": "opus", "env": {"FOO": "fable"}}), encoding="utf-8")
+    check("a settings layer on Opus is accepted", model_settings(settings, FABLE) == [])
 
 print("the checks refuse a planted cheaper model")
 with tempfile.TemporaryDirectory() as tmp:
