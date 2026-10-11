@@ -117,6 +117,8 @@ def threshold(env: dict[str, str]) -> int:
 
 def is_working_code(env: dict[str, str], rel: str) -> bool:
     exts = [t.lstrip(".").lower() for t in env.get("CODE_EXTENSIONS", "").replace(",", " ").split() if t.lstrip(".")]
+    if rel.startswith("sketches/"):   # a sketch's quarantine (gate.py, board 099): its code is thrown away freely
+        return False
     return Path(rel).suffix.lstrip(".").lower() in (exts or CODE_EXTS) and not is_test_path(rel)
 
 

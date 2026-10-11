@@ -41,10 +41,11 @@ runner asks here, by files and never by words: in every mode, report.md in the t
 соло — for every commit of the task that changed working code, a PASS of the overseer whose audit saw
 exactly that code; конвеєр — the same, plus the feature artifact (.engine/architecture/feature/) and,
 for every slice contract the task wrote (.engine/slices/), its seal (.claude/state/contracts/) that
-still matches it; ескіз — report.md for now, the quarantine and the record come with board 099.
+still matches it; ескіз — the record .engine/sketches/<name>.md with a PASS of the reader on it as it
+is (reader.py, board 099), and no change outside sketches/, .engine/ and tasks/.
 Working code is what asks for an audit: a code path as the Stop hook reads it from .claude/project.env
 (overseer_stop._is_code_path — under SOURCE_DIRS when set, else an extension of CODE_EXTENSIONS, else
-every file), never under tasks/ or .engine/. The task's commits are those of EVERY stay of the task in
+every file), never under tasks/, .engine/ or sketches/ (the quarantine, board 099). The task's commits are those of EVERY stay of the task in
 doing/ (a park and a restart do not drop the first stay's commits); the last stay runs on past the
 move to done/ — the turn back — until another task enters doing/. A PASS sees a commit's code when,
 for every working-code file the commit changed, the content the audit's request recorded (its tree
@@ -92,7 +93,9 @@ FORBIDDEN = {
 }
 EXIT_OK, EXIT_ATTENDED, EXIT_REFUSED = 0, 1, 2
 EXIT_MISSING, EXIT_BROKEN = 1, 3
-RECORDS = ("tasks/", ".engine/")   # the board's and the engine's records: never working code
+RECORDS = ("tasks/", ".engine/", "sketches/")   # the records and the sketches' quarantine: never working code
+QUARANTINE = ("sketches/", ".engine/", "tasks/")   # all a task in ескіз may change (board 099)
+SKETCH_RECORDS = ".engine/sketches/"
 FEATURES, SLICES, SEALS = ".engine/architecture/feature/", ".engine/slices/", ".claude/state/contracts"
 
 
@@ -435,16 +438,30 @@ def pipeline_missing(root: Path, commits: list[str]) -> list[str]:
     return missing
 
 
+def sketch_missing(root: Path, commits: list[str]) -> list[str]:
+    """ескіз: nothing outside the quarantine, a record among the task's changes, a reader's PASS on each record as it is."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import reader
+
+    changed = sorted({rel for commit in commits for rel in _changed(root, commit)})
+    missing = [f"задача-ескіз змінила файл поза карантином (sketches/, .engine/, tasks/): {rel}" for rel in changed if not rel.startswith(QUARANTINE)]
+    records = [rel for rel in changed if rel.startswith(SKETCH_RECORDS) and rel.endswith(".md") and (root / rel).is_file()]
+    if not records:
+        missing.append(f"запису ескізу ({SKETCH_RECORDS}<назва>.md) серед змін задачі немає")
+    missing += [f"на запис {rel} немає PASS агента-читача, що читав його таким, як він є (reader.py)" for rel in records if not reader.passed(root, rel)]
+    return missing
+
+
 def check_close(root: Path, stem: str) -> tuple[str, list[str]]:
     """(the mode in force, what of its minimum is missing) for the task in tasks/done/<stem>/."""
     folder = root / "tasks" / "done" / stem
     mode = parse((folder / "task.md").read_text(encoding="utf-8")).current or DEFAULT
     missing = [] if (folder / "report.md").is_file() else [f"у tasks/done/{stem}/ немає report.md"]
-    if mode == "ескіз":
-        return mode, missing   # the quarantine and the record of a sketch come with board 099
     commits = task_commits(root, stem)
     if commits is None:
         return mode, [*missing, "задача ніколи не лежала в tasks/doing/ у git: невідомо, які commit-и її"]
+    if mode == "ескіз":
+        return mode, missing + sketch_missing(root, commits)
     missing += unaudited(root, stem, commits)
     if mode == "конвеєр":
         missing += pipeline_missing(root, commits)

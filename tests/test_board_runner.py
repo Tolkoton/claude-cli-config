@@ -40,6 +40,8 @@ FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
     audit           have the tree as it is audited (a PASS), commit the ledger, leave the task as it is
     seal            seal the slice contract with contract_fingerprint.py, nothing else
     done-broken     `done`, then task.md is overwritten with bytes that are not UTF-8 and committed
+    reader-refused  write and commit a sketch's record, then have it read three times through the REAL
+                    reader.py (request, guard, a BLOCK answer recorded), leave the task in doing/ (board 099)
 
 A conversation's reported cost is its running total (1 USD a call unless FAKE_COST says
 otherwise); `--resume ID` keeps the id, a call without it opens a new conversation.
@@ -153,6 +155,21 @@ elif step == "done-broken" and doing:
     (target / "task.md").write_bytes(b"# \xff\xfe not UTF-8\n")
     (target / "report.md").write_text("# Звіт\n")
     git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done", "--", "tasks")
+elif step == "reader-refused":
+    hooks = Path(os.environ["FAKE_HOOKS"])
+    record = Path(".engine/sketches/rate.md")
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text("# Ескіз rate\n\n## Команда і вивід\n$ python3 sketches/rate/probe.py\n40: 200\n\n## Відповідь\nтак\n")
+    git("add", "-A"); git("commit", "-q", "-m", "the sketch's record")
+    for k in (1, 2, 3):
+        said = subprocess.run([sys.executable, str(hooks / "reader.py"), "request", doing[0].stem, "--record", str(record)],
+                              capture_output=True, text=True).stdout
+        rid = said.rsplit("READER_REQUEST ", 1)[-1].strip()
+        subprocess.run([sys.executable, str(hooks / "reader.py"), "guard"], capture_output=True, text=True, input=json.dumps(
+            {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": {"subagent_type": "reader", "prompt": f"READER_REQUEST {rid}"}}))
+        reply = {"verdict": "BLOCK", "reason": f"ЧИТАЧ-{k}: the output stops at call 40, the answer claims a cut at 61", "evidence": [".engine/sketches/rate.md:5"]}
+        subprocess.run([sys.executable, str(hooks / "reader.py"), "record"], capture_output=True, text=True, input=json.dumps(
+            {"hook_event_name": "SubagentStop", "agent_type": "reader", "agent_id": f"r{k}", "last_assistant_message": json.dumps(reply)}))
 elif step == "seal":
     subprocess.run([sys.executable, str(Path(os.environ["FAKE_HOOKS"]) / "contract_fingerprint.py"), "seal", ".engine/slices/pay-tax.md"],
                    check=True, capture_output=True)
@@ -1608,6 +1625,21 @@ w.put("todo", "001-pipeline.md", PIPELINE)
 r = w.run()
 check("…the contract sealed in the turn back: the task stays in done/", w.has("tasks/done/001-pipeline/report.md") and " minimum-made 001-pipeline" in events(w),
       r.stdout + events(w))
+
+print("board 099: three readers in a row refused the sketch's record — the runner parks the task")
+w = World("reader-refused done")
+w.put("todo", "001-sketch.md", "# Ескіз\n\nЗалежить від: —\nРежим: ескіз\nАудит потрібен: ні\n\n## Що зробити\n- питання\n\n## Питання до власника\n")
+w.put("todo", "002-next.md")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-sketch.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-sketch.md") else ""
+why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
+check("the runner moved the sketch to blocked/ after ONE session: «Чому зупинилась» names the record and the three readers' verdicts",
+      "агент-читач тричі поспіль відхилив запис ескізу (.engine/sketches/rate.md)" in why and all(f"ЧИТАЧ-{k}:" in why for k in (1, 2, 3))
+      and " attempt 001-sketch 2" not in events(w), r.stdout + text + events(w))
+check("…one question to the owner, the journal entry, the marker gone, the next task done",
+      "1. Три агенти-читачі поспіль" in text and "агент-читач тричі поспіль" in (w.repo / "tasks/ANOMALIES.md").read_text(encoding="utf-8")
+      and not list(w.state.glob("reader-blocks-*")) and w.has("tasks/done/002-next/report.md") and " task-parked 001-sketch reader-blocks" in events(w),
+      events(w))
 
 w = minimum_world("done-broken")
 w.put("todo", "001-broken.md")

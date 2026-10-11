@@ -483,11 +483,67 @@ start(cc, "066-no-report")
 close(cc, "066-no-report", report=False)
 check("negative — no report.md: missing in every mode", closing(cc, "066-no-report") == ("соло", ["у tasks/done/066-no-report/ немає report.md"]),
       closing(cc, "066-no-report"))
-start(cc, "067-sketch", "Режим: ескіз")
-code(cc, "src/e.py", "E = 1\n")
-commit_all(cc, "a sketch")
-close(cc, "067-sketch")
-check("ескіз: report.md for now — the quarantine and the record come with board 099", closing(cc, "067-sketch") == ("ескіз", []), closing(cc, "067-sketch"))
+# board 099: the sketch's minimum — nothing outside the quarantine, the record, a reader's PASS on it as it is
+reader_mod = load("reader_for_mode", HOOKS / "reader.py")
+RECORD = "# Ескіз rate\n\n## Питання\nЧи ріже API після 60 викликів?\n\n## Що пробували\nprobe.py\n\n## Команда і вивід\n```\n$ python3 sketches/rate/probe.py\n61: 429\n```\n\n## Відповідь\nтак\n"
+
+
+def read_it(at: Path, name: str, record_rel: str, verdict_word: str = "PASS") -> str:
+    """A reader reads the record through reader.py itself: the request, the guard, the answer recorded."""
+    saved = os.environ.get("CLAUDE_PROJECT_DIR")
+    os.environ["CLAUDE_PROJECT_DIR"] = str(at)
+    try:
+        code_, said_ = reader_mod.request(at, name, record_rel)
+        rid = said_.rsplit("READER_REQUEST ", 1)[-1].strip()
+        refused = reader_mod.guard(at, {"tool_name": "Agent", "tool_input": {"subagent_type": "reader", "prompt": f"READER_REQUEST {rid}"}})
+        answer = {"verdict": verdict_word, "reason": "the output line 61: 429 shows the cut the answer claims", "evidence": [f"{record_rel}:10"]}
+        reader_mod.record(at, {"hook_event_name": "SubagentStop", "agent_type": "reader", "agent_id": "r1",
+                               "last_assistant_message": "```json\n" + json.dumps(answer) + "\n```"})
+    finally:
+        if saved is None:
+            os.environ.pop("CLAUDE_PROJECT_DIR", None)
+        else:
+            os.environ["CLAUDE_PROJECT_DIR"] = saved
+    return "" if code_ == 0 and refused is None else said_
+
+
+for name, rel in (("067-sketch-src", "src/e.py"), ("068-sketch-docs", "docs/how.md")):
+    start(cc, name, "Режим: ескіз")
+    code(cc, f"sketches/{name}/probe.py", "print(1)\n")
+    code(cc, f".engine/sketches/{name}.md", RECORD)
+    code(cc, rel, "x = 1\n")
+    commit_all(cc, "a sketch that went outside")
+    close(cc, name)
+    read_it(cc, name, f".engine/sketches/{name}.md")
+    check(f"negative — a sketch changed {rel.split('/')[0]}/ (outside sketches/, .engine/, tasks/): refused, the file named",
+          closing(cc, name) == ("ескіз", [f"задача-ескіз змінила файл поза карантином (sketches/, .engine/, tasks/): {rel}"]), closing(cc, name))
+start(cc, "069-sketch-no-record", "Режим: ескіз")
+code(cc, "sketches/norec/probe.py", "print(1)\n")
+commit_all(cc, "a sketch with no record")
+close(cc, "069-sketch-no-record")
+check("negative — a sketch without its record does not close", closing(cc, "069-sketch-no-record")[1] == ["запису ескізу (.engine/sketches/<назва>.md) серед змін задачі немає"],
+      closing(cc, "069-sketch-no-record"))
+start(cc, "070-sketch-unread", "Режим: ескіз")
+code(cc, ".engine/sketches/unread.md", RECORD)
+commit_all(cc, "a record nobody read")
+close(cc, "070-sketch-unread")
+check("negative — a record with no PASS of a reader does not close", any("немає PASS агента-читача" in line for line in closing(cc, "070-sketch-unread")[1]),
+      closing(cc, "070-sketch-unread"))
+read_it(cc, "070-sketch-unread", ".engine/sketches/unread.md", "BLOCK")
+check("negative — a BLOCK of the reader is no PASS", any("немає PASS агента-читача" in line for line in closing(cc, "070-sketch-unread")[1]),
+      closing(cc, "070-sketch-unread"))
+start(cc, "071-sketch", "Режим: ескіз")
+code(cc, "sketches/rate/probe.py", "print(429)\n")
+code(cc, ".engine/sketches/rate.md", RECORD)
+commit_all(cc, "the sketch and its record")
+close(cc, "071-sketch")
+said_read = read_it(cc, "071-sketch", ".engine/sketches/rate.md")
+check("a sketch that changed only sketches/ and has its record with a reader's PASS closes", said_read == "" and closing(cc, "071-sketch") == ("ескіз", []),
+      (said_read, closing(cc, "071-sketch")))
+code(cc, ".engine/sketches/rate.md", RECORD.replace("так", "ні"))
+check("negative — the record changed after the reader's PASS: the PASS was on another text", any("немає PASS агента-читача" in line for line in closing(cc, "071-sketch")[1]),
+      closing(cc, "071-sketch"))
+code(cc, ".engine/sketches/rate.md", RECORD)
 start(cc, "068-pipeline-bare", "Режим: конвеєр")
 code(cc, "src/f.py", "F = 1\n")
 audited(cc, "068-pipeline-bare", "r068")

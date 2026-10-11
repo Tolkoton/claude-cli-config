@@ -45,3 +45,4 @@ test_state_migration.py             # runs engine.py only; the hook paths are fi
 test_supervisor_retired.py          # runs git and engine.py only; the paths are files it expects gone
 test_text_hygiene.py                # runs git ls-files only; the hook paths are documents it reads
 test_verify_on_stop.py              # by hand
+test_sketch_quarantine.py  # imports gate.py in-process and passes each synthetic project as the root; it starts no hook process (board 099)

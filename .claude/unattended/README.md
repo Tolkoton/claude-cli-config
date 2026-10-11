@@ -101,13 +101,17 @@ what belongs to the task, remove the rest. A tree still dirty after that turn is
 with the list of files, and the next task is taken; the runner deletes, stashes and commits none
 of them.
 
+A task in ескіз that three readers in a row refused (reader.py leaves `.claude/state/board/reader-blocks-<task>.json`)
+goes to `blocked/` with the reason `reader-blocks`, as the overseer's three BLOCKs do (board 099).
+
 A task closes into `done/` with the minimum of its mode (board 098). Right after the clean-tree
 check the runner asks `python3 .claude/hooks/mode.py check-close <task>`, which judges by files:
 `report.md` in every mode; in соло, for every commit of the task that changed working code (what
 the Stop hook asks an audit for: under `SOURCE_DIRS`, else an extension of `CODE_EXTENSIONS`, else
 every file; never `tasks/` or `.engine/`), in every stay of the task in `doing/` and in the turn
 back, a PASS of the overseer whose audit saw exactly that code; in конвеєр also the feature artifact and a matching seal on every slice contract the task
-wrote; in ескіз `report.md` for now (board 099 adds the quarantine). Missing — the agent gets the turn
+wrote; in ескіз the record `.engine/sketches/<name>.md` with a reader's PASS on it as it is and no change outside
+`sketches/`, `.engine/`, `tasks/` (board 099). Missing — the agent gets the turn
 back once with the list; still missing — the task goes to `blocked/` with the reason `minimum`, its
 report beside it as `blocked/report-<task>.md`, and a journal entry. A task closed into `blocked/`,
 and one the runner closes itself (a gate's escalation, an owner action), is not checked; a check that

@@ -51,6 +51,17 @@ marks from the AST, configuration from the parsed tables — a string that merel
 is not a finding. The guard calls no tool, so it runs whether or not PROJECT_MARKER exists; a
 missing marker skips only lint, types and tests.
 
+THE SKETCH'S QUARANTINE (stop, pre_commit, ci; board 099). Code under `sketches/` is a sketch's (the mode
+ескіз): the gates do not check it — no lint, types, tests or guard; on the full layers the default ruff, mypy
+and pytest, which go over `.`, are told to leave the root's sketches/ out (a project's own LINT_CMD,
+TYPECHECK_CMD, TEST_CMD must do that itself: docs/engine-limits.md). Two blocks instead: a task in
+ескіз (its mode as mode.py reads it) that changed a file outside sketches/, .engine/ and tasks/; and,
+in any mode, working code that refers to a sketch — a Python import of `sketches`, a string holding a
+path into a named sketch (`../../sketches/<name>`, `"$ROOT/sketches/<name>"`, `"bash sketches/<name>/run.sh"`), or such a
+path on an added line of another language (a JavaScript import, a shell command).
+The records under .engine/ and tasks/ are not working code, whatever CODE_EXTENSIONS says. Tests are not looked at (they hold sketch paths as data); a reference built at run time, or code
+rewritten by hand from a sketch, is not seen (docs/engine-limits.md).
+
 THE SNAPSHOT (stop, pre_commit, ci). With `.engine/baseline.json` (baseline.py) the question is
 "no worse than it was", not "clean": a failing test blocks only when it is not on the snapshot's
 list, a lint or type finding only when the count of its (file, rule) is above the recorded one.
@@ -720,8 +731,13 @@ def check_steps(root: Path, env: dict[str, str], files: list[str], full: bool, r
             return []
         scope = "." if full else quoted(py_files)
         concise, pytest = ("--output-format concise ", "pytest") if snapshot else ("", "pytest -x")
-        for kind, tool, table, args in (("lint", "ruff", "tool.ruff", f" check --force-exclude {concise}{scope}"),
-                                        ("typecheck", "mypy", "tool.mypy", f" {scope}")):
+        # The full layers go over `.`: a sketch's code (the quarantine, below) is left out by name — the
+        # directory at the project's root only, and only where there is one.
+        skip = full and (root / "sketches").is_dir()
+        no_lint, no_types, no_tests = ((f"--extend-exclude {shlex.quote(str(root / 'sketches'))} ", "--exclude '^sketches/' ",
+                                        " --ignore=sketches") if skip else ("", "", ""))
+        for kind, tool, table, args in (("lint", "ruff", "tool.ruff", f" check --force-exclude {no_lint}{concise}{scope}"),
+                                        ("typecheck", "mypy", "tool.mypy", f" {no_types}{scope}")):
             if not pyproject_has(root, table):
                 continue
             start, why = check_tool(root, tool)
@@ -736,7 +752,7 @@ def check_steps(root: Path, env: dict[str, str], files: list[str], full: bool, r
                 report.reasons.append(f"TOOL VERSION [{finding.rule}] {finding.message}. {finding.hint}")
         if (root / "tests").is_dir() or (root / "test").is_dir():
             if full:
-                steps.append(("tests", f"{prefix}{pytest} --no-header -q"))
+                steps.append(("tests", f"{prefix}{pytest} --no-header -q{no_tests}"))
             else:
                 targets = test_targets(root, files)
                 if targets:
@@ -1196,10 +1212,89 @@ def is_config_file(rel: str) -> bool:
     return Path(rel).name in ("pyproject.toml", *CONFIG_BASENAMES) or rel in (".claude/project.env", BASELINE_FILE)
 
 
+SKETCHES = "sketches/"
+QUARANTINE = ("sketches/", ".engine/", "tasks/")   # all a task in ескіз may change
+# A path into a named sketch: `sketches/<name>`, after any number of `./` or `../`, standing alone or after a shell
+# variable or substitution, quoted or not (`$ROOT/`, `"$ROOT"/`, `${ROOT:-.}/`, `$(dirname "$0")/`, a backtick
+# command, the placeholder an f-string is read with); a directory that merely shares the name deeper in the tree
+# (`src/sketches/a`) is not the quarantine, nor is an absolute path or an import alias (docs/engine-limits.md).
+SHELL_VALUE = r"(?:\$\{[^}]*\}|\$\w+|\$\([^()]*\)|`[^`]*`)"
+SKETCH_PATH_RE = re.compile(rf"(?:(?<![\w./-])|{SHELL_VALUE}[\"']?/)(?:\.{{1,2}}/)*sketches/[A-Za-z0-9_.-]+")
+
+
+def sketch_mode(root: Path) -> bool:
+    """The session's task in doing/ is in the mode ескіз, as its one reader says (mode.py)."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import mode
+
+        mine = mode.own_task(root)
+        return len(mine) == 1 and mode.parse(mine[0].read_text(encoding="utf-8")).current == "ескіз"
+    except (ImportError, OSError, ValueError, UnicodeDecodeError):
+        return False
+
+
+def sketch_references(root: Path, layer: str, rel: str, diff_ref: str | None) -> list[int]:
+    """The added lines of a working-code file that refer to a sketch."""
+    text = new_text(root, layer, rel)
+    if text is None:
+        return []
+    added = added_lines(root, layer, rel, diff_ref)
+
+    def counted(line: int, last: int | None = None) -> bool:
+        """The node's lines (a string may span several) hold a line this diff adds."""
+        return added is None or any(n in added for n in range(line, (last or line) + 1))
+
+    if rel.endswith(".py"):
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            tree = None
+        if tree is not None:
+            hits = set()
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+                    if any(n == "sketches" or n.startswith("sketches.") for n in names) and counted(node.lineno, node.end_lineno):
+                        hits.add(node.lineno)
+                elif (isinstance(node, ast.Constant) and isinstance(node.value, str) and SKETCH_PATH_RE.search(node.value)
+                        and counted(node.lineno, node.end_lineno)):
+                    hits.add(node.lineno)
+                elif isinstance(node, ast.JoinedStr) and counted(node.lineno, node.end_lineno):
+                    # an f-string is read with `$V` where each placeholder stands: f"{ROOT}/sketches/x" is "$V/sketches/x"
+                    joined = "".join(part.value if isinstance(part, ast.Constant) and isinstance(part.value, str) else "$V"
+                                     for part in node.values)
+                    if SKETCH_PATH_RE.search(joined):
+                        hits.add(node.lineno)
+            return sorted(hits)
+    return [n for n, line in enumerate(text.splitlines(), 1)
+            if counted(n) and not line.lstrip().startswith(("#", "//")) and SKETCH_PATH_RE.search(line)]
+
+
+def quarantine(root: Path, env: dict[str, str], layer: str, files: list[str], diff_ref: str | None, report: Report) -> None:
+    if sketch_mode(root):
+        for rel in files:
+            if not rel.startswith(QUARANTINE):
+                report.add(Finding(rel, None, "sketch/outside", "block",
+                                   "the task is a sketch (ескіз): it changes nothing outside sketches/, .engine/ and tasks/",
+                                   "keep the work in sketches/<name>/ and the record in .engine/sketches/<name>.md; working "
+                                   "code is written anew in a task in соло or конвеєр (mode.py raise соло, if it must be this one)"))
+    # the records (.engine/, tasks/) hold a sketch's command by design and are never working code (mode.py RECORDS)
+    for rel in eligible(env, [f for f in files if not f.startswith(QUARANTINE) and not is_test_file(f)]):
+        for line in sketch_references(root, layer, rel, diff_ref):
+            report.add(Finding(rel, line, "sketch/reference", "block",
+                               "working code refers to a sketch: a sketch never becomes working code",
+                               "write the code anew under this task's checks; never import, run or open sketches/<name>"))
+
+
 def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
                  diff_ref: str | None, report: Report) -> None:
     full = layer in ("pre_commit", "ci")
     report.files = files
+    started = time.perf_counter()
+    quarantine(root, env, layer, files, diff_ref, report)   # before anything is skipped: a sketch's docs/ change is seen too
+    report.steps_ms["quarantine"] = int((time.perf_counter() - started) * 1000)
+    files = [f for f in files if not f.startswith(SKETCHES)]   # the gates do not check a sketch's code
     code = eligible(env, files)
     # A configuration file is not code, but changing the gate's own settings is exactly what
     # the guard exists to see; so a config-only turn still reaches the guard.

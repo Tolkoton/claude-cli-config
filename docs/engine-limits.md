@@ -496,6 +496,51 @@ places, keeps the gate and the overseer, and holds the fix to a hard limit
 - **The way back is checked for presence only.** `debt` refuses a card whose `- Roll back:` line
   is empty; it does not try the command.
 
+## The sketch's quarantine (board 099)
+
+`gate.py` keeps a sketch's code in `sketches/<name>/` and working code away from it
+(`.claude/references/sketch-record.md`). What it does not catch:
+
+- **Code rewritten by hand.** A sketch's logic copied into `src/` line by line, without an import or
+  a path, is ordinary new code: the gates check it as such, and nothing says where it came from. The
+  rule «a sketch never becomes working code» holds for references, not for ideas.
+- **A reference built at run time** — a path joined from parts (`"sket" + "ches/x"`, `os.path.join(root,
+  "sketches", name)`), a variable that holds the whole directory (`$SKETCH_DIR/x`), a configuration file:
+  the gate reads the source, it does not run it. A literal path is caught after any number of `../`, after a
+  shell variable or substitution quoted or not (`"$ROOT/sketches/x"`, `"$ROOT"/sketches/x`, `${ROOT:-.}/sketches/x`,
+  `"$(dirname "$0")"/../sketches/x`, a backtick command), and in a Python f-string after a placeholder
+  (`f"{ROOT}/sketches/x"`).
+- **An absolute path or an import alias** — `/home/…/project/sketches/x`, `@/sketches/x`: the gate does not
+  know where the project lives or what an alias resolves to.
+- **A module name without a path outside Python** — `import sketches.rate` in a language whose imports are
+  not paths (only Python's `import` is read as code; other files are read for paths with a `/`).
+- **A directory that only shares the name.** `src/sketches/x` is not the quarantine and is not blocked:
+  only `sketches/` at the project's root is.
+- **Tests.** A test may hold a sketch path as data (the engine's own suites do), so tests are not
+  looked at; a test that imports a sketch passes the gate.
+- **A reference that was there before the turn.** Only the lines a turn adds are judged, as with
+  every other guard of the gate (a string spanning several lines is judged when any of them is added).
+- **A project's own check commands.** The gates skip a sketch's code themselves on the Stop layer (they
+  pass the changed files) and in the delete and bypass guards. On the full layers (`pre_commit`, `ci`, and
+  the dependency update, which runs `ci`) the default `ruff`, `mypy` and `pytest` go over `.`, so the gate
+  tells each to leave the root's `sketches/` out (`--extend-exclude <root>/sketches`, `--exclude '^sketches/'`,
+  `--ignore=sketches`). A command the project sets — `LINT_CMD`, `TYPECHECK_CMD`, `TEST_CMD`,
+  `TEST_CMD_FULL` — is run as written: it must exclude `sketches/` itself, or a sketch's code is checked
+  with the rest. Nor does an exclusion stop `mypy` following an import: a test that imports a sketch
+  (tests are not looked at, above) brings that module into the type check.
+- **`CODE_EXTENSIONS` empty means every file is working code** — a document too. The records (`.engine/`,
+  `tasks/`) and tests are left out, but `docs/how.md` or a `README` that names a path into a sketch
+  (`sketches/rate/run.sh`) on an added line is blocked as a reference. Name the project's extensions.
+- **A file a sketch deletes outside the quarantine** is not seen by the gate, which judges the files that
+  are there; `mode.py check-close` sees it at closing, from the task's commits.
+- **The mode is the session's task in doing/.** A sketch worked on with no task in doing/ (no board,
+  or two tasks of the session) is not known to be one: the first rule (nothing outside the
+  quarantine) is not applied; `mode.py check-close` still applies it at closing, from the task's
+  commits.
+- **The reader judges one question** — does the output prove the answer — and only the record as it
+  is: the record is checked by its content, not by who wrote the output into it. Output pasted by
+  hand rather than produced by the command is not detected.
+
 ## The snapshot "as it was" (board 071)
 
 With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).

@@ -82,6 +82,14 @@ User context typically includes:
 | "Fix this typo / rename this variable / one-line change" | No skill — user edits directly |
 | Cross-module refactor of an existing feature | No skill — user-led, possibly with `master-architect` BACKTRACK |
 
+**A task in the mode ескіз** (`python3 .claude/hooks/mode.py show`) is not a slice: it answers one
+question and builds nothing that stays. Its code goes only into `sketches/<name>/` — the gates do not
+check it, and nothing outside `sketches/`, `.engine/` and `tasks/` may change (gate.py blocks it).
+What it leaves is the record `.engine/sketches/<name>.md` (`.claude/references/sketch-record.md`): the
+question, what was tried, the command and its output, the answer. A fresh `reader` must PASS the
+record before the task closes. Working code never imports, runs or opens a sketch; carrying a sketch
+over is a new task in соло or конвеєр, where the code is written anew under this skill.
+
 If invoked incorrectly, hand off directly: name the correct skill and invoke it. Skill routing is mechanical — the "DO NOT use for" list above already determines the answer, so there is nothing here only a human can supply. Do not stop to ask for a redirect. Note the handoff in one line so the switch is visible, and continue.
 
 ## Workflow

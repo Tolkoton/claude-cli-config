@@ -175,6 +175,7 @@ GATE_PY="$HERE/../hooks/gate.py"
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
 DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
 blocks_marker() { echo "$STATE/three-blocks-$1.json"; }   # left by overseer_stop.py after the third BLOCK
+reader_marker() { echo "$STATE/reader-blocks-$1.json"; }   # left by reader.py after the third BLOCK on one record (board 099)
 board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
 memo() { python3 "$HERE/board_state.py" "$STATE" "$@"; }
 
@@ -548,6 +549,7 @@ park_task() {
   local stem="$1" reason="$2" detail="$3" stash="" before after
   local -a verdicts=()
   [ "$reason" != three-blocks ] || verdicts=(--verdicts "$(blocks_marker "$stem")")
+  [ "$reason" != reader-blocks ] || verdicts=(--verdicts "$(reader_marker "$stem")")
   commit_journal "$JOURNAL_OTHERS"
   save_wip "$stem" "$reason"
   before=$(git rev-parse -q --verify refs/stash 2>/dev/null)
@@ -556,7 +558,7 @@ park_task() {
   [ "$after" != "$before" ] && stash="$after"
   board park "$stem" "$reason" --detail "$detail" ${stash:+--stash "$stash"} ${WIP:+--wip "$WIP"} ${WIP_AT:+--wip-remote "$WIP_AT"} "${verdicts[@]}" > /dev/null \
     || finish error "$stem" park "board.py park $stem $reason failed"
-  rm -f "$(blocks_marker "$stem")"
+  rm -f "$(blocks_marker "$stem")" "$(reader_marker "$stem")"
   [ "$reason" = budget ] && memo rebudget "$stem"
   board_commit "board: $stem → blocked — the runner parked it ($reason); the board goes on" \
     || finish error "$stem" commit "cannot commit the parked task"
@@ -705,6 +707,9 @@ run_task() {
     if [ -f "$(blocks_marker "$stem")" ]; then
       park_task "$stem" three-blocks ""; return 0
     fi
+    if [ -f "$(reader_marker "$stem")" ]; then   # board 099: three readers in a row refused the sketch's record
+      park_task "$stem" reader-blocks "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("record", ""))' "$(reader_marker "$stem")" 2>/dev/null)"; return 0
+    fi
     if [ "$(memo get "$stem" age_sec)" -ge "$TASK_MAX" ]; then
       park_task "$stem" deadline "$((TASK_MAX / 3600))"; return 0
     fi
@@ -765,7 +770,7 @@ while :; do
       TASK=$(board start "$TASK") || finish error "$TASK_NAME" start "board.py start refused"
       board_commit "board: $TASK_NAME → doing" || finish error "$TASK_NAME" commit "cannot commit the move to doing/"
       dirty_paths > "$DIRTY_BEFORE"
-      rm -f "$(blocks_marker "$TASK_NAME")"   # a fresh start: a marker from before the owner's answer is stale
+      rm -f "$(blocks_marker "$TASK_NAME")" "$(reader_marker "$TASK_NAME")"   # a fresh start: a marker from before the owner's answer is stale
       memo retry "$TASK_NAME"
       ;;
     *) memo begin "$TASK_NAME" ;;

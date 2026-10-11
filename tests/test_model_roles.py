@@ -35,7 +35,7 @@ SETTINGS = (CLAUDE / "settings.json", ROOT / "user" / "settings.json", ROOT / "t
 STRONGEST = (
     "agents/overseer.md", "skills/overseer/SKILL.md", "skills/slice-builder/SKILL.md", "commands/feature-architect.md",
     "commands/master-architect.md", "commands/plan-slice.md", "commands/mvp-architect.md",
-    "agents/test-manager.md", "agents/slice-tester.md",
+    "agents/test-manager.md", "agents/slice-tester.md", "agents/reader.md",
 )
 ALLOWED = re.compile(r"^(sonnet|opus|haiku|fable|inherit|claude-[a-z0-9-]+)$")
 PASS = FAIL = 0

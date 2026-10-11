@@ -12,7 +12,7 @@ an agent), so this is the test of that one file. It holds before and after the a
 - the proposal carries no personal key; against the live file its hooks block drops the retired
   approve-project-data handler and adds the two stuck-counter handlers (STUCK_HANDLERS) and the
   two handlers of the fresh-context overseer (OVERSEER_HANDLERS, board 018) and the two of testing.py
-  (TESTING_HANDLERS, board 062), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
+  (TESTING_HANDLERS, board 062) and the two of the sketch's reader (READER_HANDLERS, board 099), and nothing else — docs/tasks/settings.json is the ONE place a settings change is proposed, and
   `cp` of it the one way to apply it;
 - board 603 (owner, 2026-10-09): the ask list drops the two push rules — park-ask-gated.py decides
   a push by environment now — and the allow list gains WebFetch and WebSearch, which a cloud
@@ -75,6 +75,10 @@ TESTING_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py"'
 TESTING_GUARD_MATCHER = "Agent|Task|Edit|Write|MultiEdit|NotebookEdit"
 TESTING_HANDLERS = {f"PreToolUse|{TESTING_GUARD_MATCHER}|command|{TESTING_SCRIPT} guard",
                     f"SubagentStop|test-manager|slice-tester|command|{TESTING_SCRIPT} record"}
+# The fresh reader of a sketch's record (board 099, the design of board 080): started with the script's line
+# only — its guard stands beside the overseer's before the Agent tool — and its answer recorded when it stops.
+READER_SCRIPT = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/reader.py"'
+READER_HANDLERS = {f"PreToolUse|Agent|Task|command|{READER_SCRIPT} guard", f"SubagentStop|reader|command|{READER_SCRIPT} record"}
 
 # Differences against the frozen "before" that are intended. Path -> why.
 INTENDED: dict[str, str] = {
@@ -174,9 +178,9 @@ def main() -> int:
     gone = set(parity.hook_handlers(live["hooks"])) - set(parity.hook_handlers(proposal["hooks"]))
     t.check(
         "proposal: the only hooks added against the live file are the two stuck-counter handlers, the two "
-        "overseer handlers, the two testing handlers and protect-paths with NotebookEdit; the only removals are "
+        "overseer handlers, the two testing handlers, the two reader handlers and protect-paths with NotebookEdit; the only removals are "
         "approve-project-data on PermissionRequest and the two matchers of board 055 as they were",
-        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | {PROTECT_HANDLER}
+        extra <= STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | READER_HANDLERS | {PROTECT_HANDLER}
         and gone <= {APPROVE_HANDLER, OLD_GUARD_HANDLER, OLD_PROTECT_HANDLER},
         json.dumps({"extra": sorted(extra), "gone": sorted(gone)}),
     )
@@ -209,6 +213,11 @@ def main() -> int:
             wired == TESTING_HANDLERS and json.dumps(proposal["hooks"]).count("testing.py") == 2, str(sorted(wired)))
     testing_help = subprocess.run([sys.executable, str(ROOT / ".claude/hooks/testing.py"), "--help"], capture_output=True, text=True, check=False)
     t.check("...and the command names a script that exists with both sub-commands", "guard" in testing_help.stdout and "record" in testing_help.stdout)
+    wired = set(parity.hook_handlers(proposal["hooks"])) & READER_HANDLERS
+    t.check("proposal: the reader's guard and its verdict writer are both wired, each once (board 099)",
+            wired == READER_HANDLERS and json.dumps(proposal["hooks"]).count("reader.py") == 2, str(sorted(wired)))
+    reader_help = subprocess.run([sys.executable, str(ROOT / ".claude/hooks/reader.py"), "--help"], capture_output=True, text=True, check=False)
+    t.check("...and the command names a script that exists with both sub-commands", "guard" in reader_help.stdout and "record" in reader_help.stdout)
     wired_all = set(parity.hook_handlers(proposal["hooks"]))
     t.check("proposal (board 055): protect-paths.sh stands before every editing tool, NotebookEdit included, and is wired once",
             PROTECT_HANDLER in wired_all and OLD_PROTECT_HANDLER not in wired_all and json.dumps(proposal["hooks"]).count("protect-paths.sh") == 1)
@@ -249,9 +258,9 @@ def main() -> int:
         json.dumps({"unexpected": unexpected, "intended but absent": missing}, ensure_ascii=False),
     )
     t.check(
-        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer and the two testing "
-        "handlers, with protect-paths moved to the matcher that names NotebookEdit",
-        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | {PROTECT_HANDLER}
+        "effective hooks: the frozen handlers plus exactly the two stuck-counter, the two overseer, the two testing "
+        "and the two reader handlers, with protect-paths moved to the matcher that names NotebookEdit",
+        set(after["hooks"]) - set(frozen["hooks"]) == STUCK_HANDLERS | OVERSEER_HANDLERS | TESTING_HANDLERS | READER_HANDLERS | {PROTECT_HANDLER}
         and set(frozen["hooks"]) - set(after["hooks"]) == {OLD_PROTECT_HANDLER},
         json.dumps(sorted(set(after["hooks"]) ^ set(frozen["hooks"]))),
     )
