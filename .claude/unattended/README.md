@@ -109,7 +109,8 @@ check the runner asks `python3 .claude/hooks/mode.py check-close <task>`, which 
 `report.md` in every mode; in соло, for every commit of the task that changed working code (what
 the Stop hook asks an audit for: under `SOURCE_DIRS`, else an extension of `CODE_EXTENSIONS`, else
 every file; never `tasks/` or `.engine/`), in every stay of the task in `doing/` and in the turn
-back, a PASS of the overseer whose audit saw exactly that code; in конвеєр also the feature artifact and a matching seal on every slice contract the task
+back, a PASS of the overseer whose audit saw exactly that code (a commit whose code a later commit of the task
+with such a PASS replaced is covered too — board 754); in конвеєр also the feature artifact and a matching seal on every slice contract the task
 wrote; in ескіз the record `.engine/sketches/<name>.md` with a reader's PASS on it as it is and no change outside
 `sketches/`, `.engine/`, `tasks/` (board 099). Missing — the agent gets the turn
 back once with the list; still missing — the task goes to `blocked/` with the reason `minimum`, its

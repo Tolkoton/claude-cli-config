@@ -52,6 +52,9 @@ for every working-code file the commit changed, the content the audit's request 
 fingerprint: the file as it was uncommitted, else as at the request's HEAD) is the content of the
 commit. A request whose HEAD already holds an earlier commit sees it too: a verdict speaks for every
 file changed since the last accepted PASS (gate_allows.unit_files), not for the turn's edits alone.
+A file of a commit that a later covered commit of the same task changed needs no PASS of its own (the
+owner's answer, board 754): a fix with a PASS replaced the code a BLOCK was given on, and what is left
+in the branch is audited. The commit that replaced it must itself be covered — else both are missing.
 
 A mode says which roles run and how strictly; it never says who runs them, and nothing here
 names one (tests/test_model_roles.py). Standard library only. Exit: 0 done; 1 attended
@@ -405,20 +408,23 @@ def _seen(root: Path, tree: dict[str, Any], rel: str) -> str:
 
 
 def unaudited(root: Path, stem: str, commits: list[str]) -> list[str]:
-    """Each commit of the task that changed working code no PASS of the overseer saw, as a line."""
+    """Each commit of the task that changed working code no PASS of the overseer saw, as a line, oldest first.
+    Read newest first: a file a later covered commit changed needs no PASS of its own (board 754)."""
     is_code = working_code(root)
     trees = passed_trees(root, stem)
-    missing = []
-    for commit in commits:
+    missing: list[str] = []
+    replaced: set[str] = set()   # the files a later covered commit of the task changed: what it left is what a PASS saw
+    for commit in reversed(commits):
         code = [rel for rel in _changed(root, commit) if is_code(rel)]
         if not code:
             continue
-        if any(all(_seen(root, tree, rel) == _digest(root, commit, rel) for rel in code) for tree in trees):
+        if any(all(rel in replaced or _seen(root, tree, rel) == _digest(root, commit, rel) for rel in code) for tree in trees):
+            replaced.update(code)
             continue
         subject = _lines(_git(root, "log", "-1", "--format=%s", commit))
         missing.append(f"commit {commit[:10]} («{subject[0] if subject else '?'}») змінив робочий код ({', '.join(code[:5])}"
                        f"{', …' if len(code) > 5 else ''}), а PASS overseer-а, що бачив саме цей код, у журналі вердиктів немає")
-    return missing
+    return missing[::-1]
 
 
 def pipeline_missing(root: Path, commits: list[str]) -> list[str]:
