@@ -82,6 +82,20 @@ check("step 2 (from the trial): the tool is probed first, a runner that would do
       "command -v" in commands and "running it would install" in commands and "time limit" in commands, commands[:300])
 check("step 2 (from the trial): a variant never reaches project.env; no check ran at all is the first line and the first question",
       "recorded as a variant and does not go into `project.env`" in commands and "first line of the profile" in commands and "first question" in commands)
+# board 091 — the five places of the full trial (board 057) where step 2 left the agent guessing
+check("step 2 (091): the key variables of the session's environment are listed by name before any script runs; a script that would spend one is not run or runs with it unset",
+      "list the key variables set in the session's environment" in commands and "names only, never a value" in commands
+      and "explicitly unset" in commands and "paid or external service" in commands and "compgen -e" in commands, commands[:300])
+check("step 2 (091): an environment that may have drifted from the lock file — the runner runs without syncing and offline, and that guard is no variant",
+      "drifted from the lock file" in commands and "--no-sync" in commands and "offline" in commands
+      and "does not make the command a variant" in commands, commands[:300])
+check("step 2 (091): a tool only in the virtual environment is «ran» through the runner, not «tool absent»",
+      "only in the project's virtual environment" in commands and "«ran» through the runner, not «tool absent»" in commands, commands[:300])
+check("step 2 (091): one check spelled differently in several documents is one row with every source",
+      "one row with every source" in commands and "not a row per spelling" in commands)
+check("step 2 (091): exit 0 with nothing checked is «ran, checked nothing» and stays out of project.env",
+      "«ran, checked nothing»" in commands and "is not «ran»" in commands
+      and "«ran, checked nothing» does not go into `project.env`" in commands, commands[:300])
 rules = flat(section(command, "3."))
 check("step 3: three sources, each named", all(f"**{s}**" in rules for s in ("written", "seen in the code", "seen in the history")), rules[:300])
 check("step 3: no source, no candidate; a guess is called a guess", "no source is not offered" in rules and "guess is called a guess" in rules)
@@ -121,6 +135,10 @@ for label, needle in (("fixes nothing", "fixes nothing"), ("no decisions in hind
                       ("an absent tool is «not run», never repaired", "«not run», never repaired"),
                       ("reads no secrets", "reads no secrets"), ("never answers for the owner", "never answers for the owner")):
     check(f"never: {label}", needle in never, never[:200])
+check("never (091): an account identifier is not copied from a command's output either",
+      "nor from the output of a command" in never, never[:400])
+check("never (091): a check's cache the project itself ignores is not a change to the project",
+      "cache" in never and "the project itself ignores" in never and "is not a change to the project" in never, never[:400])
 check("the prohibitions stand before the first step", 0 < command.find("## What /onboard never does") < command.find("## 1."))
 alone = flat(section(command, "Who is here"))
 check("without the owner: steps 1–3 only, a draft, then stop with questions written into the profile",

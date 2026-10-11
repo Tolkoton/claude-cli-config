@@ -13,7 +13,9 @@ documents. `$ARGUMENTS` may name a directory to start the survey from; empty mea
 
 - **It fixes nothing and tidies nothing.** No edit to the project's code, tests, configuration
   or documents other than the five files of step 6. A failing test, a lint finding, a dead file —
-  each is written down, none is repaired.
+  each is written down, none is repaired. A check's cache that a run leaves in the project tree
+  and the project itself ignores (`git check-ignore`: `.pytest_cache`, `.ruff_cache`, …) is not a
+  change to the project.
 - **It writes no decisions in hindsight.** No ADR, no "we chose X because…": the structure is
   recorded as "this is how it is", never as "this was decided". Why something is so is the
   owner's to say, in their words, or it stays an open question.
@@ -21,7 +23,8 @@ documents. `$ARGUMENTS` may name a directory to start the survey from; empty mea
   a package, not a tool. A command whose tool is absent is recorded as «not run», never repaired.
 - **It reads no secrets.** `.env`, `secrets/`, credential and key files are not opened and never
   quoted; the profile says only that they exist and where. A script that loads such a file itself
-  is not run. Identifiers of external accounts found in documents are not copied into the profile.
+  is not run. Identifiers of external accounts are not copied into the profile — neither from a
+  document nor from the output of a command you ran.
 - **It never answers for the owner** and never infers a verdict from an earlier remark.
 
 ## Who is here
@@ -69,10 +72,15 @@ you go; nothing else is written in this step.
 
 ## 2. Check the commands — by running them
 
-First check that each command's tool is there (`command -v`, `--version`). Then run every command
-found in step 1, one at a time, each with a time limit (ten minutes unless the owner names
-another; a timeout is recorded as «ran, timed out»), and record for each: the exact command, the
-exit code, how long it took, and what failed (counts and names, not a pasted log).
+Before any script of the project is run, list the key variables set in the session's environment —
+names only, never a value (`compgen -e | grep -iE 'key|token|secret|passw|credential'`) — and write
+the names into the profile. Check that each command's tool is there (`command -v`, `--version`); a
+tool that lives only in the project's virtual environment is invisible to `command -v` and works
+through the runner — probe it there, and its run is «ran» through the runner, not «tool absent».
+Then run every command found in step 1, one at a time, each with a time limit (ten minutes
+unless the owner names another; a timeout is recorded as «ran, timed out»), and record for each:
+the exact command, the exit code, how long it took, and what failed (counts and names, not a
+pasted log).
 
 - **A command that was not run does not go into `project.env`** — it would be an unverified
   premise about someone else's system (constitution, Article 1). It goes into the profile as
@@ -80,8 +88,22 @@ exit code, how long it took, and what failed (counts and names, not a pasted log
   the network, a service or a credential, long-running or interactive, needs arguments the survey
   cannot supply, would change the sources or something outside the working tree (a throwaway
   directory under the system's temp directory does not count as outside).
+- **A key in the session's environment is a credential the script already has.** A script that
+  with such a key would reach a paid or external service is «not run», or is run with the variable
+  explicitly unset (`env -u NAME …`) and the row says which variable. «It stops without a key» is
+  true of a key file and false of a key the session carries.
 - A runner that would create an environment or download packages on first use (`uv run`, `npx`,
   …) counts as tool absent when the environment is not there: running it would install.
+- An environment that is there may have drifted from the lock file, and the runner then syncs —
+  installs — without a word. Run it with syncing off and offline (`uv run --no-sync --offline`,
+  `npx --no-install`, …). Such a guard does not make the command a variant: the row is «ran»,
+  it names the guard, and what may go into `project.env` is the command as found.
+- One check named in several documents in different spellings (`pytest`, `python -m pytest`,
+  `uv run pytest`) is one row with every source, not a row per spelling.
+- **A command that exits 0 having checked nothing is not «ran».** The path it reads is empty or
+  gone, no test was collected, no file matched: read what a passing command says it checked, not
+  only its exit code. Record «ran, checked nothing» with what was missing; «ran, checked nothing»
+  does not go into `project.env`.
 - A variant of a found command (fewer arguments, another interpreter) may be run to learn
   something; it is recorded as a variant and does not go into `project.env`.
 - **If none of lint, type-check and tests could be run**, say so in the first line of the profile
