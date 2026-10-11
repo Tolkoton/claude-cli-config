@@ -48,4 +48,4 @@
    карантин у `gate.py`, `mode.py check-close` для ескізу, шаблон запису. Код закомічено (`9367ae4`), overseer дав PASS
    (запит `20261011T061554Z-cefbce`). Звіт — `tasks/blocked/report-099-modes-sketch.md`.
    Дія runner-а: apply-settings 21d973ef7bb1b72c179b3966ece9af2ea1e8d7949f4a608c712ebc617a817b77
-   Відповідь:
+   Відповідь: так
