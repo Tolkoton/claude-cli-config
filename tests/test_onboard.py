@@ -85,7 +85,8 @@ check("step 2 (from the trial): a variant never reaches project.env; no check ra
 # board 091 — the five places of the full trial (board 057) where step 2 left the agent guessing
 check("step 2 (091): the key variables of the session's environment are listed by name before any script runs; a script that would spend one is not run or runs with it unset",
       "list the key variables set in the session's environment" in commands and "names only, never a value" in commands
-      and "explicitly unset" in commands and "paid or external service" in commands and "compgen -e" in commands, commands[:300])
+      and "explicitly unset" in commands and "paid or external service" in commands and "for (k in ENVIRON) print k" in commands
+      and "A listing that failed is not an empty list" in commands, commands[:300])
 check("step 2 (091): an environment that may have drifted from the lock file — the runner runs without syncing and offline, and that guard is no variant",
       "drifted from the lock file" in commands and "--no-sync" in commands and "offline" in commands
       and "does not make the command a variant" in commands, commands[:300])

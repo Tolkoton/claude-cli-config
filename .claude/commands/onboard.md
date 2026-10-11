@@ -73,8 +73,10 @@ you go; nothing else is written in this step.
 ## 2. Check the commands — by running them
 
 Before any script of the project is run, list the key variables set in the session's environment —
-names only, never a value (`compgen -e | grep -iE 'key|token|secret|passw|credential'`) — and write
-the names into the profile. Check that each command's tool is there (`command -v`, `--version`); a
+names only, never a value (`awk 'BEGIN { for (k in ENVIRON) print k }' | grep -iE
+'key|token|secret|passw|credential'`) — and write the names into the profile. A listing that
+failed is not an empty list, and a paid key may carry none of these words: read the names a
+script itself asks for. Check that each command's tool is there (`command -v`, `--version`); a
 tool that lives only in the project's virtual environment is invisible to `command -v` and works
 through the runner — probe it there, and its run is «ran» through the runner, not «tool absent».
 Then run every command found in step 1, one at a time, each with a time limit (ten minutes
