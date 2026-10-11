@@ -20,10 +20,13 @@ how the parts connect. "This is how it is" — never "this was decided". -->
 | Path | What it is | Evidence |
 |---|---|---|
 
-Hot places (change most often and are the largest), over <how far back the history was read>:
+Hot places (change most often and are the largest, among the files of code), over <how far back
+the history was read>:
 
 | Path | Commits touching it | Lines | Read in full | A test file beside it |
 |---|---|---|---|---|
+
+Not code that changes often (lock files, logs, manifests, engine records): <paths, one line>
 
 Documents and their state (current / contradicts the code — an observation, not a fix):
 
@@ -44,7 +47,7 @@ of external accounts are not copied here>
 ## 3. Rules
 
 <!-- Every candidate, confirmed or not. Source is one or more of: written / seen in the code / seen
-in the history. "Seen in the code" says what it is counted over and lists the files that keep the
+in the history; a comment or docstring is "written, in code". "Seen in the code" says what it is counted over and lists the files that keep the
 habit AND those that do not; a count over files not read is marked "counted, not read". Verdict
 is the owner's: yes / no / the corrected text verbatim / waits for the owner. -->
 

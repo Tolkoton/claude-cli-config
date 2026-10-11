@@ -113,9 +113,33 @@ check("step 3: no source, no candidate; a guess is called a guess", "no source i
 check("step 3: a habit lists the files that do not keep it too, and what it is counted over", "the files that do not" in rules and "counted over" in rules)
 check("step 3 (from the trial): one or more sources; a written rule the code breaks comes with its counter-evidence",
       "one or more of three" in rules and "counter-evidence" in rules)
+# board 093 — the full trial (board 057): 23 candidates, and in these places the agent drew the line by its own judgement
+check("step 3 (093): a comment or docstring in the code is «written», and the source column says so",
+      "A comment or a docstring in the code is **written** too" in rules and "«written, in code»" in rules, rules[:700])
+check("step 3 (093): a rule is what a change could break, however short its source; one sentence the code does not confirm is a guess",
+      "however short its source" in rules and "one sentence that nothing in the code confirms is a guess" in rules
+      and "one sentence of a document is not by itself a rule" not in rules, rules[-900:])
+check("step 3 (093): a rule is worded no more strongly than its source — the strong words need a count or a quotation, one case gives a rule about that case",
+      "worded no more strongly than its source" in rules and "«only», «always», «every», «never» need a count or a quotation that carries the word" in rules
+      and "is worded about that case" in rules, rules[-900:])
+check("step 3 (093): a habit most files keep may name only the files that do not, when one search command lists the rest — and the command is written down",
+      "name only the files that do **not** keep it" in rules and "are the majority" in rules
+      and "one search command lists them" in rules and "write that command" in rules, rules[:900])
 older = flat(section(command, "If the project already has agent files"))
 check("an older engine or existing agent files (from the trial): surveyed as documents, engine policy is no candidate, nothing replaced",
       "documents to survey" in older and "not a candidate rule of the project" in older and "is not replaced" in older, older[:300])
+check("the engine's rules (093): the sign is what the rule is about — the project's code and data, or the way an agent works — not where it is written",
+      "the project's code and data" in older and "the way an agent works" in older and "wherever it is written" in older
+      and all(w in older for w in ("secrets", "one commit per task", "memory")), older[:900])
+check("the engine's commands (093): the engine's own commands and the checks of its hooks are not found commands",
+      "the checks of its hooks are not *found* commands" in older and "not run in step 2" in older
+      and "never go into `project.env`" in older, older[-700:])
+check("step 1 (093): hot places are counted among code files; lock files, logs, manifests and engine records are one line «not code»",
+      "counted among the files of code only" in survey and "«not code»" in survey
+      and all(w in survey for w in ("lock files", "logs", "manifests", "records of an engine")), survey[:1200])
+check("step 1 (093): of an older engine's records the decisions and rules are read, the rest is listed in «Not read»",
+      "An older engine's records are not read whole either" in survey and "decisions and rules" in survey
+      and "ledgers" in survey and "listed in «Not read» with its size in lines" in survey, survey[-900:])
 check("step 1 (from the trial): a hot file is read in full before a rule about it; a search count is marked",
       "read in full before any rule about it" in survey and "«counted, not read»" in survey)
 reader = flat(section(command, "4."))
@@ -204,6 +228,9 @@ check("the status line (092): without the owner it is steps 1–4, the owner con
       'add: "steps 1–4 only"' in flat(profile) and "after step 5" in flat(profile) and "K rules reworded" in profile
       and "1–3" not in profile and "after step 4" not in flat(profile), profile[:900])
 check("the risk zones (092): a part whose checks did not run has its row", "No check ran" in profile)
+check("the hot places (093): the table is of code files, and what changes often but is not code has its own line",
+      "among the files of code" in flat(profile) and "Not code that changes often" in profile, profile[900:1500])
+check("a rule's source (093): the template names «written, in code» for a comment or docstring", "written, in code" in flat(profile))
 check("a command row carries its status and the evidence of the run", "Status (ran / not run / variant)" in profile and "Exit, duration" in profile)
 check("a rule row carries source, evidence, counter-evidence, the owner's verdict and whether it goes into AGENTS.md",
       "| Source | Evidence | Counter-evidence | Owner's verdict | Goes into AGENTS.md |" in profile)

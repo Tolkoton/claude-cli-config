@@ -59,8 +59,16 @@ owner's part. Steps 5–8 are for a session the owner sits in.
 Its `AGENTS.md`, `CLAUDE.md`, progress journals and earlier engine records (also under the old
 paths `.claude/overseer/`, `.claude/premises/`, `.claude/architecture/`) are documents to survey
 and sources of *written* rules like any other. A rule that is the engine's own policy (commits,
-hooks, the overseer) is not a candidate rule of the project. In step 6 an existing `AGENTS.md` or
-`project.env` is not replaced: show the owner the difference and change only what they agree to.
+hooks, the overseer) is not a candidate rule of the project. The sign is what the rule is about,
+wherever it is written: the project's code and data — a candidate; the way an agent works
+(commits, branches, tasks, hooks, audits, sessions, its memory) — the engine's. So a rule about
+secrets that stands inside a section on the overseer is a candidate when it says what the code or
+the repository may hold; «one commit per task» in a task file is not; a lesson in an older
+engine's memory is judged by the same sign, one lesson at a time. The engine's own commands and
+the checks of its hooks are not *found* commands: they check the engine, not the project — one
+row in the map, not run in step 2, and they never go into `project.env`. In step 6 an existing
+`AGENTS.md` or `project.env` is not replaced: show the owner the difference and change only what
+they agree to.
 
 ## 1. Survey — read only
 
@@ -82,10 +90,17 @@ you go; nothing else is written in this step.
 - **History**: `git log` — which files change most often and are at the same time the largest
   (commits touching the file, and its lines: the places where work will most likely land);
   reverts; the same file fixed again and again. On a long history, say how far back you looked.
+  Hot places are counted among the files of code only: lock files, logs and journals, manifests
+  and the records of an engine change often and are large without being where work lands — they
+  go under the table as one line, «not code».
 - **A large project is not read whole.** Read the hot places first — a hot source file is read
   in full before any rule about it is offered — and write in the profile's «Not read» section
   what you only searched and what you did not open. A count from a search over files you did not
   read is marked «counted, not read»; any other claim about an unread file is not made.
+- **An older engine's records are not read whole either.** Read what holds decisions and rules:
+  the decisions and deferred items of each slice contract, the entries of the escalations log,
+  the lessons in its memory, the ADRs. The rest — ledgers, verdicts, audit requests, progress
+  journals, the remaining body of the contracts — is listed in «Not read» with its size in lines.
 
 ## 2. Check the commands — by running them
 
@@ -142,17 +157,28 @@ pasted log).
 
 Write the candidate rules into the profile. Each names its source — one or more of three:
 
-- **written** — a document, linter setting or CI step says it; cite `file:line`;
+- **written** — a document, linter setting or CI step says it; cite `file:line`. A comment or a
+  docstring in the code is **written** too — somebody wrote the sentence down; the source column
+  then says «written, in code»;
 - **seen in the code** — a habit most files keep; give the count and what it is counted over
   (which directory, which kind of file), and list the files that keep it **and the files that do
-  not** (up to ten by name, the rest as a number). Kept in one directory and not in another, it
-  is a rule of that directory, or a guess;
+  not** (up to ten by name, the rest as a number). When the files that keep it are the majority
+  and one search command lists them, name only the files that do **not** keep it and write that
+  command in place of the list. Kept in one directory and not in another, it is a rule of that
+  directory, or a guess;
 - **seen in the history** — a reverted change, the same place fixed again and again; cite the commits.
 
 A candidate with no source is not offered (Article 4). A guess is called a guess. A written rule
 the code does not follow is offered as it is — with both the citation and the counter-evidence —
 and the owner decides which of the two is the rule. A candidate is something a change could
-break: one linter setting or one sentence of a document is not by itself a rule.
+break, however short its source: in well-commented code a real invariant is exactly one sentence,
+and it is a rule when the code keeps it — name the check, the test or the call sites that do.
+One linter setting is not by itself a rule, and one sentence that nothing in the code confirms is
+a guess.
+
+A rule is worded no more strongly than its source — the fresh reader of step 4 will ask exactly
+this. «only», «always», «every», «never» need a count or a quotation that carries the word; a
+rule from a source that speaks of one case is worded about that case.
 
 ## 4. A fresh reader checks every reference and every rule's wording
 
