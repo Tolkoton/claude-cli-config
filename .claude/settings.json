@@ -180,6 +180,11 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/overseer_verdict.py\" guard",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/reader.py\" guard",
+            "timeout": 15
           }
         ]
       },
@@ -281,6 +286,16 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/testing.py\" record",
             "timeout": 900
+          }
+        ]
+      },
+      {
+        "matcher": "reader",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/reader.py\" record",
+            "timeout": 30
           }
         ]
       }
