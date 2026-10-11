@@ -1,0 +1,192 @@
+LENS: code
+SCOPE: .claude/unattended
+
+DETERMINISTIC SIGNALS (cite a signal by its id):
+[
+ {
+  "id": "S-f96469b1",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 287,
+  "message": "parse: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-d450e1f9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 466,
+  "message": "import_inbox: complexity 22, the limit is 13"
+ },
+ {
+  "id": "S-7eb36ed5",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 698,
+  "message": "open_item: complexity 26, the limit is 13"
+ },
+ {
+  "id": "S-887acc23",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 1077,
+  "message": "park: complexity 15, the limit is 13"
+ },
+ {
+  "id": "S-c2fac3c2",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 1133,
+  "message": "summary: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-435de102",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board.py",
+  "line": 1170,
+  "message": "main: complexity 44, the limit is 13"
+ },
+ {
+  "id": "S-8536ed04",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 352,
+  "message": "now_section: complexity 15, the limit is 13"
+ },
+ {
+  "id": "S-daf81acb",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 546,
+  "message": "goals_section: complexity 19, the limit is 13"
+ },
+ {
+  "id": "S-4bd4a200",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 586,
+  "message": "testing_section: complexity 49, the limit is 13"
+ },
+ {
+  "id": "S-6190a942",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 646,
+  "message": "journal_lines: complexity 15, the limit is 13"
+ },
+ {
+  "id": "S-7a66c851",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 670,
+  "message": "plan_section: complexity 22, the limit is 13"
+ },
+ {
+  "id": "S-9ac175a9",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/unattended/board_review.py",
+  "line": 670,
+  "message": "plan_section: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-079ba702",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 721,
+  "message": "candidates_section: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-9ff4843f",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_review.py",
+  "line": 805,
+  "message": "golden_line: complexity 18, the limit is 13"
+ },
+ {
+  "id": "S-36f718d9",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/board_state.py",
+  "line": 287,
+  "message": "main: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-aaa434ad",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/unattended/board_state.py",
+  "line": 287,
+  "message": "main: nesting 5, the limit is 3"
+ },
+ {
+  "id": "S-2b27f176",
+  "tool": "ast",
+  "kind": "complexity",
+  "file": ".claude/unattended/owner_action.py",
+  "line": 223,
+  "message": "update_deps: complexity 16, the limit is 13"
+ },
+ {
+  "id": "S-123303db",
+  "tool": "ast",
+  "kind": "nesting",
+  "file": ".claude/unattended/settings_check.py",
+  "line": 43,
+  "message": "handlers: nesting 4, the limit is 3"
+ },
+ {
+  "id": "S-0c115b12",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": ".claude/unattended/board.py",
+  "line": 213,
+  "message": "unused variable 'OWNER_ACTIONS' (60% confidence)"
+ },
+ {
+  "id": "S-6173676b",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": ".claude/unattended/board.py",
+  "line": 282,
+  "message": "unused function 'consents' (60% confidence)"
+ },
+ {
+  "id": "S-4d1ba468",
+  "tool": "vulture",
+  "kind": "dead-code",
+  "file": ".claude/unattended/board.py",
+  "line": 994,
+  "message": "unused variable 'ANOMALIES' (60% confidence)"
+ },
+ {
+  "id": "S-98e84a8a",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier-hard/project/pyproject.toml",
+  "line": 6,
+  "message": "pyyaml is declared and no module named pyyaml is imported"
+ },
+ {
+  "id": "S-7fd90b8e",
+  "tool": "pyproject",
+  "kind": "unused-dependency",
+  "file": "evals/scenarios/simplifier/project/pyproject.toml",
+  "line": 6,
+  "message": "requests is declared and no module named requests is imported"
+ }
+]
+
+Answer with the JSON list of findings and nothing else.

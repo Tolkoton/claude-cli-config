@@ -1,0 +1,365 @@
+{
+  "findings": [
+    {
+      "target": ".claude/hooks/test_touch.py:55",
+      "category": "dead_code",
+      "claim": "The `layer` parameter of `TestIndex.__init__` is stored as `self.layer` and never read; the class works the same without it, and its two callers (delete_guard.py:517, testing.py:419) would drop one argument.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/test_touch.py:55",
+          "detail": "`self.root, self.layer, self.ref, self.changes = root, layer, ref, changes`; `text()`, `module_test()`, `mentions()` use root, ref, changes only"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/test_touch.py:55",
+          "detail": "`self.layer` across the repository: the assignment is its only occurrence in test_touch.py (gate.py:189 is Report.layer, another class)"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/delete_guard.py:517",
+          "detail": "callers: `TestIndex(root, layer, ref, changes)` here and `TestIndex(root, \"stop\", \"HEAD\", {})` at testing.py:419 — testing.py passes a constant because nothing reads it"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "confirm",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-4ac917e4",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/testing.py:482",
+      "category": "dead_code",
+      "claim": "`tree_overlay(root, base)` never uses `base`: it diffs against the literal \"HEAD\" (line 484), which matches `touch()` running coverage on \"HEAD\" (line 418); the parameter and the argument at the one call site (line 676) can go with no change of behaviour.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/testing.py:484",
+          "detail": "`test_touch.git(root, \"diff\", \"--name-only\", \"HEAD\", \"--\")` — `base` appears nowhere in the body"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/testing.py:676",
+          "detail": "the only call: `tree_overlay(root, base)` inside facts_b"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/testing.py:418",
+          "detail": "the overlay is laid over a checkout of \"HEAD\" (`run_coverage(root, \"HEAD\", ...)`), so an overlay relative to HEAD is what the reader wants; the docstring says the same"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "confirm",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-0cfec5bf",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/testing.py:391",
+      "category": "dead_code",
+      "claim": "`slug_of(root, feature, item)` never uses `feature` (the body reads only `.engine/slices/*.md` and `item.is_slug`); the parameter is threaded through `finished` (line 397) and five call sites (398, 552, 640, 1413, 1418) for nothing.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/testing.py:393",
+          "detail": "`folder = root / \".engine\" / \"slices\"; return next((p.stem for p in sorted(folder.glob(\"*.md\")) if item.is_slug(p.stem)), None) ...` — no reference to `feature`"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/testing.py:398",
+          "detail": "every caller passes the Feature it already holds; none depends on it being used"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "confirm",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-77a3c83b",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/bugfix.py:80",
+      "category": "dead_code",
+      "claim": "The keyword parameter `text: bool = True` of `bugfix.git` is set by no caller: the five calls in the module (lines 86, 106, 128, 146, 147) pass none, and `text=False` appears nowhere in the repository; the binary `git archive` call at line 139 uses subprocess directly.",
+      "evidence": [
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/bugfix.py:80",
+          "detail": "`bugfix.git(` and `text=False` across *.py: no match outside the definition"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/bugfix.py:139",
+          "detail": "the one call that needs bytes (`git archive`) does not go through `git()` at all"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "confirm",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-4c4dba24",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/gate_allows.py:116-121",
+      "category": "duplication",
+      "claim": "`added_since` re-implements the hunk-to-line-numbers arithmetic of `gate.added_lines` (gate.py:294-299) verbatim — same `HUNK_RE`, same `start`/`count` default of 1, same `range` update — and testing.py:459-462 writes the same regex and loop a third time inside `changed_code`; a change to how added lines are read from `-U0` output must be made three times.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate_allows.py:117",
+          "detail": "`for hunk in gate.HUNK_RE.finditer(out.stdout): start = int(hunk.group(\"start\")); count = 1 if hunk.group(\"count\") is None else int(hunk.group(\"count\")); added.update(range(start, start + count))`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate.py:295",
+          "detail": "identical four lines in `added_lines`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/testing.py:459",
+          "detail": "`re.match(r\"^@@ -\\d+(?:,\\d+)? \\+(\\d+)(?:,(\\d+))? @@\", line)` then `set(range(start, start + count))` — gate.HUNK_RE and the same arithmetic, written inline"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate_allows.py:40",
+          "detail": "the module says it imports gate.py \"so the two can never disagree about a diff\", yet the diff reading is a copy, not a call"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": ".claude/hooks/gate_allows.py:40 (\"imports gate.py so the two can never disagree about a diff or a reason\")",
+      "reversal_risk": "low",
+      "id": "F-af8f626a",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/gate_allows.py:124-139",
+      "category": "duplication",
+      "claim": "`suppressions_by_line` computes \"which suppression kinds stand on which line\" by the same two lookups as `gate.guard_python` (gate.py:496-511): `SUPPRESSIONS` patterns over the tokenizer's comments, then `ast.walk` for `ast.Attribute` nodes whose `dotted()` is in `SKIP_NAMES`; a new suppression kind or a change in how one is recognised has to be made in both modules.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate_allows.py:126",
+          "detail": "comments × gate.SUPPRESSIONS → kinds per line; then `for node in ast.walk(tree): if isinstance(node, ast.Attribute) and gate.dotted(node) in gate.SKIP_NAMES`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate.py:496",
+          "detail": "`for line, comment in comments.items(): ... for kind, pattern in SUPPRESSIONS: if pattern.search(comment): hits.append(...)`; then the same `ast.walk` / `dotted(node) in SKIP_NAMES` walk — the only difference is the `added` filter, applied here after the fact"
+        },
+        {
+          "source": "judgement",
+          "ref": "",
+          "detail": "the constants are shared, the detection logic is not; gate.py could expose the per-line kinds and both callers filter them"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": ".claude/hooks/gate_allows.py:40 (\"imports gate.py so the two can never disagree about a diff or a reason\")",
+      "reversal_risk": "low",
+      "id": "F-5048fe40",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/baseline.py:67",
+      "category": "duplication",
+      "claim": "`utc_now()` — `datetime.now(UTC).strftime(\"%Y-%m-%dT%H:%M:%SZ\")` — is defined identically in five in-scope modules (gate.py:204, baseline.py:67, delete_guard.py:108, simplify_signals.py:262, testing.py:122); gate_allows.py already calls `gate.utc_now()`, and baseline.py imports gate anyway, so one definition would serve.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/baseline.py:67",
+          "detail": "same body as gate.py:204"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/gate.py:204",
+          "detail": "`^def utc_now(` matches gate.py, baseline.py, delete_guard.py, simplify_signals.py, testing.py in scope (and board.py, overseer_verdict.py, lesson_queue.py outside it)"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate_allows.py:280",
+          "detail": "`gate.utc_now()` — the precedent for using gate's"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-18d1b3cb",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/complexity_budget.py:712-717",
+      "category": "duplication",
+      "claim": "`complexity_budget.project_root` applies the same rule as `gate.project_root` (gate.py:211-218): CLAUDE_PROJECT_DIR, else `git rev-parse --show-toplevel`, else cwd — while the module's own `project_env` (lines 167-173) defers to gate.py \"so the hooks cannot disagree about a value\"; simplify_signals, simplifier, hotfix and maintain all take their root from this copy.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/complexity_budget.py:712",
+          "detail": "env var → `git rev-parse --show-toplevel` → `Path.cwd()`; the only difference from gate's is an `is_dir()` check on the env var"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate.py:211",
+          "detail": "the same three steps"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/complexity_budget.py:168",
+          "detail": "docstring of project_env: \"gate.py owns the reading, so the hooks cannot disagree about a value\" — the root is read by a second rule nonetheless"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/simplifier.py:479",
+          "detail": "`budget.project_root()` — callers in simplifier.py, simplify_signals.py:300, hotfix.py:346, maintain.py:338"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": ".claude/hooks/complexity_budget.py:168 (\"gate.py owns the reading, so the hooks cannot disagree about a value\")",
+      "reversal_risk": "low",
+      "id": "F-41bccc40",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/delete_guard.py:119",
+      "category": "duplication",
+      "claim": "`is_working_code` parses CODE_EXTENSIONS with the exact expression of `gate.code_extensions` (gate.py:243-245) — replace commas, split, strip the dot, lower-case, drop empties — and simplifier.py:110 (`is_code`) applies the same rule a third time with a `[\"py\", \"sh\"]` default; a change to how the key is read must be made in three places.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/delete_guard.py:119",
+          "detail": "`[t.lstrip(\".\").lower() for t in env.get(\"CODE_EXTENSIONS\", \"\").replace(\",\", \" \").split() if t.lstrip(\".\")]`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate.py:244",
+          "detail": "`tokens = env.get(\"CODE_EXTENSIONS\", \"\").replace(\",\", \" \").split(); return [t.lstrip(\".\").lower() for t in tokens if t.lstrip(\".\")]` — the same expression split over two lines"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/simplifier.py:110",
+          "detail": "`[e.lstrip(\".\").lower() for e in re.split(r\"[\\s,]+\", env.get(\"CODE_EXTENSIONS\", \"\")) if e] or [\"py\", \"sh\"]`"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-baa9f51b",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/baseline.py:55",
+      "category": "duplication",
+      "claim": "`baseline.STEP_PART` and `gate.SNAPSHOT_PART` (gate.py:113) are the same table `{\"lint\": \"lint\", \"typecheck\": \"types\", \"tests\": \"tests\"}` mapping a gate step to a snapshot part; baseline.py imports gate before it uses the table (line 209), so one copy would do.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/baseline.py:55",
+          "detail": "`STEP_PART = {\"lint\": \"lint\", \"typecheck\": \"types\", \"tests\": \"tests\"}`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/gate.py:113",
+          "detail": "`SNAPSHOT_PART = {\"lint\": \"lint\", \"typecheck\": \"types\", \"tests\": \"tests\"}`"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/hooks/baseline.py:215",
+          "detail": "each table has exactly one reader (baseline.py:215, gate.py:783)"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-65c10103",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/simplifier.py:275-276",
+      "category": "duplication",
+      "claim": "`request` computes \"the files the change touched\" — `git diff --name-only HEAD` united with `git ls-files --others --exclude-standard`, sorted — with the same two lines as `simplify_signals.main` (simplify_signals.py:303-304); both feed `simplify_signals.collect`, which could compute the default itself when `files` is None.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/simplifier.py:275",
+          "detail": "`sorted({*budget.git(root, \"diff\", \"--name-only\", \"HEAD\").splitlines(), *budget.git(root, \"ls-files\", \"--others\", \"--exclude-standard\").splitlines()})`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/simplify_signals.py:303",
+          "detail": "the identical expression, guarded by `if args.scope == \"stop\" and files is None`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/simplify_signals.py:272",
+          "detail": "`collect` treats `files or []` — a None default is not filled in there, so each caller fills it"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-9190c95c",
+      "validator": []
+    },
+    {
+      "target": ".claude/hooks/delete_guard.py:65",
+      "category": "duplication",
+      "claim": "`delete_guard.TARGET_RE` and `simplifier.REF_RE` (simplifier.py:91) are two spellings of the same grammar for a finding's target — `path[:line[-end]][::symbol]` — one keeping the end and symbol groups, the other discarding them; `cmd_confirm` parses with TARGET_RE a target that `simplifier.validated_file` just accepted with REF_RE, so a change of the target grammar must be made twice or the two disagree.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/hooks/delete_guard.py:65",
+          "detail": "`^(?P<path>[^:]+?)(?::(?P<line>\\d+)(?:-(?P<end>\\d+))?)?(?:::(?P<symbol>[\\w.]+))?$`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/simplifier.py:91",
+          "detail": "`^(?P<path>[^:]+?)(?::(?P<line>\\d+)(?:-\\d+)?)?(?:::[\\w.]+)?$`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/delete_guard.py:462",
+          "detail": "`tool_finding` validates through simplifier (REF_RE), then `target_names` re-parses `finding[\"target\"]` with TARGET_RE"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-d7080136",
+      "validator": []
+    }
+  ],
+  "rejected": []
+}

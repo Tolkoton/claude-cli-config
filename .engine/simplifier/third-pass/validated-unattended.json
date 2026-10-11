@@ -1,0 +1,215 @@
+{
+  "findings": [
+    {
+      "target": ".claude/unattended/board.py:282",
+      "category": "dead_code",
+      "claim": "The function `consents` has no caller anywhere; the one-word consent rule it wraps is applied through `Task.says` → `is_word` (lines 271-279), so the gate, action and rule questions keep working without it, and the two docstring mentions at lines 70 and 210 should then name `is_word` instead.",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-6173676b",
+          "detail": "vulture: unused function 'consents' (60% confidence)"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/unattended/board.py:282",
+          "detail": "'consents' occurs in the repository's code only at its definition; the other hits are the prose at board.py:70 and board.py:210 and the task reports tasks/done/036-review-and-consent/report.md:28, tasks/done/710-open-item-044-vulture-public-api-noise/report.md:18,41"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:271-279",
+          "detail": "`Task.says(word)` calls `is_word(self.answers[-1], word)` directly; `closes`, `approves` and `declines` go through `says`, never through `consents`"
+        },
+        {
+          "source": "read",
+          "ref": "tasks/done/710-open-item-044-vulture-public-api-noise/report.md:18",
+          "detail": "an earlier task already judged it: no callers anywhere, only comment mentions, 'real dead code, for the nightly cleanup'"
+        },
+        {
+          "source": "read",
+          "ref": "tests/test_board.py:804-815",
+          "detail": "the consent rule («так», «Так.», ««ТАК»!», «так, але…») is characterized through `board.read(q).closes` and `.approves`, which stay green without `consents`"
+        },
+        {
+          "source": "judgement",
+          "ref": "",
+          "detail": "Chesterton: `consents` was board 036's predicate; when board 040 added the owner's «ні», `is_word` generalized it and `says` took over; nothing was left to call the old name"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "auto_remove",
+      "traceability": "board 036 (one form of consent) — carried by Task.says/is_word, not by this function",
+      "reversal_risk": "low",
+      "id": "F-09271eb4",
+      "validator": []
+    },
+    {
+      "target": ".claude/unattended/board.py:994",
+      "category": "dead_code",
+      "claim": "The constant `ANOMALIES = \"ANOMALIES.md\"` has no reader: since board 739 the journal's path is owned by `journal.JOURNALS[\"anomalies\"]` (tasks/ANOMALIES.md) and `anomaly()` writes through `journal.add`; `ANOMALIES_HEAD` on the next line is used and stays.",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-4d1ba468",
+          "detail": "vulture: unused variable 'ANOMALIES' (60% confidence)"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/unattended/board.py:994",
+          "detail": "no `board.ANOMALIES` or bare `ANOMALIES` identifier anywhere in *.py or *.sh besides this line; tests/test_board.py:438 uses the literal string \"ANOMALIES\", tests/test_journal.py:96 uses `board.ANOMALIES_HEAD`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/hooks/journal.py:71",
+          "detail": "`Journal(\"anomalies\", \"tasks/ANOMALIES.md\", False, head=…)` — the path lives in the journal module"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:1030-1036",
+          "detail": "`anomaly()` returns `journal.add(board.tasks.parent, \"anomalies\", entry)`; the constant is not used to build a path"
+        },
+        {
+          "source": "read",
+          "ref": "tests/test_board.py:383-391",
+          "detail": "`board.py anomaly` is exercised and the entry read back through `journal_text(root, \"anomalies\")`"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "auto_remove",
+      "traceability": "board 739: journal.JOURNALS['anomalies'] owns the file name",
+      "reversal_risk": "low",
+      "id": "F-fcaa8bdd",
+      "validator": []
+    },
+    {
+      "target": ".claude/unattended/board.py:213",
+      "category": "duplication",
+      "claim": "`OWNER_ACTIONS` is a second, unenforced statement of the runner's allowlist that has already drifted: no code reads it (what an action line may offer is `OFFERS`, what the runner runs is `owner_action.ACTIONS`), it lacks `reject-rule` which the runner does run, and its only reader is a test that parses it out of the file text; the docstring at line 80 could point at `owner_action.ACTIONS` and the tuple go, with tests/test_maintain.py:477 re-pointed.",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-0c115b12",
+          "detail": "vulture: unused variable 'OWNER_ACTIONS' (60% confidence)"
+        },
+        {
+          "source": "grep",
+          "ref": ".claude/unattended/board.py:213",
+          "detail": "hits: the definition, the prose at board.py:80, and tests/test_maintain.py:477 which does `board_text.split(\"OWNER_ACTIONS = \")[1]` on the file's text"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:228",
+          "detail": "`OFFERS = {*ACTION_FILES, RULE_ACTION}` is what `parse` (line 302) accepts on an action line — not OWNER_ACTIONS"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/owner_action.py:272-273",
+          "detail": "`ACTIONS = {apply-settings, promote-rule, reject-rule, amend-goals, update-deps}` is the list `main` refuses outside of (line 286-288); it has `reject-rule`, which OWNER_ACTIONS lacks, and lacks `close-escalation`, which the runner runs through gate.py (board-runner.sh:468), not owner_action.py"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board-runner.sh:402",
+          "detail": "the runner's own comment: 'owner_action.py holds the list of what may be run'"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:264-269",
+          "detail": "`decided` returns `RULE_DECLINE` (reject-rule) for «ні», so the runner runs an action the tuple does not list"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "none",
+      "proposed_action": "flag_only",
+      "traceability": "board 008 (AN OWNER ACTION, board.py:73-81) — the rule is enforced by owner_action.ACTIONS",
+      "reversal_risk": "low",
+      "id": "F-7590cb9e",
+      "validator": []
+    },
+    {
+      "target": ".claude/unattended/board.py:592-593",
+      "category": "duplication",
+      "claim": "The rule 'the lowest free number from this kind's floor' is written three times in one module — `gate_question` (592-593, from GATE_FIRST), `rule_question` (649-650, from RULE_FIRST) and `open_item` (712-713, from ITEM_FIRST) — each preceded by the same 'already written for this key' scan over todo/doing/blocked and done/task.md (589-591, 646-648, 708-711); a change to the numbering or to the scan must be made three times.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:592-593",
+          "detail": "`taken = {n for column in COLUMNS for n in board.numbers(column)}; number = next(n for n in range(GATE_FIRST, GATE_FIRST + len(taken) + 1) if n not in taken)`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:649-650",
+          "detail": "the same two lines with RULE_FIRST"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:712-713",
+          "detail": "the same two lines with ITEM_FIRST (`c` for `column`)"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:589-591",
+          "detail": "the 'return the task already written' scan: `for path in [*(p for c in (todo, doing, blocked) …), *(d / 'task.md' for d in board.done())]: if path.is_file() and read(path).gate == stamp` — repeated at 646-648 (`.rule == ident`) and, over the header's ITEM line, at 708-711"
+        },
+        {
+          "source": "read",
+          "ref": "tests/test_board_runner.py:797",
+          "detail": "the gate question's life (written, answered through the inbox, closed to done/) is exercised end to end; the rule and open-item paths are exercised by tests/test_board.py (`open-item`, rule questions)"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-ffc05097",
+      "validator": []
+    },
+    {
+      "target": ".claude/unattended/board_review.py:679-698",
+      "category": "duplication",
+      "claim": "`plan_section` recomputes the 'which todo/ task can the runner take' rule that board.py already holds twice — `Board.eligible` (379-383) and `summary` (1140-1153): the same first_rank order, the same refusals (a `Режим:` line naming no mode, `Потрібна присутність власника: так`, a dependency not in done/, a non-attended task already in doing/), and the first survivor is «наступна»; a new eligibility condition must be added in three places.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:379-383",
+          "detail": "`eligible`: first of `queue()` (first_rank order) with `task.attended == attended and not self.unmet(task) and not task.mode_error`"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board.py:1140-1153",
+          "detail": "`summary`: per todo/ task — attended → 'чекає на присутність власника', mode_error → 'не береться', unmet → 'чекає на залежності'; then `eligible()` when nothing is `in_hand()` → 'наступна'"
+        },
+        {
+          "source": "read",
+          "ref": ".claude/unattended/board_review.py:679-698",
+          "detail": "`plan_section`: `first_free` = no non-attended task in doing/; per todo/ task in first_rank order — mode_error → '**не береться**', attended → 'лише з присутнім власником', unmet (place.get(n) != 'done') → '**стоїть**', else the first gets '— **наступна**'"
+        },
+        {
+          "source": "read",
+          "ref": "tests/test_board_review.py:340-356",
+          "detail": "the plan's order, standing tasks, attended tasks, bad-mode tasks and the owner-answered-first rule are each characterized"
+        },
+        {
+          "source": "judgement",
+          "ref": "",
+          "detail": "Chesterton: board_review reads a commit in origin through `git show`, not the checkout, so `Board` itself cannot be reused — but the predicate on a parsed Task plus a set of done numbers could be one function both call; whether that is worth it is the owner's call"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-8f254854",
+      "validator": []
+    }
+  ],
+  "rejected": []
+}

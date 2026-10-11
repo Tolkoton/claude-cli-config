@@ -1,0 +1,161 @@
+[
+  {
+    "target": ".claude/references/hooks.md:16",
+    "category": "dead_code",
+    "claim": "The last sentence of the overseer_stop.py row — 'Until overseer_verdict.py is wired in the settings it keeps the former protocol (the session audits itself, OVERSEER_PASS continues, OVERSEER_PASS_REFUSED under an open escalation)' — describes a path the hook no longer has and contradicts the same row's earlier sentence that an unwired project gets 'OVERSEER NOT WIRED' and 'there is no other way to audit'; the sentence can go and the row describes the hook as it is.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/references/hooks.md:16", "detail": "same cell: 'In a project whose settings lack the two overseer_verdict.py handlers a claim gets OVERSEER NOT WIRED instead of a request — there is no other way to audit' and, at the end, 'Until overseer_verdict.py is wired in the settings it keeps the former protocol (the session audits itself, OVERSEER_PASS continues, OVERSEER_PASS_REFUSED under an open escalation)'"},
+      {"source": "read", "ref": ".claude/hooks/overseer_stop.py:319-325", "detail": "NOT_WIRED_REASON: 'this unit cannot be audited … Do NOT audit the unit yourself and do NOT type a verdict: neither counts … Put the unit before the owner as a task of the board'"},
+      {"source": "grep", "ref": ".claude/hooks/overseer_stop.py:320", "detail": "'former protocol' and 'OVERSEER_PASS_REFUSED' occur nowhere under .claude/hooks; the only hits for the self-audit idea are the refusals 'OVERSEER_PASS IGNORED' (line 304) and 'OVERSEER NOT WIRED' (line 320)"},
+      {"source": "read", "ref": ".claude/skills/overseer/SKILL.md:89-98", "detail": "the skill agrees with the hook: 'Without them nothing can record a verdict, and there is no other way to audit'"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md § Overseer protocol ('You never audit or write a verdict')",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/agents/overseer.md:63-65",
+    "category": "duplication",
+    "claim": "The paragraph 'If .engine/slices/<slug>.md is missing on a non-trivial slice, that itself may be a finding … do not block on its absence alone' is superseded by the mode rule in the same file's request-package list — in «соло» a missing contract is no finding, in «конвеєр» its absence is #1 — so it states a softer, older rule for the same case and can go with the mode rule deciding alone.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/agents/overseer.md:36-38", "detail": "'mode (the task's mode as mode.py show prints it: in «соло» a missing slice contract is no finding; in «конвеєр» every slice has a sealed one, and its absence is #1)'"},
+      {"source": "read", "ref": ".claude/agents/overseer.md:63-65", "detail": "'If .engine/slices/<slug>.md is missing on a non-trivial slice, that itself may be a finding. Say so in reason or evidence; do not block on its absence alone.'"},
+      {"source": "grep", "ref": ".claude/hooks/mode.py:13-16", "detail": "the three modes are a property of the task; 'a task without it is соло'; конвеєр = 'a sealed slice contract on every slice'"},
+      {"source": "judgement", "ref": "", "detail": "'may be a finding … do not block on its absence alone' can be true in neither mode: in соло it is no finding, in конвеєр it is a BLOCK; the request package tells the overseer which applies"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/agents/overseer.md:36-38 (the mode rule); .claude/hooks/mode.py:13-16",
+    "reversal_risk": "low"
+  },
+  {
+    "target": "AGENTS.md:47",
+    "category": "dead_code",
+    "claim": "The clause 'This repository has none yet' in the `.engine/goals.md` row is false in every session's context: the document exists at version 4 and is sealed; the clause can go and the row still says what the file is and who changes it.",
+    "evidence": [
+      {"source": "grep", "ref": "AGENTS.md:47", "detail": "'| `.engine/goals.md` | The project's goals; changed only by the owner's answer (`goals.py`). This repository has none yet |'"},
+      {"source": "read", "ref": ".engine/goals.md:3", "detail": "'Версія: 4' with five goals, seven principles, six non-goals and a change log to v4 of 2026-10-11"},
+      {"source": "grep", "ref": ".claude/state/goals/goals.sha256", "detail": "the seal file goals.py writes exists in the state directory"},
+      {"source": "read", "ref": "AGENTS.md:3-4", "detail": "'Keep it short and true: anything stale here is stale in every session's context'"},
+      {"source": "grep", "ref": "tests/test_context_budget.py:2", "detail": "the only test on AGENTS.md's text is the 200-line budget of the persistent context; no test asserts the goals row"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "AGENTS.md:3-5 (short and true; ≤200 lines)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".engine/goals.md:27",
+    "category": "duplication",
+    "claim": "N6 ('weaker or cheaper models for the critic and oversight roles: not yet — uncompromising verification quality over token savings') states the rule P5 already imposes ('on verification and oversight roles lowering the model level is forbidden; only the strongest model works'), so the same prohibition stands in two lines and a change to it would have to be made twice; the owner may fold N6's revisit trigger into P5 or confirm both stay.",
+    "evidence": [
+      {"source": "read", "ref": ".engine/goals.md:17", "detail": "P5: 'на ролях перевірки та нагляду заборонено занижувати рівень моделі (працює лише найсильніша модель)'"},
+      {"source": "read", "ref": ".engine/goals.md:27", "detail": "N6: 'Використання слабших або дешевших моделей для ролей критики й нагляду: поки що ні — безкомпромісна якість перевірки важливіша за економію токенів'"},
+      {"source": "grep", "ref": "tasks/done/083-parallel-agents-design/report.md:309", "detail": "decisions cite the two together as one rule: 'найсильніша модель (P5, N6)'; tasks/done/080-modes-design/report.md:246 likewise 'P5 і N6'"},
+      {"source": "judgement", "ref": "", "detail": "N6 adds only the revisit condition (lighter models proving equal strictness on the golden set); the prohibition itself is P5's"}
+    ],
+    "protected": true,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".engine/goals.md:17 (P5)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/commands/feature-architect.md:314-329",
+    "category": "duplication",
+    "claim": "The closing 'Hard constraints' list restates, line for line, rules the same command already gives (writes no code / drives the slice flow = 117-119 and 244-258; one human round then autonomous, batch interrupts = 105-106 and 285-287; critic blind and fresh = 121; honor markers on any pause = 287; tracer bullet is the gate = 168-181; convergence is the critic's PASS, two rounds no third = 112-114 and 162-164; record premises, escalate one-way doors, route gaps up = 69-71 and 273-279); the same pattern closes plan-slice.md:314-329 (all but the ADR line 327-328 and the marker-on-every-gate line 320-322 repeat lines 92, 134-140, 147-168, 184-194) and master-architect.md:246-263 (all but 'critic BLIND and FRESH' 257 and the pause list 261 repeat lines 15, 19-31, 34-67, 76-93, 144-149, 198-215, 226-233), so the lists can go and every rule stays stated once.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/commands/feature-architect.md:314-329", "detail": "seven bullets: writes no code, one human round, critic BLIND and FRESH, honor markers, tracer bullet is the gate, convergence is PASS / two rounds, record premises and escalate"},
+      {"source": "read", "ref": ".claude/commands/feature-architect.md:117-121", "detail": "'NEVER code, NEVER a slice's internal plan' and 'Spawn the critic fresh; pass ONLY {phase: plan, draft, feature_frame, slug}. Stay blind.'"},
+      {"source": "read", "ref": ".claude/commands/feature-architect.md:285-287", "detail": "'Batch interrupts … Then resume autonomously. Emit OVERSEER_SLICE_AWAITING_OWNER: on any pause.'"},
+      {"source": "read", "ref": ".claude/commands/feature-architect.md:162-164", "detail": "'Convergence is still the critic's FEATURE_CRITIC_PASS (Art. 3): the cap bounds what is spent asking' — the two-round cap at 112-114"},
+      {"source": "read", "ref": ".claude/commands/plan-slice.md:134-140", "detail": "'read the repo READ-ONLY … write ONLY into the in-progress artifact draft; NEVER src/ or tests/' and 'Do NOT pass your planning reasoning — the critic must stay blind'; the 4-round circuit breaker at 164-168"},
+      {"source": "grep", "ref": ".claude/commands/plan-slice.md:327", "detail": "'Do NOT create ADRs unilaterally' is the only ADR mention in plan-slice.md — the one line of its list that is not a repeat, with the marker list at 320-322"},
+      {"source": "grep", "ref": ".claude/commands/master-architect.md:257", "detail": "'BLIND and FRESH' occurs only in the Hard constraints; OVERSEER_SLICE_AWAITING_OWNER elsewhere only at line 79 (the goals gate) — the two lines of that list that add something"},
+      {"source": "judgement", "ref": "", "detail": "the second pass removed the three critics' closing 'What you do NOT do' lists on the same ground (F-4f664b0e); these are the commands' copies of the pattern"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/skills/documentation/SKILL.md:38-39 ('Each fact lives in exactly one place')",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/commands/plan-slice.md:24-26",
+    "category": "duplication",
+    "claim": "The definition of the mode file ('Read .claude/state/overseer/mode. Contents unattended → nobody is in the loop; absent or anything else → attended') repeats .claude/engine-rules.md § 'Attended vs unattended', which is in every session's context; the same three lines open feature-architect.md:31-32, and unattended.md:15-21 restates the rules' 'the mode changes one thing only … everything above holds in both modes, Article 5 included' as a list — the definitions can go and each command keeps only what it parks.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/engine-rules.md:83-86", "detail": "'.claude/state/overseer/mode containing unattended means nobody is watching; absent or anything else is attended, the default. The mode changes one thing only: an interactive hard gate in /plan-slice or /feature-architect becomes a park. Everything above holds in both modes, Article 5 included'"},
+      {"source": "grep", "ref": ".claude/commands/plan-slice.md:24", "detail": "'Read .claude/state/overseer/mode. Contents unattended → nobody is in the loop; absent or anything else → attended, and every gate below behaves exactly as written.'"},
+      {"source": "grep", "ref": ".claude/commands/feature-architect.md:31", "detail": "the same two sentences, word for word, before that command's park rules"},
+      {"source": "read", "ref": ".claude/references/unattended.md:15-21", "detail": "'What the mode changes, and only this: an interactive hard gate in /plan-slice or /feature-architect becomes a park … What it does not change — these hold in both modes: the slice-builder cadence; verdict routing; the three reasons to stop; Article 5'"},
+      {"source": "read", "ref": ".claude/references/unattended.md:4-5", "detail": "the file's own brief: 'The rules themselves are in .claude/engine-rules.md' — it is meant to hold the detail, not the rule"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": ".claude/engine-rules.md:83-86",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/slice-builder/SKILL.md:58-72",
+    "category": "duplication",
+    "claim": "The 'When to use this skill' section restates the frontmatter description (the same trigger phrases: implement the upload module, add a thin slice, build piece N of the pipeline, wrap this API/SDK in a clean function, incremental progress) and line 8 (the user knows the rough shape; external dependencies accessible in .env and vendor docs; no architecture); the body is read only after the description has already selected the skill, so the section can go and the routing is unchanged.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/skills/slice-builder/SKILL.md:3", "detail": "description: 'Use this skill WHENEVER the user asks to \"implement a small piece\", \"add a thin slice\", \"build the upload module\", \"build piece N of the pipeline\", \"wrap this API in a clean function\", or otherwise wants controlled incremental progress on a known integration without architecture overhead'"},
+      {"source": "read", "ref": ".claude/skills/slice-builder/SKILL.md:60-67", "detail": "'Implement the upload module' / 'Add a thin slice for X' / 'Build piece 1 of the pipeline' / 'Wrap this vendor SDK in a clean function' / 'Incrementally add...'"},
+      {"source": "read", "ref": ".claude/skills/slice-builder/SKILL.md:8", "detail": "'The user already knows the rough shape … External dependencies are already accessible and validated — credentials live in .env, vendor docs are in the repo. You are NOT designing a system.' — what lines 69-72 'User context typically includes' repeat"},
+      {"source": "read", "ref": ".claude/skills/slice-builder/SKILL.md:93", "detail": "the handoff rule rests on the 'DO NOT use for' list (the table at 74-83 and the description), not on this section"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/references/permission-philosophy.md:23",
+    "category": "dead_code",
+    "claim": "The parenthetical 'an ordinary push is governed by this ask rule alone since 2026-10-01; the hook refuses only its dangerous forms' and the section 'Adding Bash(git push *) to allow — Don't' (68-70) describe an ask-list entry that no longer exists: settings.json lists only the forced-push denies, and since board 603 every push is judged by park-ask-gated.py by environment; the two passages can go and the document's three buckets still match the live file.",
+    "evidence": [
+      {"source": "grep", "ref": ".claude/settings.json:27-29", "detail": "the only 'git push' patterns are 'Bash(git push --force*)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)' — in deny; no plain push in ask"},
+      {"source": "read", "ref": ".claude/references/hooks.md:13", "detail": "park-ask-gated.py: 'Every push is its own rule, by environment (board 603; git push left the ask list) … unattended refused — the runner pushes; a cloud session with CLOUD_COMMIT_POLICY=session-branch pushes its own branch … locally, and in the cloud with the switch off, it asks'"},
+      {"source": "read", "ref": ".claude/references/permission-philosophy.md:23", "detail": "'git push, gh pr create/merge, gh release: pushing affects the remote (an ordinary push is governed by this ask rule alone since 2026-10-01; the hook refuses only its dangerous forms …)'"},
+      {"source": "read", "ref": ".claude/references/permission-philosophy.md:68-70", "detail": "'Adding Bash(git push *) to allow — Don't. The ask prompt is the human's chance to think'"},
+      {"source": "grep", "ref": "docs/ARCHITECTURE.md:158", "detail": "the one live pointer to this file ('Дозволи — permission-philosophy.md'); tests name it only for ownership and copy checks"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": ".claude/references/hooks.md:13 (board 603)",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/skills/overseer/SKILL.md:89-98",
+    "category": "duplication",
+    "claim": "The section 'A project whose settings lack the handlers' restates what the Stop hook itself prints at the moment it matters — NOT_WIRED_REASON tells the session the unit cannot be audited, not to audit or type a verdict, that the settings file is the owner's, and to put the unit on the board — and what hooks.md:16 already documents; the section can shrink to its last sentence (that `overseer_verdict.py status` says whether the project is wired) or go.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/skills/overseer/SKILL.md:89-98", "detail": "'Without them nothing can record a verdict, and there is no other way to audit: the Stop hook answers a claim with OVERSEER NOT WIRED … Do not audit the turn yourself — park the unit (human-only: engine.py update adds the handlers) and take the next one.'"},
+      {"source": "read", "ref": ".claude/hooks/overseer_stop.py:319-325", "detail": "the hook's own message on that path: 'this unit cannot be audited … Do NOT audit the unit yourself and do NOT type a verdict: neither counts. You cannot fix this either — the settings file is the owner's. Put the unit before the owner as a task of the board'"},
+      {"source": "read", "ref": ".claude/references/hooks.md:16", "detail": "'In a project whose settings lack the two overseer_verdict.py handlers a claim gets OVERSEER NOT WIRED instead of a request — there is no other way to audit; engine.py update adds the handlers'"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": ".claude/agents/simplifier.md:32-33 (instructions lens: 'prose that restates what a hook already enforces')",
+    "reversal_risk": "low"
+  }
+]

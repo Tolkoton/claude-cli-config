@@ -1,0 +1,200 @@
+{
+  "findings": [
+    {
+      "target": "evals/run_analyst_evals.py:222-239",
+      "category": "duplication",
+      "claim": "The routine that starts one headless claude session and reads its JSON payload (command skeleton, env without CLAUDECODE, cost rounded to 4, models sorted from modelUsage, turns, is_error -> 'the session ended in an error: ...'[:300], timeout/JSONDecodeError -> 'the session gave no result') is written four times — here, run_manager_evals.py:181-197, run_tester_evals.py:341-358 and run_simplifier_evals.py:268-284 — although three of the four already import one another for over_limit/book_session; a change to the payload rule (open task 725 names exactly this for all four) has to be made in four places, and the copies have already drifted (the simplifier copy keeps CLAUDE_UNATTENDED_SESSION and catches OSError, the others do not).",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-8c471599",
+          "detail": "pylint: 17 similar lines evals/run_analyst_evals.py:225-242 and evals/run_manager_evals.py:183-200"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_analyst_evals.py:222-239",
+          "detail": "run_once: command, env filter, subprocess.run, payload parse, row with cost_usd/models/turns, is_error branch"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_manager_evals.py:181-197",
+          "detail": "run_once: the same steps, same strings, agent fixed to testing.MANAGER"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_tester_evals.py:341-358",
+          "detail": "run_once: the same steps and strings plus --permission-mode/--allowedTools"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_simplifier_evals.py:268-284",
+          "detail": "run_once: the same steps; env drops only CLAUDECODE, except clause adds OSError"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_analyst_evals.py:51",
+          "detail": "import run_simplifier_evals as shared — the runners already share a module for over_limit and book_session"
+        },
+        {
+          "source": "grep",
+          "ref": "tasks/todo/725-open-item-eval-runners-failed-session-as-result.md:8",
+          "detail": "an open task asks the same is_error fix of run_tester_evals, run_manager_evals, run_analyst_evals and run_simplifier_evals"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-6d2db84d",
+      "validator": []
+    },
+    {
+      "target": "evals/run_analyst_evals.py:284-295",
+      "category": "duplication",
+      "claim": "The report tail — recorded_utc, environment.environment_name(), engine_commit via `git -C ROOT rev-parse HEAD`, summary, print of the summary, mkdir and write of --out, 'results written to', exit 0 only when every planned run finished without error — is the same block in run_manager_evals.py:244-254, run_tester_evals.py:476-487 and run_simplifier_evals.py:396-407; the record's shape is one rule written four times.",
+      "evidence": [
+        {
+          "source": "signal",
+          "ref": "S-b191204a",
+          "detail": "pylint: 12 similar lines evals/run_analyst_evals.py:287-299 and evals/run_tester_evals.py:479-491"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_analyst_evals.py:284-295",
+          "detail": "report dict, print summary, write --out, return code"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_manager_evals.py:244-254",
+          "detail": "the same keys, the same git rev-parse subprocess, the same write and message"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_tester_evals.py:476-487",
+          "detail": "the same block; the rev-parse line appears a second time at 436-439 for --rescore"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_simplifier_evals.py:396-407",
+          "detail": "the same block with set/model/planted/traps added"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-865f6087",
+      "validator": []
+    },
+    {
+      "target": "evals/run_analyst_evals.py:253",
+      "category": "dead_code",
+      "claim": "The `--owner-approved` flag of this runner (and of run_manager_evals.py:214, run_tester_evals.py:424, run_simplifier_evals.py:363) is parsed and never read: board 078 made these sessions ordinary work, no live document or test passes the flag to these four scripts any more, and the help text in the manager and tester copies still calls it 'the OWNER's word' although it changes nothing; the audit runner's flag (run_audit_scenarios.py:738) is a different thing and stays.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": "evals/run_analyst_evals.py:253",
+          "detail": "help='accepted so that old commands still run; since board 078 no leave is needed'; args.owner_approved is never used in the file"
+        },
+        {
+          "source": "grep",
+          "ref": "evals/run_manager_evals.py:214",
+          "detail": "the only occurrences of owner_approved in the four runners are the four add_argument lines (manager 214, tester 424, simplifier 363, analyst 253)"
+        },
+        {
+          "source": "read",
+          "ref": "tasks/done/078-remove-paid-runs-category/report.md:43",
+          "detail": "the fence: '--owner-approved у non-audit evals тепер нічого не робить: прийнято, щоб старі команди не ламались'"
+        },
+        {
+          "source": "read",
+          "ref": "evals/README.md:112",
+          "detail": "'the other evals need no leave since board 078' — the README documents the flag for run_audit_scenarios only"
+        },
+        {
+          "source": "grep",
+          "ref": "tests/test_analyst_evals.py:65",
+          "detail": "the deterministic suites invoke these runners without the flag; no test under tests/test_{simplifier,manager,analyst,tester}*_evals.py mentions owner_approved"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "tasks/done/078-remove-paid-runs-category/report.md:43",
+      "reversal_risk": "low",
+      "id": "F-8d999160",
+      "validator": []
+    },
+    {
+      "target": "evals/run_simplifier_evals.py:118-126",
+      "category": "duplication",
+      "claim": "state_module() — load .claude/unattended/board_state.py by path under the module name 'engine_board_state', raise RuntimeError when the spec is missing — is the same function as run_audit_scenarios.py:686-694; a move of board_state.py or a change of the registered name must be made in both.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": "evals/run_simplifier_evals.py:118-126",
+          "detail": "spec_from_file_location('engine_board_state', ROOT/.claude/unattended/board_state.py); same guard; sys.modules registration; exec_module"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_audit_scenarios.py:686-694",
+          "detail": "identical steps on the same file with the same name; only the docstring differs"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_analyst_evals.py:51",
+          "detail": "run_analyst_evals already imports run_simplifier_evals as shared, so one copy is reachable from the others"
+        }
+      ],
+      "protected": false,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "none found",
+      "reversal_risk": "low",
+      "id": "F-d14b19b6",
+      "validator": []
+    },
+    {
+      "target": "engine.py:1462-1466",
+      "category": "duplication",
+      "claim": "The rule 'the owner's --owner-approved does not count when CLAUDECODE is set, it is for the owner's own terminal' — and its sentence word for word — is computed here for `release` and again in evals/run_audit_scenarios.py:704-707 (paid_run_refusal); a change of the rule (another variable that marks a session, another wording) has to be made twice. engine.py is self-contained by design, so joining them is the owner's call; the check itself stays.",
+      "evidence": [
+        {
+          "source": "read",
+          "ref": "engine.py:1460-1466",
+          "detail": "if not args.owner_approved -> refuse; if os.environ.get('CLAUDECODE') -> '--owner-approved was given, but inside a Claude Code session (CLAUDECODE is set) it does not count: it is the owner's flag, for the owner's own terminal'"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_audit_scenarios.py:704-707",
+          "detail": "reason is None or (owner_approved and not in_session) -> pass; else the same sentence"
+        },
+        {
+          "source": "read",
+          "ref": "evals/run_audit_scenarios.py:754",
+          "detail": "in_session = bool(os.environ.get('CLAUDECODE')) — the same input"
+        },
+        {
+          "source": "read",
+          "ref": "engine.py:57-58",
+          "detail": "the fence: 'Standard library only. Where the engine lives is known to this file alone' — engine.py does not import from evals/"
+        }
+      ],
+      "protected": true,
+      "chesterton_checked": true,
+      "test_safety": "characterization_exists",
+      "proposed_action": "flag_only",
+      "traceability": "docs/release.md",
+      "reversal_risk": "low",
+      "id": "F-f25c8b29",
+      "validator": []
+    }
+  ],
+  "rejected": []
+}

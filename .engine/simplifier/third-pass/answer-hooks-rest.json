@@ -1,0 +1,70 @@
+[
+  {
+    "target": ".claude/hooks/lesson_queue.py:76",
+    "category": "dead_code",
+    "claim": "The constant QUEUE_REL can go: nothing reads it since board 739 moved the shared lesson-queue path into journal.JOURNALS['lessons'].shared, and every queue read and write in this module goes through journal.add / journal.lesson_lines.",
+    "evidence": [
+      {"source": "signal", "ref": "S-ba83efa7", "detail": "vulture: unused variable 'QUEUE_REL' (60% confidence)"},
+      {"source": "grep", "ref": ".claude/hooks/lesson_queue.py:76", "detail": "'QUEUE_REL' appears only at its definition; the other hits are an old wip.patch under .engine/artifacts/739-journals/ showing the removed reads and writes"},
+      {"source": "read", "ref": ".claude/hooks/journal.py:76", "detail": "Journal(\"lessons\", \".engine/lesson-queue.md\", ...) owns the path; lesson_queue.py:90 already takes QUEUE_HEADER from that record"},
+      {"source": "read", "ref": ".claude/hooks/lesson_queue.py:18-20", "detail": "the docstring states the shared file is what a fold gathered (journal.py) and a session writes only its own file — the fence was moved on purpose"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "auto_remove",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/overseer_stop.py:758-759",
+    "category": "dead_code",
+    "claim": "The conditional `if _phase_is_plan(project_dir): _passthrough()` immediately before the unconditional `_passthrough()` on line 760 decides nothing (both branches end the same way) and only re-reads the phase file; the same shape stands at lines 770-771 of _main_unwired (`if HALT_MARKER_RE.search(message) or _phase_is_plan(project_dir): _passthrough()` followed by `_passthrough()` on 772). Removing both conditionals leaves every decision unchanged.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/hooks/overseer_stop.py:751-760", "detail": "the halt branch at 751-753 has an effect (_drop_request) and stays; 758-759 and 760 both call _passthrough(), which is sys.exit(0) with no output"},
+      {"source": "read", "ref": ".claude/hooks/overseer_stop.py:770-772", "detail": "in _main_unwired the two-condition passthrough is followed by an unconditional passthrough; _phase_is_plan was already consulted at 767 to suppress the claim"},
+      {"source": "read", "ref": ".claude/hooks/overseer_stop.py:449-451", "detail": "_passthrough() is `sys.exit(0)`: no state is written on either path"},
+      {"source": "grep", "ref": "tests/test_overseer_fresh.py:192-193", "detail": "the planning and halt passthrough outcomes are pinned by tests (not wired + plan -> nothing said; a halt marker -> empty answer at line 520)"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "confirm",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/goals.py:253-258",
+    "category": "duplication",
+    "claim": "The rule 'the project root is CLAUDE_PROJECT_DIR when it is a directory, else `git rev-parse --show-toplevel`, else the cwd' is written out in six in-scope hooks — goals.py:253 and contract_fingerprint.py:34 byte for byte, mode.py:496, lesson_queue.py:724, overseer_verdict.py:117 (adds a 5 s timeout) and overseer_stop.py:105 (_get_project_dir), park-ask-gated.py:176 (project_dir) — while reader.py:226 and testing.py:126 already take it from overseer_verdict / gate; a change of the rule (another variable, a timeout) would be made in every copy. overseer_phase.py:31 is a different rule (falls back to the hook's own location) and is not part of this.",
+    "evidence": [
+      {"source": "grep", "ref": ".claude/hooks/goals.py:253", "detail": "`^def project_root` matches goals.py, contract_fingerprint.py, mode.py, lesson_queue.py, overseer_verdict.py, overseer_phase.py, gate.py, complexity_budget.py, testing.py (the last delegates to gate.project_root)"},
+      {"source": "read", "ref": ".claude/hooks/contract_fingerprint.py:34-39", "detail": "identical text to goals.py:253-258: strip, is_dir, git rev-parse, resolve, Path.cwd()"},
+      {"source": "read", "ref": ".claude/hooks/overseer_stop.py:105-120", "detail": "_get_project_dir: the same three steps with timeout=5 and the OSError/TimeoutExpired catch, as overseer_verdict.py:117-127 and park-ask-gated.py:176-189"},
+      {"source": "read", "ref": ".claude/hooks/reader.py:226", "detail": "`root = ov.project_root()` — a hook that already imports the shared one instead of its own copy"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "flag_only",
+    "traceability": "none found",
+    "reversal_risk": "low"
+  },
+  {
+    "target": ".claude/hooks/shell_readonly.py:142-156",
+    "category": "duplication",
+    "claim": "written_by_command re-derives the 'this command writes its argument' rule that shell_paths.by_command (shell_paths.py:217-229) already holds, from the same tables and with the same arithmetic — ALWAYS writes every file argument, TO_LAST writes the last one unless -t/--target-directory names the target, IN_PLACE writes when a flag matches `^-[A-Za-z]*i|^--in-place` (the regex is literally repeated at shell_paths.py:228 and shell_readonly.py:152), dd writes `of=` — so a change to which flags mean in-place, or a new command in TO_LAST's handling, has to be made in both modules; the two modules differ only in SKIP_FIRST / sed -e (readonly) and git / awk inplace (paths).",
+    "evidence": [
+      {"source": "read", "ref": ".claude/hooks/shell_paths.py:217-229", "detail": "by_command: u.cmd in ALWAYS -> True; dd -> of=; TO_LAST -> is_last or -t/--target-directory; IN_PLACE -> any(re.match(r\"^-[A-Za-z]*i|^--in-place\", w))"},
+      {"source": "read", "ref": ".claude/hooks/shell_readonly.py:142-156", "detail": "written_by_command: cmd in sp.ALWAYS -> files; sp.TO_LAST -> --target-directory=/-t value else files[-1:]; sp.IN_PLACE and re.match(r\"^-[A-Za-z]*i|^--in-place\", w) -> files; dd -> of= values"},
+      {"source": "read", "ref": ".claude/hooks/shell_readonly.py:13-16", "detail": "the module's own docstring states the intent: 'the write rules of shell_paths.py, asked of EVERY path instead of the protected ones' — the redirection, output-flag and inline-call rules are reused through sp.Use/sp.by_output_flag/sp.by_call at lines 167-171; only by_command is re-derived"},
+      {"source": "grep", "ref": "tests/test_overseer_readonly.py", "detail": "both rules are exercised: in-place sed cases appear in tests/test_shell_protected_paths.py and tests/test_overseer_readonly.py"}
+    ],
+    "protected": true,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "flag_only",
+    "traceability": ".claude/hooks/shell_readonly.py:16 — 'the write rules of shell_paths.py, asked of EVERY path instead of the protected ones'",
+    "reversal_risk": "low"
+  }
+]
