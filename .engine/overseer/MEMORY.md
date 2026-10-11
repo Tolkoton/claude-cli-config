@@ -60,3 +60,9 @@ Cited: 2026-10-07T03:41:47Z 059-simplifier-harder-eval-set; 2026-10-07T04:13:04Z
 A suite run only inside a cloud session sees CLAUDE_CODE_SESSION_ID and never takes the path of the owner's own terminal. When code branches on the session (journal.py falls back to a working-tree id in .claude/state/), run the suites it touches once more with env -u CLAUDE_CODE_SESSION_ID before claiming the unit; CLAUDECODE an agent may not clear (block-dangerous.sh refuses it), and the suites strip it themselves where it matters.
 
 Cited: 2026-10-10T07:49:44Z unknown OVERSEER_BLOCK (board 739, attempt 1); 2026-10-10T08:55:57Z unknown OVERSEER_BLOCK (board 739, attempt 2: the owner's-terminal case). Origin: lesson #650da1b1 (overseer, -, 2026-10-10).
+
+## 2026-10-11 — A fix that answers a BLOCK must be tested against the claim as it is worded, not only agai
+
+A fix that answers a BLOCK must be tested against the claim as it is worded, not only against the case the auditor reproduced: in board 108 both fixes were blocked a second time for the same weakness one step narrower (the lockfile's text instead of what the runner starts; the key taken after a 200-character cut).
+
+Cited: 2026-10-11T22:17:38Z unknown; 2026-10-11T22:27:23Z unknown. Origin: lesson #5177e8d4 (overseer, -, 2026-10-11).
