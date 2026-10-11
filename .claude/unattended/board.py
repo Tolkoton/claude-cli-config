@@ -986,7 +986,6 @@ def in_hand(tasks: Path) -> str:
     return doing[0].stem if len(doing) == 1 else ""
 
 
-ANOMALIES = "ANOMALIES.md"
 ANOMALIES_HEAD = journal.JOURNALS["anomalies"].head
 RUNNER = "runner"  # who writes the journal unless told otherwise
 WHY = "## Чому зупинилась"
