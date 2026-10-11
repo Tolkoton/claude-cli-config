@@ -73,7 +73,6 @@ from typing import Any
 import journal  # every session's own file of the queue (board 739)
 
 SOURCES = ("gate", "overseer", "parked", "escalation", "agent", "simplifier", "analyst")
-QUEUE_REL = Path(".engine/lesson-queue.md")
 MEMORY_REL = Path(".engine/overseer/MEMORY.md")
 PROPOSALS_REL = Path(".engine/rule-proposals.md")
 FEEDBACK_REL = Path(".engine/engine-feedback.md")
