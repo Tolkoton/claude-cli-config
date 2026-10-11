@@ -544,6 +544,40 @@ places, keeps the gate and the overseer, and holds the fix to a hard limit
   is: the record is checked by its content, not by who wrote the output into it. Output pasted by
   hand rather than produced by the command is not detected.
 
+## The reader of a task without working code (board 100)
+
+- **The reader checks that the documents are true and complete, not that the decision is right.**
+  That stays the owner's — which is why the task then hangs in the owner's review.
+- **The reader is read-only** (Read, Grep, Glob): a reference to a command's output that no file
+  records, or to a commit outside the task's own (the package lists those), it cannot check; it
+  names such a reference «не перевірено» instead of blocking on it.
+- **The PASS covers the report and the documents the task changed, as they were read.** The board's
+  own moves (`tasks/todo|doing|blocked|done/`), the dot-files of `tasks/` and the journals scripts
+  write are not documents and are not fingerprinted: a change there after the PASS is not seen.
+- **«Without working code» is read from the task's commits at closing.** A task whose only code
+  change was made and reverted inside it is a task with working code: the overseer's rule applies.
+- **The owner's list begins with the first report a reader read in the project.** A task closed
+  before that, and one that never lay in `doing/` (a gate's question, a rule proposal the runner
+  closed on the owner's answer), is not listed. A task the runner itself closed after it lay in
+  `doing/` is listed with «вердикт: немає».
+- **`tasks/.reviewed` is guarded as an answer in `blocked/` is:** the hooks refuse an agent's edit
+  and typed shell write; a number written by a script a hook never sees is removed by the runner
+  before its next pull and before every push of the work branch it makes (`push_branch`), whether
+  it is in the working tree's file or only in the file as HEAD has it, and whatever shape the file
+  was given (bytes that are not UTF-8, a link, a directory) — until then (a session without the
+  runner) it is in the checkout, and the review, which reads origin, does not see it. The push
+  rests on a check of the commit about to be sent (`board.py reviewed-clean`), so a guard that
+  breaks sends nothing: the board stops with `state=error reason=reviewed` and the branch stays
+  unpushed until a person removes the cause. What the runner does not cover: a push made by hand,
+  or by anything but the runner, from a checkout that holds such a number — it reaches origin and
+  takes the task off the list. The record of the numbers that arrived
+  (`.claude/state/board/reviewed-accepted`) is machine state like the record of the owner's
+  accepted answers: a script that writes a number into it, a hook never seeing it, makes that
+  number the owner's for the runner. And on a machine with no such record (lost, or a new
+  machine) whatever this clone's remote-tracking ref of the branch holds counts as the owner's,
+  a number that got there another way included. These paths past «the owner wrote it» are the
+  subject of board 737.
+
 ## The snapshot "as it was" (board 071)
 
 With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).

@@ -84,6 +84,10 @@ GUARDED_PATTERNS=(
   # journal. An answer "from the owner" is a file in that inbox, so an agent that could write
   # there could answer its own question. Reading it stays free.
   '(^|/)engine-ops(/|$)'
+  # «The owner looked it over» (board 100): a task's number in tasks/.reviewed takes it off the
+  # owner's review list, so the file is the owner's word like an answer in the inbox. It arrives
+  # in the branch or through the inbox; the runner removes a number that got there another way.
+  '(^|/)tasks/\.reviewed$'
   '(^|/)\.git/'
   '(^|/)migrations/.*\.py$'
   '(^|/)alembic/versions/.*\.py$'

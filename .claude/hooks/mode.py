@@ -42,7 +42,10 @@ runner asks here, by files and never by words: in every mode, report.md in the t
 exactly that code; конвеєр — the same, plus the feature artifact (.engine/architecture/feature/) and,
 for every slice contract the task wrote (.engine/slices/), its seal (.claude/state/contracts/) that
 still matches it; ескіз — the record .engine/sketches/<name>.md with a PASS of the reader on it as it
-is (reader.py, board 099), and no change outside sketches/, .engine/ and tasks/.
+is (reader.py, board 099), and no change outside sketches/, .engine/ and tasks/. In соло and конвеєр a
+task none of whose commits changed working code has no audit to show, so it shows a reading (board 100):
+a PASS of the reader on its report.md as it is, read together with every document the task's commits
+changed, each as it is now (`reader.py request <task> --report`).
 Working code is what asks for an audit: a code path as the Stop hook reads it from .claude/project.env
 (overseer_stop._is_code_path — under SOURCE_DIRS when set, else an extension of CODE_EXTENSIONS, else
 every file), never under tasks/, .engine/ or sketches/ (the quarantine, board 099). The task's commits are those of EVERY stay of the task in
@@ -323,11 +326,17 @@ def _hooks() -> tuple[Any, Any]:
     return overseer_stop, overseer_verdict
 
 
-def working_code(root: Path) -> Any:
+def working_code(root: Path, env_text: str | None = None) -> Any:
     """The test «is this path working code?»: a code path as the Stop hook reads it (what asks for an
-    audit — empty settings mean every file), never the board's or the engine's records."""
+    audit — empty settings mean every file), never the board's or the engine's records. `env_text` is
+    .claude/project.env as another commit has it (the review reads origin's), instead of the checkout's."""
     stop, _ = _hooks()
-    env = stop._load_project_env(root) if (root / ".claude" / "project.env").is_file() else {}
+    if env_text is None:
+        env = stop._load_project_env(root) if (root / ".claude" / "project.env").is_file() else {}
+    else:
+        import gate
+
+        env = gate.parse_env_text(env_text)
     dirs, exts = stop._build_source_dirs(env), stop._build_code_extensions(env)
 
     def is_code(rel: str) -> bool:
@@ -336,9 +345,9 @@ def working_code(root: Path) -> Any:
     return is_code
 
 
-def _stays(root: Path, stem: str) -> list[tuple[str, str]]:
+def _stays(root: Path, stem: str, head: str = "HEAD") -> list[tuple[str, str]]:
     """(the commit that brought tasks/doing/<stem>.md in, the one that took it out or ""), oldest first."""
-    moves = _git(root, "log", "--reverse", "--no-renames", "-z", "--format=%x01%H", "--name-status", "--", f"tasks/doing/{stem}.md")
+    moves = _git(root, "log", "--reverse", "--no-renames", "-z", "--format=%x01%H", "--name-status", head, "--", f"tasks/doing/{stem}.md")
     stays: list[tuple[str, str]] = []
     for record in moves.stdout.decode("utf-8", "surrogateescape").split("\x01")[1:] if moves.returncode == 0 else []:
         fields = record.split("\0")   # «<sha>», «\n<status>», «<path>», …
@@ -350,19 +359,20 @@ def _stays(root: Path, stem: str) -> list[tuple[str, str]]:
     return stays
 
 
-def task_commits(root: Path, stem: str) -> list[str] | None:
+def task_commits(root: Path, stem: str, head: str = "HEAD") -> list[str] | None:
     """The task's commits, oldest first: those of every stay of tasks/doing/<stem>.md; the last stay runs
-    past the move to done/ (the turn back) until another task enters doing/. None when it never was there."""
-    stays = _stays(root, stem)
+    past the move to done/ (the turn back) until another task enters doing/. None when it never was there.
+    `head` is the commit the history is read from (the review reads the work branch as origin has it)."""
+    stays = _stays(root, stem, head)
     if not stays:
         return None
     commits: list[str] = []
     for number, (came, left) in enumerate(stays):
-        end = left or "HEAD"
+        end = left or head
         if number == len(stays) - 1:
-            after = _lines(_git(root, "log", "--reverse", "--format=%H", "--diff-filter=A", "--no-renames", f"{left or came}..HEAD",
+            after = _lines(_git(root, "log", "--reverse", "--format=%H", "--diff-filter=A", "--no-renames", f"{left or came}..{head}",
                                 "--", "tasks/doing/"))
-            end = f"{after[0]}^" if after else "HEAD"
+            end = f"{after[0]}^" if after else head
         commits += [c for c in _lines(_git(root, "rev-list", "--reverse", "--no-merges", f"{came}..{end}")) if c not in commits]
     return commits
 
@@ -458,6 +468,21 @@ def sketch_missing(root: Path, commits: list[str]) -> list[str]:
     return missing
 
 
+def unread(root: Path, stem: str, commits: list[str]) -> list[str]:
+    """A task none of whose commits changed working code: the reader's PASS on its report as it is, read
+    with every document the commits changed. Nothing for a task with working code — the overseer judged it."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import reader
+
+    is_code = working_code(root)
+    changed = [rel for commit in commits for rel in _changed(root, commit)]
+    report = f"tasks/done/{stem}/report.md"
+    if any(is_code(rel) for rel in changed) or not (root / report).is_file() or reader.passed(root, report, reader.documents(changed, report)):
+        return []
+    return [(f"задача не змінила робочого коду, а PASS агента-читача на її звіт {report} — такий, як він є, разом з усіма документами, "
+             f"які змінила задача, — у журналі читача немає (python3 .claude/hooks/reader.py request {stem} --report)")]
+
+
 def check_close(root: Path, stem: str) -> tuple[str, list[str]]:
     """(the mode in force, what of its minimum is missing) for the task in tasks/done/<stem>/."""
     folder = root / "tasks" / "done" / stem
@@ -468,7 +493,7 @@ def check_close(root: Path, stem: str) -> tuple[str, list[str]]:
         return mode, [*missing, "задача ніколи не лежала в tasks/doing/ у git: невідомо, які commit-и її"]
     if mode == "ескіз":
         return mode, missing + sketch_missing(root, commits)
-    missing += unaudited(root, stem, commits)
+    missing += unaudited(root, stem, commits) + unread(root, stem, commits)
     if mode == "конвеєр":
         missing += pipeline_missing(root, commits)
     return mode, missing

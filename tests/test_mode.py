@@ -417,9 +417,9 @@ def audited(at: Path, name: str, rid: str, verdict_word: str = "PASS", unit_task
 
 def close(at: Path, name: str, report: bool = True) -> None:
     folder = at / "tasks/done" / name
-    folder.mkdir(parents=True)
+    folder.mkdir(parents=True, exist_ok=True)   # the report of a task a reader read is there already
     (at / "tasks/doing" / f"{name}.md").rename(folder / "task.md")
-    if report:
+    if report and not (folder / "report.md").exists():
         (folder / "report.md").write_text("# звіт\n", encoding="utf-8")
     commit_all(at, f"board: {name} → done")
 
@@ -479,7 +479,12 @@ code(cc, "docs/note.md", "текст\n")
 code(cc, "notes.txt", "outside SOURCE_DIRS: no audit is asked for it\n")
 commit_all(cc, "a document")
 close(cc, "065-docs")
-check("a task that changed no working code closes as before: report.md is all it needs", closing(cc, "065-docs") == ("соло", []), closing(cc, "065-docs"))
+UNREAD = ("задача не змінила робочого коду, а PASS агента-читача на її звіт tasks/done/{0}/report.md — такий, як він є, разом з усіма документами, "
+          "які змінила задача, — у журналі читача немає (python3 .claude/hooks/reader.py request {0} --report)")
+check("negative — a task that changed no working code and that no reader read does not close (board 100): the report and the command named",
+      closing(cc, "065-docs") == ("соло", [UNREAD.format("065-docs")]), closing(cc, "065-docs"))
+r = run(MODE, cc, "--root", str(cc), "check-close", "065-docs")
+check("…exit 1 from the command line", r.returncode == 1 and "PASS агента-читача на її звіт tasks/done/065-docs/report.md" in r.stdout, said(r))
 start(cc, "066-no-report")
 close(cc, "066-no-report", report=False)
 check("negative — no report.md: missing in every mode", closing(cc, "066-no-report") == ("соло", ["у tasks/done/066-no-report/ немає report.md"]),
@@ -508,6 +513,48 @@ def read_it(at: Path, name: str, record_rel: str, verdict_word: str = "PASS") ->
     return "" if code_ == 0 and refused is None else said_
 
 
+# board 100: a task without working code — a reader's PASS on its report as it is, with every document the task changed
+def report_of(name: str) -> str:
+    return f"tasks/done/{name}/report.md"
+
+
+read_it(cc, "065-docs", report_of("065-docs"), "BLOCK")
+check("negative — a BLOCK of the reader is no PASS", closing(cc, "065-docs")[1] == [UNREAD.format("065-docs")], closing(cc, "065-docs"))
+check("the reader's PASS on the turn back (the task already in done/): the minimum is there", read_it(cc, "065-docs", report_of("065-docs")) == ""
+      and closing(cc, "065-docs") == ("соло", []), closing(cc, "065-docs"))
+start(cc, "101-docs-ahead")
+code(cc, "docs/plan.md", "план\n")
+commit_all(cc, "a plan")
+code(cc, report_of("101-docs-ahead"), "# звіт\n")
+read_it(cc, "101-docs-ahead", report_of("101-docs-ahead"))
+close(cc, "101-docs-ahead")
+check("the order the board asks for — the report, the reader's PASS, then done/: the minimum is there", closing(cc, "101-docs-ahead") == ("соло", []),
+      closing(cc, "101-docs-ahead"))
+code(cc, "docs/plan.md", "план, переписаний після PASS\n")
+check("negative — a document of the task changed after the PASS: the reader did not read what is there", closing(cc, "101-docs-ahead")[1] == [UNREAD.format("101-docs-ahead")])
+code(cc, "docs/plan.md", "план\n")
+code(cc, report_of("101-docs-ahead"), "# звіт, переписаний після PASS\n")
+check("negative — the report changed after the PASS", closing(cc, "101-docs-ahead")[1] == [UNREAD.format("101-docs-ahead")])
+code(cc, report_of("101-docs-ahead"), "# звіт\n")
+start(cc, "102-docs-late")
+code(cc, "docs/first.md", "перше\n")
+code(cc, report_of("102-docs-late"), "# звіт\n")
+read_it(cc, "102-docs-late", report_of("102-docs-late"))
+code(cc, "docs/second.md", "дописано після читання\n")
+close(cc, "102-docs-late")
+check("negative — a document committed after the reading, which the reader never got", closing(cc, "102-docs-late")[1] == [UNREAD.format("102-docs-late")],
+      closing(cc, "102-docs-late"))
+start(cc, "103-report-only")
+close(cc, "103-report-only")
+check("negative — a task that left only its own report is read too: no exception", closing(cc, "103-report-only")[1] == [UNREAD.format("103-report-only")],
+      closing(cc, "103-report-only"))
+check("a task with working code and its overseer's PASS asks for no reader", closing(cc, "061-pass") == ("соло", []), closing(cc, "061-pass"))
+start(cc, "104-pipeline-docs", "Режим: конвеєр")
+code(cc, "docs/big.md", "велике\n")
+commit_all(cc, "a document in конвеєр")
+close(cc, "104-pipeline-docs")
+check("negative — конвеєр without working code asks for the reader as well", UNREAD.format("104-pipeline-docs") in closing(cc, "104-pipeline-docs")[1],
+      closing(cc, "104-pipeline-docs"))
 for name, rel in (("067-sketch-src", "src/e.py"), ("068-sketch-docs", "docs/how.md")):
     start(cc, name, "Режим: ескіз")
     code(cc, f"sketches/{name}/probe.py", "print(1)\n")

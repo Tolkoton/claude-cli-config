@@ -43,6 +43,23 @@ FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
     reader-refused  write and commit a sketch's record, then have it read three times through the REAL
                     reader.py (request, guard, a BLOCK answer recorded), leave the task in doing/ (board 099)
 
+A task without working code is read before it closes (board 100): `done` and `done-nocommit` write
+the report into tasks/done/<task>/, have it read through the REAL reader.py (a PASS), and only then
+move the task; the reader's journal is committed with the move.
+    done-unread     `done` as it was before board 100: no reader reads the report
+    read            the turn back: have the report of the task named in the prompt (already in done/)
+                    read — a PASS —, commit the reader's journal
+    report-refused  write the report into tasks/done/<task>/, have it read three times — a BLOCK each —,
+                    leave the task in doing/
+    forge-reviewed  write the task's own number into the file of the tasks the owner looked over and
+                    commit it, then `done`
+    forge-work      the same forged number, committed, and the task left in doing/
+    forge-gateq     the same, then `gateq`: a gate question the runner publishes and pushes at once
+FAKE_FORGE says what shape the forged file has: `text` (default: the number), `bytes` (the number and a
+byte that is not UTF-8), `link` (a symbolic link whose target reads as the number), `head` (committed,
+then taken out of the working tree and left so), `stuck` (committed, then replaced in the working
+tree by a directory nobody can read or remove — the guard itself breaks on it).
+
 A conversation's reported cost is its running total (1 USD a call unless FAKE_COST says
 otherwise); `--resume ID` keeps the id, a call without it opens a new conversation.
 
@@ -77,7 +94,7 @@ def journal_named(names: list[str]) -> list[str]:
 ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / ".claude/unattended/board-runner.sh"
 FAKE = r'''#!/usr/bin/env python3
-import json, os, subprocess, sys
+import json, os, re, subprocess, sys
 from pathlib import Path
 
 home = Path(os.environ["FAKE_HOME"])
@@ -140,7 +157,55 @@ def overseer_pass():
     hook("overseer_stop.py", [], {"hook_event_name": "Stop", "transcript_path": str(transcript), "last_assistant_message": "Answered."})
 
 
+def read_report(stem, verdict="PASS", k=1):
+    """The task's report read through the real reader.py: the request, the guard, the answer recorded (board 100)."""
+    hooks = Path(os.environ["FAKE_HOOKS"])
+
+    def reader(args, envelope=None):
+        return subprocess.run([sys.executable, str(hooks / "reader.py"), *args], capture_output=True, text=True,
+                              input=json.dumps(envelope) if envelope else "").stdout
+
+    rid = reader(["request", stem, "--report"]).rsplit("READER_REQUEST ", 1)[-1].strip()
+    reader(["guard"], {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": {"subagent_type": "reader", "prompt": f"READER_REQUEST {rid}"}})
+    reply = {"verdict": verdict, "reason": f"ЧИТАЧ-{k}: every reference says what the report ascribes to it" if verdict == "PASS"
+             else f"ЧИТАЧ-{k}: the report names a file that is not there", "evidence": [f"tasks/done/{stem}/report.md:3"]}
+    reader(["record"], {"hook_event_name": "SubagentStop", "agent_type": "reader", "agent_id": f"d{k}", "last_assistant_message": json.dumps(reply)})
+
+
+def leave_file():
+    Path(f"left-{n}.txt").write_text("the task's own file, never committed\n")
+    git("add", f"left-{n}.txt")
+
+
+if leave and step in ("done", "done-nocommit"):   # before the report is read: a file written after its reading would ask for a new one (board 100)
+    leave_file()
+    leave = False
+REPORT = "# Звіт\n\n## Що змінилось для власника\n- зроблено\n"
+unread = step == "done-unread"   # a task with working code asks for the overseer, not for the reader
+if step in ("done-unread", "forge-reviewed", "forge-work", "forge-gateq"):
+    if step.startswith("forge-") and doing:
+        seen, shape = Path("tasks", ".reviewed"), os.environ.get("FAKE_FORGE", "text")   # 777: any closed task's number; here it names none
+        if shape == "link":
+            os.symlink("777", seen)
+        else:
+            seen.write_bytes(b"777\n\xff\n" if shape == "bytes" else b"777\n")
+        git("add", "-A", "tasks"); git("commit", "-q", "-m", "the agent says the owner looked it over")
+        if shape in ("head", "stuck"):
+            seen.unlink()
+        if shape == "stuck":
+            seen.mkdir(); (seen / "x").write_text("x\n"); os.chmod(seen, 0)
+    step = {"forge-work": "idle", "forge-gateq": "gateq"}.get(step, "done")
+elif step == "read":
+    read_report(re.search(r"The task (\S+) is in tasks/done/", argv[1]).group(1))
+    git("add", "-A", ".engine/reader"); git("commit", "-q", "-m", "the reader's verdict")
+elif step == "report-refused" and doing:
+    target = Path("tasks/done") / doing[0].stem
+    target.mkdir(parents=True)
+    (target / "report.md").write_text(REPORT)
+    for k in (1, 2, 3):
+        read_report(doing[0].stem, "BLOCK", k)
 if step in ("code-done", "pass-done", "pipeline-done"):
+    unread = True
     if step == "pipeline-done":
         for rel, text in ((".engine/architecture/feature/pay.md", "# Feature pay\n"), (".engine/slices/pay-tax.md", "# contract\n")):
             Path(rel).parent.mkdir(parents=True, exist_ok=True)
@@ -186,10 +251,15 @@ if step in ("done", "done-nocommit") and doing:
     task = doing[0]
     target = Path("tasks/done") / task.stem
     target.mkdir(parents=True)
+    (target / "report.md").write_text(REPORT)
+    if not unread:
+        read_report(task.stem)
     task.rename(target / "task.md")
-    (target / "report.md").write_text("# Звіт\n\n## Що змінилось для власника\n- зроблено\n")
+    paths = ["tasks"] + ([".engine/reader"] if Path(".engine/reader").is_dir() else [])   # the reader's journal goes with the move
     if step == "done":
-        git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done", "--", "tasks")
+        git("add", "-A", *paths); git("commit", "-q", "-m", f"{task.stem}: done", "--", *paths)
+    elif len(paths) > 1:
+        git("add", "-A", ".engine/reader"); git("commit", "-q", "-m", f"{task.stem}: the reader's verdict", "--", ".engine/reader")
 elif step == "block" and doing:
     task = doing[0]
     task.write_text(task.read_text() + "1. Застосувати?\n   Відповідь:\n")
@@ -253,8 +323,7 @@ elif step == "garbage":
     print("Error: something broke before a session existed")
     sys.exit(1)
 if leave:
-    Path(f"left-{n}.txt").write_text("the task's own file, never committed\n")
-    git("add", f"left-{n}.txt")
+    leave_file()
 print(json.dumps({"type": "result", "is_error": step in ("limit", "auth"), "result": result,
                   "session_id": session, "total_cost_usd": costs[session]}))
 '''
@@ -1451,7 +1520,7 @@ w = World("done-dirty idle")
 w.put("todo", "001-first.md")
 for n in range(60):
     (w.repo / f"gen-{n:02d}.txt").write_text("x\n")
-w.fake.write_text(FAKE.replace("if leave:", 'if leave:\n    [Path(f"many-{i:02d}.txt").write_text("x\\n") for i in range(60)]'))
+w.fake.write_text(FAKE.replace("def leave_file():", 'def leave_file():\n    [Path(f"many-{i:02d}.txt").write_text("x\\n") for i in range(60)]'))
 r = w.run()
 journal = journal_text(w.repo, "anomalies")
 ask = w.argv(1)[1] if len(w.calls()) > 1 else ""
@@ -1643,7 +1712,7 @@ r = w.run()
 text = (w.repo / "tasks/blocked/001-sketch.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-sketch.md") else ""
 why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
 check("the runner moved the sketch to blocked/ after ONE session: «Чому зупинилась» names the record and the three readers' verdicts",
-      "агент-читач тричі поспіль відхилив запис ескізу (.engine/sketches/rate.md)" in why and all(f"ЧИТАЧ-{k}:" in why for k in (1, 2, 3))
+      "агент-читач тричі поспіль відхилив запис задачі (.engine/sketches/rate.md)" in why and all(f"ЧИТАЧ-{k}:" in why for k in (1, 2, 3))
       and " attempt 001-sketch 2" not in events(w), r.stdout + text + events(w))
 check("…one question to the owner, the journal entry, the marker gone, the next task done",
       "1. Три агенти-читачі поспіль" in text and "агент-читач тричі поспіль" in journal_text(w.repo, "anomalies")
@@ -1661,8 +1730,105 @@ check("negative — the check itself breaks (exit 3): an anomaly, the task stays
 w = World("done")
 w.put("todo", "001-first.md")
 r = w.run()
-check("a task without working code (no code paths here) closes as before: report.md is its minimum, nothing is asked",
-      w.has("tasks/done/001-first/report.md") and len(w.calls()) == 1 and "minimum" not in events(w), events(w))
+check("a task without working code whose report a reader passed closes in one session: nothing is asked, the reader's journal is in the closing commit",
+      w.has("tasks/done/001-first/report.md") and len(w.calls()) == 1 and "minimum" not in events(w)
+      and "— 001-first — READER_PASS" in (w.repo / ".engine/reader/ledger.md").read_text(encoding="utf-8") and porcelain(w) == "", events(w) + porcelain(w))
+
+print("board 100: a task without working code closes only with the reader's PASS on its report")
+w = World("done-unread idle done")
+w.put("todo", "001-design.md")
+w.put("todo", "002-next.md")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-design.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-design.md") else ""
+check("negative — closed with no reader's PASS: the agent gets the turn back once, naming the report and the reader's command",
+      " minimum-missing 001-design" in events(w) and len(w.calls()) == 3 and "PASS агента-читача на її звіт tasks/done/001-design/report.md" in w.argv(1)[1]
+      and "reader.py request 001-design --report" in w.argv(1)[1], events(w) + str(w.argv(1))[:600])
+check("negative — still unread after the turn back: the task goes to blocked/ with the reason and its report beside it, the next task is done",
+      "PASS агента-читача на її звіт" in text.split("## Чому зупинилась")[-1] and w.has("tasks/blocked/report-001-design.md") and not w.has("tasks/done/001-design")
+      and " task-parked 001-design minimum" in events(w) and w.has("tasks/done/002-next/report.md"), text + events(w))
+w = World("done-unread read")
+w.put("todo", "001-design.md")
+r = w.run()
+check("the reader's PASS on the turn back makes the minimum: the task stays in done/, nothing is parked",
+      w.has("tasks/done/001-design/task.md") and " minimum-made 001-design" in events(w) and "task-parked" not in events(w) and len(w.calls()) == 2
+      and porcelain(w) == "", events(w) + porcelain(w))
+w = World("report-refused done")
+w.put("todo", "001-design.md")
+w.put("todo", "002-next.md")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-design.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-design.md") else ""
+why = text.split("## Чому зупинилась")[-1].split("## Питання до власника")[0]
+check("three readers in a row refused the report: the runner parks the task after ONE session, with the three verdicts",
+      "агент-читач тричі поспіль відхилив запис задачі (tasks/done/001-design/report.md)" in why and all(f"ЧИТАЧ-{k}:" in why for k in (1, 2, 3))
+      and " task-parked 001-design reader-blocks" in events(w) and " attempt 001-design 2" not in events(w), text + events(w))
+check("…the report written ahead went with it to blocked/, so the task is not counted as done; the next task ran",
+      w.has("tasks/blocked/report-001-design.md") and not w.has("tasks/done/001-design") and w.has("tasks/done/002-next/report.md"), events(w))
+
+print("board 100: «the owner looked it over» is the owner's word — a number written on this machine is removed")
+SEEN = "tasks/" + ".reviewed"   # split: a shell command that carries this test's text must not look like a write there
+w = World("forge-reviewed done")
+w.put("todo", "001-design.md")
+w.put("todo", "002-next.md")
+r = w.run()
+journal = journal_text(w.repo, "anomalies")
+check("negative — the agent wrote its task's number there and committed it: the runner removes it before the push, with a journal entry",
+      not w.has(SEEN) and " reviewed-rejected 777" in events(w) and "які не прийшли від власника ні гілкою, ні через inbox: 777" in journal
+      and any("a number written on this machine is not the owner's; removed (777)" in line for line in w.log()), events(w) + journal)
+check("…origin never has the number, and the board went on to the end",
+      sh(w.origin, "git", "show", f"unattended/work:{SEEN}", ok=False).returncode != 0 and w.has("tasks/done/002-next/report.md")
+      and w.origin_head() == w.head() and "state=idle" in w.status(), w.status())
+STOP = {"FAKE_STOP_AT": "0", "FAKE_STOP_KIND": "attempt"}
+
+
+def sent(v: World) -> tuple[list[str], list[str]]:
+    """(the commits the runner pushed, those of them — and origin's branch — that hold the file in any shape)."""
+    pushed = [line.split()[2] for line in events(v).splitlines() if " pushed " in line]
+    held = [rev for rev in [*pushed, "unattended/work"] if sh(v.origin, "git", "ls-tree", rev, "--", SEEN, ok=False).stdout.strip()]
+    return pushed, held
+
+
+for plan, how, env, shapes in (("forge-work done", "a stop after the attempt", STOP, ("text", "bytes", "link", "head")),
+                               ("forge-gateq done", "a gate's question published and pushed after the attempt", {}, ("text", "bytes")),
+                               ("forge-reviewed done", "the end of the task", {}, ("bytes", "link"))):
+    for shape in shapes:
+        v = World(plan)
+        v.put("todo", "001-design.md")
+        r = v.run(FAKE_FORGE=shape, **env)
+        pushed, held = sent(v)
+        check(f"negative — {how}, the forged file as `{shape}`: no commit the runner pushed holds it, and it is removed with its event",
+              pushed != [] and held == [] and " reviewed-rejected " in events(v) and "push-withheld" not in events(v)
+              and not os.path.lexists(v.repo / SEEN), events(v) + r.stderr)
+v = World("forge-work done")
+v.put("todo", "001-design.md")
+r = v.run(FAKE_FORGE="stuck", **STOP)
+pushed, held = sent(v)
+check("negative — the guard itself breaks (the forged number is in HEAD, the file is replaced by a directory it cannot remove): nothing is pushed "
+      "after that — the push is withheld, the board stops with state=error", held == [] and r.returncode == 1 and " push-withheld " in events(v)
+      and "reason=reviewed" in v.status() and "state=error" in v.status()
+      and sh(v.repo, "git", "ls-tree", "HEAD", "--", SEEN).stdout.strip() != "", events(v) + v.status() + r.stderr)
+os.chmod(v.repo / SEEN, 0o700)
+(w.inbox / ".reviewed").write_text("001\n", encoding="utf-8")
+w.put("todo", "003-more.md")
+(w.home / "plan").write_text("done")
+(w.home / "calls.jsonl").unlink()
+r = w.run()
+check("the owner's number through the inbox is taken, committed, pushed, and stays — run after run",
+      (w.repo / SEEN).read_text(encoding="utf-8") == "001\n" and sh(w.origin, "git", "show", f"unattended/work:{SEEN}").stdout == "001\n"
+      and not (w.inbox / ".reviewed").exists() and " inbox .reviewed taken: 1 new number(s)" in events(w)
+      and events(w).count("reviewed-rejected") == 1, events(w))
+other = w.dir / "owner"
+sh(w.dir, "git", "clone", "-q", "-b", "unattended/work", str(w.origin), str(other))
+(other / SEEN).write_text("001\n003\n", encoding="utf-8")
+sh(other, "git", "add", "-A")
+sh(other, "git", "-c", "user.name=o", "-c", "user.email=o@example.invalid", "commit", "-q", "-m", "owner: looked 003 over")
+sh(other, "git", "push", "-q", "origin", "unattended/work")
+r = w.run()
+check("the owner's number through the branch arrives with the pull and stays", (w.repo / SEEN).read_text(encoding="utf-8") == "001\n003\n"
+      and events(w).count("reviewed-rejected") == 1 and r.returncode == 0, events(w) + r.stderr)
+for manual in ("tasks/README.md", "templates/project/tasks/README.md", ".claude/unattended/README.md", "docs/OWNER-GUIDE.md"):
+    words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
+    check(f"{manual} (board 100): the reader before closing, the owner's list, how the owner says «looked over»",
+          "reader" in words and SEEN in words and "Змінені документи й проєкти — переглянь" in words)
 
 for manual in ("tasks/README.md", "templates/project/tasks/README.md", ".claude/unattended/README.md"):
     words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())

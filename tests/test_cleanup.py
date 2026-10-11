@@ -75,12 +75,13 @@ if doing:
         said = subprocess.run(command.group(1).split(), capture_output=True, text=True, check=True).stdout
     target = Path("tasks/done") / doing[0].stem
     target.mkdir(parents=True)
-    doing[0].rename(target / "task.md")
     (target / "report.md").write_text("# report\n" + said)
-    subprocess.run(["git", "add", "-A", "tasks"], check=True)
-    subprocess.run(["git", "commit", "-q", "-m", f"{doing[0].stem}: done", "--", "tasks"], check=True)
+    subprocess.run([sys.executable, "@READ@", doing[0].stem], check=True)   # board 100: a task without working code is read before it closes
+    doing[0].rename(target / "task.md")
+    subprocess.run(["git", "add", "-A", "tasks", ".engine/reader"], check=True)
+    subprocess.run(["git", "commit", "-q", "-m", f"{doing[0].stem}: done", "--", "tasks", ".engine/reader"], check=True)
 print('{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s1","total_cost_usd":0.1}')
-'''
+'''.replace("@READ@", str(ROOT / "tests/read_report.py"))
 TASK = "# {n} — Задача\n\nЗалежить від: {dep}\n{more}Аудит потрібен: ні\n\n## Що зробити\n- щось\n\n## Питання до власника\n{ask}"
 worlds: list[Path] = []
 

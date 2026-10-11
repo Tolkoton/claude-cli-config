@@ -24,6 +24,14 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py where <NNN-name>        todo | doing | blocked | done | missing
     board.py import-inbox <dir>      take new task files in (see `import_inbox`)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
+    board.py reviewed-reject --accepted <file> [--known <rev>]
+                                     the runner's call before a pull and before a push: numbers in
+                                     tasks/.reviewed that did not arrive from the owner are removed
+                                     and printed (see WHAT THE OWNER LOOKED OVER)
+    board.py reviewed-accept --accepted <file>   after the pull and the inbox: what is there is the owner's
+    board.py reviewed-clean --accepted <file> [--known <rev>]
+                                     exit 0 only when tasks/.reviewed as HEAD has it is a plain file
+                                     that holds arrived numbers alone: the runner pushes on nothing else
     board.py audit-allowed           exit 0 only when this session's task in doing/ asks for the audit
     board.py gate-answers            the gate's questions in blocked/ that the owner answered
                                      «так»: one `name<TAB>stamp<TAB>sha256` line each
@@ -169,6 +177,23 @@ is watching»; here it decides one thing: a line that names no mode is nobody's 
 task is not taken — `import-inbox` leaves the file in the inbox (with an entry in the journal) and
 `next` passes it over (`summary` says why).
 
+WHAT THE OWNER LOOKED OVER (board 100). A closed task that changed no working code hangs in the
+review («Змінені документи й проєкти — переглянь», board_review.py) until its number stands in
+tasks/.reviewed — one number a line (a name after it and a `#` comment are allowed). The file is the
+owner's word, as an answer in blocked/ is: it arrives in the branch or as the file `.reviewed` in the
+inbox (`import-inbox` adds its numbers and removes it), and an agent never writes it — the hooks
+refuse the edit and the shell write (protected-path-list.sh), and a number that got there another
+way is caught by the runner: `reviewed-accept` records, after every pull and inbox, the numbers that
+arrived; `reviewed-reject` removes every number that is in the checkout — the file of the working
+tree AND the file as HEAD has it, for a number may be committed and then taken out of the tree —
+and was never recorded (it was written on this machine), says so in the anomaly journal and prints
+them. A file that is no plain file (a link, a directory) is removed whole: git would store the
+link's target as the content the review reads. With no record yet (a new machine) what `--known`
+— the branch as origin had it — holds counts as arrived. The file is read as the review reads it
+from git: bytes that are not UTF-8 are replaced, never an error — else one such byte would switch
+the guard off. And the guard is not what the push rests on: `reviewed-clean` judges the commit that
+is about to be sent, and the runner sends nothing it does not pass (a guard that broke included).
+
 `--root DIR` names the repository (default: the one this file is installed in).
 """
 
@@ -179,6 +204,8 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -191,6 +218,8 @@ import mode as mode_reader  # the one reader of the mode and of «nobody is watc
 
 COLUMNS = ("todo", "doing", "blocked", "done")
 FIRST = ".first"  # tasks/.first: the todo/ tasks the owner answered (THE OWNER'S ANSWERS FIRST)
+REVIEWED = ".reviewed"  # tasks/.reviewed: the closed tasks without working code the owner looked over (board 100)
+REVIEWED_LINE = re.compile(r"^[ \t]*(\d{3,})(?![\w.])")
 TASK_NAME = re.compile(r"^(\d{3,})-.+\.md$")
 DONE_NAME = re.compile(r"^(\d{3,})-.+$")
 DEPENDS = re.compile(r"^Залежить від:(.*)$", re.MULTILINE)
@@ -336,8 +365,10 @@ class Board:
         return sorted(found, key=lambda p: (number_of(p.name) or 0, p.name))
 
     def done(self) -> list[Path]:
+        """The folders of done/ that hold a task.md: a report written ahead of the move, for its reader
+        (board 100), does not make the task done."""
         folder = self.tasks / "done"
-        found = [p for p in folder.iterdir() if p.is_dir() and DONE_NAME.match(p.name)] if folder.is_dir() else []
+        found = [p for p in folder.iterdir() if (p / "task.md").is_file() and DONE_NAME.match(p.name)] if folder.is_dir() else []
         return sorted(found, key=lambda p: (number_of(p.name) or 0, p.name))
 
     def numbers(self, column: str) -> set[int]:
@@ -454,7 +485,7 @@ def cmd_where(board: Board, stem: str) -> int:
         if (board.tasks / column / f"{stem}.md").is_file():
             print(column)
             return 0
-    print("done" if (board.tasks / "done" / stem).is_dir() else "missing")
+    print("done" if (board.tasks / "done" / stem / "task.md").is_file() else "missing")
     return 0
 
 
@@ -517,7 +548,96 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
         target.write_bytes(content)
         source.unlink()
         lines.append(f"{source.name} {verb}: tasks/{column}/{source.name}")
+    said = inbox / REVIEWED
+    if said.is_file() and not said.is_symlink():   # the owner looked tasks over (board 100): the numbers join tasks/.reviewed
+        have = reviewed_numbers(_reviewed_text(board.tasks / REVIEWED))
+        new = [n for n in reviewed_numbers(_reviewed_text(said)) if n not in have]
+        write_reviewed(board, have + new)
+        said.unlink()
+        lines.append(f"{REVIEWED} taken: {len(new)} new number(s) in tasks/{REVIEWED}")
     return lines
+
+
+def reviewed_numbers(text: str) -> list[int]:
+    """The task numbers of a `.reviewed` text, in its order, each once: one a line, at the line's start."""
+    found: list[int] = []
+    for line in text.splitlines():
+        number = REVIEWED_LINE.match(line)
+        if number and int(number.group(1)) not in found:
+            found.append(int(number.group(1)))
+    return found
+
+
+def write_reviewed(board: Board, numbers: list[int]) -> None:
+    path = board.tasks / REVIEWED
+    if numbers:
+        path.write_text("".join(f"{n:03d}\n" for n in sorted(set(numbers))), encoding="utf-8")
+    else:
+        path.unlink(missing_ok=True)
+
+
+def _reviewed_text(path: Path) -> str:
+    """A `.reviewed` file as the review reads it from git: bytes that are not UTF-8 are replaced, never an
+    error (one such byte must not switch the guard off). Nothing for what is no plain file."""
+    try:
+        return path.read_bytes().decode("utf-8", "replace") if path.is_file() and not path.is_symlink() else ""
+    except OSError:
+        return ""
+
+
+def reviewed_at(root: Path, rev: str) -> tuple[str, bool]:
+    """(tasks/.reviewed as the commit `rev` has it, read as the review reads it; whether it is a plain file
+    there). No such file, or no such commit: ("", True)."""
+    rel = f"tasks/{REVIEWED}"
+    entry = subprocess.run(["git", "-C", str(root), "ls-tree", rev, "--", rel], capture_output=True, check=False)
+    if entry.returncode != 0 or not entry.stdout.strip():
+        return "", True
+    plain = entry.stdout.split()[:2] in ([b"100644", b"blob"], [b"100755", b"blob"])
+    blob = subprocess.run(["git", "-C", str(root), "show", f"{rev}:{rel}"], capture_output=True, check=False)
+    return (blob.stdout.decode("utf-8", "replace") if blob.returncode == 0 and plain else ""), plain
+
+
+def _arrived(root: Path, accepted: Path, known: str) -> list[int]:
+    """The numbers that arrived from the owner: the runner's record; without one, the file as `known` has it."""
+    if accepted.is_file():
+        return reviewed_numbers(_reviewed_text(accepted))
+    return reviewed_numbers(reviewed_at(root, known)[0]) if known else []
+
+
+def reviewed_reject(board: Board, accepted: Path, known: str) -> list[str]:
+    """Remove from tasks/.reviewed what did not arrive from the owner; what was removed is returned, a word
+    each: a number, and `not-a-file` for a link or a directory. Both the file of the working tree and the
+    file as HEAD has it are judged — the push sends HEAD. `accepted` is the runner's record of what arrived;
+    without it, `known` — the revision whose file counts as arrived."""
+    root, path = board.tasks.parent, board.tasks / REVIEWED
+    committed, plain = reviewed_at(root, "HEAD")
+    odd = path.is_symlink() or (path.exists() and not path.is_file()) or not plain
+    here = reviewed_numbers(_reviewed_text(path))
+    here += [n for n in reviewed_numbers(committed) if n not in here]
+    arrived = _arrived(root, accepted, known)
+    wrong = [n for n in here if n not in arrived]
+    if not (wrong or odd):
+        return []
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
+    write_reviewed(board, [n for n in here if n in arrived])
+    removed = [f"{n:03d}" for n in wrong] + (["not-a-file"] if odd else [])
+    shown = ", ".join(f"{n:03d}" for n in wrong) or "жодного номера"
+    anomaly(board, "-", f"у `tasks/{REVIEWED}` з'явилися номери, які не прийшли від власника ні гілкою, ні через inbox: {shown} — їх записано на цій машині"
+            + (f"; сам `tasks/{REVIEWED}` був не звичайним файлом (посилання чи тека)" if odd else ""),
+            f"номери прибрано з `tasks/{REVIEWED}`; ці задачі й далі висять в огляді, доки власник сам не скаже «переглянув» (номер у "
+            f"`tasks/{REVIEWED}` у гілці або файл `{REVIEWED}` в inbox)")
+    return removed
+
+
+def reviewed_clean(root: Path, accepted: Path, known: str) -> bool:
+    """tasks/.reviewed as HEAD has it — what a push would send — is a plain file (or absent) that holds
+    arrived numbers alone."""
+    committed, plain = reviewed_at(root, "HEAD")
+    arrived = _arrived(root, accepted, known)
+    return plain and all(n in arrived for n in reviewed_numbers(committed))
 
 
 def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
@@ -1007,10 +1127,11 @@ PARK_REASONS = {
     "returned": ("агент повернув задачу з `doing/` у `todo/`, не закінчивши її і нічого не спитавши",
                  ("Агент не закінчив задачу й не поставив питання. Що робити далі? Будь-яка відповідь поверне задачу в чергу; "
                  "вказівку агентові напишіть тут же.")),
-    "reader-blocks": ("агент-читач тричі поспіль відхилив запис ескізу ({n})",
-                      ("Три агенти-читачі поспіль сказали, що вивід у записі ескізу не доводить його відповідь; їхні вердикти — у "
-                      "розділі «Чому зупинилась». Що робити далі? Будь-яка відповідь поверне задачу в чергу, і запис отримає три нові "
-                      "читання; вказівку агентові напишіть тут же.")),
+    "reader-blocks": ("агент-читач тричі поспіль відхилив запис задачі ({n})",
+                      ("Три агенти-читачі поспіль відхилили цей запис: запис ескізу — бо вивід у ньому не доводить його відповідь, звіт "
+                      "задачі без робочого коду — бо в документах є хибне посилання, пункт без відповіді, питання без варіантів чи "
+                      "перекладений термін; їхні вердикти — у розділі «Чому зупинилась». Що робити далі? Будь-яка відповідь поверне "
+                      "задачу в чергу, і запис отримає три нові читання; вказівку агентові напишіть тут же.")),
     "minimum": ("задачу закрито без мінімуму її режиму, і після одного ходу назад його так і не було ({n})",
                 ("Задачу закрито без мінімуму її режиму (board 098: `mode.py check-close`), і хід назад агентові цього не виправив. "
                 "Що робити далі? Будь-яка відповідь поверне задачу в чергу; вказівку агентові напишіть тут же.")),
@@ -1074,7 +1195,8 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
     for the owner and an entry in the anomaly journal. None when the task is in neither.
     `verdicts` (reason three-blocks) is the hook's marker: its verdicts are written under the reason.
     A task closed into done/ without the minimum of its mode (reason minimum, board 098) comes back
-    from done/<stem>/: task.md goes to blocked/, its report beside it as blocked/report-<stem>.md."""
+    from done/<stem>/: task.md goes to blocked/, its report beside it as blocked/report-<stem>.md.
+    So does a report written into done/<stem>/ ahead of the move, for its reader (board 100)."""
     stem = stem.removesuffix(".md")
     source = next((p for c in ("doing", "todo") for p in [board.tasks / c / f"{stem}.md"] if p.is_file()), None)
     closed = board.tasks / "done" / stem
@@ -1102,12 +1224,11 @@ def park(board: Board, stem: str, reason: str, detail: str, stash: str, verdicts
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(head + tail, encoding="utf-8")
     source.unlink()
-    if source.parent == closed:
-        report = closed / "report.md"
-        if report.is_file():
-            report.replace(board.tasks / "blocked" / f"report-{stem}.md")
-        if not any(closed.iterdir()):
-            closed.rmdir()
+    report = closed / "report.md"   # of a task closed without its minimum, or written ahead of the move for its reader (board 100)
+    if report.is_file():
+        report.replace(board.tasks / "blocked" / f"report-{stem}.md")
+    if closed.is_dir() and not any(closed.iterdir()):
+        closed.rmdir()
     anomaly(board, stem, what + ".", "задачу перенесено в `blocked/` з розділом «Чому зупинилась» і питанням до власника; "
             "runner узяв наступну задачу." + saved)
     return target
@@ -1174,6 +1295,10 @@ def main() -> int:
     commands.add_parser("where").add_argument("name")
     commands.add_parser("import-inbox").add_argument("inbox", type=Path)
     commands.add_parser("unblock")
+    for name in ("reviewed-reject", "reviewed-accept", "reviewed-clean"):
+        reviewed_parser = commands.add_parser(name)
+        reviewed_parser.add_argument("--accepted", type=Path, required=True, help="the runner's record of the numbers that arrived from the owner")
+        reviewed_parser.add_argument("--known", default="", help="with no record yet: the revision whose tasks/.reviewed counts as arrived")
     commands.add_parser("audit-allowed").add_argument("--tasks-dir", type=Path, default=None)
     commands.add_parser("gate-answers")
     gate_done_parser = commands.add_parser("gate-done")
@@ -1234,6 +1359,17 @@ def main() -> int:
         return cmd_start(board, root, args.task, args.attended)
     if args.command == "where":
         return cmd_where(board, args.name)
+    if args.command == "reviewed-reject":
+        removed = reviewed_reject(board, args.accepted, args.known)
+        if removed:
+            print(" ".join(removed))
+        return 0
+    if args.command == "reviewed-clean":
+        return 0 if reviewed_clean(root, args.accepted, args.known) else EXIT_REFUSED
+    if args.command == "reviewed-accept":
+        args.accepted.parent.mkdir(parents=True, exist_ok=True)
+        args.accepted.write_text("".join(f"{n:03d}\n" for n in reviewed_numbers(_reviewed_text(board.tasks / REVIEWED))), encoding="utf-8")
+        return 0
     if args.command == "import-inbox":
         for line in import_inbox(board, args.inbox):
             print(line)

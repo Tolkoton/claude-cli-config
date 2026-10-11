@@ -101,8 +101,11 @@ what belongs to the task, remove the rest. A tree still dirty after that turn is
 with the list of files, and the next task is taken; the runner deletes, stashes and commits none
 of them.
 
-A task in ескіз that three readers in a row refused (reader.py leaves `.claude/state/board/reader-blocks-<task>.json`)
-goes to `blocked/` with the reason `reader-blocks`, as the overseer's three BLOCKs do (board 099).
+A task whose record three readers in a row refused — a sketch's record, or the report of a task without working
+code (reader.py leaves `.claude/state/board/reader-blocks-<task>.json`) — goes to `blocked/` with the reason
+`reader-blocks`, as the overseer's three BLOCKs do (boards 099, 100). A report already written into
+`done/<task>/` goes with it as `blocked/report-<task>.md`: a folder of `done/` counts as a finished task only
+with its `task.md`.
 
 A task closes into `done/` with the minimum of its mode (board 098). Right after the clean-tree
 check the runner asks `python3 .claude/hooks/mode.py check-close <task>`, which judges by files:
@@ -112,12 +115,31 @@ every file; never `tasks/` or `.engine/`), in every stay of the task in `doing/`
 back, a PASS of the overseer whose audit saw exactly that code (a commit whose code a later commit of the task
 with such a PASS replaced is covered too — board 754); in конвеєр also the feature artifact and a matching seal on every slice contract the task
 wrote; in ескіз the record `.engine/sketches/<name>.md` with a reader's PASS on it as it is and no change outside
-`sketches/`, `.engine/`, `tasks/` (board 099). Missing — the agent gets the turn
+`sketches/`, `.engine/`, `tasks/` (board 099); in соло and конвеєр, when no commit of the task changed working
+code, a reader's PASS on its `report.md` as it is, read together with every document the task's commits changed,
+each as it is now (board 100: `reader.py request <task> --report`; the board's own moves and the journals scripts
+write are not documents). Missing — the agent gets the turn
 back once with the list; still missing — the task goes to `blocked/` with the reason `minimum`, its
 report beside it as `blocked/report-<task>.md`, and a journal entry. A task closed into `blocked/`,
 and one the runner closes itself (a gate's escalation, an owner action), is not checked; a check that
 breaks (exit 3, or any code but 0 and 1) is a journal entry and the task stays in `done/` — never a
 park, never a stop.
+
+«The owner looked it over» is the owner's word (board 100). A closed task without working code hangs in the
+review (`board.py review`, «Змінені документи й проєкти — переглянь») until its number stands in
+`tasks/.reviewed`. The file arrives from the owner only: in the branch, or as the file `.reviewed` in the inbox
+(`board.py import-inbox` adds its numbers and removes it). After every pull and inbox the runner records the
+numbers that arrived (`board.py reviewed-accept`, `.claude/state/board/reviewed-accepted`); before every pull
+and before every push of the work branch (`push_branch`: the end of a task, a stop after an attempt, a gate's
+question) it removes any number that is in the checkout — the working tree's file and the file as HEAD has it
+— and was never recorded (`board.py reviewed-reject`: it was written on this machine — by an agent, or by hand
+on the server), with a journal entry and a commit of its own, event `reviewed-rejected`. A file that is a link
+or a directory is removed whole; bytes that are not UTF-8 are read as the review reads them. The push itself
+rests on a second check, `board.py reviewed-clean`: the commit about to be sent holds a plain file with arrived
+numbers alone, or the branch is not pushed (event `push-withheld … reviewed`) — so a guard that broke (the
+board then stops with `state=error reason=reviewed`) sends nothing either. On a machine with no record yet, what the
+branch in origin holds counts as arrived. The hooks refuse an agent's edit and shell write of the file
+(`protected-path-list.sh`); the runner's check is the second layer, for a write a hook never sees.
 
 It stops — always with `.claude/state/board/summary.md` — when `todo/` is empty or everything
 left waits for the owner, or on a soft stop (exit 0); and with `state=error` (exit 1) only on what

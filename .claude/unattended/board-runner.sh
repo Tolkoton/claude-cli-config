@@ -173,6 +173,7 @@ STOP_FLAG="$STATE/stop-after-task"
 STOP_ATTEMPT_FLAG="$STATE/stop-after-attempt"
 GATE_PY="$HERE/../hooks/gate.py"
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
+REVIEWED_ACCEPTED="$STATE/reviewed-accepted"   # the numbers of tasks/.reviewed that arrived from the owner (board 100)
 DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
 blocks_marker() { echo "$STATE/three-blocks-$1.json"; }   # left by overseer_stop.py after the third BLOCK
 reader_marker() { echo "$STATE/reader-blocks-$1.json"; }   # left by reader.py after the third BLOCK on one record (board 099)
@@ -351,6 +352,15 @@ critical() {
 
 push_branch() {  # push_branch [quiet]: quiet = a failure is an event only, no journal entry
   [ "$PUSH" -eq 1 ] || return 0
+  # Board 100: no push of the work branch carries a number of the reviewed file that was written here. The
+  # guard repairs; the check after it judges the commit that is about to be sent, and is what the push
+  # rests on: a guard that broke, or a repair that did not reach HEAD, sends nothing.
+  reviewed_guard
+  if ! board reviewed-clean --accepted "$REVIEWED_ACCEPTED" --known "$REMOTE/$BRANCH" >> "$STATE/logs/git.log" 2>&1; then
+    event "push-withheld $(git rev-parse --short HEAD) reviewed"
+    say "the branch is NOT pushed: its commit holds numbers of tasks/.reviewed that did not arrive from the owner, and they could not be removed"
+    return 0
+  fi
   if git push -q "$REMOTE" "$BRANCH" >> "$STATE/logs/git.log" 2>&1; then
     event "pushed $(git rev-parse --short HEAD)"
   else
@@ -497,6 +507,29 @@ sweep_closed_questions() {
   done <<< "$(board gate-closed)"
 }
 
+# reviewed_guard: «the owner looked it over» is a task's number in tasks/.reviewed, and it arrives
+# from the owner only — in the branch or through the inbox (board 100). A number that is in the
+# checkout and never arrived was written on this machine: it is removed, with a journal entry, and
+# the task stays in the owner's review. Called before the pull and, from push_branch, before EVERY push
+# of the work branch — the end of a task, a stop after an attempt, a gate's question: the review reads
+# origin, so the number must never get there. A failure here stops the board with state=error; that
+# stop goes through push_branch as well, where REVIEWED_GUARDING keeps the guard from running inside
+# itself and `board reviewed-clean` withholds the push of a commit that still holds such a number.
+REVIEWED_GUARDING=0
+reviewed_guard() {
+  local wrong
+  [ "$REVIEWED_GUARDING" -eq 0 ] || return 0
+  REVIEWED_GUARDING=1
+  wrong=$(board reviewed-reject --accepted "$REVIEWED_ACCEPTED" --known "$REMOTE/$BRANCH") || finish error - reviewed "board.py reviewed-reject failed"
+  if [ -n "$wrong" ]; then
+    event "reviewed-rejected $wrong"
+    say "tasks/.reviewed: $wrong written on this machine, not by the owner; removed"
+    board_commit "board: tasks/.reviewed — a number written on this machine is not the owner's; removed ($wrong)" \
+      || finish error - commit "cannot commit the removed numbers of tasks/.reviewed"
+  fi
+  REVIEWED_GUARDING=0
+}
+
 # New task files and the owner's answers, each in a commit of its own.
 intake() {
   local taken answered placed
@@ -507,6 +540,7 @@ intake() {
     board_commit "board: from the inbox — $(echo "$taken" | grep -vc ' skipped: ') file(s) taken" \
       || finish error - commit "cannot commit the inbox files"
   fi
+  board reviewed-accept --accepted "$REVIEWED_ACCEPTED" || finish error - reviewed "board.py reviewed-accept failed"   # what the pull and the inbox brought is the owner's
   close_escalations
   sweep_closed_questions
   owner_actions
@@ -652,7 +686,8 @@ Commit what belongs to this task (through .claude/unattended/commit_checkpoint.s
 
 # check_minimum <stem>: the agent closed its task into done/; the minimum of its mode must be there
 # (board 098: `mode.py check-close`, by files — report.md; in соло a PASS of the overseer on every
-# commit with working code; in конвеєр also the feature artifact and sealed slice contracts). If it is
+# commit with working code; without working code the reader's PASS on the report, board 100; in конвеєр
+# also the feature artifact and sealed slice contracts). If it is
 # not (exit 1), the agent gets the turn back once with what is missing; still missing afterwards — the
 # task goes to blocked/ with the reason `minimum`. Any other exit (3: the check broke) is an anomaly
 # and the task stays in done/ — never a park, never a stop.
@@ -669,7 +704,7 @@ check_minimum() {
   say "$stem: closed without the minimum of its mode; the agent is asked once to make it"
   local ask="The task $stem is in tasks/done/, but the minimum of its mode is not there (python3 .claude/hooks/mode.py check-close $stem):
 $missing
-Make what is missing — for a commit of working code with no PASS, get the overseer's audit of that code (claim the unit, as tasks/README.md and the engine rules say); for конвеєр, the feature artifact and the seal of every slice contract — and commit it (through .claude/unattended/commit_checkpoint.sh, on this branch). Keep the task in tasks/done/; if it cannot be made without the owner, move the task to tasks/blocked/ with your question instead. Do not push. You are asked this once; if the minimum is still missing afterwards, the task goes to blocked/."
+Make what is missing — for a commit of working code with no PASS, get the overseer's audit of that code (claim the unit, as tasks/README.md and the engine rules say); for a task that changed no working code, the reader's PASS on its report (python3 .claude/hooks/reader.py request $stem --report, then the agent reader with the line it prints; after a BLOCK fix the documents and ask again); for конвеєр, the feature artifact and the seal of every slice contract — and commit it (through .claude/unattended/commit_checkpoint.sh, on this branch). Keep the task in tasks/done/; if it cannot be made without the owner, move the task to tasks/blocked/ with your question instead. Do not push. You are asked this once; if the minimum is still missing afterwards, the task goes to blocked/."
   while :; do
     if [ -n "$MAX_USD" ] && [ "$(memo get "$stem" left "$MAX_USD")" = "0.00" ]; then break; fi
     attempt "$stem" "$ask" "$ask"
@@ -713,7 +748,7 @@ run_task() {
     if [ -f "$(blocks_marker "$stem")" ]; then
       park_task "$stem" three-blocks ""; return 0
     fi
-    if [ -f "$(reader_marker "$stem")" ]; then   # board 099: three readers in a row refused the sketch's record
+    if [ -f "$(reader_marker "$stem")" ]; then   # board 099, 100: three readers in a row refused the sketch's record or the task's report
       park_task "$stem" reader-blocks "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("record", ""))' "$(reader_marker "$stem")" 2>/dev/null)"; return 0
     fi
     if [ "$(memo get "$stem" age_sec)" -ge "$TASK_MAX" ]; then
@@ -746,8 +781,11 @@ TASK_NAME="-"
 FINISHED=0
 while :; do
   LOCAL_ANSWERS=$(local_gate_answers)
+  reviewed_guard
   commit_journal "$JOURNAL_OTHERS"
   sync_branch
+  # What the pull brought is the owner's — recorded before anything pushes again (a gate's question in intake).
+  board reviewed-accept --accepted "$REVIEWED_ACCEPTED" || finish error - reviewed "board.py reviewed-accept failed"
   intake
   TASK=$(board next); RC=$?
   case "$RC" in
@@ -793,6 +831,7 @@ while :; do
   event "task-$OUTCOME $TASK_NAME cost=$(memo get "$TASK_NAME" cost)"
   say "$TASK_NAME: $OUTCOME ($(memo get "$TASK_NAME" cost) USD)"
   FINISHED=$((FINISHED + 1))
+  reviewed_guard   # with --no-push as well: the checkout does not keep the number either
   push_branch
   if [ "$ONCE" -eq 1 ]; then
     finish stopped "$TASK_NAME" once "one task was asked for (--once); it ended in $OUTCOME/"

@@ -17,8 +17,12 @@ WHAT IS CHECKED
     done twice;
   - every unfilled `Відповідь:` in blocked/ is found, in each way an owner's file may write the
     line — and a filled one, and the template's hint in a comment, are not;
-  - the eight sections are there, in order, each with what the task asks of it; the anomaly
+  - the sections are there, in order, each with what the task asks of it; the anomaly
     journal's new entries are a section of their own (board 021);
+  - «Змінені документи й проєкти — переглянь» (board 100): every closed task without working code
+    hangs there — title, changed documents, the reader's verdict — until its number is in
+    tasks/.reviewed of the branch; `--since` does not hide it; a task with working code, one closed
+    before the reader's first reading of a report, and one that never lay in doing/ are not there;
   - origin out of reach: the last known state with a note; nothing known at all: exit 2;
   - the session command and the operator's instruction exist and name the same command.
 """
@@ -95,7 +99,7 @@ def snapshot(root: Path, skip: tuple[str, ...] = ()) -> dict[str, str]:
     return found
 
 
-TITLES = ["Стан зараз", "Зроблено", "Чекає на власника", "Цілі та звірка з ними", "Тестування", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
+TITLES = ["Стан зараз", "Зроблено", "Змінені документи й проєкти — переглянь", "Чекає на власника", "Цілі та звірка з ними", "Тестування", "Аномалії", "План", "Кандидати в нові задачі", "Здоров'я"]
 
 
 def section(document: str, title: str) -> str:
@@ -237,7 +241,7 @@ r = cli(clone)
 doc = r.stdout
 check("the review runs in a clone that never checked the work branch out", r.returncode == 0 and doc.startswith("# "), r.stderr)
 places = [doc.find(f"\n## {title}") for title in TITLES]
-check("the eight sections are there, in the task's order", all(p != -1 for p in places) and places == sorted(places), places)
+check("the sections are there, in the task's order", all(p != -1 for p in places) and places == sorted(places), places)
 check("it says which commit of origin it read", commits["second"][:7] in doc.split("\n## ")[0] and f"origin/{BRANCH}" in doc, doc[:400])
 done_part = section(doc, "Зроблено")
 check("without --since the newest version tag is the start: both finished tasks", "v0.1.0" in doc.split("\n## ")[0]
@@ -553,6 +557,91 @@ testing.append_row(t, {"type": "decision", "point": "b", "slice": "rounding2", "
 publish("debt closed")
 part = section(cli(t).stdout, "Тестування")
 check("the debt run at its event leaves the list", "### Борги тестування\n\n- Немає." in part and "O6 на `rounding2`" in part, part)
+
+# --- board 100: the closed tasks without working code hang until the owner looked them over -----
+print("changed documents and designs: until the number is in tasks/.reviewed")
+DOCS = "Змінені документи й проєкти — переглянь"
+docs = top / "docs-work"
+docs.mkdir()
+git(docs, "init", "-q", "-b", BRANCH)
+git(top, "init", "-q", "--bare", str(top / "docs-origin.git"))
+git(docs, "remote", "add", "origin", str(top / "docs-origin.git"))
+write(docs, ".claude/project.env", 'SOURCE_DIRS="src"\nCODE_EXTENSIONS="py"\n')
+write(docs, "tasks/todo/.gitkeep", "")
+
+
+def day(n: int, hour: int = 0) -> str:
+    return f"2026-04-{n:02d}T{hour:02d}:00:00Z"
+
+
+def lived(stem: str, opened: int, changes: dict[str, str], closed: int, doing: bool = True) -> None:
+    """A task's life in commits: into doing/, its change, into done/ with a report."""
+    if doing:
+        write(docs, f"tasks/doing/{stem}.md", task(f"{stem[:3]} — НАЗВА-{stem}"))
+        git(docs, "add", "-A")
+        git(docs, "commit", "-q", "-m", f"board: {stem} → doing", date=day(opened))
+        for rel, text in changes.items():
+            write(docs, rel, text)
+        if changes:
+            git(docs, "add", "-A")
+            git(docs, "commit", "-q", "-m", f"{stem}: the work", date=day(opened, 6))
+        (docs / f"tasks/doing/{stem}.md").unlink()
+    write(docs, f"tasks/done/{stem}/task.md", task(f"{stem[:3]} — НАЗВА-{stem}"))
+    write(docs, f"tasks/done/{stem}/report.md", report(stem))
+    git(docs, "add", "-A")
+    git(docs, "commit", "-q", "-m", f"board: {stem} → done", date=day(closed))
+
+
+def read_entry(stem: str, when: str, verdict: str, reason: str) -> str:
+    return f"\n## {when} — {stem} — READER_{verdict}\n- Record: tasks/done/{stem}/report.md\n- Reason: {reason}\n- Request: r-{stem} (attempt 1)\n"
+
+
+def documents(*args: str) -> str:
+    done = cli(docs, *args)
+    assert done.returncode == 0, done.stderr
+    return section(done.stdout, DOCS)
+
+
+git(docs, "add", "-A")
+git(docs, "commit", "-q", "-m", "the project", date=day(1))
+lived("005-early", 1, {"docs/early.md": "раніше\n"}, 2)
+git(docs, "push", "-q", "origin", BRANCH)
+check("negative — no reader has read a report here yet: nothing hangs, a task closed before is not listed",
+      "яких ви ще не переглянули, немає" in documents() and "005-early" not in documents(), documents())
+write(docs, ".engine/reader/ledger.md", "# Журнал агента-читача\n\n## 2026-04-03T00:00:00Z — 009-sketch — READER_PASS\n- Record: .engine/sketches/rate.md\n- Reason: a sketch\n"
+      + read_entry("010-design", day(4, 1), "BLOCK", "ПРИЧИНА-BLOCK") + read_entry("010-design", day(4, 2), "PASS", "усе сходиться")
+      + read_entry("013-refused", day(8, 1), "BLOCK", "ПОСИЛАННЯ-ХИБНЕ"))
+lived("010-design", 3, {"docs/design.md": "проєкт\n", "tasks/README.md": "правила\n", "tasks/ANOMALIES.md": "# журнал\n"}, 5)
+lived("011-code", 5, {"src/a.py": "A = 1\n", "docs/about-a.md": "про a\n"}, 6)
+lived("012-unread", 6, {"docs/x.md": "x\n"}, 7)
+lived("900-gate-escalation-20260408T000000Z", 0, {}, 8, doing=False)
+lived("013-refused", 8, {}, 9)
+git(docs, "push", "-q", "origin", BRANCH)
+said = documents()
+check("negative — nothing in tasks/.reviewed: every closed task without working code hangs, with its title",
+      "ще не переглянули: 3." in said and all(f"### {stem} — {stem[:3]} — НАЗВА-{stem}" in said for stem in ("010-design", "012-unread", "013-refused")), said)
+check("…the documents it changed: the report and the files, never the board's moves or a journal",
+      "Змінені документи: `tasks/done/010-design/report.md`, `docs/design.md`, `tasks/README.md`." in said, said)
+check("…the reader's verdict from its journal: the last one, with the count of readings; a BLOCK with its reason; none — said so",
+      "Вердикт reader-а: PASS (2026-04-04 02:00 UTC, читань: 2)." in said and "Вердикт reader-а: BLOCK (2026-04-08 01:00 UTC, читань: 1) — ПОСИЛАННЯ-ХИБНЕ" in said
+      and "Вердикт reader-а: немає — звіт цієї задачі reader не читав." in said, said)
+check("not there: a task with working code, one closed before the first reading, one that never lay in doing/, a sketch's reading",
+      not any(word in said for word in ("011-code", "005-early", "900-gate", "009-sketch")), said)
+check("negative — --since after everything hides what was done, not what hangs", "ще не переглянули: 3." in documents("--since", "2026-05-01"))
+check("it says how the owner says «looked over», and that the agent does not", "`tasks/.reviewed`" in said and "inbox" in said and "агент цього файла не пише" in said, said)
+write(docs, "tasks/.reviewed", "010\n013-refused  # подивився\n")
+check("negative — a number in the checkout that is not in origin's branch changes nothing: the review reads origin", "ще не переглянули: 3." in documents())
+git(docs, "add", "-A")
+git(docs, "commit", "-q", "-m", "the owner looked two over", date=day(10))
+git(docs, "push", "-q", "origin", BRANCH)
+said = documents()
+check("after the owner's numbers in tasks/.reviewed the entries are gone, and the other still hangs",
+      "ще не переглянули: 1." in said and "012-unread" in said and "010-design" not in said and "013-refused" not in said, said)
+write(docs, "tasks/.reviewed", "010\n012\n013\n")
+git(docs, "add", "-A")
+git(docs, "commit", "-q", "-m", "the owner looked the last over", date=day(11))
+git(docs, "push", "-q", "origin", BRANCH)
+check("all looked over: nothing hangs", "яких ви ще не переглянули, немає" in documents(), documents())
 
 # --- the session command and the operator's instruction ---------------------------------------
 print("the command and the manual")

@@ -962,5 +962,117 @@ check("action-reject wipes «ні» written on the server as well, and keeps the
 forged = put(root, "blocked", "803-forged.md", task(questions="1. Так?\n   Дія runner-а: reject-rule " + RULE_SHA + "\n   Відповідь: так\n"))
 check("reject-rule cannot be offered by hand: it is only the owner's «ні» under a rule question", board.read(forged).action == "")
 
+# --- board 100: tasks/.reviewed is the owner's word ---------------------------------------------
+print("tasks/.reviewed: the numbers the owner looked over")
+rv = new_board()
+rv_inbox, accepted = rv / "inbox", rv / "state/reviewed-accepted"
+rv_inbox.mkdir()
+reviewed_file = rv / "tasks" / board.REVIEWED
+check("the numbers of a text: one a line, at its start, each once; a name and a comment after it are allowed; anything else is no number",
+      board.reviewed_numbers("100\n  101-design  # подивився\n100\n# 105\nпереглянув 106\n12\n107.5\n") == [100, 101], board.reviewed_numbers("100\n# 105\n"))
+reviewed_file.write_text("100\n", encoding="utf-8")
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+journal = journal_text(rv, "anomalies")
+check("negative — a number written on this machine (never recorded as arrived) is removed, printed and journalled",
+      r.returncode == 0 and r.stdout.strip() == "100" and not reviewed_file.exists() and "які не прийшли від власника ні гілкою, ні через inbox: 100" in journal,
+      r.stdout + r.stderr + journal)
+(rv_inbox / board.REVIEWED).write_text("101\n102-name\n", encoding="utf-8")
+r = cli(rv, "import-inbox", str(rv_inbox))
+check("the owner's file from the inbox: its numbers are in the board's file and the inbox file is gone",
+      r.returncode == 0 and ".reviewed taken: 2 new number(s)" in r.stdout and reviewed_file.read_text(encoding="utf-8") == "101\n102\n"
+      and not (rv_inbox / board.REVIEWED).exists(), r.stdout + r.stderr)
+cli(rv, "reviewed-accept", "--accepted", str(accepted))
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+check("what arrived and was recorded stays", r.stdout == "" and reviewed_file.read_text(encoding="utf-8") == "101\n102\n", r.stdout)
+reviewed_file.write_text("101\n102\n103\n", encoding="utf-8")
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+check("negative — a number added beside the owner's: that one is removed, the owner's stay",
+      r.stdout.strip() == "103" and reviewed_file.read_text(encoding="utf-8") == "101\n102\n", r.stdout)
+(rv_inbox / board.REVIEWED).write_text("102\n104\n", encoding="utf-8")
+cli(rv, "import-inbox", str(rv_inbox))
+check("a second file from the inbox adds to the first", reviewed_file.read_text(encoding="utf-8") == "101\n102\n104\n")
+subprocess.run(["git", "init", "-q", "-b", "work", str(rv)], check=True)
+subprocess.run(["git", "-C", str(rv), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "empty"], check=True)
+subprocess.run(["git", "-C", str(rv), "add", str(reviewed_file)], check=True)
+subprocess.run(["git", "-C", str(rv), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "the owner's numbers"], check=True)
+accepted.unlink()
+reviewed_file.write_text("101\n102\n104\n105\n", encoding="utf-8")
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted), "--known", "HEAD")
+check("no record yet (a new machine): what the known revision holds counts as arrived, the rest is removed",
+      r.stdout.strip() == "105" and reviewed_file.read_text(encoding="utf-8") == "101\n102\n104\n", r.stdout + r.stderr)
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted), "--known", "no-such/ref")
+check("negative — no record and no known revision: nothing arrived, everything is removed", r.stdout.strip() == "101 102 104" and not reviewed_file.exists(), r.stdout)
+check("the file changes nothing else on the board", cli(rv, "check").returncode == 0 and cli(rv, "next").returncode == 3)
+# The guard reads what the review will read, and judges what a push would send (the overseer's second BLOCK).
+
+
+def rv_commit(message: str) -> None:
+    subprocess.run(["git", "-C", str(rv), "add", "-A", "tasks"], check=True)
+    subprocess.run(["git", "-C", str(rv), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", message], check=True)
+
+
+def clean() -> int:
+    return cli(rv, "reviewed-clean", "--accepted", str(accepted)).returncode
+
+
+rv_commit("the file is gone")
+accepted.parent.mkdir(parents=True, exist_ok=True)
+accepted.write_text("101\n", encoding="utf-8")
+check("reviewed-clean: no file in HEAD — a push may go", clean() == 0)
+reviewed_file.write_bytes(b"101\n777\n\xff\n")
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+check("negative — a byte that is not UTF-8 does not switch the guard off: exit 0, the forged number removed, the owner's kept",
+      r.returncode == 0 and r.stdout.strip() == "777" and reviewed_file.read_bytes() == b"101\n", r.stdout + r.stderr)
+reviewed_file.write_bytes(b"101\n777\n\xff\n")
+rv_commit("forged, with a bad byte")
+check("negative — reviewed-clean: HEAD holds a number that never arrived (read as the review reads it): refused, no push", clean() == 2)
+reviewed_file.write_text("101\n", encoding="utf-8")
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+check("negative — committed and then taken out of the working tree: the guard judges HEAD too and names the number",
+      r.stdout.strip() == "777" and reviewed_file.read_text(encoding="utf-8") == "101\n" and clean() == 2, r.stdout + r.stderr)
+rv_commit("the runner's commit of the repair")
+check("…once the repair is committed, HEAD is clean and the push may go", clean() == 0 and cli(rv, "reviewed-reject", "--accepted", str(accepted)).stdout == "")
+reviewed_file.unlink()
+reviewed_file.symlink_to("777")
+rv_commit("a link whose target reads as a number")
+check("negative — reviewed-clean: a link in HEAD (git stores its target, which the review would read as «777»): refused", clean() == 2)
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+check("negative — a link is removed whole, and said so; what is left is nothing the owner did not send",
+      r.returncode == 0 and "not-a-file" in r.stdout.split() and not reviewed_file.is_symlink()
+      and "був не звичайним файлом" in journal_text(rv, "anomalies"), r.stdout + r.stderr)
+rv_commit("the runner's commit of the repair")
+check("…and HEAD is clean again", clean() == 0)
+reviewed_file.unlink(missing_ok=True)
+reviewed_file.mkdir()
+(reviewed_file / "777").write_text("777\n", encoding="utf-8")
+r = cli(rv, "reviewed-reject", "--accepted", str(accepted))
+check("negative — a directory in its place is removed whole", r.returncode == 0 and "not-a-file" in r.stdout.split() and not reviewed_file.exists(), r.stdout + r.stderr)
+(rv_inbox / board.REVIEWED).write_bytes(b"105\n\xff\n")
+r = cli(rv, "import-inbox", str(rv_inbox))
+check("the owner's inbox file with a stray byte is still taken: the number it names is in the board's file",
+      r.returncode == 0 and reviewed_file.read_text(encoding="utf-8") == "105\n", r.stdout + r.stderr)
+
+# --- board 100: the report is written into done/<task>/ ahead of the move, for its reader -------
+print("a report written ahead of the move does not make the task done")
+ahead = new_board()
+put(ahead, "doing", "001-design.md", task())
+put(ahead, "todo", "002-build.md", task(deps="001"))
+(ahead / "tasks/done/001-design").mkdir()
+(ahead / "tasks/done/001-design/report.md").write_text("# звіт, який читає reader\n", encoding="utf-8")
+check("negative — the task is still in doing/: `where` says so, and its number is not among the done ones",
+      cli(ahead, "where", "001-design").stdout.strip() == "doing" and board.Board(ahead / "tasks").numbers("done") == set())
+(ahead / "tasks/doing/001-design.md").rename(ahead / "tasks/todo/001-design.md")
+check("negative — a task that waits on it is not offered: the first of the queue is the task itself",
+      cli(ahead, "next").stdout.strip() == "tasks/todo/001-design.md" and board.Board(ahead / "tasks").unmet(board.read(ahead / "tasks/todo/002-build.md")) == [1])
+check("…and no duplicate number is reported for the folder", cli(ahead, "check").returncode == 0, cli(ahead, "check").stdout)
+r = cli(ahead, "park", "001-design", "no-commit", "--detail", "3")
+check("parked with the report written ahead: the report goes beside the task as blocked/report-<task>.md, the folder in done/ is gone",
+      r.returncode == 0 and (ahead / "tasks/blocked/report-001-design.md").is_file() and not (ahead / "tasks/done/001-design").exists(), r.stdout + r.stderr)
+(ahead / "tasks/done/001-design").mkdir()
+(ahead / "tasks/done/001-design/task.md").write_text(task(), encoding="utf-8")
+(ahead / "tasks/blocked/001-design.md").unlink()
+check("with its task.md the folder is a done task: the one that waited is offered", cli(ahead, "where", "001-design").stdout.strip() == "done"
+      and cli(ahead, "next").stdout.strip() == "tasks/todo/002-build.md", cli(ahead, "next").stdout)
+
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)
