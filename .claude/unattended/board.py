@@ -67,7 +67,7 @@ Any other answer is an instruction: the task goes back to todo/ like every answe
 
 CONSENT HAS ONE FORM (board 036), the same for closing an escalation, applying the settings
 proposal and making a lesson a rule: the answer is exactly the one word «так» — case and
-punctuation do not count (`consents`). Everything else, «так, але…» included, is an instruction
+punctuation do not count (`is_word`). Everything else, «так, але…» included, is an instruction
 for the agent and nothing is applied.
 
 AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do: applying
@@ -207,7 +207,7 @@ COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 GATE = re.compile(r"^Ескалація (?:gates|воріт):\s*(\S+)", re.MULTILINE)
 COUNT_WORDS = {2: "двох", 3: "трьох"}
 GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
-CONSENT = "так"  # the one form of the owner's consent (board 036): see `consents`
+CONSENT = "так"  # the one form of the owner's consent (board 036): see `is_word`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
 # question (the `Ескалація gates:` line), the rest by an action line.
 OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "update-deps", "close-escalation")
@@ -277,11 +277,6 @@ def is_word(answer: str, word: str) -> bool:
     """`answer` is exactly the one word `word`: case and punctuation do not count, any other
     word does — «так, але інакше» is an instruction, not consent."""
     return re.sub(r"[\W_]+", " ", answer.lower()).split() == [word]
-
-
-def consents(answer: str) -> bool:
-    """The owner's consent, in its one form: exactly the word «так»."""
-    return is_word(answer, CONSENT)
 
 
 def parse(text: str) -> Task:
