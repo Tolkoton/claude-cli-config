@@ -423,7 +423,14 @@ architecture, premises, spikes and `PROGRESS.md` where the old engine put them, 
 directories; `--dry-run` lists every move first. A file that exists in both places is left
 alone and reported (`keep … exists in both places`) — merge it by hand and run the update
 again. The moves apply only when the ref you update to knows the new layout, so updating to
-an older engine never half-migrates a project. Machine state at the old paths is not moved:
+an older engine never half-migrates a project. The move does not follow into the project's own
+files: after the moves the report lists, as `note` lines, every line of a project file that still
+names an old path (`file:line`) and every lint or format configuration that names an old
+directory — with whether it names `.engine` too. A script that reads the old path now checks
+nothing, and a formatter that excluded `.claude` now sees the records; `engine.py` changes
+neither, they are yours to bring to the new paths. It is a search by string over what git tracks
+or would track (files over 1 MB are skipped), and a configuration is known by its file name
+(`LINT_CONFIGS` in `engine.py`). Machine state at the old paths is not moved:
 it is regenerated, and `.claude/state/` is where it lives now.
 
 Machine-local tweaks belong in `.claude/settings.local.json`, which never ships and never

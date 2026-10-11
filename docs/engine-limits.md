@@ -243,7 +243,10 @@ no permission prompt. The limits:
   automatically** — a person edits it at setup time and answers the prompt;
 - a project built before package 3c has its records at the old paths; `engine.py update`
   moves them by an explicit table and reports, without touching, a file that exists in both
-  places (`docs/TEMPLATE-SETUP.md`, "Keeping the engine up to date");
+  places (`docs/TEMPLATE-SETUP.md`, "Keeping the engine up to date"). What the project's own
+  files still say about the old paths is reported, not changed, and found by string: a path a
+  script builds from parts, and an exclusion in a configuration file whose name the list does
+  not know, are not seen;
 - the old `approve-project-data.py` hook is gone with the move; a project that still wires
   it sees Claude Code report the missing script until `docs/tasks/settings.json` is applied.
 

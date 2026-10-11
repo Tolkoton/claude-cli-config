@@ -42,6 +42,9 @@ draft's questions are these, in this order:
 - one for each contradiction «document against code» — a written rule the code does not follow,
   a document the code contradicts: which of the two is the rule;
 - one for each command whose effect is unclear (step 2);
+- one for what the installation changed, when it left project files that name an old path or a
+  check with another result (steps 1 and 2): the list, and whether the owner brings the project's
+  files to the new paths before the snapshot;
 - one for the do-not-touch zones: the candidates the survey saw, and what else there is;
 - one for each part that was not read: read it, or leave it alone;
 - one common question for all the remaining candidates — they wait for the owner's yes, no or
@@ -56,9 +59,12 @@ owner's part. Steps 5–8 are for a session the owner sits in.
 
 ## If the project already has agent files or an older engine
 
-Its `AGENTS.md`, `CLAUDE.md`, progress journals and earlier engine records (also under the old
-paths `.claude/overseer/`, `.claude/premises/`, `.claude/architecture/`) are documents to survey
-and sources of *written* rules like any other. A rule that is the engine's own policy (commits,
+Its `AGENTS.md`, `CLAUDE.md`, progress journals and earlier engine records are documents to
+survey and sources of *written* rules like any other. Look for the records in both places: the
+new one, `.engine/`, where `engine.py install` moved them, and the old ones (`.claude/overseer/`,
+`.claude/premises/`, `.claude/architecture/`, `.claude/artifacts/`, `PROGRESS.md` at the root) —
+a record that stood in both places was left where it was, and the old paths are what the
+project's own files still name (step 1, «What the installation changed»). A rule that is the engine's own policy (commits,
 hooks, the overseer) is not a candidate rule of the project. The sign is what the rule is about,
 wherever it is written: the project's code and data — a candidate; the way an agent works
 (commits, branches, tasks, hooks, audits, sessions, its memory) — the engine's. So a rule about
@@ -75,6 +81,18 @@ they agree to.
 Create `.engine/onboard/profile.md` from `.claude/references/onboard-profile.md` and fill it as
 you go; nothing else is written in this step.
 
+- **What the installation changed** — first, before anything is written: `git status --short`
+  and `git rev-parse HEAD`. The commit is the one the survey is of; the tree is not that commit
+  when `engine.py install` ran before this command and nobody committed. Count the changes and
+  write the count beside the commit in the profile («tree not clean: N changes from the
+  installation», and how many that are not the installation's — those are the owner's unfinished
+  work, named and left alone). Where records moved (a deleted old path and a new file under
+  `.engine/`), list the project's own files that still name an old path, with `file:line` —
+  `git grep -n -e '.claude/overseer' -e '.claude/premises' -e '.claude/architecture' -e
+  '.claude/artifacts' -e 'PROGRESS.md' -- . ':!.claude' ':!.engine'` (a line that names only `.engine/PROGRESS.md` is not one) — and the lint and format
+  configuration that excludes an old directory and not `.engine/`. `engine.py install` prints
+  both as `note` lines; its output is gone by now, so search again. Nothing is fixed: the list
+  goes into the profile and is one question for the owner.
 - **Languages and layout**: what is in which directory, which directories are code, tests,
   generated, vendored.
 - **How it is built, tested and checked** — from the CI files, Makefile/task runner, package
@@ -138,6 +156,16 @@ pasted log).
   gone, no test was collected, no file matched: read what a passing command says it checked, not
   only its exit code. Record «ran, checked nothing» with what was missing; «ran, checked nothing»
   does not go into `project.env`.
+- **A result the installation caused is recorded as a consequence of the installation, not as
+  the state of the project.** A script that reads an old path of a moved record and now checks
+  nothing; a formatter or linter that now fails on files under `.engine/` because its exclusion
+  names the old directory: the row says «after the installation», names the moved path or the
+  files, and cites the line of the script or of the configuration. It is a consequence only with
+  that evidence — every failing file is one the installation moved or added, or the command
+  names an old path; a failure with any other file in it is the project's, in full. What the
+  command did at the surveyed commit was not measured: do not write that it passed. Such a row
+  does not go into `project.env`, and before the snapshot of step 7 the owner is told that it
+  would record this consequence as the project's «as it was».
 - A variant of a found command (fewer arguments, another interpreter) may be run to learn
   something; it is recorded as a variant and does not go into `project.env`.
 - **If none of lint, type-check and tests could be run**, say so in the first line of the profile

@@ -189,6 +189,28 @@ for label, needle in (("fixes nothing", "fixes nothing"), ("no decisions in hind
     check(f"never: {label}", needle in never, never[:200])
 check("never (091): an account identifier is not copied from a command's output either",
       "nor from the output of a command" in never, never[:400])
+# board 094 — the full trial (board 057): the installation moved 19 records, the project's scripts went on naming the
+# old paths, two checks then passed having checked nothing, the formatter failed on three moved files — and /onboard
+# wrote all of it down as the state of the project
+MOVED_FROM = (".claude/overseer", ".claude/premises", ".claude/architecture", ".claude/artifacts", "PROGRESS.md")
+check("step 1 (094): «what the installation changed» is the first item of the survey — git status before anything is written, the count beside the commit",
+      section(command, "1.").find("- **What the installation changed**") == section(command, "1.").find("\n- **") + 1
+      and "`git status --short`" in survey and "before anything is written" in survey
+      and "«tree not clean: N changes from the installation»" in survey and "the owner's unfinished work" in survey, survey[:700])
+check("step 1 (094): the project's files that still name an old path are listed with file:line by a written search, the exclusions too; nothing is fixed",
+      "still name an old path, with `file:line`" in survey and "git grep -n" in survey and all(f"-e '{old}'" in survey for old in MOVED_FROM)
+      and "excludes an old directory and not `.engine/`" in survey and "Nothing is fixed" in survey, survey[:1400])
+check("an older engine (094): its records are looked for in both places, the new and every old one",
+      "Look for the records in both places" in older and "`.engine/`" in older
+      and all(f"`{old}{'' if old.endswith('.md') else '/'}`" in older for old in MOVED_FROM), older[:700])
+check("the search of step 1 names every place engine.py moves a record from (094)",
+      all(any(old == place or old.startswith(place + "/") for place in MOVED_FROM) for old, _new in engine.MIGRATIONS),
+      engine.MIGRATIONS)
+check("step 2 (094): a result the move caused is a consequence of the installation, only with evidence, never «it passed before», and stays out of project.env",
+      "consequence of the installation, not as the state of the project" in commands and "«after the installation»" in commands
+      and "every failing file is one the installation moved or added" in commands and "is the project's, in full" in commands
+      and "do not write that it passed" in commands and "Such a row does not go into `project.env`" in commands
+      and "would record this consequence as the project's «as it was»" in commands, commands[-1500:])
 check("never (091): a check's cache the project itself ignores is not a change to the project",
       "cache" in never and "the project itself ignores" in never and "is not a change to the project" in never, never[:400])
 check("the prohibitions stand before the first step", 0 < command.find("## What /onboard never does") < command.find("## 1."))
@@ -202,6 +224,8 @@ check("without the owner (092): step 5 is a procedure, not a list — the draft'
       "a procedure, not a list" in alone and all(w in alone for w in (
           "«document against code»", "effect is unclear", "do-not-touch zones", "was not read", "one common question")), alone[:900])
 check("without the owner (092): the common question is one, not a question per candidate", "never a question per candidate" in alone, alone[:900])
+check("without the owner (094): what the installation changed is one of the draft's questions",
+      "one for what the installation changed" in alone and "before the snapshot" in alone, alone[600:1500])
 check("without the owner and without the board (092): the questions stay in the profile; the starter gets the path and the number",
       "has no addressee" in alone and "stay in the profile" in alone and "the profile's path and the number of questions" in alone, alone[-600:])
 opening = flat(command.split("## What /onboard never does")[0])
@@ -227,6 +251,12 @@ check("it starts as a draft the owner has not confirmed", "draft — not confirm
 check("the status line (092): without the owner it is steps 1–4, the owner confirms in step 5, the reader's count has the reworded rules",
       'add: "steps 1–4 only"' in flat(profile) and "after step 5" in flat(profile) and "K rules reworded" in profile
       and "1–3" not in profile and "after step 4" not in flat(profile), profile[:900])
+check("the status line (094): beside the commit — whether the tree was clean, and how many changes are the installation's",
+      re.search(r"^Surveyed at commit: `<sha>` · Tree: <clean \| not clean: N changes from the installation, M others> · Fresh reader:", profile, re.MULTILINE) is not None,
+      profile[700:1100])
+check("the map (094): what the installation changed has its place — the moved records and the project's files that still name an old path",
+      "What the installation changed" in section(profile, "1.") and "still names an old path, or excludes it from lint / format" in section(profile, "1.")
+      and '"after the installation:"' in flat(section(profile, "2.")), section(profile, "1.")[:900])
 check("the risk zones (092): a part whose checks did not run has its row", "No check ran" in profile)
 check("the hot places (093): the table is of code files, and what changes often but is not code has its own line",
       "among the files of code" in flat(profile) and "Not code that changes often" in profile, profile[900:1500])

@@ -51,6 +51,10 @@ Claude Code session, it does nothing. It refuses while a text the model reads ha
 the last complete full-tier audit (evals/needs_audit.py); --without-audit, the owner's, releases
 anyway and writes that into the anomaly journal.
 
+When records move from the pre-3c paths to .engine/, the report ends with `note` lines for the
+project's own files that still name an old path (file:line) and for the lint or format
+configuration that names an old directory; nothing in those files is changed.
+
 engine.py never commits and never touches a file it does not own: review with `git status`.
 Exit status: 0 done, 1 done but some engine files were held back (see "keep"), 2 error.
 
@@ -61,12 +65,14 @@ repository relative to itself, and the project from the command line.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -112,6 +118,19 @@ MIGRATIONS: tuple[tuple[str, str], ...] = (
     (".claude/artifacts/", ".engine/artifacts/"),
     ("PROGRESS.md", ".engine/PROGRESS.md"),
 )
+# After the records move, the project's own files may still name the old places (board 094): a
+# script that reads the old path then checks nothing, and a lint or format exclusion that named
+# the old directory no longer covers the records. `install` / `update` report both and change
+# nothing. The configuration files searched for an exclusion, by name; past MOVE_NOTE_MAX lines
+# the rest is a count; a file larger than MOVE_SEARCH_MAX_BYTES is not searched.
+LINT_CONFIGS = (
+    "pyproject.toml", "ruff.toml", ".ruff.toml", "setup.cfg", "tox.ini", ".flake8", ".pylintrc", "mypy.ini",
+    ".pre-commit-config.yaml", ".editorconfig", ".yamllint", ".prettierignore", ".eslintignore",
+    ".stylelintignore", ".prettierrc*", "prettier.config.*", ".eslintrc*", "eslint.config.*",
+    ".markdownlint*", "biome.json", "biome.jsonc", "deno.json", ".golangci.y*ml", ".rubocop.yml",
+)
+MOVE_NOTE_MAX = 40
+MOVE_SEARCH_MAX_BYTES = 1_000_000
 # Machine state moved the same way (package 3c put it under .claude/state/). A pattern entry
 # (`*` in the old path) moves every match into the new directory under its own name. State is
 # NOT moved while the DAG supervisor of an older engine (retired by board 039) appears to be
@@ -254,6 +273,83 @@ def prune_old_dirs(project: Path) -> None:
                 folder.rmdir()
         if not any(root.iterdir()):
             root.rmdir()
+
+
+def moved_roots(moves: list[Action]) -> list[str]:
+    """The old places the planned moves empty, shortest first: a directory of the table, the
+    directory of a record that moved alone, or the name of a file that stood at the root."""
+    roots: set[str] = set()
+    for old, _new in MIGRATIONS:
+        if not any(a.verb == "move" and (a.path == old or (old.endswith("/") and a.path.startswith(old))) for a in moves):
+            continue
+        roots.add(old.rstrip("/") if old.endswith("/") or "/" not in old else old.rsplit("/", 1)[0])
+    return sorted(roots, key=lambda r: (len(r), r))
+
+
+def project_lines(project: Path, skip: Callable[[str], bool]) -> Iterator[tuple[str, int, str]]:
+    """(path, line number, line) of every text file of the project `skip` does not refuse: what
+    git tracks or would track, or — outside git — everything but `.git`."""
+    if is_git_work_tree(project):
+        listed = git(project, "ls-files", "-z", "-co", "--exclude-standard").decode("utf-8", "replace").split("\0")
+    else:
+        listed = [p.relative_to(project).as_posix() for p in project.rglob("*") if ".git" not in p.relative_to(project).parts]
+    for rel in sorted(set(filter(None, listed))):
+        path = project / rel
+        if skip(rel) or not path.is_file() or path.is_symlink() or path.stat().st_size > MOVE_SEARCH_MAX_BYTES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            yield rel, number, line
+
+
+def move_notes(project: Path, moves: list[Action], owned: Callable[[str], str | None]) -> list[str]:
+    """What the project's own files still say about the places its records are leaving: every
+    line that names an old path, and every lint or format configuration that names an old
+    directory (or one above it) — with whether it names `.engine` too. A search by string."""
+    roots = moved_roots(moves)
+    if not roots:
+        return []
+    records = tuple(old for old, _new in MIGRATIONS)
+
+    def skip(rel: str) -> bool:
+        is_record = rel.startswith(".engine/") or any(rel == old or (old.endswith("/") and rel.startswith(old)) for old in records)
+        return is_record or owned(rel) in ("engine", "machine")
+
+    names = [(root, re.compile(rf"(?<![\w-])(?<!\.engine/){re.escape(root)}(?![\w-])")) for root in roots]
+    above = sorted({"/".join(root.split("/")[: i + 1]) for root in roots for i in range(root.count("/") + 1)}, key=lambda r: (len(r), r))
+    excludes = [(a, re.compile(rf"(?<![\w-]){re.escape(a)}(?:/[*/]*(?![\w.-])|(?![\w./-]))")) for a in above]
+    new_place = re.compile(r"(?<![\w-])\.engine(?![\w-])")
+    mentions: list[str] = []
+    covered: dict[str, list[tuple[int, str]]] = {}
+    names_new: dict[str, int] = {}
+    for rel, number, line in project_lines(project, skip):
+        found = [r for r, regex in names if regex.search(line)]
+        found = [r for r in found if not any(r.startswith(o + "/") for o in found)]
+        if found:
+            mentions.append(f"{rel}:{number} still names {', '.join(found)}, which the move empties")
+        if any(fnmatch.fnmatchcase(rel.rsplit("/", 1)[-1], pattern) for pattern in LINT_CONFIGS):
+            hit = next((a for a, regex in excludes if regex.search(line)), None)
+            if hit is not None:
+                covered.setdefault(rel, []).append((number, hit))
+            if new_place.search(line):
+                names_new.setdefault(rel, number)
+    notes = mentions[:MOVE_NOTE_MAX]
+    if len(mentions) > MOVE_NOTE_MAX:
+        notes.append(f"… and {len(mentions) - MOVE_NOTE_MAX} more line(s) that name an old path")
+    if not mentions:
+        notes.append(f"no file of the project names the old paths ({', '.join(roots)})")
+    for rel, lines in covered.items():
+        where = ", ".join(f"{rel}:{number} names {hit}" for number, hit in lines)
+        if rel in names_new:
+            notes.append(f"{where}; the file names .engine too ({rel}:{names_new[rel]}) — check that it covers the moved records the same way")
+        else:
+            notes.append(f"{where} and the file nowhere names .engine: if that line keeps paths out of lint or format, the moved records are no longer kept out")
+    if not covered:
+        notes.append("no lint or format configuration of the project names an old path of the moved records")
+    return notes
 
 
 class EngineError(Exception):
@@ -650,6 +746,7 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     # 0. The project's own data moves to where this ref keeps it — only when the ref's map knows
     #    the new layout, so a project updated to an OLDER engine is never half-migrated.
     migration_targets: set[str] = set()
+    moves: list[Action] = []
     if any(r.pattern.startswith(".engine/") for r in rules):
         moves, migration_targets = plan_migration(project)
         plan.actions.extend(moves)
@@ -789,7 +886,9 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     if any(r.pattern == PROPOSAL and r.owner == "project" for r in rules):
         plan_proposal(src, plan, seeded_before, seeded)
 
-    # 4. Reports only: the engine's own records left behind by an old copy, machine state in git.
+    # 4. Reports only: what the project still says about the old places of its records, the
+    #    engine's own records left behind by an old copy, machine state in git.
+    plan.notes.extend(move_notes(project, moves, owned))
     for path in sorted(history):
         if path in seeded_targets or owned(path) != "project" or not path.startswith(".claude/"):
             continue

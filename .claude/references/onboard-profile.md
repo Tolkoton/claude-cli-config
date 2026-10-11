@@ -10,7 +10,7 @@ Delete these comments as the sections fill. -->
 Status: **draft — not confirmed by the owner** <!-- without the owner add: "steps 1–4 only";
 after step 5: "confirmed by the owner, <date>". If no lint, type-check or test command could be
 run, say so here, first; if one part of the project ran none, name that part here. -->
-Surveyed at commit: `<sha>` · Fresh reader: <not yet | date, N references checked, M corrected, K rules reworded>
+Surveyed at commit: `<sha>` · Tree: <clean | not clean: N changes from the installation, M others> · Fresh reader: <not yet | date, N references checked, M corrected, K rules reworded>
 
 ## 1. Map
 
@@ -18,6 +18,12 @@ Surveyed at commit: `<sha>` · Fresh reader: <not yet | date, N references check
 how the parts connect. "This is how it is" — never "this was decided". -->
 
 | Path | What it is | Evidence |
+|---|---|---|
+
+What the installation changed (`git status` at the start of the survey; omit when the tree was
+clean): <records moved, old path → new, as a count; other changes that are not the installation's>
+
+| Project file that still names an old path, or excludes it from lint / format | `file:line` | What it does now |
 |---|---|---|
 
 Hot places (change most often and are the largest, among the files of code), over <how far back
@@ -39,7 +45,8 @@ of external accounts are not copied here>
 ## 2. Commands
 
 <!-- Every command found, whether it works or not. Only the rows with status "ran" may go into
-`.claude/project.env`. -->
+`.claude/project.env`. A result the installation caused (a moved record, an exclusion on the old
+directory) starts its last column with "after the installation:" and is not the project's state. -->
 
 | Purpose | Command | Found in | Status (ran / not run / variant) | Exit, duration | What fails, or why not run |
 |---|---|---|---|---|---|
