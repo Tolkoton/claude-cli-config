@@ -574,6 +574,10 @@ UNFORMATTED = {  # name: (the file as committed, the one line changed, its new t
     "notes.md": ("# Title\nsome_name here\n* item\n", "some_name here", "some_name there"),
     "data.json": ('{"b":2,"a":[1,2]}\n', '{"b":2', '{"b":3'),
     "conf.yml": ("a:   1\nb:    [1,2]\n", "a:   1", "a:   2"),
+    # The other two extensions of the prettier handler (board 760): an off switch that lists md/yml/json/py by
+    # hand would spare them, and the engine tracks ruff.toml, pyproject.toml files and a .yaml fixture.
+    "tool.toml": ("[tool]\nname =   'x'\nlist = [1,2]\n", "name =   'x'", "name =   'y'"),
+    "prices.yaml": ("a:   1\nb:    [1,2]\n", "a:   1", "a:   2"),
 }
 
 
@@ -610,7 +614,7 @@ def edit_each_line(env_from: Path | None, **kv: str) -> tuple[str, dict[str, str
 print('OFF-1  the engine\'s own project.env: no formatter for any file, a one-line edit stays a one-line diff')
 logtext, stats = edit_each_line(REAL_PROJECT_ENV)
 if logtext == "":
-    ok("no ruff, black, prettier or jq call for .py, .md, .json, .yml")
+    ok("no ruff, black, prettier or jq call for .py, .md, .json, .yml, .toml, .yaml")
 else:
     bad("the engine formats nothing (FORMAT_CMD=\"true\", board 749)", "", logtext)
 if set(stats.values()) == {"1 1"}:
@@ -621,7 +625,7 @@ else:
 print('OFF-2  FORMAT_CMD="true" switches off files outside CODE_EXTENSIONS too')
 logtext, stats = edit_each_line(None, CODE_EXTENSIONS="ts", FORMAT_CMD="true")
 if logtext == "" and set(stats.values()) == {"1 1"}:
-    ok("no formatter call, every diff one line — .py, .md, .json and .yml are not in CODE_EXTENSIONS")
+    ok("no formatter call, every diff one line — .py, .md, .json, .yml, .toml and .yaml are not in CODE_EXTENSIONS")
 else:
     bad("the off switch covers the built-in handlers", ("", "1 1 each"), (logtext, stats))
 
@@ -629,7 +633,9 @@ print("OFF-3  control: the seed project.env (FORMAT_CMD empty) with the same shi
 logtext, stats = edit_each_line(SEED_PROJECT_ENV)
 called = {name for name in ("ruff", "prettier", "jq") if f"{name} " in logtext}
 expected = {"ruff", "prettier", "jq"} if shutil.which("jq") else {"ruff", "prettier"}
-if called == expected and stats["mod.py"] == stats["notes.md"] == stats["conf.yml"] == "more":
+grew = all(stats[name] == "more" for name in ("mod.py", "notes.md", "conf.yml", "tool.toml", "prices.yaml"))
+toml_yaml = all(any(ln.startswith("prettier ") and ln.endswith("/" + name) for ln in logtext.splitlines()) for name in ("tool.toml", "prices.yaml"))
+if called == expected and grew and toml_yaml:
     ok("the built-in handlers ran and the diffs grew: OFF-1 and OFF-2 are not vacuous")
 else:
     bad("the default path still formats", (expected, "more"), (called, stats))
