@@ -647,6 +647,65 @@ p.answer(BLOCK)
 p.stop("The overseer agent answered BLOCK again.")
 said, third = p.claim(CLAIM + "\nNothing new since the second audit.", after_audit=True, shell="git status")
 check("negative — the baseline is the LAST request: what the second audit saw is not a new edit", said == "" and third == "", said)
+def plant_request(project: Project, real_id: str, planted_id: str, mtime_ns: int | None = None, earlier_ns: int = 0) -> None:
+    """A second request beside the real one, under `planted_id`: the same package, but it saw other code
+    in src/pricing.py. With `mtime_ns`, both request.json files get that modification time; with
+    `earlier_ns`, the planted one says it was written that much before the real one."""
+    requests = project.root / ".claude/state/overseer/requests"
+    request = json.loads((requests / real_id / "request.json").read_text(encoding="utf-8"))
+    request["id"], request["created_ns"] = planted_id, request["created_ns"] - earlier_ns
+    request["tree"]["files"]["src/pricing.py"] = request["tree"]["files"]["src/pricing.py"].partition(":")[0] + ":0000000000000000"
+    (requests / planted_id).mkdir()
+    (requests / planted_id / "request.json").write_text(json.dumps(request), encoding="utf-8")
+    real = (requests / real_id / "request.json").stat().st_mtime_ns
+    for name, stamp in ((real_id, mtime_ns or real), (planted_id, mtime_ns or real + 3_600_000_000_000)):
+        os.utime(requests / name / "request.json", ns=(stamp, stamp))
+
+
+def audited_by_shell() -> tuple[Project, str]:
+    """Code written by shell, audited once (BLOCK): the same tree claimed again asks for nothing."""
+    project = shell_project()
+    project.write("src/pricing.py", "def with_tax(x):\n    return x * 1.2\n")
+    request_id = project.audit(BLOCK, shell=SHELL_WRITE)
+    project.stop("The overseer agent answered BLOCK.")
+    return project, request_id
+
+
+# board 752: which request is the last one is read from the request, never from the file's modification time.
+OLDER, NEWER, SAME_MTIME = "20200101T000000Z-aaaaaa", "20990101T000000Z-aaaaaa", 1_800_000_000_000_000_000
+old, rid = audited_by_shell()
+plant_request(old, rid, OLDER)
+said, again = old.claim(CLAIM + "\nSame code, claimed again.", after_audit=True, shell="git status")
+check("negative — an older request whose file was touched later is not the last one: the tree the real last audit saw is not a new edit",
+      said == "" and again == "", said)
+old, rid = audited_by_shell()
+plant_request(old, rid, OLDER, SAME_MTIME)
+said, again = old.claim(CLAIM + "\nSame code, claimed again.", after_audit=True, shell="git status")
+check("two requests with one modification time — the last is the later id: the older one's tree is not the baseline", said == "" and again == "", said)
+new, rid = audited_by_shell()
+plant_request(new, rid, NEWER, SAME_MTIME)
+said, again = new.claim(CLAIM + "\nSame code, claimed again.", after_audit=True, shell="git status")
+check("…and with the ids the other way round the later id is the baseline again: it saw other code, so this is an edit",
+      again not in ("", rid) and f"OVERSEER_REQUEST {again}" in said, said)
+for suffix in ("000000", "zzzzzz"):   # the same second in the id, on either side of the real one's hash
+    tie, rid = audited_by_shell()
+    plant_request(tie, rid, rid[:17] + suffix, SAME_MTIME, earlier_ns=1)
+    said, again = tie.claim(CLAIM + "\nSame code, claimed again.", after_audit=True, shell="git status")
+    check(f"negative — two requests of one second, one modification time: the one written earlier (…-{suffix}) is not the last",
+          said == "" and again == "", said)
+quick = shell_project()
+quick.write("src/pricing.py", "def with_tax(x):\n    return x * 1.2\n")
+first = quick.audit(BLOCK, shell=SHELL_WRITE)
+quick.stop("The overseer agent answered BLOCK.")
+quick.write("src/pricing.py", "def with_tax(x):\n    return x * 1.21\n")
+second = quick.audit(BLOCK, CLAIM + "\nFixed.", after_audit=True, shell=SHELL_WRITE)
+quick.stop("The overseer agent answered BLOCK again.")
+both = [json.loads((quick.root / ".claude/state/overseer/requests" / r / "request.json").read_text(encoding="utf-8")) for r in (first, second)]
+for name in (first, second):   # one second, one modification time: only what the request says orders them
+    os.utime(quick.root / ".claude/state/overseer/requests" / name / "request.json", ns=(SAME_MTIME, SAME_MTIME))
+said, third = quick.claim(CLAIM + "\nNothing new since the second audit.", after_audit=True, shell="git status")
+check("two requests written within one second carry the moment they were written, and the later one is the baseline",
+      first != second and both[0].get("created_ns", 0) < both[1].get("created_ns", 0) and said == "" and third == "", f"{both[0].get('created_ns')} {both[1].get('created_ns')} {said}")
 done = shell_project()
 done.audit(GOOD)
 done.stop("The overseer agent answered PASS.")

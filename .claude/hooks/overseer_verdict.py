@@ -18,7 +18,8 @@ the builder's conversation, under .claude/state/overseer/requests/<id>/:
                 and the files that were edited; taken from the transcript, not from the message
   request.json  id, unit, attempt, the contract and its sha256, the gate-allow list, the open gate
                 escalation, PASS verdicts in a row on the slice, the task's mode (mode.py show,
-                board 097), the fingerprint of the tree
+                board 097), the fingerprint of the tree, the moment it was written (`created_ns`:
+                with the second in the id it says which request is the last one, board 752)
 and names it in .claude/state/overseer/pending.json. The builder is told to launch the agent with
 the prompt `OVERSEER_REQUEST <id>` and nothing else.
 
@@ -60,6 +61,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -311,6 +313,18 @@ def launch_line(request_id: str) -> str:
     return f"{REQUEST_WORD} {request_id}"
 
 
+def last_request(root: Path) -> JsonObj | None:
+    """The request written last, read from what the requests say — the second in the id, then
+    `created_ns` — never from a file's modification time: two written in one moment, or an old
+    file touched later, made the choice a matter of chance (board 752)."""
+    def moment(folder: Path) -> tuple[str, int, str]:
+        created = read_json(folder / "request.json").get("created_ns")
+        return folder.name[:16], created if isinstance(created, int) else 0, folder.name
+
+    folders = [f.parent for f in (root / REQUESTS_REL).glob("*/request.json")]
+    return read_json(max(folders, key=moment) / "request.json") if folders else None
+
+
 def rows(root: Path) -> list[JsonObj]:
     try:
         lines = (root / VERDICTS_REL).read_text(encoding="utf-8").splitlines()
@@ -420,7 +434,7 @@ def make_request(root: Path, turn: str, *, origin: str, unit: str = "1", transcr
     unit_key = f"{slice_name or '-'}|{board_task(root)}|unit {unit}"
     events = turn_events(transcript_path)
     request: JsonObj = {
-        "id": request_id, "origin": origin, "created_utc": utc_now(),
+        "id": request_id, "origin": origin, "created_utc": utc_now(), "created_ns": time.time_ns(),
         "slice": slice_name or "unknown", "unit": unit, "unit_key": unit_key,
         "attempt": blocks_in_a_row(root, unit_key) + 1,
         "contract": contract_of(root, slice_name),

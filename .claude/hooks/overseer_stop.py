@@ -618,8 +618,7 @@ def _code_changed_in_tree(project_dir: Path, source_dirs: list[str], code_extens
 
     try:
         now = ov.tree_fingerprint(project_dir) or {}
-        last = max((project_dir / ov.REQUESTS_REL).glob("*/request.json"), key=lambda f: f.stat().st_mtime_ns, default=None)
-        before = json.loads(last.read_text(encoding="utf-8")).get("tree") if last else None
+        before = (ov.last_request(project_dir) or {}).get("tree")
         if not now or not before:
             return any(is_code(rel) for rel in gate_allows.unit_files(project_dir))
         old, names = dict(before["files"]), set(before["files"]) | set(now["files"])
