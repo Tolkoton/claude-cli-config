@@ -168,8 +168,70 @@ def dead_code_signals(root: Path, production: list[str], users: list[str], only:
             for m in VULTURE_RE.finditer(out) if m["file"] in reported]
 
 
+# A distribution whose import name is not its own name: without the line, a package the code does
+# import would be reported as unused (board 728). Keys are normalized names; a package absent here
+# is looked for under its own name. Short on purpose — a signal is a lead, not a resolver.
+IMPORT_NAMES = {
+    "attrs": ("attr", "attrs"),
+    "beautifulsoup4": ("bs4",),
+    "dnspython": ("dns",),
+    "msgpack-python": ("msgpack",),
+    "opencv-contrib-python": ("cv2",),
+    "opencv-python": ("cv2",),
+    "opencv-python-headless": ("cv2",),
+    "pillow": ("PIL",),
+    "protobuf": ("google",),
+    "psycopg2-binary": ("psycopg2",),
+    "pycryptodome": ("Crypto",),
+    "pyjwt": ("jwt",),
+    "pymupdf": ("fitz", "pymupdf"),
+    "pyopenssl": ("OpenSSL",),
+    "pyserial": ("serial",),
+    "python-dateutil": ("dateutil",),
+    "python-dotenv": ("dotenv",),
+    "python-jose": ("jose",),
+    "python-magic": ("magic",),
+    "python-multipart": ("multipart", "python_multipart"),
+    "pyyaml": ("yaml",),
+    "pyzmq": ("zmq",),
+    "scikit-image": ("skimage",),
+    "scikit-learn": ("sklearn",),
+    "setuptools": ("setuptools", "pkg_resources"),
+}
+
+
+def import_names(distribution: str) -> tuple[str, ...]:
+    """The top-level modules a declared distribution is imported as."""
+    normalized = re.sub(r"[-_.]+", "-", distribution).lower()
+    return IMPORT_NAMES.get(normalized, (normalized.replace("-", "_"),))
+
+
+def imported_modules(path: Path) -> set[str]:
+    try:
+        tree = budget.parse_py(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        tree = None
+    modules: set[str] = set()
+    for node in ast.walk(tree) if tree else ():
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            modules.add(node.module)
+    return {module.split(".")[0].lower() for module in modules}
+
+
+def importers(base: Path) -> dict[str, set[str]]:
+    """Every top-level module imported by a Python file under `base` (lowercased) → the files, relative to `base`."""
+    found: dict[str, set[str]] = {}
+    for path in (p for p in base.rglob("*.py") if ".venv" not in p.parts):
+        for module in imported_modules(path):
+            found.setdefault(module, set()).add(path.relative_to(base).as_posix())
+    return found
+
+
 def unused_dependency_signals(root: Path) -> list[Signal]:
-    """A runtime dependency of a pyproject.toml that no Python file beside or under it imports."""
+    """A runtime dependency of a pyproject.toml that no Python file beside or under it imports, or
+    that only test files import — a candidate for the dev group, not for removal."""
     out: list[Signal] = []
     for rel in budget.git(root, "ls-files", "pyproject.toml", "*/pyproject.toml").splitlines():
         try:
@@ -177,26 +239,20 @@ def unused_dependency_signals(root: Path) -> list[Signal]:
             declared = tomllib.loads(text).get("project", {}).get("dependencies", [])
         except (OSError, tomllib.TOMLDecodeError):
             continue
-        imported: set[str] = set()
-        for path in (root / rel).parent.rglob("*.py"):
-            if ".venv" in path.parts:
-                continue
-            try:
-                tree = budget.parse_py(path.read_text(encoding="utf-8", errors="replace"))
-            except OSError:
-                tree = None
-            for node in ast.walk(tree) if tree else ():
-                if isinstance(node, ast.Import):
-                    imported.update(alias.name.split(".")[0] for alias in node.names)
-                elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-                    imported.add(node.module.split(".")[0])
-        lowered = {name.lower() for name in imported}
+        base = PurePosixPath(rel).parent
+        imported = importers(root / base)
         for spec in declared:
             name = re.split(r"[\s<>=!~;\[@(]", str(spec).strip(), maxsplit=1)[0]
-            if name and name.lower().replace("-", "_") not in lowered:
-                line = next((n for n, row in enumerate(text.splitlines(), 1) if name in row), None)
-                out.append(signal("pyproject", "unused-dependency", rel, line,
-                                  f"{name} is declared and no module named {name.lower().replace('-', '_')} is imported"))
+            if not name:
+                continue
+            modules = import_names(name)
+            users = sorted({f for module in modules for f in imported.get(module.lower(), ())})
+            if not all(budget.is_test(f) for f in users):
+                continue
+            line = next((n for n, row in enumerate(text.splitlines(), 1) if name in row), None)
+            message = (f"{name} is a runtime dependency imported only by tests: {', '.join((base / f).as_posix() for f in users)}"
+                       if users else f"{name} is declared and no module named {' or '.join(modules)} is imported")
+            out.append(signal("pyproject", "unused-dependency", rel, line, message))
     return out
 
 

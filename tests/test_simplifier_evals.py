@@ -137,6 +137,9 @@ hard_request = runner.request_text(hard_box, hard["scope"])
 hard_trap_words = ("parse_order_line", "load_price_list", "receipt_path", "refund_reference", "pin_matches", "ReceiptError",
                    "export_record", "CURRENCY", "isinstance", "stock-levels")
 check("hard: no deterministic signal points at a trap", not any(word in hard_request for word in hard_trap_words), hard_request)
+check("board 728 — hard: the dependency a test alone imports is named for the right reason, with the test file",
+      "pyyaml is a runtime dependency imported only by tests: tests/test_price_fixtures.py" in hard_request
+      and "no module named" not in hard_request, hard_request)
 check("hard: the signals do not name the subtle excess — the dead branch, the second implementation, the duplicate",
       not any(word in hard_request for word in ("wholesale", "FixedAmountDiscount", "refund_amount", "on_hand")), hard_request)
 tests = subprocess.run(["uvx", "--with", PYTEST, *(part for name in hard["test_with"] for part in ("--with", name)),

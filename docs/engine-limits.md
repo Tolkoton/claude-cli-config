@@ -684,9 +684,15 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
 ## The simplifier
 
 - **A signal is a lead.** vulture cannot see a name used through a string, a decorator or a
-  framework; the unused-dependency check compares the declared name with the imported module
-  name and is wrong for a package whose import name differs (`pillow` / `PIL`); pylint's
+  framework; the unused-dependency check looks for the import name of a declared package in a
+  short table of known differences (`pillow` / `PIL`, `pyyaml` / `yaml` — `IMPORT_NAMES` in
+  `simplify_signals.py`) and is still wrong for a package that is not in it, for one imported
+  only through `importlib` or a plugin entry point, and for a namespace package (`google.*`); pylint's
   duplicate check sees only Python. The signals feed the agent and never remove anything.
+- **A runtime dependency only test files import has its own message** — "imported only by tests:
+  <files>" (board 728): a candidate for the dev group, not for removal. It keeps the kind
+  `unused-dependency`, so the totals of `/maintain` count it with the dependencies nobody imports.
+  A test file is what `complexity_budget.is_test` calls one, by its path under the `pyproject.toml`.
 - **A name only the tests use is not a dead-code signal.** vulture reads the tests and scripts as
   users of the production code (reporting production files only), so a library's public function
   is not "dead" for having no caller inside the library. The price: code kept alive by its tests

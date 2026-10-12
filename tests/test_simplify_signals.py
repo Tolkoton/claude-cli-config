@@ -175,6 +175,48 @@ check("every function above the limit is reported, old ones included",
 check("the test file's unused helper is not reported", "helper_nobody_calls" not in json.dumps(found), found)
 write(repo, "src/demo/use.py", BASE["src/demo/use.py"] + "import requests\n\nprint(requests)\n")
 check("an imported dependency is not unused", "unused-dependency" not in kinds(signals(repo, "--scope", "full")))
+
+print("DEPS-*   board 728 — the import name of a dependency, and a dependency only the tests import")
+DEPS = '[project]\nname = "demo"\nversion = "0"\ndependencies = [\n    "PyYAML>=6",\n    "pillow",\n    "beautifulsoup4",\n    "python-dateutil",\n    "scikit-learn",\n    "opencv-python",\n    "attrs",\n    "requests>=2",\n    "httpx",\n    "rich",\n]\n'
+repo = new_repo(BASE | {
+    "pyproject.toml": DEPS,
+    "src/demo/media.py": "import bs4\nimport cv2\nimport yaml\nfrom dateutil import parser\nfrom PIL import Image\nfrom sklearn.linear_model import Ridge\n\nprint(bs4, cv2, yaml, parser, Image, Ridge)\n",
+    "src/demo/net.py": "import rich\n\nprint(rich)\n",
+    "tests/test_net.py": "import httpx\nimport rich\n\n\ndef test_net() -> None:\n    assert httpx and rich\n",
+    "tests/conftest.py": "import httpx\n\nprint(httpx)\n",
+})
+deps = {s["message"].split()[0]: s for s in signals(repo, "--scope", "full") if s["kind"] == "unused-dependency"}
+check("a package whose module is imported under another name gives no signal (pyyaml/yaml, pillow/PIL, bs4, dateutil, sklearn, cv2)",
+      not {"PyYAML", "pillow", "beautifulsoup4", "python-dateutil", "scikit-learn", "opencv-python"} & set(deps), deps)
+check("a dependency nobody imports names the module it looked for, by its import name",
+      set(deps) == {"attrs", "requests", "httpx"} and deps["attrs"]["message"] == "attrs is declared and no module named attr or attrs is imported"
+      and deps["requests"]["message"] == "requests is declared and no module named requests is imported", deps)
+check("a runtime dependency only test files import says so and names them: a candidate for the dev group, not for removal",
+      deps["httpx"]["message"] == "httpx is a runtime dependency imported only by tests: tests/conftest.py, tests/test_net.py"
+      and deps["httpx"]["line"] == 13, deps)
+check("a dependency both the code and a test import gives no signal", "rich" not in deps, deps)
+write(repo, "src/demo/media.py", "import os\n\nprint(os)\n")
+write(repo, "tests/test_media.py", "import yaml\n\n\ndef test_yaml() -> None:\n    assert yaml\n")
+deps = {s["message"].split()[0]: s["message"] for s in signals(repo, "--scope", "full") if s["kind"] == "unused-dependency"}
+check("the table works both ways: pyyaml imported as yaml by a test alone is 'only by tests', pillow nobody imports is 'no module named PIL'",
+      deps.get("PyYAML") == "PyYAML is a runtime dependency imported only by tests: tests/test_media.py"
+      and deps.get("pillow") == "pillow is declared and no module named PIL is imported", deps)
+shutil.rmtree(repo, ignore_errors=True)
+repo = new_repo(BASE | {
+    "pyproject.toml": '[project]\nname = "demo"\nversion = "0"\ndependencies = ["requests>=2"]\n',
+    "services/api/pyproject.toml": '[project]\nname = "api"\nversion = "0"\ndependencies = ["pyyaml"]\n',
+    "services/api/tests/test_api.py": "import yaml\n\n\ndef test_api() -> None:\n    assert yaml\n",
+    "services/api/app.py": "import requests\n\nprint(requests)\n",
+})
+deps = {s["file"]: s["message"] for s in signals(repo, "--scope", "full") if s["kind"] == "unused-dependency"}
+check("a nested pyproject.toml: the test file is named from the repository root, and the outer project sees the inner import",
+      deps == {"services/api/pyproject.toml": "pyyaml is a runtime dependency imported only by tests: services/api/tests/test_api.py"}, deps)
+shutil.rmtree(repo, ignore_errors=True)
+
+repo = new_repo(BASE | {
+    "src/demo/a.py": "def first(prices: list[int]) -> int:\n" + SHARED + "    return step_1\n",
+    "src/demo/b.py": "import os\n\n\ndef second(prices: list[int]) -> int:\n" + SHARED + "    return step_2 + len(os.sep)\n",
+})
 found = signals(repo, "--scope", "full", "--paths", "src/demo/old.py")
 check("--paths narrows what is measured", {s["file"] for s in found if s["kind"] == "dead-code"} == {"src/demo/old.py"}, found)
 
