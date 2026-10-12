@@ -246,7 +246,7 @@ q = rule_task(r, b)
 question = q.read_text(encoding="utf-8")
 sha = lesson_queue.proposal_sha(b, RULE)
 check("filing a lesson as a rule writes a question for the owner in tasks/blocked/",
-      q.name == f"800-rule-proposal-{b}.md" and "Зробити це правилом?" in question and question.rstrip().endswith("Відповідь:"), question)
+      q.name == f"801-rule-proposal-{b}.md" and "Зробити це правилом?" in question and question.rstrip().endswith("Відповідь:"), question)
 check("…with the exact text of the rule, the reason, and the offer that names this proposal and this text",
       f"  > {RULE}\n" in question and "else engine files are judged by project rules" in question
       and f"Дія runner-а: promote-rule {sha}" in question and f"Пропозиція правила: RP-{b}" in question, question)
@@ -311,7 +311,7 @@ advised = propose(r, "Always show the RED.", "--recommend", "так: двічі 
 text = rule_task(r, advised).read_text(encoding="utf-8")
 check("the overseer's recommendation is shown to the owner, and it is only a recommendation",
       "Рекомендація overseer-а: так: двічі зловлено audit-ом" in text and lq(r, "promote", advised).returncode == 1, text)
-check("the next question takes the next free number from 800", rule_task(r, advised).name.startswith("802-"), rule_task(r, advised).name)
+check("the next question takes the next number of class 8", rule_task(r, advised).name.startswith("803-"), rule_task(r, advised).name)
 again = lq(r, "ask", advised)
 check("asking again writes no second question", again.returncode == 0 and len(list((r / "tasks/blocked").glob("*-rule-proposal-*.md"))) == 3, again.stdout)
 gone = lq(r, "reject", advised, "--why", "власник: ні")

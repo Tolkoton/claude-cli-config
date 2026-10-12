@@ -2,7 +2,8 @@
 """The task board in files: the one reader of tasks/ (package board).
 
 The board is four directories under tasks/ — todo/, doing/, blocked/, done/. A task is one
-file `NNN-name.md`; the number is its place in the queue. Under the title it carries plain
+file `NNN-name.md`; the number is its place in the queue, and its class x 100 + its place in
+the class (task_classes.py, board 401: a new number is the next one of its class). Under the title it carries plain
 lines — `Залежить від:` (task numbers), `Аудит потрібен: так|ні`, when the task may be worked
 on only with the owner present, `Потрібна присутність власника: так`, and its mode, `Режим:` (read by
 .claude/hooks/mode.py, see A MODE) — and its last section,
@@ -70,8 +71,8 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      branch in origin; changes nothing (board_review.py)
 
 A GATE QUESTION (board 005) is a task the Stop gate writes itself when it gives up after N
-blocks in a row (`gate_question`, called by .claude/hooks/gate.py): tasks/blocked/9NN-gate-
-escalation-<stamp>.md, with the line `Ескалація gates: <stamp>` under its title and the question
+blocks in a row (`gate_question`, called by .claude/hooks/gate.py): tasks/blocked/NNN-gate-
+escalation-<stamp>.md (a number of class 9), with the line `Ескалація gates: <stamp>` under its title and the question
 «Закрити ескалацію?». The owner's answer «так» is acted on by board-runner.sh, which runs
 `gate.py --close-escalation` — never by an agent, so `unblock` leaves such a task where it is.
 Any other answer is an instruction: the task goes back to todo/ like every answered task.
@@ -93,7 +94,7 @@ task file. Any other answer is an instruction for the agent, as everywhere.
 
 A RULE QUESTION (board 040) is how a lesson becomes a rule: never by itself, only on the owner's
 word. `rule_question` (called by .claude/hooks/lesson_queue.py when a lesson is filed as a rule
-proposal) writes tasks/blocked/8NN-rule-proposal-<id>.md: the exact text of the rule, the
+proposal) writes tasks/blocked/NNN-rule-proposal-<id>.md (a number of class 8): the exact text of the rule, the
 overseer's recommendation when there is one, the question «Зробити це правилом?» and the offer
 `Дія runner-а: promote-rule <sha256 of the id and the text>`. «так» is the runner's to act on
 (owner_action.py promote-rule → lesson_queue.promote), «ні» too (reject-rule: the proposal is
@@ -135,7 +136,7 @@ its own side's (`own`, board 712): an agent alone the plain one, the owner's ses
 one, or the plain one when no attended task is there.
 
 THE OWNER'S ANSWERS FIRST (board 049). A task the owner has just answered does not go to the end
-of the queue, whatever its number — a gate question is numbered from 900. `unblock` appends the
+of the queue, whatever its number — a gate question is of class 9. `unblock` appends the
 names it returns to todo/ to `tasks/.first`, one per line; `next` takes the tasks named there
 before every other, in the order answered, and the rest by number. Dependencies and the owner's
 presence hold as for any task: an answered task that cannot start keeps its place for when it
@@ -161,7 +162,7 @@ AN OPEN ITEM (board 037). Everything that can be open is a file of the board, an
 the way every task is: by moving to done/. `open_item` (the command `open-item`; called by
 .claude/hooks/overseer_verdict.py when a unit is parked, and by an agent that an escalation or a
 refused ask-gated command leaves with something only the owner can settle) writes
-`7NN-open-item-<key>.md`: into blocked/ with one question and an empty `Відповідь:` when the
+`NNN-open-item-<key>.md` (a number of class 7): into blocked/ with one question and an empty `Відповідь:` when the
 owner must answer, into todo/ when it is work for an agent, into done/ (task.md and report.md)
 when it is recorded as already settled. With `--key` the line `Відкритий пункт: <key>` goes under
 the title, and a second call with the key of a task still in todo/, doing/ or blocked/ returns
@@ -210,8 +211,10 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hooks"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # this file is also loaded by path: its sibling is found from here
 import journal  # the anomaly journal: every session adds to its own file (board 739)
 import mode as mode_reader  # the one reader of the mode and of «nobody is watching» (board 097)
+import task_classes  # a task's number: its class x 100 + its place in the class (board 401)
 
 COLUMNS = ("todo", "doing", "blocked", "done")
 FIRST = ".first"  # tasks/.first: the todo/ tasks the owner answered (THE OWNER'S ANSWERS FIRST)
@@ -232,14 +235,12 @@ COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 # Both markers are read in the wording before board 053 too: a question already asked keeps working.
 GATE = re.compile(r"^Ескалація (?:gates|воріт):\s*(\S+)", re.MULTILINE)
 COUNT_WORDS = {2: "двох", 3: "трьох"}
-GATE_FIRST = 900  # the gate's questions are numbered from here, past the owner's own tasks
 CONSENT = "так"  # the one form of the owner's consent (board 036): see `is_word`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
 # question (the `Ескалація gates:` line), the rest by an action line.
 OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "update-deps", "close-escalation")
 RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
 RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
-RULE_FIRST = 800  # rule questions are numbered from here; the gate's from GATE_FIRST
 ACTION = re.compile(r"^[\s>*_-]*Дія (?:runner-а|виконавця):[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
 DEPS_ACTION, DEPS_RESULT = "update-deps", ".engine/maintain/update-result.md"
 ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".engine/goals/proposed.md",
@@ -248,9 +249,7 @@ MAINTAIN_NAME = re.compile(r"^\d{3,}-maintain-(\d{4}-\d\d-\d\d)(?:\.md)?$")
 MAINTAIN_COMMAND, MAINTAIN_DAYS = ".claude/commands/maintain.md", 7
 CLEANUP_NAME = re.compile(r"^\d{3,}-cleanup-(\d{4}-\d\d-\d\d)(?:\.md)?$")
 CLEANUP_SCRIPT, CLEANUP_DAYS = ".claude/hooks/simplifier.py", 1
-FIRST_RESERVED = 800  # ordinary tasks are numbered under the rule questions and the gate's
 ITEM = re.compile(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
-ITEM_FIRST = 700  # open items (board 037) are numbered from here, under the rule questions
 OFFERS = {*ACTION_FILES, RULE_ACTION}  # what an action line may offer; the rule's sha256 is of its id and text
 EXIT_REFUSED, EXIT_TODO_EMPTY, EXIT_NONE_ELIGIBLE, EXIT_EXTRA_WAIT = 2, 3, 4, 5
 
@@ -372,6 +371,10 @@ class Board:
     def numbers(self, column: str) -> set[int]:
         paths = self.done() if column == "done" else self.files(column)
         return {n for p in paths if (n := number_of(p.name)) is not None}
+
+    def taken(self) -> set[int]:
+        """Every number of the four columns: what a new task's number is counted from."""
+        return {n for column in COLUMNS for n in self.numbers(column)}
 
     def unmet(self, task: Task) -> list[int]:
         finished = self.numbers("done")
@@ -626,8 +629,7 @@ def gate_question(board: Board, stamp: str, blocks: int, slice_name: str, files:
     for path in [*(p for c in ("todo", "doing", "blocked") for p in board.files(c)), *(d / "task.md" for d in board.done())]:
         if path.is_file() and read(path).gate == stamp:
             return path
-    taken = {n for column in COLUMNS for n in board.numbers(column)}
-    number = next(n for n in range(GATE_FIRST, GATE_FIRST + len(taken) + 1) if n not in taken)
+    number = task_classes.next_number(board.taken(), task_classes.GATES)
 
     def shown(lines: list[str], empty: str) -> str:
         return "\n".join(f"  - {line.replace('<!--', '<! --').strip()}" for line in lines) or f"  - {empty}"
@@ -683,8 +685,7 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
     for path in [*(p for c in ("todo", "doing", "blocked") for p in board.files(c)), *(d / "task.md" for d in board.done())]:
         if path.is_file() and read(path).rule == ident:
             return path
-    taken = {n for column in COLUMNS for n in board.numbers(column)}
-    number = next(n for n in range(RULE_FIRST, RULE_FIRST + len(taken) + 1) if n not in taken)
+    number = task_classes.next_number(board.taken(), task_classes.RULES)
 
     def shown(text: str, empty: str) -> str:
         return " ".join(text.replace("<!--", "<! --").split()) or empty
@@ -746,8 +747,7 @@ def open_item(board: Board, column: str, title: str, what: str, question: str = 
             found = ITEM.search(path.read_text(encoding="utf-8").split("\n## ", 1)[0])
             if found and found.group(1) == key:
                 return path
-    taken = {n for c in COLUMNS for n in board.numbers(c)}
-    number = next(n for n in range(ITEM_FIRST, ITEM_FIRST + len(taken) + 1) if n not in taken)
+    number = task_classes.next_number(board.taken(), task_classes.OPEN_ITEMS)
     now = utc_now()
     slug = re.sub(r"[^0-9a-z]+", "-", (key or title).lower()).strip("-")[:40].strip("-") or re.sub(r"\D", "", now)
     work, ready = {
@@ -974,10 +974,8 @@ def _due(board: Board, name: re.Pattern[str], today: date, every: int) -> bool:
 
 
 def _own_number(board: Board) -> int:
-    """The next number for a task the runner places itself: after the owner's tasks, under the open items."""
-    taken = {n for c in COLUMNS for p in (board.tasks / c).glob("*") if (n := number_of(p.name)) is not None}
-    number = max((n for n in taken if n < ITEM_FIRST), default=0) + 1
-    return number if number < ITEM_FIRST else next(n for n in range(1, ITEM_FIRST) if n not in taken)
+    """The next number for a task the runner places itself: the next one of its class (board 401)."""
+    return task_classes.next_number(board.taken(), task_classes.OWN)
 
 
 def maintain_task(board: Board, root: Path, today: date) -> Path | None:

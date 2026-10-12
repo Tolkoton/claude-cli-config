@@ -45,6 +45,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import complexity_budget as budget  # the measurement and the project root live there
 import mode as mode_reader  # the task's mode and «nobody is watching» (board 097)
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unattended"))
+import task_classes  # a task's number: its class x 100 + its place in the class (board 401)
+
 TERM_DAYS = 7
 MAX_OPEN = 3
 DEBT_REL = ".engine/debt.md"
@@ -58,7 +61,6 @@ DEBT_RE = re.compile(
     r"^- (?P<name>[\w.-]+) \| (?P<status>open|closed (?P<closed>\d{4}-\d\d-\d\d)[^|]*) \| recorded (?P<recorded>\d{4}-\d\d-\d\d)"
     r" \| due (?P<due>\d{4}-\d\d-\d\d) \| commit (?P<commit>[^|]+) \| deferred: (?P<deferred>[^|]+) \| follow-up: (?P<followup>.+)$",
     re.MULTILINE)
-FIRST_ORDINARY, FIRST_RESERVED = 1, 800  # board numbers from 800 belong to rule questions and the gate
 HEADER = """# Debts of urgent fixes
 
 Written by `python3 .claude/hooks/hotfix.py debt` and closed by `… close`; not edited by hand.
@@ -206,11 +208,9 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
 
 
 def next_number(tasks: Path) -> int:
-    """The next free ordinary number of the board: past every task it has, under the reserved ones."""
+    """The follow-up's number: the next one of the class of tasks nobody gave a class (board 401)."""
     taken = {int(m.group(1)) for p in tasks.glob("*/*") if (m := re.match(r"(\d{3,})-", p.name))}
-    ordinary = [n for n in taken if n < FIRST_RESERVED]
-    after = max(ordinary, default=0) + 1
-    return after if after < FIRST_RESERVED else next(n for n in range(FIRST_ORDINARY, FIRST_RESERVED) if n not in taken)
+    return task_classes.next_number(taken, task_classes.UNCLASSED)
 
 
 def followup_text(number: int, stem: str, commit: str, base: str, recorded: str, due: str) -> str:

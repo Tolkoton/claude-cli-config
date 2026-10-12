@@ -122,3 +122,5 @@ test_sketch_quarantine.py
 test_registry_merge.py
 # Board 104: test_registry_merge is in (the real run_all.sh and .gitattributes on seven synthetic repositories:
 # two branches, a merge, the fast subset run).
+# Board 401: test_task_classes is in (the arithmetic of task numbers in-process, about thirty runs of board.py on synthetic boards).
+test_task_classes.py

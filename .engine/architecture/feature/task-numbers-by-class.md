@@ -173,7 +173,8 @@ gets the next one of its class together with every reference to it — and nobod
 
 ## Slices (the DAG)
 
-- **S1 `task-class-overflow`** — delivers: the class arithmetic in one new module,
+- **S1 `task-class-overflow`** — delivers: one function of class arithmetic for every site that issues a number (A1) · contract out: `class_of`, `next_number` · depends on: — · **TRACER BULLET (build first)**
+  In full: the class arithmetic in one new module,
   `.claude/unattended/task_classes.py`, and all five sites that issue a number taking it from there,
   each with its fixed class — open item 7, rule question 8, gate question 9, the runner's own tasks
   (`_own_number`) 4, the hotfix follow-up (`hotfix.py next_number`) 1 (A1, K12). None of them needs
@@ -181,24 +182,25 @@ gets the next one of its class together with every reference to it — and nobod
   `700-`/`800-`/`900-` names move with the slice: `test_board`, `test_board_review`,
   `test_board_runner`, `test_gate_allows`, `test_lesson_queue`, `test_cleanup`, `test_maintain`,
   `test_hotfix`, `test_owner_perimeter`, `test_overseer_fresh` — "nothing else those sites do
-  changes" means the text and the column of what they write, not these names · contract out:
-  `class_of`, `next_number` (below) · depends on: — · **TRACER BULLET (build first)**
-- **S2 `numbers-class-table`** — delivers: `tasks/CLASSES.md` (this repository's and the template's,
+  changes" means the text and the column of what they write, not these names.
+- **S2 `numbers-class-table`** — delivers: the table of classes, the `Клас:` line and a number for an unnumbered inbox file (A2, A7) · contract out: `parse_classes`, `read_classes`, `queue_key` · depends on: S1
+  In full: `tasks/CLASSES.md` (this repository's and the template's,
   seeded by `engine.py` like `tasks/README.md` — an `ownership.txt` row), its reader, the `Клас:`
   line of a task, the number for an unnumbered inbox file, the refusal of an unknown class (A2,
   A7). The refusal has one place: an unnumbered inbox file is not taken (it stays in the inbox, the
   line and the anomaly journal name it, like an unreadable `Режим:`). A file that already carries
   its number is never refused for
-  its `Клас:` line — the line is not read there (K4) · contract out: `parse_classes`,
-  `read_classes`, `queue_key` · depends on: S1
-- **S3 `numbers-queue-order`** — delivers: one order for the runner and for the owner's review:
+  its `Клас:` line — the line is not read there (K4).
+- **S3 `numbers-queue-order`** — delivers: the queue in the order of the rows of `CLASSES.md`, for the runner and for the owner's review alike (A5, A6) · contract out: — · depends on: S2
+  In full: one order for the runner and for the owner's review:
   `Board.queue` (so `board.py next` and `summary`) and `board_review.plan_section` — which sorts
   `todo/` itself and reads the board from a commit of the work branch, not from the disk — both use
   the one key `queue_key`: `tasks/.first` first, then the rows of `CLASSES.md`, lowest number inside
   a class; dependencies as now (A5, A6). The review feeds the key `src.show("tasks/CLASSES.md")`.
   `tests/test_board_review.py` asserts the plan's order equals `board.py next` after a row is
-  moved · contract out: — · depends on: S2
-- **S4 `numbers-renumber`** — delivers: `board.py renumber`, the `renumbered` journal, the inbox
+  moved.
+- **S4 `numbers-renumber`** — delivers: `board.py renumber` after a merge left one number on two files (A3, A4) · contract out: — · depends on: S1, S2
+  In full: `board.py renumber`, the `renumbered` journal, the inbox
   finding a task by its old name, `check` over the whole board, the runner's step after
   `sync_branch` (A3, A4). The runner's commit of that step carries the move AND its map entry:
   `board_commit` and `commit_journal` add only `tasks/` and `.engine/journal/anomalies` today, so
@@ -217,8 +219,7 @@ gets the next one of its class together with every reference to it — and nobod
   through the same old-name lookup the inbox uses; the `follow-up:` path in `.engine/debt.md` is not
   rewritten (a known limit, named in the map entry's wording). Two clones that create a file of the
   same NAME (`NNN-cleanup-<date>.md`) are an add/add conflict the runner stops on before `renumber`
-  runs — unchanged, a limit ·
-  contract out: — · depends on: S1; built after S2 (both change `import_inbox`)
+  runs — unchanged, a limit. Built after S2: both change `import_inbox`.
 - **Closing step — documents** (A8): `tasks/README.md` and `templates/project/tasks/README.md`,
   `tasks/TEMPLATE.md` and its template (the optional `Клас:` line), `.claude/unattended/README.md`,
   `.claude/commands/owner-review.md` (its line 90 tells the session to number new tasks "below 800"
@@ -232,7 +233,12 @@ One block (a small feature: one capability, the board's numbering) — no block 
 
 ## Inter-slice contracts
 
-- **S1 → S2, S4** (`task_classes.py`):
+- S1 → S2: the class arithmetic (`task_classes.py`), below.
+- S1 → S4: the same.
+- S2 → S3: the table's reader and the queue's key, below.
+- S2 → S4: `import_inbox` as S2 leaves it.
+
+S1 gives (`task_classes.py`):
   - `class_of(number: int) -> int` — `number // 100 % 10`, always 0…9.
   - `next_number(taken: Iterable[int], klass: int) -> int` — the successor of the largest member of
     `taken` whose `class_of` is `klass`, in the sequence k01…k99, (k+10)01…(k+10)99, (k+20)01…;
@@ -240,7 +246,7 @@ One block (a small feature: one capability, the board's numbering) — no block 
   - `OPEN_ITEMS, RULES, GATES = 7, 8, 9`.
   - `OWN, UNCLASSED = 4, 1` — the runner's own tasks; a task nobody gave a class.
   - `board.py`: `Board.taken() -> set[int]` — every number in the four columns.
-- **S2 → S3** (`task_classes.py`):
+S2 gives S3 (`task_classes.py`):
   - `parse_classes(text: str) -> tuple[int, ...]` — the class numbers of the rows of a `CLASSES.md`
     text, in its order; `()` for an empty text. A row is a table row whose first cell is an integer.
     Pure: the review hands it text read from a commit.
@@ -251,7 +257,7 @@ One block (a small feature: one capability, the board's numbering) — no block 
     `class_of(its number)` in `classes` (a class not listed — after the listed), its number. With
     `classes == ()` this is today's order. The order comes from the number alone: a task's `Клас:`
     line never orders it (K4), so `Task.klass` is no part of this contract — it stays inside S2.
-- **S2 → S4**: `import_inbox` as S2 leaves it (S4 adds the old-name lookup in front of the number
+S2 gives S4: `import_inbox` as S2 leaves it (S4 adds the old-name lookup in front of the number
   lookup; it does not change how a number is given).
 
 ## Integration exit criterion

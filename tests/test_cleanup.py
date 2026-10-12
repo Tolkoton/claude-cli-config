@@ -140,7 +140,7 @@ class World:
         assert done.returncode == 0, done.stderr
         sh(self.repo, "git", "push", "-q", "origin", "unattended/work")
 
-    def task(self, column: str, name: str, dep: str = "—", more: str = "", ask: str = "") -> "World":
+    def task(self, column: str, name: str, dep: str = "—", more: str = "", ask: str = "") -> World:
         number = name.split("-")[0]
         if column == "done":
             (self.repo / "tasks/done" / name).mkdir(parents=True)
@@ -186,17 +186,17 @@ try:
     check("NEGATIVE: a project without the simplifier gets no task", World(simplifier=False).cleanup("2026-10-05") == "")
     w = World()
     first, second = w.cleanup("2026-10-05"), w.cleanup("2026-10-05")
-    check("todo/ is empty: the first call places it, the second does not", first == "tasks/todo/001-cleanup-2026-10-05.md" and second == "" and w.tasks("todo") == ["001-cleanup-2026-10-05.md"], first + "|" + second)
-    placed = w.text("tasks/todo/001-cleanup-2026-10-05.md")
+    check("todo/ is empty: the first call places it, the second does not", first == "tasks/todo/401-cleanup-2026-10-05.md" and second == "" and w.tasks("todo") == ["401-cleanup-2026-10-05.md"], first + "|" + second)
+    placed = w.text("tasks/todo/401-cleanup-2026-10-05.md")
     check("the task names the nightly command and the simplifier's rules, needs no owner present and no paid audit, and can start",
           all(s in placed for s in ("`python3 .claude/hooks/simplifier.py nightly`", ".claude/references/simplifier.md", "SIMPLIFIER CALL:", "Simplifier-Finding: <id>", ".engine/simplifier/report.md",
                                     "Потрібна присутність власника: ні", "Аудит потрібен: ні", "раз на добу"))
-          and w.board("next").stdout.strip() == "tasks/todo/001-cleanup-2026-10-05.md", placed)
-    w.move("001-cleanup-2026-10-05", "todo", "blocked")
+          and w.board("next").stdout.strip() == "tasks/todo/401-cleanup-2026-10-05.md", placed)
+    w.move("401-cleanup-2026-10-05", "todo", "blocked")
     check("while one waits in blocked/ — weeks later too — no second one", w.cleanup("2026-11-20") == "" and w.tasks("todo") == [])
-    w.move("001-cleanup-2026-10-05", "blocked", "done")
+    w.move("401-cleanup-2026-10-05", "blocked", "done")
     check("NEGATIVE: done today — not again today", w.cleanup("2026-10-05") == "" and w.tasks("todo") == [])
-    check("the next day: the next one, with the next number", w.cleanup("2026-10-06") == "tasks/todo/002-cleanup-2026-10-06.md")
+    check("the next day: the next one, with the next number", w.cleanup("2026-10-06") == "tasks/todo/402-cleanup-2026-10-06.md")
 
     check("NEGATIVE: a task that can start is in todo/ — the runner has work, no cleanup", World().task("todo", "010-work").cleanup("2026-10-05") == "")
     check("NEGATIVE: a task is in doing/ — no cleanup", World().task("doing", "010-work").cleanup("2026-10-05") == "")
@@ -204,31 +204,31 @@ try:
           World().task("doing", "010-with-owner", more=ATTENDED).cleanup("2026-10-05") == "")
     beside = World().task("doing", "010-with-owner", more=ATTENDED)
     beside.move("010-with-owner", "doing", "done")
-    check("…the same board once the owner's task is done: the cleanup is placed", beside.cleanup("2026-10-05") == "tasks/todo/011-cleanup-2026-10-05.md")
+    check("…the same board once the owner's task is done: the cleanup is placed", beside.cleanup("2026-10-05") == "tasks/todo/401-cleanup-2026-10-05.md")
     waits = World().task("todo", "010-with-owner", more=ATTENDED).task("todo", "020-after", dep="010").task("blocked", "030-asked", ask="1. Що?\n   Відповідь:\n")
     check("all that is left waits for the owner — present, a dependency, an answer: the cleanup is placed after them",
-          waits.cleanup("2026-10-05") == "tasks/todo/031-cleanup-2026-10-05.md" and waits.board("next").stdout.strip() == "tasks/todo/031-cleanup-2026-10-05.md")
+          waits.cleanup("2026-10-05") == "tasks/todo/401-cleanup-2026-10-05.md" and waits.board("next").stdout.strip() == "tasks/todo/401-cleanup-2026-10-05.md")
 
     check("CLEANUP_EVERY_DAYS=0: never", World(env='CLEANUP_EVERY_DAYS="0"\n').cleanup("2026-10-05") == "")
-    rare = World(env='CLEANUP_EVERY_DAYS="3"\n').task("done", "001-cleanup-2026-10-05")
+    rare = World(env='CLEANUP_EVERY_DAYS="3"\n').task("done", "401-cleanup-2026-10-05")
     late = [rare.cleanup("2026-10-07"), rare.cleanup("2026-10-08")]
-    check("CLEANUP_EVERY_DAYS=3: not on the second day, on the third", late == ["", "tasks/todo/002-cleanup-2026-10-08.md"] and "раз на 3 діб" in rare.text(late[1]), late)
+    check("CLEANUP_EVERY_DAYS=3: not on the second day, on the third", late == ["", "tasks/todo/402-cleanup-2026-10-08.md"] and "раз на 3 діб" in rare.text(late[1]), late)
 
-    print("the number of a task the runner places: after the owner's tasks, under the open items")
+    print("the number of a task the runner places: the next one of class 4, whatever the other classes hold")
     high = World(weekly=True).task("done", "040-old").task("blocked", "705-open-item-x", ask="1. Що?\n   Відповідь:\n").task("blocked", "800-rule-proposal-y", ask="1. Що?\n   Відповідь:\n")
-    check("an open item (700+) and a rule question (800+) do not pull the cleanup task's number up", high.cleanup("2026-10-05") == "tasks/todo/041-cleanup-2026-10-05.md")
+    check("an owner's task (040), an open item (705) and a rule question (800) do not move the cleanup task's number", high.cleanup("2026-10-05") == "tasks/todo/401-cleanup-2026-10-05.md")
     weekly = high.board("maintain-task", "--today", "2026-10-05").stdout.strip()
-    check("nor the weekly maintenance task's", weekly == "tasks/todo/042-maintain-2026-10-05.md", weekly)
+    check("nor the weekly maintenance task's", weekly == "tasks/todo/402-maintain-2026-10-05.md", weekly)
 
     # --- the runner -----------------------------------------------------------------------------------
     print("the runner: the board is idle -> the cleanup task appears -> it is done")
     w = World().task("todo", "010-work")
     w.commit("the owner's task")
     r = w.runner("2026-10-05")
-    name = "011-cleanup-2026-10-05"
+    name = "401-cleanup-2026-10-05"
     check("the owner's task first, then the cleanup task the runner placed itself; both done, the runner stops idle as before",
           r.returncode == 0 and w.tasks("done") == ["010-work", name] and w.tasks("todo") == [] and "state=idle" in w.status() and "reason=todo-empty" in w.status(), out(r) + str(w.subjects()))
-    check("the agent was started for each, with the cleanup task as its task", w.said("calls") == [f"010-work.md | Your task is the file tasks/doing/010-work.md", f"{name}.md | Your task is the file tasks/doing/{name}.md"], w.said("calls"))
+    check("the agent was started for each, with the cleanup task as its task", w.said("calls") == ["010-work.md | Your task is the file tasks/doing/010-work.md", f"{name}.md | Your task is the file tasks/doing/{name}.md"], w.said("calls"))
     check("the cleanup ran the simplifier's nightly mode, once, and its answer is in the report",
           w.said("nightly") == ["nightly"] and "no sharp growth" in w.text(f"tasks/done/{name}/report.md"), w.said("nightly"))
     journal = journal_text(w.repo, "anomalies")
@@ -248,14 +248,14 @@ try:
     r = w.runner("2026-10-05")
     check("NEGATIVE: the same day's next run places nothing and starts no agent", r.returncode == 0 and len(w.said("calls")) == 2 and sum(PLACED in s for s in w.subjects()) == 1 and "state=idle" in w.status(), out(r))
     r = w.runner("2026-10-06")
-    check("the next day: once more, and once", w.tasks("done") == ["010-work", name, "012-cleanup-2026-10-06"] and len(w.said("calls")) == 3 and w.said("nightly") == ["nightly"] * 2, out(r) + str(w.subjects()))
+    check("the next day: once more, and once", w.tasks("done") == ["010-work", name, "402-cleanup-2026-10-06"] and len(w.said("calls")) == 3 and w.said("nightly") == ["nightly"] * 2, out(r) + str(w.subjects()))
 
     w = World().task("todo", "010-work")
     (w.repo / ".engine/journal").mkdir(parents=True)   # board 723: the journal cannot be written — a file stands where
     (w.repo / ".engine/journal/anomalies").write_text("")   # the sessions' directory of it goes (board 739)
     w.commit("the owner's task")
     r = w.runner("2026-10-05")
-    name = "011-cleanup-2026-10-05"
+    name = "401-cleanup-2026-10-05"
     log = w.text(".claude/state/board/events.log")
     check("board 723: NEGATIVE — the journal cannot be written: events.log says so for the cleanup task it placed",
           f"anomaly-failed cleanup-task tasks/todo/{name}.md" in log, log)
@@ -269,14 +269,14 @@ try:
     w.commit("a question waits")
     r = w.runner("2026-10-05")
     check("a board that waits for the owner is cleaned too, and still ends waiting-owner",
-          r.returncode == 0 and w.tasks("done") == ["031-cleanup-2026-10-05"] and w.tasks("blocked") == ["030-asked.md"] and "state=waiting-owner" in w.status(), out(r))
+          r.returncode == 0 and w.tasks("done") == ["401-cleanup-2026-10-05"] and w.tasks("blocked") == ["030-asked.md"] and "state=waiting-owner" in w.status(), out(r))
 
     # `board.py next` answers 4 here, not 3: todo/ holds tasks, and none of them can start.
     w = World().task("todo", "010-with-owner", more=ATTENDED).task("todo", "020-after", dep="010")
     w.commit("tasks that wait for the owner's presence")
     r = w.runner("2026-10-05")
     check("todo/ holds only tasks that wait for the owner's presence: cleaned too, they stay where they were, the run ends waiting-owner",
-          r.returncode == 0 and w.tasks("done") == ["021-cleanup-2026-10-05"] and w.tasks("todo") == ["010-with-owner.md", "020-after.md"]
+          r.returncode == 0 and w.tasks("done") == ["401-cleanup-2026-10-05"] and w.tasks("todo") == ["010-with-owner.md", "020-after.md"]
           and w.said("nightly") == ["nightly"] and "state=waiting-owner" in w.status(), out(r))
 
     w = World().task("doing", "010-with-owner", more=ATTENDED)
@@ -293,7 +293,7 @@ try:
     w = World(weekly=True)
     r = w.runner("2026-10-05")
     check("with the weekly task due as well: that one first (it is work to take), then the cleanup, each once",
-          r.returncode == 0 and w.tasks("done") == ["001-maintain-2026-10-05", "002-cleanup-2026-10-05"] and w.said("nightly") == ["nightly"], out(r))
+          r.returncode == 0 and w.tasks("done") == ["401-maintain-2026-10-05", "402-cleanup-2026-10-05"] and w.said("nightly") == ["nightly"], out(r))
 
     w = World().task("todo", "010-work")
     w.commit("the owner's task")

@@ -261,7 +261,8 @@ print("the tasks there are read as before")
 real = [p for c in ("todo", "doing", "blocked") for p in (ROOT / "tasks" / c).glob("[0-9]*.md")] + list((ROOT / "tasks/done").glob("*/task.md"))
 refused = [p.name for p in real if board.read(p).mode_error]
 check(f"{len(real)} task files of this board: none is refused for its mode", len(real) > 50 and not refused, refused)
-check("…a task without the line is соло", all(mode.parse(p.read_text(encoding="utf-8")).current == "соло"
+# The owner's mode, not the one in force: a task without the line may have been raised since (board 401 was).
+check("…a task without the line is соло", all(mode.parse(p.read_text(encoding="utf-8")).owner == "соло"
                                             for p in real if "Режим:" not in p.read_text(encoding="utf-8")))
 template = (ROOT / "tasks/TEMPLATE.md").read_text(encoding="utf-8")
 check("the template carries the line, and it reads as соло", "Режим: соло" in template and mode.parse(template).current == "соло" and not board.parse(template).mode_error)

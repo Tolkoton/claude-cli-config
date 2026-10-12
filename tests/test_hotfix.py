@@ -103,7 +103,8 @@ def fresh(gate: str = "off", task_body: str = URGENT, questions: str = "", ignor
                       ("tests/test_calc.py", "assert True\n"), ("pyproject.toml", '[project]\nname = "demo"\nversion = "0"\ndependencies = []\n'),
                       (".claude/project.env", f'SOURCE_DIRS="app"\nCOMPLEXITY_GATE="{gate}"\n'), (".gitignore", ".claude/state/\n" if ignore_state else "*.pyc\n"),
                       ("tasks/doing/010-urgent.md", TASK.format(body=task_body, questions=questions)),
-                      ("tasks/todo/.gitkeep", ""), ("tasks/blocked/.gitkeep", ""), ("tasks/done/004-old/task.md", "# 004\n")):
+                      ("tasks/todo/.gitkeep", ""), ("tasks/blocked/.gitkeep", ""), ("tasks/done/004-old/task.md", "# 004\n"),
+                      ("tasks/done/103-x/task.md", "# 103\n")):   # a class-1 number outside todo/: the follow-up comes after it (board 401)
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text(body, encoding="utf-8")
     sh(root, "git", "init", "-q", "-b", "main")
@@ -286,8 +287,8 @@ try:
           and f"due {due}" in lines[0] and f"commit {fix[:7]}" in lines[0]
           and all(w in lines[0] for w in ("test before the code", "cause", "same places")), out(r) + str(lines))
     made = followups(root)
-    check("…and the follow-up task in tasks/todo/: the next free number, the name of the card", len(made) == 1
-          and made[0].name == f"011-hotfix-followup-{card.stem}.md" and made[0].name in lines[0], made)
+    check("…and the follow-up task in tasks/todo/: the next number of class 1 (103 is in done/), the name of the card", len(made) == 1
+          and made[0].name == f"104-hotfix-followup-{card.stem}.md" and made[0].name in lines[0], made)
     follow = made[0].read_text(encoding="utf-8") if made else ""
     parsed = board.parse(follow)
     check("the follow-up is an ordinary board task: a full /bugfix of the same place, the card, the commit, the term, how to close the debt",
@@ -422,6 +423,28 @@ check("hooks.md has the script's row", "| `hotfix.py` |" in text(".claude/refere
 check("the budget reference describes the hard mode", "mode: hard" in text(".claude/references/complexity-budget.md"))
 check("the limits say what the hard limit and the debt do not give", "## The urgent fix (board 075)" in text("docs/engine-limits.md"))
 check("the engine's AGENTS.md names the command", "`/hotfix`" in text("AGENTS.md"))
+
+print("the follow-up's number at the edges of its class (board 401)")
+hotfix = load("hotfix", HOTFIX)
+
+
+def numbered(*names: str) -> int:
+    """`next_number` — the function `hotfix.py debt` numbers the follow-up with — on a board that holds these names."""
+    tasks = Path(tempfile.mkdtemp(prefix="hotfix-numbers-")) / "tasks"
+    for name in names:
+        (tasks / name).mkdir(parents=True) if name.startswith("done/") else (tasks / name).parent.mkdir(parents=True, exist_ok=True)
+        if not name.startswith("done/"):
+            (tasks / name).write_text("# task\n", encoding="utf-8")
+    try:
+        return int(hotfix.next_number(tasks))
+    finally:
+        shutil.rmtree(tasks.parent, ignore_errors=True)
+
+
+check("class 1 is full (199 in done/): the follow-up continues the class at 1101, not 200", numbered("done/199-x") == 1101, numbered("done/199-x"))
+check("a number of another class beside it (250 in todo/) does not move it: after 103 comes 104, not 251",
+      numbered("done/103-x", "todo/250-y.md") == 104, numbered("done/103-x", "todo/250-y.md"))
+check("the largest of the class counts in any column: 107 in blocked/, 103 in done/ → 108", numbered("done/103-x", "blocked/107-z.md") == 108)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(1 if FAIL else 0)

@@ -755,7 +755,7 @@ w = World("")
 stamp, name = escalate(w)
 stem = name.removesuffix(".md")
 check("the gate's escalation is a question in tasks/blocked/, not yet committed",
-      name.startswith("900-gate-escalation-") and name in sh(w.repo, "git", "status", "--porcelain", "-uall").stdout, name)
+      name.startswith("901-gate-escalation-") and name in sh(w.repo, "git", "status", "--porcelain", "-uall").stdout, name)
 r = w.run()
 check("the runner commits the question by itself and pushes it", w.log("-1") == ["board: the gate asks the owner — 1 question(s) in blocked/"]
       and w.origin_head() == w.head() and sh(w.repo, "git", "show", "--stat", "--format=", "HEAD").stdout.count("|") == 1, w.log("-3"))
@@ -1066,7 +1066,7 @@ def rule_world() -> tuple[World, str, str]:
     ident = added.stdout.split()[0].lstrip("#")
     filed = agent_lq(w, "resolve", ident, "--to", "rule", "--text", RULE_TEXT, "--why", "audit 06 caught it twice", "--recommend", "так: двічі зловлено")
     assert filed.returncode == 0, filed.stderr
-    name = f"800-rule-proposal-{ident}.md"
+    name = f"801-rule-proposal-{ident}.md"
     sh(w.repo, "git", "add", "-A", "CLAUDE.md", ".engine", "tasks")
     sh(w.repo, "git", "commit", "-q", "-m", "agent: a lesson, proposed as a rule")
     sh(w.repo, "git", "push", "-q", "origin", "unattended/work")

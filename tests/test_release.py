@@ -28,7 +28,8 @@ from journals import journal_text
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE_PY = ROOT / "engine.py"
 COPIED = ("engine.py", "evals/needs_audit.py", ".claude/unattended/board.py", ".claude/hooks/mode.py",   # board.py asks mode.py (board 097)
-          ".claude/hooks/journal.py")   # …and writes the journal through journal.py (board 739)
+          ".claude/hooks/journal.py",   # …and writes the journal through journal.py (board 739)
+          ".claude/unattended/task_classes.py")   # …and counts a task's number with task_classes.py (board 401)
 SKILL = ".claude/skills/demo/SKILL.md"
 JOURNAL = "tasks/ANOMALIES.md"
 PASS = FAIL = 0

@@ -198,7 +198,7 @@ class World:
     def dirty(self) -> str:
         return sh(self.repo, "git", "status", "--porcelain", "--untracked-files=all").stdout.strip()
 
-    def reported(self, date: str = "2026-10-04") -> "World":
+    def reported(self, date: str = "2026-10-04") -> World:
         """The agent's half is done: the report and the list are written and committed."""
         r = self.py(MAINTAIN, "report", "--date", date)
         assert r.returncode == 0, out(r)
@@ -274,15 +274,15 @@ try:
     w = World()
     for rel, body in (("app/hot.py", branchy), ("app/quiet.py", branchy.replace("tangled", "knotted")), ("app/busy.py", "def one():\n    return 1\n"),
                       (".engine/baseline.json", json.dumps({"schema": 1, "tests": ["tests/t.py::a", "tests/t.py::b"], "lint": {"app/hot.py": {"E501": 3}}, "types": {"app/hot.py": {"arg-type": 1}}})),
-                      (".engine/debt.md", "# Debts of urgent fixes\n\n"
+                      (".engine/debt.md", ("# Debts of urgent fixes\n\n"
                        "- 001-login | open | recorded 2026-09-24 | due 2026-10-01 | commit abc1234 | deferred: the test | follow-up: tasks/todo/011-followup.md\n"
                        "- 002-cart | open | recorded 2026-10-02 | due 2026-10-09 | commit def5678 | deferred: the test | follow-up: tasks/todo/012-followup.md\n"
-                       "- 003-old | closed 2026-09-20 by 004 | recorded 2026-09-10 | due 2026-09-17 | commit 0a0a0a0 | deferred: the test | follow-up: tasks/done/009\n"),
+                       "- 003-old | closed 2026-09-20 by 004 | recorded 2026-09-10 | due 2026-09-17 | commit 0a0a0a0 | deferred: the test | follow-up: tasks/done/009\n")),
                       (".engine/lesson-queue.md", "# queue\n- 2026-09-28 | gate | s1 | the first lesson #0000aaaa\n- 2026-10-01 | agent | s1 | the second lesson #0000bbbb\n"),
-                      (".engine/rule-proposals.md", "# Rule proposals\n\n## RP-0000cccc — 2026-10-02 — PROPOSED\n- Rule: чекає\n\n"
+                      (".engine/rule-proposals.md", ("# Rule proposals\n\n## RP-0000cccc — 2026-10-02 — PROPOSED\n- Rule: чекає\n\n"
                        "## RP-0000ffff — 2026-10-03 — PROPOSED\n- Rule: теж чекає\n\n"
                        # the states lesson_queue.py closes a proposal with: APPROVED (promote) and REJECTED (reject)
-                       "## RP-0000dddd — 2026-09-20 — APPROVED\n- Rule: уже правило\n\n## RP-0000eeee — 2026-09-21 — REJECTED\n- Rule: відхилено\n")):
+                       "## RP-0000dddd — 2026-09-20 — APPROVED\n- Rule: уже правило\n\n## RP-0000eeee — 2026-09-21 — REJECTED\n- Rule: відхилено\n"))):
         (w.repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (w.repo / rel).write_text(body, encoding="utf-8")
     w.commit("the project has a history")
@@ -434,18 +434,18 @@ try:
     first = w.board("maintain-task", "--today", "2026-10-04")
     second = w.board("maintain-task", "--today", "2026-10-04")
     check("the first call places it, the second does not: one task in todo/",
-          first.stdout.strip() == "tasks/todo/001-maintain-2026-10-04.md" and second.stdout == "" and w.tasks("todo") == ["001-maintain-2026-10-04.md"], out(first) + out(second))
-    placed = w.text("tasks/todo/001-maintain-2026-10-04.md")
+          first.stdout.strip() == "tasks/todo/401-maintain-2026-10-04.md" and second.stdout == "" and w.tasks("todo") == ["401-maintain-2026-10-04.md"], out(first) + out(second))
+    placed = w.text("tasks/todo/401-maintain-2026-10-04.md")
     check("the task asks for /maintain, needs no owner present and no paid audit, and the board reads it as eligible",
           "`/maintain`" in placed and "Потрібна присутність власника: ні" in placed and "Аудит потрібен: ні" in placed
-          and w.board("next").stdout.strip() == "tasks/todo/001-maintain-2026-10-04.md", placed)
-    (w.repo / "tasks/todo/001-maintain-2026-10-04.md").rename(w.repo / "tasks/blocked/001-maintain-2026-10-04.md")
+          and w.board("next").stdout.strip() == "tasks/todo/401-maintain-2026-10-04.md", placed)
+    (w.repo / "tasks/todo/401-maintain-2026-10-04.md").rename(w.repo / "tasks/blocked/401-maintain-2026-10-04.md")
     check("while it waits in blocked/ — weeks later too — no second one", w.board("maintain-task", "--today", "2026-11-20").stdout == "" and w.tasks("todo") == [])
-    (w.repo / "tasks/done/001-maintain-2026-10-04").mkdir()
-    (w.repo / "tasks/blocked/001-maintain-2026-10-04.md").rename(w.repo / "tasks/done/001-maintain-2026-10-04/task.md")
+    (w.repo / "tasks/done/401-maintain-2026-10-04").mkdir()
+    (w.repo / "tasks/blocked/401-maintain-2026-10-04.md").rename(w.repo / "tasks/done/401-maintain-2026-10-04/task.md")
     check("done six days ago: not yet", w.board("maintain-task", "--today", "2026-10-10").stdout == "" and w.tasks("todo") == [])
     week = w.board("maintain-task", "--today", "2026-10-11")
-    check("done seven days ago: the next one, with the next number", week.stdout.strip() == "tasks/todo/002-maintain-2026-10-11.md", out(week))
+    check("done seven days ago: the next one, with the next number", week.stdout.strip() == "tasks/todo/402-maintain-2026-10-11.md", out(week))
     off = World(env=ENV + 'MAINTAIN_EVERY_DAYS="0"\n', command=True)
     check("MAINTAIN_EVERY_DAYS=0: never", off.board("maintain-task", "--today", "2026-10-04").stdout == "" and off.tasks("todo") == [])
 
@@ -453,10 +453,10 @@ try:
     r = w.runner(BOARD_TODAY="2026-10-04")
     r2 = w.runner(BOARD_TODAY="2026-10-05")
     check("the runner places it itself, in one commit, an agent does it, and the next day's run places nothing",
-          w.tasks("done") == ["001-maintain-2026-10-04"] and w.tasks("todo") == [] and sum("the weekly maintenance task" in s for s in w.subjects()) == 1
+          w.tasks("done") == ["401-maintain-2026-10-04"] and w.tasks("todo") == [] and sum("the weekly maintenance task" in s for s in w.subjects()) == 1
           and len(w.text("../fake/calls").splitlines()) == 1, out(r) + out(r2) + str(w.subjects()))
     r3 = w.runner(BOARD_TODAY="2026-10-11")
-    check("a week later: once more, and once", w.tasks("done") == ["001-maintain-2026-10-04", "002-maintain-2026-10-11"]
+    check("a week later: once more, and once", w.tasks("done") == ["401-maintain-2026-10-04", "402-maintain-2026-10-11"]
           and sum("the weekly maintenance task" in s for s in w.subjects()) == 2, out(r3) + str(w.subjects()))
 
     # --- the prose ------------------------------------------------------------------------------------

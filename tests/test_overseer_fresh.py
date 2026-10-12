@@ -456,7 +456,7 @@ printed = three_blocks(p)
 asked = sorted((p.root / "tasks/blocked").glob("*.md"))
 question = asked[0].read_text(encoding="utf-8") if asked else ""
 check("board 037 — a project with a task board: the parked unit is a question in tasks/blocked/, with the three reasons and an empty answer",
-      len(asked) == 1 and asked[0].name.startswith("700-open-item-") and "Відкритий пункт: " in question and question.count("false-DONE") == 3
+      len(asked) == 1 and asked[0].name.startswith("701-open-item-") and "Відкритий пункт: " in question and question.count("false-DONE") == 3
       and question.rstrip().endswith("Відповідь:") and f"tasks/blocked/{asked[0].name}" in printed.get("reason", "") + printed.get("systemMessage", ""), question + str(printed))
 check("…and the log parked.md gets nothing: the item lives on the board only", not p.read(".engine/overseer/parked.md"))
 three_blocks(p)

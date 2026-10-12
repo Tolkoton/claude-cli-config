@@ -516,12 +516,12 @@ r = cli(root, "open-item", "--to", "blocked", "--key", "S9 cloud-probe", "--titl
         "--question", "Запустити пробу?", "--source", "hook park-ask-gated.py")
 item = root / r.stdout.strip()
 text = item.read_text(encoding="utf-8") if r.returncode == 0 and item.is_file() else ""
-check("--to blocked: 700-open-item-<key>.md in blocked/, with the question and an empty answer",
-      r.stdout.strip() == "tasks/blocked/700-open-item-s9-cloud-probe.md" and board.read(item).answers == ("",)
+check("--to blocked: 701-open-item-<key>.md in blocked/, with the question and an empty answer",
+      r.stdout.strip() == "tasks/blocked/701-open-item-s9-cloud-probe.md" and board.read(item).answers == ("",)
       and "1. Запустити пробу?" in text and "Відкритий пункт: S9 cloud-probe\n" in text and "hook park-ask-gated.py" in text, r.stdout + r.stderr + text)
-check("the summary shows it waiting for the owner", "чекає відповіді власника: 700-open-item-s9-cloud-probe.md — 1. Запустити пробу?" in cli(root, "summary").stdout)
+check("the summary shows it waiting for the owner", "чекає відповіді власника: 701-open-item-s9-cloud-probe.md — 1. Запустити пробу?" in cli(root, "summary").stdout)
 r = cli(root, "open-item", "--to", "blocked", "--key", "S9 cloud-probe", "--title", "Ще раз", "--what", "те саме", "--question", "Інше питання?")
-check("the same key while the task is open: that task, not a second one", r.stdout.strip() == "tasks/blocked/700-open-item-s9-cloud-probe.md"
+check("the same key while the task is open: that task, not a second one", r.stdout.strip() == "tasks/blocked/701-open-item-s9-cloud-probe.md"
       and len(list((root / "tasks/blocked").glob("*.md"))) == 1 and item.read_text(encoding="utf-8") == text, r.stdout)
 r = cli(root, "open-item", "--to", "blocked", "--title", "Без питання", "--what", "щось")
 check("negative — --to blocked without a question writes nothing and exits 1", r.returncode == 1 and len(list((root / "tasks/blocked").glob("*.md"))) == 1, r.stdout + r.stderr)
@@ -530,15 +530,15 @@ check("an answered item goes back to todo/ like every answered task", cli(root, 
 r = cli(root, "open-item", "--to", "todo", "--title", "Вердикт не записано", "--what", "hook не побачив відповіді", "--do", "знайти причину")
 work = root / r.stdout.strip()
 check("--to todo: the next free number, no question, what to do in the task; `next` offers the lower number first",
-      re.fullmatch(r"tasks/todo/701-open-item-\d{14}\.md", r.stdout.strip()) is not None
+      re.fullmatch(r"tasks/todo/702-open-item-\d{14}\.md", r.stdout.strip()) is not None
       and board.read(work).answers == () and "знайти причину" in work.read_text(encoding="utf-8") and cli(root, "next").stdout.strip().endswith(item.name), r.stdout + r.stderr)
 r = cli(root, "open-item", "--to", "done", "--key", "C8b", "--title", "Прогін після переміщення", "--what", "чекав грошей", "--do", "закрито рішенням власника")
 closed = root / r.stdout.strip()
 check("--to done: a directory with task.md and report.md, and the reason in the report",
-      r.stdout.strip() == "tasks/done/702-open-item-c8b/task.md" and "закрито рішенням власника" in (closed.parent / "report.md").read_text(encoding="utf-8")
-      and 702 in board.Board(root / "tasks").numbers("done"), r.stdout + r.stderr)
+      r.stdout.strip() == "tasks/done/703-open-item-c8b/task.md" and "закрито рішенням власника" in (closed.parent / "report.md").read_text(encoding="utf-8")
+      and 703 in board.Board(root / "tasks").numbers("done"), r.stdout + r.stderr)
 r = cli(root, "open-item", "--to", "blocked", "--key", "C8b", "--title", "Знову", "--what", "відкрито знову", "--question", "Так?")
-check("a key that only a done/ task carries opens a new item", r.stdout.strip() == "tasks/blocked/703-open-item-c8b.md", r.stdout)
+check("a key that only a done/ task carries opens a new item", r.stdout.strip() == "tasks/blocked/704-open-item-c8b.md", r.stdout)
 
 
 def ask_gated(project: Path, command: str) -> str:
@@ -768,19 +768,19 @@ put(root, "todo", "080-last.md", task())
 q = ask(b)
 text = q.read_text(encoding="utf-8")
 parsed = board.read(q)
-check("it is written to blocked/, numbered from 900, named after the stamp",
-      q == root / "tasks/blocked/900-gate-escalation-20261003T101500Z.md", q)
+check("it is written to blocked/, numbered in class 9, named after the stamp",
+      q == root / "tasks/blocked/901-gate-escalation-20261003T101500Z.md", q)
 check("it parses as a gate question with one empty answer", parsed.gate == STAMP and parsed.answers == ("",)
       and not parsed.answered and not parsed.closes and not parsed.depends and not parsed.audit, parsed)
 check("it tells the owner what happened and what the answers are", all(ph in text for ph in
       ("src/a.py", "LINT FAILED (ruff check):", "Slice: tax", "`так` — рівно це одне слово", "1. Закрити ескалацію?", "last-report.json", "3 раз")), text)
 check("a reason cannot open a comment or plant an answer", "<!--" not in text and "<! --" in text)
-check("the summary shows it waiting for the owner", any("900-gate-escalation" in line and "1. Закрити ескалацію?" in line
+check("the summary shows it waiting for the owner", any("901-gate-escalation" in line and "1. Закрити ескалацію?" in line
       for line in board.summary(b)), board.summary(b))
 check("the same escalation asked twice is one task", ask(b) == q and len(b.files("blocked")) == 1)
-check("the next escalation takes the next number", ask(b, "2026-10-03T11:00:00Z").name == "901-gate-escalation-20261003T110000Z.md")
-done(root, "902-old")
-check("a number in done/ is not reused", ask(b, "2026-10-03T12:00:00Z").name.startswith("903-"))
+check("the next escalation takes the next number", ask(b, "2026-10-03T11:00:00Z").name == "902-gate-escalation-20261003T110000Z.md")
+done(root, "903-old")
+check("a number in done/ is not reused", ask(b, "2026-10-03T12:00:00Z").name.startswith("904-"))
 # board 035: a question whose escalation was closed another way asks nothing any more
 swept = new_board()
 sb = board.Board(swept / "tasks")
@@ -914,17 +914,17 @@ RULE_SHA = "a" * 64
 q = board.rule_question(b, "ab12cd34", "Show the RED before the GREEN. <!-- x -->", "audit 06\ncaught it twice", "lesson #ab12cd34", "", RULE_SHA)
 text = q.read_text(encoding="utf-8")
 t = board.read(q)
-check("rule_question writes tasks/blocked/800-rule-proposal-<id>.md", q == root / "tasks/blocked/800-rule-proposal-ab12cd34.md", q)
+check("rule_question writes tasks/blocked/801-rule-proposal-<id>.md", q == root / "tasks/blocked/801-rule-proposal-ab12cd34.md", q)
 check("…the exact rule on one line, the reason, «немає» where the overseer said nothing",
       "  > Show the RED before the GREEN. <! -- x -->\n" in text and "- Чому: audit 06 caught it twice\n" in text and "- Рекомендація overseer-а: немає\n" in text, text)
 check("…parsed: the proposal, the offer and its sha256, one empty answer; it asks for no paid audit",
       t.rule == "ab12cd34" and t.action == "promote-rule" and t.action_arg == RULE_SHA and t.answers == ("",) and not t.audit and not t.decided, t)
-check("the summary shows the question to the owner", any("800-rule-proposal-ab12cd34.md — 1. Зробити це правилом?" in line for line in board.summary(b)), board.summary(b))
+check("the summary shows the question to the owner", any("801-rule-proposal-ab12cd34.md — 1. Зробити це правилом?" in line for line in board.summary(b)), board.summary(b))
 check("a second call for the same proposal writes nothing new", board.rule_question(b, "ab12cd34", "Other text.", "w", "o", "", "b" * 64) == q
       and q.read_text(encoding="utf-8") == text)
 second = board.rule_question(b, "ffff0000", "Another rule.", "w", "o", "так: варто", "c" * 64)
 check("the next proposal takes the next free number; the overseer's recommendation is shown",
-      second.name == "801-rule-proposal-ffff0000.md" and "- Рекомендація overseer-а: так: варто\n" in second.read_text(encoding="utf-8"), second.name)
+      second.name == "802-rule-proposal-ffff0000.md" and "- Рекомендація overseer-а: так: варто\n" in second.read_text(encoding="utf-8"), second.name)
 bare = Path(tempfile.mkdtemp(prefix="board-none-"))
 check("a project without a board gets no question", board.rule_question(board.Board(bare / "tasks"), "ab12cd34", "r", "w", "o", "", RULE_SHA) is None and not (bare / "tasks").exists())
 check("unanswered: owner-actions lists nothing, unblock moves nothing", cli(root, "owner-actions").stdout == "" and board.unblock(b) == [])
@@ -944,7 +944,7 @@ for reply, action, said in (("так", "promote-rule", "правило дода�
     r = cli(root, "action-done", q.name, "applied")
     target = root / "tasks/done" / q.stem
     closed = (target / "task.md").read_text(encoding="utf-8") if (target / "task.md").is_file() else ""
-    check(f"…action-done applied: straight to done/ with the runner's report, the offer replaced, the answer kept",
+    check("…action-done applied: straight to done/ with the runner's report, the offer replaced, the answer kept",
           r.returncode == 0 and not q.exists() and said in closed and "Дія runner-а:" not in closed and f"Відповідь: {reply}" in closed
           and "Що змінилось для власника" in (target / "report.md").read_text(encoding="utf-8"), r.stdout + r.stderr + closed)
     (target / "report.md").unlink()

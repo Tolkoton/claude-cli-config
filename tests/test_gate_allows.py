@@ -535,7 +535,7 @@ stamp = str(state["open"][-1]["stamp"])
 asked = sorted((r / "tasks/blocked").glob("*.md"))
 question = asked[0].read_text(encoding="utf-8") if asked else ""
 check("a board in the project: the escalation is a task in tasks/blocked/",
-      len(asked) == 1 and asked[0].name.startswith("900-gate-escalation-") and f"Ескалація gates: {stamp}" in question, asked)
+      len(asked) == 1 and asked[0].name.startswith("901-gate-escalation-") and f"Ескалація gates: {stamp}" in question, asked)
 check("...it names the file the gate blocked on and asks «Закрити ескалацію?» and offers «так» with an empty answer line",
       "mod.py" in question and "`так`" in question and "1. Закрити ескалацію?" in question and question.rstrip().endswith("Відповідь:"), question)
 check("...the escalation state names the task", state["open"][-1].get("task") == f"tasks/blocked/{asked[0].name}" if asked else False, state)
@@ -544,7 +544,7 @@ check("...board 037: with the question on the board nothing is written to the lo
       bool(asked) and (not parked.exists() or "gate stop layer" not in parked.read_text()), parked.read_text() if parked.exists() else "")
 message = str(json.loads(proc.stdout or "{}").get("systemMessage", ""))
 check("...the session is told where the owner is asked, and not to answer it itself",
-      message.startswith("GATE ESCALATION") and "tasks/blocked/900-gate-escalation-" in message and "leave its answer line empty" in message, message)
+      message.startswith("GATE ESCALATION") and "tasks/blocked/901-gate-escalation-" in message and "leave its answer line empty" in message, message)
 check("the gate itself still closes nothing inside a session", close(r, stamp, inside_claude=True).returncode == 2
       and len(json.loads((r / ".claude/state/gate/escalations.json").read_text())["open"]) == 1)
 lonely = Path(tempfile.mkdtemp(prefix="gate-allows-noboard-")) / "hooks"
@@ -618,7 +618,7 @@ for marker, word in (("rebase-merge", "rebase"), ("rebase-apply", "rebase"), ("M
     asked = questions(r)
     text = (r / "tasks/blocked" / asked[0]).read_text(encoding="utf-8") if asked else ""
     check(f"{marker} gone: the question is asked — one file, the escalation's own stamp, the file and the count the gate blocked on",
-          len(asked) == 1 and asked[0].startswith("900-gate-escalation-") and f"Ескалація gates: {entry['stamp']}" in text
+          len(asked) == 1 and asked[0].startswith("901-gate-escalation-") and f"Ескалація gates: {entry['stamp']}" in text
           and "mod.py" in text and "1 раз" in text and "last-report.json" in text, (asked, text, proc.stderr))
     check(f"{marker} gone: the state names the task and waits no more; the journal says the question is asked",
           bool(asked) and entry.get("task") == f"tasks/blocked/{asked[0]}" and "waiting" not in entry and f"`tasks/blocked/{asked[0]}`" in journal(r), (entry, journal(r)))
@@ -634,7 +634,7 @@ in_progress(r, "rebase-merge", False)
 sh(r, "git", "stash", "pop")
 run(GATE, r, "--ask-waiting")
 check("the case of 2026-10-07 — a second escalation during a rebase that hid the first question: two questions, two numbers",
-      first != second and [name[:3] for name in questions(r)] == ["900", "901"], questions(r))
+      first != second and [name[:3] for name in questions(r)] == ["901", "902"], questions(r))
 r = new_repo()
 in_progress(r, "rebase-merge", True)
 escalate(r)
