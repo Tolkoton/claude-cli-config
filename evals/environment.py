@@ -23,6 +23,7 @@ Standard library only, Python 3.12+.
 from __future__ import annotations
 
 import argparse
+import os
 import platform
 import re
 import sys
@@ -75,7 +76,7 @@ def baseline_path(text: str) -> Path:
 def baseline_folder(path: Path) -> str | None:
     """The environment folder a path under evals/baseline/ lies in; None for any other path."""
     try:
-        parts = path.resolve().relative_to(BASELINE_DIR).parts
+        parts = Path(os.path.realpath(path)).relative_to(BASELINE_DIR).parts  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
     except ValueError:
         return None
     return parts[0] if len(parts) > 1 else None

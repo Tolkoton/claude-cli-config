@@ -700,7 +700,7 @@ def paid_run_refusal(tasks_dir: Path, owner_approved: bool, in_session: bool) ->
     it by hand with --owner-approved — that decision stays the owner's (board 078 took away only the
     «Платні прогони:» line). The flag is the owner's: inside a Claude Code session (CLAUDECODE is set
     in every shell the agent's tools start) it does not count."""
-    reason = board_module().audit_refusal(tasks_dir.resolve())
+    reason = board_module().audit_refusal(Path(os.path.realpath(tasks_dir)))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
     if reason is None or (owner_approved and not in_session):
         return None
     flag = (" --owner-approved was given, but inside a Claude Code session (CLAUDECODE is set) it does not "

@@ -112,7 +112,7 @@ def apply_setup(sandbox: Path, steps: list[JsonObj]) -> None:
     anything outside the sandbox."""
     for step in steps:
         if "write" in step:
-            target = (sandbox / step["write"]["path"]).resolve()
+            target = Path(os.path.realpath(sandbox / step["write"]["path"]))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
             if sandbox.resolve() not in target.parents:
                 raise SandboxError(f"setup writes outside the sandbox: {target}")
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -207,7 +207,7 @@ def run_scenario(
 
         # `project_dir`: run the hook as if Claude Code had been started in a subdirectory
         # of the sandbox — used for `git worktree` checkouts, where .git is a file.
-        project_dir = (sandbox / scenario.get("project_dir", ".")).resolve()
+        project_dir = Path(os.path.realpath(sandbox / scenario.get("project_dir", ".")))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
         if project_dir != sandbox.resolve() and sandbox.resolve() not in project_dir.parents:
             raise SandboxError(f"project_dir escapes the sandbox: {project_dir}")
         # A session started in a subdirectory runs THAT checkout's copy of the hook, as Claude
@@ -353,7 +353,7 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
               "Build one with evals/make_sandbox.sh — never point this at a real project.",
               file=sys.stderr)
         return 2
-    hooks_dir = (args.hooks_dir or sandbox / ".claude" / "hooks").expanduser().resolve()
+    hooks_dir = Path(os.path.realpath((args.hooks_dir or sandbox / ".claude" / "hooks").expanduser()))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
     scenario_files = sorted(args.scenarios.glob("*.json"))
     if not scenario_files:
         print(f"no scenario files in {args.scenarios}", file=sys.stderr)
@@ -389,7 +389,7 @@ def run_all(args: argparse.Namespace, here: Path) -> int:
                 else:
                     print(f"  ok   {result['id']:42} {shown}")
         reset_sandbox(sandbox)
-    except SandboxError as exc:
+    except (SandboxError, OSError) as exc:  # OSError: a symlink loop inside the sandbox is "inside" it, and cannot be used
         print(f"sandbox error: {exc}", file=sys.stderr)
         return 2
 

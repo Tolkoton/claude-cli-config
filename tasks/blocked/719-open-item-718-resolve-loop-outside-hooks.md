@@ -16,3 +16,10 @@
 Описане вище зроблено і перевірено, або на нього є відповідь власника.
 
 ## Питання до власника
+
+Стан роботи (2026-10-12): виправлення зроблено і закомічено в цій гілці — bug record `.engine/bugs/008-resolve-loop-outside-hooks.md`. Шість `resolve()` поданого шляху стали `os.path.realpath` у `doc_audit.py`, `evals/environment.py`, `evals/run_audit_scenarios.py`, `evals/run_hook_scenarios.py`; у hook runner-і `except SandboxError` став `except (SandboxError, OSError)`. Symlink loop тепер дає написану відмову, а не traceback, на Python 3.12 і 3.13. `bugfix.py prove` — `PROVED`; новий suite `tests/test_symlink_loop_outside_hooks.py` — `PASS 19   FAIL 0`; `bash tests/run_all.sh` — `PASS: 97 suites green`. `evals/run_simplifier_evals.py:84` із задачі вже не існує. Сусідня знахідка з іншою причиною — `tasks/todo/1706-open-item-719-doc-audit-markdown-file-loop.md`.
+
+Чого бракує до `done/`: PASS overseer-а. Overseer (request `20261012T021330Z-dabc22`) не знайшов жодної невдалої перевірки, але вердикт записано як BLOCK 1 із 3 лише тому, що відкрита gate escalation 2026-10-12T01:56:46Z чужої задачі (slice `numbers-class-table`, файл `tests/test_task_class_table.py`, питання `tasks/blocked/902-gate-escalation-20261012T015646Z.md`). Поки вона відкрита, PASS не приймається ні для якої роботи; закрити її агент не може і не має. Це виправлення її файлу не торкається.
+
+1. Як закрити цю задачу? Варіанти: (а) ви відповідаєте на питання 902 (або закриваєте escalation у своєму терміналі: `python3 .claude/hooks/gate.py --close-escalation 2026-10-12T01:56:46Z`), а тут пишете «закрито» — агент знову заявляє unit, новий overseer перевіряє, задача йде в `done/` зі звітом; (б) ви не хочете зараз вирішувати 902 — напишіть «чекати», задача лишиться тут, код уже в гілці й нічого не блокує. Порада агента: (а) — робота готова, бракує лише запису PASS.
+   Відповідь:

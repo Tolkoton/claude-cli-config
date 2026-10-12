@@ -17,6 +17,7 @@ Exit code: 0 = no errors, 1 = at least one error. Warnings never fail the run.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from collections.abc import Iterator
@@ -149,7 +150,7 @@ def check_links(root: Path) -> None:
                 file_part = target.split("#", 1)[0]
                 if not file_part:
                     continue
-                resolved = (md.parent / file_part).resolve()
+                resolved = Path(os.path.realpath(md.parent / file_part))  # not resolve(): up to Python 3.12 it raises RuntimeError on a symlink loop
                 if not resolved.exists():
                     err(f"{rel(root, md)}:{lineno} - broken link to "
                         f"'{file_part}'.")

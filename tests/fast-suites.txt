@@ -128,3 +128,5 @@ test_task_classes.py
 # about fifty runs of board.py import-inbox, check and summary on synthetic boards).
 test_task_class_table.py
 test_task_class_table_disputed.py
+# Board 719: test_symlink_loop_outside_hooks 0.9 s is in (doc_audit.py and three eval scripts on a symlink loop; a synthetic sandbox, no session).
+test_symlink_loop_outside_hooks.py
