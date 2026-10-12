@@ -29,7 +29,8 @@ apart. Files recorded before board 003 carry no such field and list nothing.
 THE RECORDED NOISE (board 058). Two noise runs for every comparison cost two full audits, so the
 noise is measured once and kept: `--measure-noise N1.json N2.json` takes two (or more) complete
 result files of ONE engine commit and environment, prints the noise scene by scene — the verdicts of every
-session, the match rate of every run, the spread between the runs — and with `--out-record`
+session, the match rate of every run, the spread between the runs that hold a valid session for the
+scene (n/a when fewer than two do, board 726) — and with `--out-record`
 writes the record `audit-noise.json`. A comparison without `--noise` reads the record that lies
 beside its `--before` file (`--noise-record FILE` names another, `--noise-record none` none) and
 says in its header which one it used. The bound of a scenario is then the larger of its own
@@ -168,9 +169,11 @@ def fmt(x: Fraction | None) -> str:
 
 def spread(rates: list[Fraction | None]) -> Fraction | None:
     """The noise of one scenario: the largest difference between the match rates of runs of one
-    engine. None when fewer than two of the runs hold a valid session for it."""
+    engine, taken over the runs that hold a valid session for it — a run that lost the scene says
+    nothing about it and takes nothing away from the runs that did not (board 726). None when
+    fewer than two of the runs hold a valid session for it."""
     known = [r for r in rates if r is not None]
-    return max(known) - min(known) if len(known) > 1 and len(known) == len(rates) else None
+    return max(known) - min(known) if len(known) > 1 else None
 
 
 def measure_noise(runs: list[JsonObj], paths: list[str]) -> tuple[JsonObj | None, str]:
@@ -231,13 +234,17 @@ def noise_report(record: JsonObj, title: str) -> str:
         lines.append(f"| `{sid}` | {scene['expected']} | " + " | ".join(scene["matched"])
                      + f" | {'n/a' if noise is None else f'{noise:.2f}'} | {steady} |")
     moved = [sid for sid, scene in scenes.items() if scene["noise"]]
+    holed = [f"`{sid}` ({held} of {len(scene['rates'])} runs)" for sid, scene in scenes.items()
+             if scene["noise"] is not None and (held := sum(r is not None for r in scene["rates"])) < len(scene["rates"])]
     unsteady = [sid for sid, scene in scenes.items() if len(scene["distinct_verdicts"]) > 1]
     lines += ["",
               f"Noise threshold: **{record['threshold']:.2f}** — the largest spread of the match rate on any scene. "
               f"Scenes whose match rate moved between the runs: {', '.join(f'`{s}`' for s in moved) or 'none'}. "
               f"Scenes whose verdict was not the same in every session: {', '.join(f'`{s}`' for s in unsteady) or 'none'}.",
               "",
-              "Noise = largest − smallest match rate among the runs (matched / valid sessions). In a comparison the bound "
+              "Noise = largest − smallest match rate among the runs that hold a valid session for the scene (matched / valid "
+              "sessions); n/a when fewer than two do. "
+              + (f"Measured from fewer runs than were given: {', '.join(holed)}. " if holed else "") + "In a comparison the bound "
               "of a scene is the larger of its own noise and the threshold; a difference that is not larger is "
               f"«{WITHIN_NOISE}».", "", "**Verdicts per session**", ""]
     for sid, scene in scenes.items():

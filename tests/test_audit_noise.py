@@ -11,6 +11,9 @@ Cases, on small result files written here (no session, no cost):
     whose verdict varies although the match rate does not; the record is written;
   * negative: files of two commits, models, settings layers or run counts, or a partial file,
     measure nothing (exit 2, no record); a scene one run has no valid session for has no noise;
+  * three runs (board 726): the noise of a scene is that of the runs that hold a valid session
+    for it, when two or more do — 3/3, 2/3 and a lost run is one session of three, and the
+    report says "2 of 3 runs"; with one such run it is n/a;
   * one session of three is the same size whichever thirds it lies between: with the noise
     measured as 2/3 against 1/3, a step from 3/3 to 2/3 is «у межах шуму». In floats it was
     not (1 − 2/3 > 2/3 − 1/3), and the comparison printed diff −0.33, noise 0.33, WORSE — the
@@ -149,6 +152,32 @@ def main() -> int:
         check("a lost session is not a verdict of the scene: it still reads 'always'",
               gap["scenarios"].get("torn", {}).get("distinct_verdicts") == [HIT]
               and "| `torn` | BLOCK#4 | 2/2 (of 3) | 1/1 (of 3) | 0.00 | always BLOCK#4 |" in r.stdout, f"{gap['scenarios'].get('torn')} {r.stdout[:900]}")
+
+        print("three runs, one of which lost a scene (board 726):")
+        # holed: 3/3, 2/3 and no valid session. single: one run holds a valid session, two do not.
+        h1 = result_file(work / "h1.json", {"steady": [HIT] * 3, "holed": [HIT] * 3, "single": [HIT, HIT, MISS]})
+        h2 = result_file(work / "h2.json", {"steady": [HIT] * 3, "holed": [HIT, HIT, MISS], "single": [LOST] * 3})
+        h3 = result_file(work / "h3.json", {"steady": [HIT] * 3, "holed": [LOST] * 3, "single": [LOST] * 3})
+        r = run("--measure-noise", h1, h2, h3, "--out-record", work / "holed.json")
+        holed: dict[str, Any] = json.loads((work / "holed.json").read_text(encoding="utf-8")) if (work / "holed.json").is_file() else {"scenarios": {}}
+        check("the noise is that of the runs that hold a valid session: 3/3 against 2/3 is one session of three",
+              abs((holed["scenarios"].get("holed", {}).get("noise") or 0) - 1 / 3) < 1e-9
+              and "| `holed` | BLOCK#4 | 3/3 | 2/3 | 0/0 (of 3) | 0.33 |" in r.stdout, f"{holed['scenarios'].get('holed')} {r.stdout[:900]}")
+        check("and it counts toward the threshold; the scene is named as one that moved",
+              abs(float(holed.get("threshold", -1)) - 1 / 3) < 1e-9 and "match rate moved between the runs: `holed`." in r.stdout,
+              f"{holed.get('threshold')} {r.stdout[-900:]}")
+        check("negative — one run with a valid session is not a spread: n/a, never 0",
+              holed["scenarios"].get("single", {}).get("noise", 0) is None
+              and "| `single` | BLOCK#4 | 2/3 | 0/0 (of 3) | 0/0 (of 3) | n/a |" in r.stdout, f"{holed['scenarios'].get('single')} {r.stdout[:900]}")
+        check("the report says how many of the runs a holed scene's noise was measured from",
+              "`holed` (2 of 3 runs)" in r.stdout and "`single` (" not in r.stdout and "`steady` (" not in r.stdout, r.stdout[-1200:])
+        folder = work / "three-noise"
+        folder.mkdir()
+        before = result_file(folder / "before.json", {"steady": [HIT] * 3, "holed": [HIT] * 3, "single": [HIT] * 3}, commit="b" * 40)
+        after = result_file(folder / "after.json", {"steady": [HIT] * 3, "holed": [HIT, HIT, MISS], "single": [HIT] * 3}, commit="c" * 40)
+        r = run("--before", before, "--after", after, "--noise-record", work / "holed.json")
+        check(f"compared by that record, a one-session step on the holed scene is «{WITHIN}», not WORSE",
+              judgements(r.stdout).get("holed") == WITHIN and r.returncode == 0, f"rc={r.returncode} {r.stdout[:900]}")
 
         print("one session of three is one session of three, whichever thirds it was measured between:")
         for name, low_1, low_2 in (("2/3 against 1/3", [HIT, HIT, MISS], [HIT, MISS, MISS]),

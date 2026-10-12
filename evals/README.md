@@ -243,7 +243,9 @@ python3 evals/compare_audits.py --measure-noise N1.json N2.json --out-record eva
 
 measures it again (two or more complete result files of one commit, environment, model and
 settings; anything else is refused): the verdicts of every session, the match rate of every run, and per scene the
-noise — the largest minus the smallest match rate among the runs. The threshold is the largest noise
+noise — the largest minus the smallest match rate among the runs that hold a valid session for it
+(a run that lost the scene is left out and the report says so; with fewer than two such runs the
+noise is n/a, board 726). The threshold is the largest noise
 of any scene. `compare_audits.py` reads the record that lies beside its `--before` file and names it
 in the header (`--noise-record FILE` for another, `--noise-record none` for none; two `--noise`
 files given by hand still win). The bound of a scene is the larger of its own noise and the
