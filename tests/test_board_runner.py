@@ -42,6 +42,8 @@ FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
     audit           have the tree as it is audited (a PASS), commit the ledger, leave the task as it is
     seal            seal the slice contract with contract_fingerprint.py, nothing else
     done-broken     `done`, then task.md is overwritten with bytes that are not UTF-8 and committed
+    break           the task already in done/: its task.md is overwritten with bytes that are not UTF-8 and
+                    committed (what a turn back can do to the second check-close, board 756)
     reader-refused  write and commit a sketch's record, then have it read three times through the REAL
                     reader.py (request, guard, a BLOCK answer recorded), leave the task in doing/ (board 099)
 
@@ -166,6 +168,10 @@ elif step == "done-broken" and doing:
     (target / "task.md").write_bytes(b"# \xff\xfe not UTF-8\n")
     (target / "report.md").write_text("# Звіт\n")
     git("add", "-A", "tasks"); git("commit", "-q", "-m", f"{task.stem}: done", "--", "tasks")
+elif step == "break":
+    for task in sorted(Path("tasks/done").glob("[0-9]*/task.md")):
+        task.write_bytes(b"# \xff\xfe not UTF-8\n")
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", f"broken {n}", "--", "tasks")
 elif step == "reader-refused":
     hooks = Path(os.environ["FAKE_HOOKS"])
     record = Path(".engine/sketches/rate.md")
@@ -1735,6 +1741,16 @@ r = w.run()
 check("negative — the check itself breaks (exit 3): an anomaly, the task stays in done/, no turn back, no park",
       w.has("tasks/done/001-broken/task.md") and len(w.calls()) == 1 and "task-parked" not in events(w)
       and "мінімум режиму задачі не перевірено: `mode.py check-close` відповів кодом 3" in journal_text(w.repo, "anomalies"),
+      events(w) + r.stdout)
+
+w = minimum_world("code-done break")
+w.put("todo", "001-solo.md")
+r = w.run()
+check("negative — the check breaks after the turn back (the second check-close exits 3): an anomaly, the task stays in done/, no park (board 756)",
+      w.has("tasks/done/001-solo/task.md") and not w.has("tasks/blocked/001-solo.md") and len(w.calls()) == 2
+      and " minimum-missing 001-solo" in events(w) and "task-parked" not in events(w) and "minimum-made" not in events(w)
+      and "мінімум режиму задачі не перевірено після ходу назад: `mode.py check-close` відповів кодом 3" in journal_text(w.repo, "anomalies")
+      and "задачу закрито без мінімуму її режиму" not in journal_text(w.repo, "anomalies"),
       events(w) + r.stdout)
 
 w = World("done")
