@@ -50,6 +50,15 @@ stays» and «R6 and R7 can both go» look the same to a scorer by words. It is 
 recall, precision nor traps, shown in the row and the summary, and the run exits 1. A person reads
 it and writes the reading into the results file — "read_by_hand": {"<finding id>": {"as":
 "planted" | "trap", "why": "…"}} — and `--rescore` counts it so, keeping the reading in the row.
+
+An entry is looked for only in its own `files`, so a finding aimed at one file that names, in
+words, a trap of another («the RuntimeError guard, and receipt_path's is_relative_to check in
+receipts.py, can both go», aimed at cli.py) is counted as what its own file makes it — here the
+planted guard found, no trap, not ambiguous. The rule cannot simply go: a finding as often names
+such a trap as the thing that must stay, and words cannot tell the two. So each one is listed in
+the row under `trap_named_elsewhere` (the finding, how it was counted, the traps it names), the
+session's line and the summary (`trap_named_elsewhere_total`) say how many there are, and no
+figure and no exit code changes: a reader looks at the list (board 730).
 KNOWN LIMIT: a finding that drops a trap without any of the trap's words and away from its lines
 («this and the requirement above can go») is seen by nobody but a reader; every recorded finding
 is in the file under `answer` for that reason.
@@ -210,8 +219,20 @@ def matches(finding: JsonObj, entry: JsonObj, pointed: bool = False) -> bool:
     path = finding["target"].split("::")[0].split(":")[0]
     if pointed and path in entry.get("lines", {}):
         return on_line(finding, entry)
+    return path in entry["files"] and says(finding, entry)
+
+
+def says(finding: JsonObj, entry: JsonObj) -> bool:
+    """One of the entry's words is in the finding's target, claim or evidence."""
     text = " ".join([finding["target"], finding["claim"], *(str(e.get("detail", "")) for e in finding["evidence"])]).lower()
-    return path in entry["files"] and any(word.lower() in text for word in entry["any"])
+    return any(word.lower() in text for word in entry["any"])
+
+
+def traps_elsewhere(finding: JsonObj, traps: list[JsonObj]) -> list[str]:
+    """The traps the finding names in words that live in other files than its target: matches()
+    never looks at them, so the finding is counted as if it had not named them (board 730)."""
+    path = finding["target"].split("::")[0].split(":")[0]
+    return [e["id"] for e in traps if path not in e["files"] and says(finding, e)]
 
 
 def proposed(finding: JsonObj) -> str:
@@ -227,7 +248,9 @@ def score(findings: list[JsonObj], expected: JsonObj, by_hand: JsonObj | None = 
     item AND a trap — by its line or by its words — is `ambiguous`: it may be the planted item
     found («R7 can go, R6 stays») or the trap touched («R6 and R7 can both go»), and words cannot
     tell. It is in no figure until a person has read it: `by_hand` maps a finding's id to
-    {"as": "planted" | "trap", "why": …}, and what was decided so stays in the row as `resolved`."""
+    {"as": "planted" | "trap", "why": …}, and what was decided so stays in the row as `resolved`.
+    A finding counted as anything but a trap that names, in words, a trap of another file is
+    counted as before and listed in `trap_named_elsewhere` for a reader."""
     by_hand = by_hand or {}
     resolved: list[JsonObj] = []
     found: dict[str, list[str]] = {}
@@ -235,6 +258,7 @@ def score(findings: list[JsonObj], expected: JsonObj, by_hand: JsonObj | None = 
     neutral: list[JsonObj] = []
     ambiguous: list[JsonObj] = []
     unexpected: list[JsonObj] = []
+    elsewhere: list[JsonObj] = []
     also_true = 0
     for finding in findings:
         brief = {"target": finding["target"], "category": finding["category"], "action": finding["proposed_action"],
@@ -250,6 +274,9 @@ def score(findings: list[JsonObj], expected: JsonObj, by_hand: JsonObj | None = 
         if read:
             resolved.append({"id": finding["id"], "planted": planted, "trap": trap, **read, **brief})
             planted, trap = (planted, None) if read["as"] == "planted" else (None, trap)
+        other = [] if trap else traps_elsewhere(finding, expected["traps"])
+        if other:
+            elsewhere.append({"id": finding.get("id"), "planted": planted, "traps": other, **brief})
         if planted and trap:
             ambiguous.append({"id": finding.get("id"), "planted": planted, "trap": trap, **brief})
         elif planted:
@@ -276,6 +303,7 @@ def score(findings: list[JsonObj], expected: JsonObj, by_hand: JsonObj | None = 
         "neutral": neutral,
         "ambiguous": ambiguous,
         "resolved": resolved,
+        "trap_named_elsewhere": elsewhere,
         "findings": len(findings),
     }
 
@@ -329,6 +357,13 @@ def rescore(path: Path) -> int:
     return exit_code(report["summary"])
 
 
+def named_elsewhere(listed: list[JsonObj]) -> str:
+    """The end of a session's line: the findings a reader should look at, or nothing."""
+    if not listed:
+        return ""
+    return f", {len(listed)} naming a trap of another file ({'; '.join(f'{n['id']}: {', '.join(n['traps'])}' for n in listed)})"
+
+
 def exit_code(result: JsonObj) -> int:
     """0 only for a run that was scored, touched no trap and left nothing to read by hand."""
     return 0 if result["scored"] and result["traps_touched_total"] == 0 and result["ambiguous_total"] == 0 else 1
@@ -354,6 +389,7 @@ def summary(runs: list[JsonObj]) -> JsonObj:
         "traps_touched_total": sum(r["traps_touched"] for r in good),
         "ambiguous_total": sum(len(r["ambiguous"]) for r in good),
         "read_by_hand_total": sum(len(r["resolved"]) for r in good),
+        "trap_named_elsewhere_total": sum(len(r["trap_named_elsewhere"]) for r in good),
         "found_in_runs": tally(name for r in good for name in r["found"]),
         "touched_in_runs": tally(name for r in good for name in {t["trap"] for t in r["touched"]}),
         "touched_proposed": tally(t["proposed"] for r in good for t in r["touched"]),
@@ -406,7 +442,8 @@ def main() -> int:
             runs.append(row)
             book_session(args.tasks_dir, "run_simplifier_evals", row.get("cost_usd", 0.0))
             shown = row.get("error") or (f"recall {row['recall']}, precision {row['precision']}, traps touched {row['traps_touched']}, "
-                                         f"missed {row['missed']}, {len(row['unexpected'])} unexpected, {len(row['ambiguous'])} ambiguous")
+                                         f"missed {row['missed']}, {len(row['unexpected'])} unexpected, {len(row['ambiguous'])} ambiguous"
+                                         + named_elsewhere(row["trap_named_elsewhere"]))
             print(f"run {number}: {shown}  (${row['cost_usd']:.2f}, {', '.join(row.get('models', []))})")
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),

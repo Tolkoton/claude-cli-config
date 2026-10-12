@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -99,7 +100,7 @@ check("an empty answer: recall 0, precision undefined", runner.score([], expecte
 check("a summary skips a failed run and adds its cost",
       runner.summary([{"error": "x", "cost_usd": 1.0}, {**runner.score(perfect, expected), "cost_usd": 2.0}])
       == {"runs": 2, "scored": 1, "errors": 1, "recall_mean": 1.0, "recall_range": [1.0, 1.0], "precision_mean": 1.0,
-          "precision_range": [1.0, 1.0], "traps_touched_total": 0, "ambiguous_total": 0, "read_by_hand_total": 0,
+          "precision_range": [1.0, 1.0], "traps_touched_total": 0, "ambiguous_total": 0, "read_by_hand_total": 0, "trap_named_elsewhere_total": 0,
           "found_in_runs": {e["id"]: 1 for e in sorted(expected["planted"], key=lambda e: e["id"])},
           "touched_in_runs": {}, "touched_proposed": {}, "touched_after_validator": {}, "cost_usd": 3.0})
 trap_run = perfect[:3] + [finding("src/refproj/receipts.py:11", "the is_relative_to check is redundant"),
@@ -256,6 +257,43 @@ check("negative — the line wins over the words: a finding on the PIN check's l
 s = runner.summary([{**runner.score(hard_perfect + [finding("docs/goals.md", "R6 and R7 can both be dropped")], hard), "cost_usd": 1.0}])
 check("the summary counts the ambiguous findings, so a run that needs reading by hand says so", s["ambiguous_total"] == 1, s)
 check("…and it is 0, not absent, when there is none", runner.summary([{**runner.score(hard_perfect, hard), "cost_usd": 1.0}])["ambiguous_total"] == 0)
+two_in_one = [{**finding("docs/goals.md", "R6 and R7 can both be dropped"), "id": "F-a"},
+              {**finding(".engine/architecture/feature-dag.json", "S6 and S7 are not built: drop both slices"), "id": "F-b"}]
+s = runner.summary([{**runner.score(hard_perfect + two_in_one, hard), "cost_usd": 1.0}, {**runner.score(hard_perfect + two_in_one[:1], hard), "cost_usd": 1.0},
+                    {**runner.score(hard_perfect, hard), "cost_usd": 1.0}])
+check("board 730 — ambiguous_total counts findings, not sessions: two in one session and one in another are three",
+      [a["id"] for a in runner.score(hard_perfect + two_in_one, hard)["ambiguous"]] == ["F-a", "F-b"] and s["ambiguous_total"] == 3, s)
+print("ELSEWHERE-* board 730 — a counted finding that names, in words, a trap of another file is shown beside the figures")
+elsewhere = {**finding("src/refproj/cli.py:33-34", "the RuntimeError guard, and receipt_path's is_relative_to check in receipts.py, can both go",
+                       category="defensive_for_impossible"), "id": "F-x"}
+s = runner.score([elsewhere], hard)
+check("the guard with the path check of receipts.py dropped beside it: still the found item, no trap, not ambiguous — and listed, with the trap it names",
+      list(s["found"]) == ["guard-impossible-across-functions"] and s["traps_touched"] == 0 and not s["ambiguous"] and s["precision"] == 1.0
+      and [(n["id"], n["planted"], n["traps"], n["target"], n["claim"]) for n in s["trap_named_elsewhere"]]
+      == [("F-x", "guard-impossible-across-functions", ["security-check-path"], elsewhere["target"], elsewhere["claim"])], s)
+cites = finding("src/refproj/cli.py:22", "the wholesale branch: nobody passes the flag", category="dead_code")
+cites["evidence"] = [{"source": "read", "ref": "src/refproj/orders.py:28", "detail": "unlike parse_order_line, which every order goes through and must stay"}]
+s = runner.score([cites], hard)
+check("…a word of the trap in the evidence is enough, and the scorer does not judge what the finding means by it: shown, counted as before",
+      list(s["found"]) == ["dead-branch-behind-a-flag"] and [n["traps"] for n in s["trap_named_elsewhere"]] == [["input-validation-at-the-edge"]], s)
+check("negative — a finding that names no trap of another file is not listed", runner.score(hard_perfect, hard)["trap_named_elsewhere"] == [])
+s = runner.score([{**finding("docs/goals.md", "R6 and R7 can both be dropped"), "id": "F-a"},
+                  finding("src/refproj/refunds.py:12", "hmac.compare_digest where == would do; receipt_path is the same kind")], hard)
+check("negative — a trap of the finding's own file is the scorer's to count (ambiguous, touched), and a finding already counted as a trap touched is not listed again",
+      len(s["ambiguous"]) == 1 and s["traps_touched"] == 1 and s["trap_named_elsewhere"] == [], s)
+s = runner.score([benign], hard, {"F-ok": by_hand["F-ok"]})
+check("negative — a finding read by hand as the planted item is not listed for the trap of its own file the reader has already judged",
+      list(s["found"]) == ["requirement-with-a-borrowed-goal"] and len(s["resolved"]) == 1 and s["trap_named_elsewhere"] == [], s)
+s = runner.score([finding("src/refproj/pricing.py:6", "CENT could be inlined, and so could pin_matches")], hard)
+check("…an unexpected finding that names a trap of another file is listed too, with no planted item",
+      len(s["unexpected"]) == 1 and [(n["planted"], n["traps"]) for n in s["trap_named_elsewhere"]] == [(None, ["security-check-constant-time"])], s)
+s = runner.summary([{**runner.score(hard_perfect + [elsewhere, cites], hard), "cost_usd": 1.0}, {**runner.score(hard_perfect, hard), "cost_usd": 1.0}])
+check("the summary counts such findings, and they do not make the run fail: nothing was decided for the reader",
+      s["trap_named_elsewhere_total"] == 2 and s["traps_touched_total"] == 0 and s["ambiguous_total"] == 0 and runner.exit_code(s) == 0, s)
+check("…and it is 0, not absent, when there is none", runner.summary([{**runner.score(hard_perfect, hard), "cost_usd": 1.0}])["trap_named_elsewhere_total"] == 0)
+check("the basic set, where every trap has a file of its own, lists the same way",
+      [n["traps"] for n in runner.score([finding("src/refproj/pricing.py:24", "_legacy_total_v1 has no caller; neither has receipt_path")], expected)["trap_named_elsewhere"]]
+      == [["security-check"]] and runner.score(perfect, expected)["trap_named_elsewhere"] == [])
 check("the basic set, which names no lines, scores a planted item as before", runner.score(perfect, expected)["recall"] == 1.0
       and runner.score(perfect, expected)["ambiguous"] == [])
 s = runner.score([finding("src/refproj/pricing.py:14", "the factor < 0 guard and _legacy_total_v1")], expected)
@@ -289,6 +327,18 @@ before = recorded.read_text()
 done = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(recorded)], capture_output=True, text=True, check=False)
 check("negative — a reading that says neither «planted» nor «trap», or gives no reason, is refused and the file is not rewritten",
       done.returncode == 2 and "read_by_hand" in done.stderr and recorded.read_text() == before, done.stdout + done.stderr)
+for name, reading in (("no `why` at all", {"as": "planted"}), ("an empty `why`", {"as": "planted", "why": ""}), ("no `as`", {"why": "R6 is named as what stays"})):
+    recorded.write_text(json.dumps({"set": "hard", "read_by_hand": {"F-ok": reading}, "runs": [{"cost_usd": 1.0, "answer": [benign]}]}))
+    before = recorded.read_text()
+    done = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(recorded)], capture_output=True, text=True, check=False)
+    check(f"negative — board 730: a reading with {name} is refused and the file is not rewritten, however right the rest of it is",
+          done.returncode == 2 and "read_by_hand" in done.stderr and recorded.read_text() == before, done.stdout + done.stderr)
+recorded.write_text(json.dumps({"set": "hard", "runs": [{"cost_usd": 1.0, "answer": [elsewhere]}]}))
+done = subprocess.run([sys.executable, str(RUNNER), "--rescore", str(recorded)], capture_output=True, text=True, check=False)
+again = json.loads(recorded.read_text())
+check("board 730 — --rescore puts the list into the row of a file recorded before it existed, and still exits 0",
+      done.returncode == 0 and [n["traps"] for n in again["runs"][0]["trap_named_elsewhere"]] == [["security-check-path"]]
+      and again["summary"]["trap_named_elsewhere_total"] == 1, done.stdout + done.stderr)
 recorded.write_text(json.dumps({"runs": [{"cost_usd": 1.5, "answer": answer}]}))
 done = subprocess.run([sys.executable, str(RUNNER), "--set", "hard", "--rescore", str(recorded)], capture_output=True, text=True, check=False)
 check("negative — a file that does not say which set it was run on is not rescored and not rewritten",
@@ -624,6 +674,17 @@ for name, answer_list, code in (
     done = subprocess.run([sys.executable, str(RUNNER), "--set", "hard", "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
                           capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
     check(f"{name}", done.returncode == code and "run 1: recall" in done.stdout, done.stdout[-400:] + done.stderr[-300:])
+said.write_text(json.dumps({"result": json.dumps([{**finding(elsewhere["target"], elsewhere["claim"]), **full}]), "total_cost_usd": 0.1, "num_turns": 3}))
+done = subprocess.run([sys.executable, str(RUNNER), "--set", "hard", "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
+row = next((line for line in done.stdout.splitlines() if line.startswith("run 1:")), "")
+check("board 730 — a counted finding that names a trap of another file: exit 0, and the session's row says so with the finding and the trap",
+      done.returncode == 0 and "0 ambiguous" in row and re.search(r"1 naming a trap of another file \(F-[0-9a-f]{8}: security-check-path\)", row) is not None,
+      done.stdout[-600:] + done.stderr[-300:])   # the validator gives the finding its id
+said.write_text(json.dumps({"result": json.dumps([{**finding("docs/goals.md:27", "R7: nobody asked for a PDF"), **full}]), "total_cost_usd": 0.1, "num_turns": 3}))
+done = subprocess.run([sys.executable, str(RUNNER), "--set", "hard", "--runs", "1", "--tasks-dir", str(board), "--claude", str(shim)],
+                      capture_output=True, text=True, check=False, env={**os.environ, "CLAUDECODE": "1"})
+check("negative — with no such finding the row does not mention it", "run 1: recall" in done.stdout and "naming a trap" not in done.stdout, done.stdout[-400:])
 
 shutil.rmtree(work, ignore_errors=True)
 print(f"\nPASS {PASS}   FAIL {FAIL}")
