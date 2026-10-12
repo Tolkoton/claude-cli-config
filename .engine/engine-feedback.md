@@ -61,3 +61,15 @@ From: lesson #6e0a38a1 (gate, -, 2026-10-10).
 Bug 007 (board 747): the hooks promise Python 3.11+, but the suites and the Stop gate run under python3 only (3.13 on the cloud server), where Path.resolve() no longer raises on a symlink loop; the guard's loop case broke on 3.12 unseen, and its regression test is red only under python3.12. A code path that differs between Python versions needs its case run under the oldest supported interpreter too — for example the suite starting the hook under each python3.1x found on PATH.
 
 From: lesson #b4933b7b (agent, 007-testing-guard-resolve-loop, 2026-10-10).
+
+## 2026-10-12 — slice-tester: a test file it hands in may carry a bare noqa, which the Stop gate's bypass 
+
+slice-tester: a test file it hands in may carry a bare noqa, which the Stop gate's bypass guard refuses, and the builder may not edit a sealed file — it cost one objection round (board 401, task-class-overflow). The tester's instructions should say: no bare noqa, type: ignore or skip; where a marker is needed, a gate-allow comment with its reason on the line above (.claude/references/gate.md).
+
+From: lesson #ff81a785 (gate, task-class-overflow, 2026-10-11).
+
+## 2026-10-12 — slice-builder: before the UNIT COMPLETE sentinel, walk the sealed exit criterion line by l
+
+slice-builder: before the UNIT COMPLETE sentinel, walk the sealed exit criterion line by line and show each line's command and output in the claiming turn; a line that is neither shown nor named as unmet is a false-DONE (overseer BLOCK 20261012T001754Z-109051: «ruff also on the changed suites» was run on the production files only). The skill's Step 7 could say so in one sentence.
+
+From: lesson #1ed7ee98 (overseer, task-class-overflow, 2026-10-12).
