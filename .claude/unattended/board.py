@@ -228,6 +228,7 @@ AUDIT = re.compile(r"^Аудит потрібен:\s*(\S+)", re.MULTILINE)
 ATTENDED = re.compile(r"^Потрібна присутність власника:\s*(\S+)", re.MULTILINE)
 EXTRA = re.compile(r"^Додаткові сесії:\s*(\S+)", re.MULTILINE)  # A TASK WITH EXTRA SESSIONS (board 110)
 EXTRA_LINE, EXTRA_KEY = "Додаткові сесії: так", "EXTRA_SESSIONS_WEEK_USD"
+KLASS = re.compile(r"^Клас:(.*)$", re.MULTILINE)  # A TASK'S CLASS (board 401): the value ends with its line
 QUESTIONS = re.compile(r"^##\s+Питання до власника\s*$", re.MULTILINE)
 HEADING = re.compile(r"^##\s", re.MULTILINE)
 ANSWER = re.compile(r"^[\s>*_-]*Відповідь:[*_]*[ \t]*(.*)$", re.MULTILINE)
@@ -267,6 +268,8 @@ class Task:
     attended: bool = False
     mode_error: str = ""  # the `Режим:` line names no mode: the task is not taken (A MODE)
     extra: bool = False  # «Додаткові сесії: так»: after the ordinary tasks, under the weekly sum
+    klass: int | None = None  # the `Клас:` line (board 401); read only to number an inbox file that has no number
+    class_error: str = ""  # why the `Клас:` line names no class; "" when it does or is absent
 
     @property
     def answered(self) -> bool:
@@ -321,6 +324,7 @@ def parse(text: str) -> Task:
         following = HEADING.search(rest)
         questions = rest[: following.start()] if following else rest
     rule = RULE.search(header)
+    klass, class_error = _class_line(header)
     offers = [m for m in ACTION.finditer(questions) if m.group(1) in OFFERS]
     return Task(
         action=offers[-1].group(1) if offers else "",
@@ -334,7 +338,19 @@ def parse(text: str) -> Task:
         attended=attended is not None and attended.group(1).strip(".,;*_").lower() == "так",
         mode_error=mode_reader.parse(text).error,
         extra=extra is not None and extra.group(1).strip(".,;*_").lower() == "так",
+        klass=klass, class_error=class_error,
     )
+
+
+def _class_line(header: str) -> tuple[int | None, str]:
+    """The class a task's header names and, when its `Клас:` line names none, why. The line is read
+    for one thing only: to number an inbox file that came without a number."""
+    values = [value.strip(" \t\r") for value in KLASS.findall(header)]
+    if len(values) > 1:
+        return None, "рядків «Клас:» два або більше — незрозуміло, котрий чинний"
+    if values and not re.fullmatch(r"[0-9]+", values[0]):
+        return None, f"«Клас: {values[0]}» — це не номер класу: потрібні лише цифри, як у tasks/{task_classes.CLASSES_FILE}"
+    return (int(values[0]), "") if values else (None, "")
 
 
 def first_rank(first: list[str]) -> Callable[[str], int]:
@@ -562,7 +578,53 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
         target.write_bytes(content)
         source.unlink()
         lines.append(f"{source.name} {verb}: tasks/{column}/{source.name}")
-    return lines
+    return lines + _take_unnumbered(board, inbox)
+
+
+def _take_unnumbered(board: Board, inbox: Path) -> list[str]:
+    """The inbox files that came WITHOUT a number and with a `Клас:` line (board 401): each gets the
+    next number of its class and goes to todo/ — after every numbered file, and never with a number
+    a numbered file still waiting in the inbox carries (that file would replace the task). A file
+    without the line is no task: it is left where it is, without a word."""
+    classes = task_classes.read_classes(board.tasks)
+    files = sorted(p for p in inbox.glob("*.md") if p.is_file())
+    return [line for source in files if not TASK_NAME.match(source.name) and (line := _take_one(board, source, files, classes))]
+
+
+def _take_one(board: Board, source: Path, files: list[Path], classes: tuple[int, ...]) -> str:
+    """The line of one unnumbered inbox file: skipped with its reason, imported with its number, "" when it is no task."""
+    content = source.read_bytes()
+    task = parse(content.decode("utf-8", "replace"))
+    if task.klass is None and not task.class_error:
+        return ""
+    refusal = task.mode_error or _class_refusal(task, classes)
+    if refusal:
+        _unread_mode(board, source.name, refusal, "" if task.mode_error else CLASS_REMEDY)
+        return f"{source.name} skipped: {refusal} — the board does not take it; the file stays in the inbox"
+    waiting = {number_of(p.name) or 0 for p in files if TASK_NAME.match(p.name) and p.exists()}
+    number = task_classes.next_number(board.taken() | waiting, task.klass or 0)
+    target = board.tasks / "todo" / f"{number:03d}-{source.name}"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(_titled(content, number))
+    source.unlink()
+    return f"{source.name} imported: tasks/todo/{target.name}"
+
+
+def _class_refusal(task: Task, classes: tuple[int, ...]) -> str:
+    """Why a task's `Клас:` line gives it no class of the table; "" when it does."""
+    if task.class_error or task.klass is None:
+        return task.class_error
+    try:
+        task_classes.class_for(task.klass, classes)
+    except ValueError as refusal:
+        return f"«Клас: {task.klass}» — {refusal}"
+    return ""
+
+
+def _titled(content: bytes, number: int) -> bytes:
+    """The task's text with its number in the template's first line, `# NNN — …`; nothing else changes."""
+    placeholder = "# NNN —".encode()
+    return f"# {number:03d} —".encode() + content[len(placeholder):] if content.startswith(placeholder) else content
 
 
 def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
@@ -575,11 +637,16 @@ def _ambiguous(board: Board, name: str, twins: list[Path]) -> None:
                 "якого він стосується, а однакові номери розведіть (`board.py check`)", "task board (import-inbox)")
 
 
-def _unread_mode(board: Board, name: str, wrong: str) -> None:
-    """The journal entry of an inbox file whose `Режим:` line names no mode (A MODE), once per file and line."""
+CLASS_REMEDY = (f"файл лишився в inbox. Напишіть у рядку `Клас:` номер класу з `tasks/{task_classes.CLASSES_FILE}` "
+                "(або дайте файлу номер у назві — тоді рядок не читається) і покладіть файл знову")
+
+
+def _unread_mode(board: Board, name: str, wrong: str, remedy: str = "") -> None:
+    """The journal entry of an inbox file that is not taken, once per file and reason: its `Режим:` line names
+    no mode (A MODE) or — with the `remedy` of that case — its `Клас:` line names no class (board 401)."""
     what = f"файл `{name}` з inbox не взято: {wrong}"
     if " ".join(what.split()) not in journal.text(board.tasks.parent, "anomalies"):
-        anomaly(board, "-", what, f"файл лишився в inbox. Виправте рядок на `Режим: {'|'.join(mode_reader.MODES)}` "
+        anomaly(board, "-", what, remedy or f"файл лишився в inbox. Виправте рядок на `Режим: {'|'.join(mode_reader.MODES)}` "
                 "(або приберіть його — тоді соло) і покладіть файл знову", "task board (import-inbox)")
 
 
@@ -602,6 +669,12 @@ def duplicate_lines(columns: dict[str, list[str]]) -> list[str]:
 
 def duplicates(board: Board) -> list[str]:
     return duplicate_lines({c: [p.name for p in (board.done() if c == "done" else board.files(c))] for c in COLUMNS})
+
+
+def errors(board: Board) -> list[str]:
+    """The board's error lines, for `check` and `summary`: one number on two files, and what is wrong with the table of classes."""
+    table = task_classes.table_errors(_text(board.tasks / task_classes.CLASSES_FILE))
+    return [*duplicates(board), *(f"ПОМИЛКА: tasks/{task_classes.CLASSES_FILE}: {sentence}" for sentence in table)]
 
 
 def unblock(board: Board) -> list[str]:
@@ -1231,7 +1304,7 @@ def first_open_question(task: Task) -> str:
 def summary(board: Board) -> list[str]:
     todo, doing, blocked, done = board.files("todo"), board.files("doing"), board.files("blocked"), board.done()
     known = {n for column in COLUMNS for n in board.numbers(column)}
-    lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}", *duplicates(board)]
+    lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}", *errors(board)]
     lines += [f"в роботі з власником: {p.name}" if read(p).attended else f"в роботі: {p.name}" for p in doing]
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
@@ -1445,7 +1518,7 @@ def main() -> int:
         waiting = board.tasks / "todo" / f"{args.name.removesuffix('.md')}.md"
         return 0 if waiting.is_file() and read(waiting).extra and extra_refusal(board.tasks) else 1
     if args.command == "check":
-        found = duplicates(board)
+        found = errors(board)
         print("\n".join(found), end="\n" if found else "")
         return 1 if found else 0
     print("\n".join(summary(board)))

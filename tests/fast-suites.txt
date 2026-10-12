@@ -124,3 +124,7 @@ test_registry_merge.py
 # two branches, a merge, the fast subset run).
 # Board 401: test_task_classes is in (the arithmetic of task numbers in-process, about thirty runs of board.py on synthetic boards).
 test_task_classes.py
+# Board 401, slice 2: test_task_class_table 3.2 s and test_task_class_table_disputed 0.4 s are in (the table of classes in-process,
+# about fifty runs of board.py import-inbox, check and summary on synthetic boards).
+test_task_class_table.py
+test_task_class_table_disputed.py

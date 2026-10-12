@@ -39,7 +39,8 @@ OWNER_TEXT = ("tasks/README.md", "tasks/TEMPLATE.md", "templates/project/tasks/R
               ".claude/unattended/board_review.py", ".claude/unattended/board-runner.sh", ".claude/unattended/owner_action.py",
               ".claude/hooks/gate.py", ".claude/hooks/lesson_queue.py", ".claude/hooks/maintain.py", ".claude/hooks/testing.py",
               ".claude/hooks/overseer_stop.py", ".claude/hooks/overseer_verdict.py", ".claude/hooks/goals.py", ".claude/hooks/hotfix.py",
-              ".claude/hooks/simplifier.py", ".claude/hooks/bugfix.py")
+              ".claude/hooks/simplifier.py", ".claude/hooks/bugfix.py",
+              "tasks/CLASSES.md", "templates/project/tasks/CLASSES.md", ".claude/unattended/task_classes.py")   # board 401: the table of classes and the sentences about it
 TERMS = ("overseer", "simplifier", "critic", "planner", "builder", "tester", "test manager", "business analyst", "slice", "slice contract",
          "gates", "hook", "runner", "task board", "inbox", "audit", "golden set", "invariant", "property-based testing",
          "mutation testing", "spike", "sandbox")

@@ -1,0 +1,21 @@
+[
+  {
+    "target": ".claude/unattended/board.py:648-653",
+    "category": "duplication",
+    "claim": "`_unread_class` repeats `_unread_mode` (board.py:640-645) line for line — the same `what` sentence, the same once-per-file check against the anomaly journal, the same `anomaly(...)` call with the same source label — and differs only in the remedy sentence; one journal helper taking the remedy text would drop about 4-5 of the 25 lines over budget and leave the skipped line and the once-only journal entry as they are. The rest of the overrun is what the Seam asks for (the five functions of task_classes.py, `_class_line`, the unnumbered pass, `errors`); `queue_key` has no production caller yet, but the contract's Q7 puts it in this slice on purpose, and the signal S-0c115b12 (`OWNER_ACTIONS`) is not part of this change.",
+    "evidence": [
+      {"source": "read", "ref": ".claude/unattended/board.py:640", "detail": "`_unread_mode`: what = f\"файл `{name}` з inbox не взято: {wrong}\"; the `\" \".join(what.split()) not in journal.text(board.tasks.parent, \"anomalies\")` check; anomaly(board, \"-\", what, <remedy for Режим:>, \"task board (import-inbox)\")"},
+      {"source": "read", "ref": ".claude/unattended/board.py:648", "detail": "`_unread_class`: the identical `what`, the identical journal check, the identical anomaly call; only the remedy sentence (the `Клас:` line and tasks/CLASSES.md) differs"},
+      {"source": "read", "ref": ".claude/unattended/board.py:602", "detail": "the single call site already chooses between the two by `task.mode_error`: `(_unread_mode if task.mode_error else _unread_class)(board, source.name, refusal)`; `_unread_mode` has one other caller at line 551"},
+      {"source": "grep", "ref": ".claude/unattended/board.py:648", "detail": "`_unread_class` appears only at its definition and at line 602, in no test and no other module"},
+      {"source": "read", "ref": ".engine/slices/numbers-class-table.md:98", "detail": "the contract asks for one anomaly-journal entry, once per file and reason, in 'the pattern of `_unread_mode`' — it does not ask for a second function"},
+      {"source": "judgement", "ref": "", "detail": "A change of the once-only rule or of the `what` wording would have to be made in both functions. The saving is small against the 25-line overrun: the excess is otherwise needed by the contract, so the budget figure of 110 looks set too low for the Seam rather than the change being padded."}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "characterization_exists",
+    "proposed_action": "flag_only",
+    "traceability": ".engine/slices/numbers-class-table.md, Seam, the `import_inbox` branch: 'one anomaly-journal entry naming the file and the reason is written, once per file and reason (the pattern of `_unread_mode`)'",
+    "reversal_risk": "low"
+  }
+]

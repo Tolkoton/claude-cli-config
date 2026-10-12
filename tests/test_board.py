@@ -676,16 +676,36 @@ with tempfile.TemporaryDirectory(prefix="board-install-") as tmp:
           (proj / "tasks/README.md").is_file() and (proj / "tasks/TEMPLATE.md").is_file()
           and (proj / "tasks/README.md").read_bytes() == (ROOT / "templates/project/tasks/README.md").read_bytes())
     check("…and the board's reader and runner, as engine files", (proj / ".claude/unattended/board.py").is_file())
+    seed_table = (ROOT / "templates/project/tasks/CLASSES.md").read_bytes()
+    check("…and the table of classes, byte for byte the seed (board 401)", (proj / "tasks/CLASSES.md").read_bytes() == seed_table)
+    check("…which reads as the ten classes in order", board.task_classes.parse_classes(seed_table.decode("utf-8")) == tuple(range(10)))
     r = subprocess.run([sys.executable, str(proj / ".claude/unattended/board.py"), "next"], capture_output=True, text=True, check=False)
     check("board.py finds the project's board without --root", r.returncode == 3, r.stdout + r.stderr)
     (proj / "tasks/README.md").write_text("the project's own words\n", encoding="utf-8")
     (proj / "tasks/TEMPLATE.md").unlink()
     (proj / "tasks/todo/001-mine.md").write_text(task(), encoding="utf-8")
+    reordered = seed_table.decode("utf-8").replace("| 7 |", "| 7 |  ", 1) + "\nthe owner's own order\n"
+    (proj / "tasks/CLASSES.md").write_text(reordered, encoding="utf-8")
     r = engine("update")
     check("update exits 0", r.returncode == 0, r.stdout + r.stderr)
     check("an update never overwrites the project's README", (proj / "tasks/README.md").read_text(encoding="utf-8") == "the project's own words\n")
     check("…never re-seeds a template the project deleted (seeded once)", not (proj / "tasks/TEMPLATE.md").exists())
     check("…and never touches a task", (proj / "tasks/todo/001-mine.md").read_text(encoding="utf-8") == task())
+    check("…nor the owner's table of classes", (proj / "tasks/CLASSES.md").read_text(encoding="utf-8") == reordered)
+    # A project installed BEFORE the engine had the table: no file, and the lock never heard of it.
+    lock_file = proj / ".claude/engine-lock.json"
+    lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    check("the lock records the table as seeded", "tasks/CLASSES.md" in lock["seeded"], lock["seeded"])
+    lock["seeded"] = [s for s in lock["seeded"] if s != "tasks/CLASSES.md"]
+    lock_file.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (proj / "tasks/CLASSES.md").unlink()
+    r = engine("update")
+    check("a project installed before the table gets it on its next update, byte for byte the seed",
+          r.returncode == 0 and (proj / "tasks/CLASSES.md").read_bytes() == seed_table, r.stdout + r.stderr)
+    check("…and its template, deleted by the project, still stays deleted", not (proj / "tasks/TEMPLATE.md").exists())
+    (proj / "tasks/CLASSES.md").unlink()
+    r = engine("update")
+    check("NEGATIVE: seeded once — a table the project then deletes is not brought back", r.returncode == 0 and not (proj / "tasks/CLASSES.md").exists(), r.stdout + r.stderr)
 
 # --- the rules: every bullet of the owner's items 3 and 4 is written down ---------------------------
 print("the rules for the agent")
