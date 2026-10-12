@@ -44,6 +44,10 @@ VERSIONS: dict[str, str] = {
     "coverage": "7.16.2",
 }
 
+# The oldest Python the engine's own code must run under — what its hooks mean by «Python 3.11+». The one place
+# it is written: the engine's lint hands it to ruff as --target-version and looks for that interpreter (board 751).
+MIN_PYTHON = "3.11"
+
 # Pinned like the rest, but no command of their own: they ride along with `uvx --with`.
 LIBRARIES = {"hypothesis"}
 VERSION_RE = re.compile(r"\d+(?:\.\d+)+")

@@ -9,6 +9,9 @@ ran the tools over .claude/. This runs them:
     ruff check --isolated .claude          (the engine's rule set, not a project's — .claude/ruff.toml
                                             excludes everything so a PROJECT'S ruff never judges the
                                             engine; --isolated is how the engine judges itself)
+        --target-version py<MIN_PYTHON>    (board 751: the oldest Python the engine supports, from
+                                            tool_versions.MIN_PYTHON — ruff then names every form only a
+                                            newer Python parses, on a machine without that interpreter too)
     mypy --strict <every .py under .claude>
 
 At the versions tool_versions.py pins (board 107; read through tests/tool_pins.py): a tool on PATH of exactly that
@@ -23,6 +26,7 @@ import importlib.util
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +34,17 @@ from tool_pins import tool_versions as VERSIONS
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE = ROOT / ".claude"
+MIN_PYTHON: str = VERSIONS.MIN_PYTHON
+RUFF_TARGET = "py" + MIN_PYTHON.replace(".", "")   # "3.11" -> "py311", ruff's name for it
+# Board 748's line, as it stood in testing.py:202: a backslash inside an f-string's expression, which only 3.12 parses.
+# Newer than MIN_PYTHON while that is 3.11: whoever raises MIN_PYTHON puts here a form the new minimum cannot parse.
+NEWER_SYNTAX = 'compact = "a--b"\ncarried = f"<!-- row: {compact.replace("--", "-\\\\u002d")} -->\\n"\n'
+
+
+def ruff_check(ruff: list[str], files: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    """ruff over `files` as the engine judges itself: its own rule set, for the oldest supported Python."""
+    return subprocess.run([*ruff, "check", "--isolated", "--target-version", RUFF_TARGET, "--output-format", "concise", *files],
+                          cwd=cwd, capture_output=True, text=True, check=False)
 
 
 def engine_python() -> list[str]:
@@ -64,11 +79,21 @@ def main() -> int:
         print(f"  FAIL ruff: {why} — the engine cannot be linted here")
         failed += 1
     else:
-        r = subprocess.run([*ruff, "check", "--isolated", "--output-format", "concise", *py_files], cwd=ROOT, capture_output=True, text=True, check=False)
+        r = ruff_check(ruff, py_files, ROOT)
         ok = r.returncode == 0
-        print(f"  {'ok  ' if ok else 'FAIL'} ruff {VERSIONS.VERSIONS['ruff']} check --isolated <engine Python>  {r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ''}")
+        print(f"  {'ok  ' if ok else 'FAIL'} ruff {VERSIONS.VERSIONS['ruff']} check --isolated --target-version {RUFF_TARGET} <engine Python>  {r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ''}")
         if not ok:
             print(r.stdout[:3000])
+            failed += 1
+        # The negative case of the line above: the same call must be red on a form newer than MIN_PYTHON, or the
+        # flag has stopped meaning anything (a ruff that no longer reports it, a target version it does not know).
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "newer.py").write_text(NEWER_SYNTAX, encoding="utf-8")
+            r = ruff_check(ruff, ["newer.py"], Path(tmp))
+        ok = r.returncode == 1 and "invalid-syntax" in r.stdout and f"Python {MIN_PYTHON}" in r.stdout
+        print(f"  {'ok  ' if ok else 'FAIL'} ...and the same call is red on a form only a newer Python parses (a backslash inside an f-string's expression)")
+        if not ok:
+            print(f"  exit {r.returncode}: {(r.stdout + r.stderr).strip()[:600]}")
             failed += 1
 
     mypy, why = VERSIONS.command("mypy")
@@ -84,20 +109,20 @@ def main() -> int:
             print(r.stdout[:3000])
             failed += 1
 
-    # Board 748: the hooks say «Python 3.11+», and a form that only 3.12 parses (a backslash inside an f-string's
+    # Board 748: the hooks say «Python 3.11+» (tool_versions.MIN_PYTHON), and a form that only 3.12 parses (a backslash inside an f-string's
     # expression) once kept testing.py from starting under 3.11 unseen — the suites run under the newest python3.
     # Every Python file of the repository is compiled by the oldest supported interpreter when it is on PATH (nothing
     # is written: compile() in memory).
-    oldest = shutil.which("python3.11")
+    oldest = shutil.which(f"python{MIN_PYTHON}")
     every = sorted({*py_files, "engine.py", *(str(p.relative_to(ROOT)) for d in ("evals", "tests") for p in (ROOT / d).glob("*.py"))})
     if oldest is None:
-        print("  note python3.11 is not on PATH: the oldest supported Python is not checked here")
+        print(f"  note python{MIN_PYTHON} is not on PATH: the oldest supported Python does not compile the files here (ruff judged the engine's for it above)")
     else:
         probe = ("import sys\nbad = []\nfor f in sys.argv[1:]:\n    try:\n        compile(open(f, encoding='utf-8').read(), f, 'exec')\n"
                  "    except SyntaxError as exc:\n        bad.append(f'{f}:{exc.lineno}: {exc.msg}')\nprint('\\n'.join(bad))\nsys.exit(1 if bad else 0)")
         r = subprocess.run([oldest, "-c", probe, *every], cwd=ROOT, capture_output=True, text=True, check=False)
         ok = r.returncode == 0
-        print(f"  {'ok  ' if ok else 'FAIL'} python3.11 compiles every Python file of the repository ({len(every)})  {r.stdout.strip()[:300]}")
+        print(f"  {'ok  ' if ok else 'FAIL'} python{MIN_PYTHON} compiles every Python file of the repository ({len(every)})  {r.stdout.strip()[:300]}")
         failed += 0 if ok else 1
 
     print(f"\n{'FAIL' if failed else 'PASS'}: engine lint {'has findings' if failed else 'clean'}")
