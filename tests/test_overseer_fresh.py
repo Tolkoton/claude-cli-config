@@ -400,6 +400,23 @@ p.launch(f"OVERSEER_REQUEST {rid}")
 p.answer({"verdict": "BLOCK", "check": 4, "reason": "masked gap — gate-allow at src/pricing.py:1 names no cause",
           "evidence": ["src/pricing.py:1"], "category": "none"})
 check("negative — a BLOCK on #4 for a silenced check (a gate-allow) is still a BLOCK", [r["verdict"] for r in p.rows()] == ["BLOCK"], str(p.rows()))
+# board 757: a gap named beside a BLOCK for another defect — the item says BLOCK, not «прийняв … (PASS…)».
+for answer, verdict, words, name in (
+        (BLOCK, "BLOCK", "повернув юніт … і назвав ще й брак тесту", "a gap beside a BLOCK: the item says the unit was turned back with a BLOCK, never «прийняв» or PASS"),
+        (GOOD, "PASS", "прийняв юніт … і знайшов брак тесту", "negative — a gap with a PASS: the item reads as it did, «прийняв юніт … (PASS, запит …) і знайшов брак тесту»")):
+    p = Project()
+    for column in ("todo", "doing", "blocked", "done"):
+        (p.root / "tasks" / column).mkdir(parents=True, exist_ok=True)
+    _, rid = p.claim()
+    p.launch(f"OVERSEER_REQUEST {rid}")
+    p.answer(answer | {"test_gaps": [GAP]})
+    items = sorted((p.root / "tasks/todo").glob("*.md"))
+    text = items[0].read_text(encoding="utf-8") if items else ""
+    told, found = words.split(" … ")
+    other = "PASS" if verdict == "BLOCK" else "BLOCK"
+    check(name, [r["verdict"] for r in p.rows()] == [verdict] and len(items) == 1
+          and f"Overseer {told} `" in text and f"` ({verdict}, запит `{rid}`) {found}: {GAP['misses']}" in text
+          and other not in text and ("прийняв" in text) == (verdict == "PASS"), text)
 p = Project()
 _, rid = p.claim()
 p.launch(f"OVERSEER_REQUEST {rid}")

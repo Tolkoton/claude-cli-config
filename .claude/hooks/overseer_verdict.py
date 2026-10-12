@@ -650,6 +650,8 @@ def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonOb
         tasks = board.Board(root / "tasks") if (root / "tasks").is_dir() else None
     except (ImportError, OSError, ValueError, TypeError, AttributeError):
         tasks = None
+    # The verdict as it is recorded: a gap named beside a BLOCK for another defect read «прийняв … (PASS…)» (board 757).
+    told, found = ("прийняв", "знайшов") if row.get("verdict") == "PASS" else ("повернув", "назвав ще й")
     for gap in gaps:
         # The whole check: the key is taken of it and the item carries it — cut to 200 characters, two checks
         # that differ only after them were one key and read the same (board 108). Only the title is short.
@@ -660,8 +662,8 @@ def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonOb
             try:
                 made = board.open_item(
                     tasks, "todo", f"Брак тесту (overseer): {one_line(check, 200)}",
-                    f"Overseer прийняв юніт `{row.get('unit_key') or row.get('slice')}` (PASS, запит `{row['request']}`) "
-                    f"і знайшов брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
+                    f"Overseer {told} юніт `{row.get('unit_key') or row.get('slice')}` ({row['verdict']}, запит `{row['request']}`) "
+                    f"і {found} брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
                     + " Вердикт — у ledger: `python3 .claude/hooks/journal.py show ledger`.",
                     do=(f"Дописати перевірку «{check}»: тест червоніє на тому, що описано вище ({misses}), і зелений "
                         "на коді, як він є (покажи обидва прогони); код не міняти, якщо тест не знайде справжньої вади; "
