@@ -130,3 +130,6 @@ test_task_class_table.py
 test_task_class_table_disputed.py
 # Board 719: test_symlink_loop_outside_hooks 0.9 s is in (doc_audit.py and three eval scripts on a symlink loop; a synthetic sandbox, no session).
 test_symlink_loop_outside_hooks.py
+# Board 724: test_protected_guard 3.3 s is in (the guard stands between an agent and the settings; about forty runs of gate.py,
+# env-check.sh and commit_checkpoint.sh on synthetic projects). The runner's scenes are in test_board_runner, which stays out.
+test_protected_guard.py

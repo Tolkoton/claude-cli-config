@@ -93,6 +93,77 @@ constitution and `cat` of an env file reached the shell). What is refused, and w
 - Without `python3` the hook cannot tell a read from a write: a command that names a protected
   path is then refused whole. Without the list file both hooks refuse every call.
 
+### The guarded files, looked at again after the write (board 724)
+
+The check above reads the text of a command, so a write through a variable or a script reaches
+the file. The guarded half of the list — the constitution, the settings (`settings.local.json`
+too, though git ignores it), `.engine/rules.md`, migrations, CI workflows — is therefore looked
+at again where a write can no longer hide (`protected_guard.py`). Three places, each for what
+the others miss:
+
+- **The Stop gate** compares the files with a snapshot (the sha256 and the content of every guarded file, one file a session in
+  `.claude/state/gate/protected/`) taken when the session started, resumed or was cleared, and
+  after every turn the gate passed — not with HEAD, which misses a change committed in the same
+  turn and calls the owner's uncommitted edit a change of the turn. A file that differs is put
+  back by the gate itself, at once (changed, deleted, created alike); the discarded change is
+  kept as a patch in `discarded/`, the anomaly journal gets an entry, and the turn is blocked
+  once so that the agent reads it. The agent has nothing to run. The check stands before the
+  "no code changed" way out and before `stop_hook_active`.
+- **`commit_checkpoint.sh`** unstages every guarded file after `git add -u` and names it; with
+  `--staged` it refuses. Neither the agent's write nor the owner's uncommitted edit rides into
+  an agent's commit. The runner's own commits (the settings proposal, a rule) do not go through
+  this script.
+- **The board runner** records the files before every session and compares after it: a file
+  that differs is put back, and the task goes to `blocked/` with a question (reason
+  `protected`; a task that already left `doing/` gets the question as an item of its own). A
+  change the session also committed is reverted by a commit of the runner's own.
+
+What this rests on, and what it does not hold:
+
+- **A settings file changed in the middle of a session takes effect in that session.** Measured
+  on 2026-10-12 (four throwaway sessions): a `PreToolUse` hook added to the settings file while
+  a command was running refused the next command of the same session. So an agent that wrote
+  the settings can switch off the Stop hook that would have put them back; the check at the end
+  of the turn is late by design, and only the runner's comparison, made outside the session,
+  holds then. An attended session has no runner: there only the commit script is left.
+- **A resumed session takes a new snapshot** (SessionStart says `resume`; measured the same
+  day, the session id stays). A turn cut short with a guarded file changed is therefore
+  accepted by the resume — unattended the runner has already put the file back; attended
+  nothing has.
+- **The owner's own edit made while a turn runs is not told from the agent's.** It is discarded
+  like any other and never lost: `python3 .claude/hooks/protected_guard.py accept <event>` in
+  the owner's terminal puts it back and takes the files as they are as the snapshot of every
+  session (`accept` alone: only the latter; refused under `CLAUDECODE`). The same goes for a
+  pull or a branch switch that moves a guarded file in the middle of a turn, and for a
+  migration file a command the owner approved in that turn has just generated.
+- **Without a snapshot** (the session began before the guard, SessionStart did not run, the
+  gate is run by hand) the comparison is with HEAD, the turn is blocked, and nothing is put
+  back: the gate cannot tell whose change it is.
+- **The gate's snapshot is machine state** and a shell command can rewrite it (the limit of
+  `.claude/state/` everywhere); a forged snapshot deceives the gate, not the runner. The runner's
+  check rests on nothing under `.claude/state/`: `before` writes no file, it prints the snapshot
+  — hashes and content — and `board-runner.sh` holds it in its own process and hands it back to
+  `after` on stdin; the file is put back from that alone, and only when the content has the
+  hash the snapshot names. Only the record of what was discarded is written to the state
+  directory, after the files are back; when that directory cannot be written the record goes to
+  a temporary directory, named in the journal.
+- **The runner's check fails closed.** No snapshot before a session — no session. After it, only
+  "nothing differs" and "put back" let the board go on: a file that could not be put back, a
+  check that broke for any reason, a restoration the runner could not commit — each stops the
+  whole board (`state=error`, `reason=protected`) rather than start the next session.
+- **What the runner's check still rests on: its own programs.** A session may edit
+  `.claude/hooks/` and `.claude/unattended/` (the owner's grant of 2026-08-27), and
+  `protected_guard.py` and `board-runner.sh` are there. A session that rewrote the guard to
+  answer "nothing differs" is not caught by the guard; it is caught by what catches any change
+  of code — the commit's diff, the overseer, the review of the branch. A patterns list
+  shortened by the session does not help it: a file the runner recorded before the session is
+  compared whatever the list says afterwards.
+- **Not seen**: a change made and undone inside one turn; a guarded file git ignores, other than
+  the four looked at by name; secrets (not in git, and reading leaves no trace); anything
+  outside the repository (the operator's directory). Two sessions in one working tree each
+  hold their own snapshot: what the runner applies while an attended session is open is
+  discarded by that session's gate until the owner runs `accept`.
+
 ### A dangerous push
 
 An ordinary push is decided by `park-ask-gated.py`, by environment ("The commit policy, by

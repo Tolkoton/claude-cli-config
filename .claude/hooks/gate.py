@@ -75,6 +75,12 @@ test touched that code. A move within the same change is not a deletion. Through
 simplifier finding the owner confirmed; `gate-allow: delete — <reason>` in a sealed contract.
 See delete_guard.py.
 
+THE GUARDED FILES (stop; board 724). Before anything is skipped — a turn that changed no code, a
+stop another hook forced — the constitution, the settings, `.engine/rules.md`, migrations and CI
+workflows are compared with the snapshot taken when the turn began. A file that differs is put
+back by the gate itself, the discarded change kept as a patch, the anomaly journal written, and
+the turn blocked once so that the agent reads it. See protected_guard.py.
+
 Standard library only; Python 3.11+. The linters are external commands.
 """
 
@@ -667,6 +673,21 @@ def delete_guard(root: Path, layer: str, diff_ref: str | None, env: dict[str, st
         if finding.severity == "block":
             where = f"{finding.file}:{finding.line}" if finding.line else str(finding.file)
             report.reasons.append(f"DELETE GUARD {where} [{finding.rule}] {finding.message}. {finding.hint}")
+
+
+def protected_guard_module() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import protected_guard
+
+    return protected_guard
+
+
+def add_guarded(report: Report, found: list[dict[str, Any]]) -> None:
+    """What protected_guard.py found (and already put back) goes into the report the turn is judged by."""
+    for item in found:
+        finding = Finding(**item)
+        report.add(finding)
+        report.reasons.append(f"GUARDED FILE {finding.file} [{finding.rule}] {finding.message}. {finding.hint}")
 
 
 def deleted_code(root: Path, layer: str, diff_ref: str | None, env: dict[str, str]) -> list[str]:
@@ -1460,18 +1481,23 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--layer is required")
     files: list[str] | None = args.files
     session = "cli"
+    guarded: list[dict[str, Any]] = []
     try:
         if args.layer == "stop":
             ask_waiting(root)
         if args.hook:
             envelope = read_envelope()
             session = str(envelope.get("session_id") or "cli")
+            if args.layer == "stop":
+                # Before every way out below (board 724): a turn that changed only the constitution
+                # changed no code, and a few hashes cost nothing on a stop another hook forced.
+                guarded = protected_guard_module().at_stop(root, session if session != "cli" else None)
             # Read first. Claude Code sets the flag on the stop that follows a block, so a gate
             # that always exits on it can never count to N. The flag therefore ends the gate's
             # work only when the gate has not itself blocked this session (counter 0): a stop
             # forced by someone else's hook is not verified again, a re-entry after OUR block is.
             if (args.layer == "stop" and envelope.get("stop_hook_active") is True
-                    and read_count(root, session) == 0):
+                    and read_count(root, session) == 0 and not guarded):
                 return 0
             if args.layer == "post_write":
                 tool_input = envelope.get("tool_input")
@@ -1488,9 +1514,15 @@ def main(argv: list[str] | None = None) -> int:
             elif context:
                 print(context)
             return 0
+        if args.layer == "stop" and not args.hook:
+            guarded = protected_guard_module().at_stop(root, None)   # by hand: compared with HEAD, nothing put back
         report, _ = run_layer(args.layer, root, files, args.diff_ref)
         if args.layer == "stop":
-            return emit_stop(report, root, args.hook, session)
+            add_guarded(report, guarded)
+            code = emit_stop(report, root, args.hook, session)
+            if args.hook and session != "cli" and not report.blocked:
+                protected_guard_module().take(root, session)   # the end of a turn that passed is the start of the next
+            return code
         result = "block" if report.blocked else "pass"
         write_report(report, result)
         if any(f.severity != "log" for f in report.findings):

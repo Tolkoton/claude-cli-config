@@ -42,6 +42,12 @@ FAKE_STOP_KIND=attempt asks for `--stop-after-attempt` instead (board 035).
     audit           have the tree as it is audited (a PASS), commit the ledger, leave the task as it is
     seal            seal the slice contract with contract_fingerprint.py, nothing else
     done-broken     `done`, then task.md is overwritten with bytes that are not UTF-8 and committed
+    guard:<step>    write to .claude/settings.json and leave it uncommitted, then do <step> (board 724)
+    guardc:<step>   write to .claude/settings.json and commit it, then do <step>
+    forge:<step>    write to .claude/settings.json AND write snapshots under .claude/state/ that agree with it, then do <step>
+    jam:<step>      write to .claude/settings.json AND put a file where the guard's state directory was, then do <step>
+    wreck:<step>    put a directory where .claude/settings.json was (it cannot be put back), then do <step>
+    reopen          move the closed task back from done/ to doing/ and commit that
     reader-refused  write and commit a sketch's record, then have it read three times through the REAL
                     reader.py (request, guard, a BLOCK answer recorded), leave the task in doing/ (board 099)
 
@@ -113,6 +119,36 @@ doing = named or doing
 result = "worked"
 leave = step.endswith("-dirty")
 step = step.removesuffix("-dirty")
+if step.startswith(("guard:", "guardc:")):   # board 724: a session that changes a guarded file
+    how, step = step.split(":", 1)
+    Path(".claude/settings.json").write_text('{"disableAllHooks": true}\n')
+    if how == "guardc":
+        git("add", ".claude/settings.json"); git("commit", "-q", "-m", "the agent's own commit of the settings")
+if step.startswith(("forge:", "jam:", "wreck:")):   # board 724, the two audits: the session also goes for the guard itself
+    import base64, hashlib, shutil
+    how, step = step.split(":", 1)
+    state = Path(".claude/state/gate/protected")
+    target = Path(".claude/settings.json")
+    text = '{"disableAllHooks": true}\n'
+    if how == "wreck":   # a directory where the file was: it cannot be put back
+        target.unlink(); target.mkdir(); (target / "x").write_text(text)
+    else:
+        target.write_text(text)
+    if how == "forge":   # a snapshot in the state directory that agrees with the change, under every name a reader might use
+        state.mkdir(parents=True, exist_ok=True)
+        said = {"schema": 2, "head": "", "files": {str(target): hashlib.sha256(text.encode()).hexdigest()},
+                "content": {str(target): base64.b64encode(text.encode()).decode()}, "modes": {}}
+        for name in ("runner", session):
+            (state / f"{name}.json").write_text(json.dumps(said))
+    if how == "jam":   # a file where the state directory was: nothing can be written under it
+        shutil.rmtree(state, ignore_errors=True)
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text("jammed\n")
+if step == "reopen":   # the task, closed already, is moved back to doing/ and that is committed
+    closed = sorted(Path("tasks/done").glob("[0-9]*/task.md"))[0]
+    closed.rename(Path("tasks/doing") / f"{closed.parent.name}.md")
+    shutil_rm = [p.unlink() for p in closed.parent.iterdir()]; closed.parent.rmdir()
+    git("add", "-A", "tasks"); git("commit", "-q", "-m", "reopened", "--", "tasks")
 
 
 def overseer_pass():
@@ -1929,6 +1965,139 @@ for manual in ("tasks/README.md", "templates/project/tasks/README.md"):
     check(f"{manual} (board 035): the stop after an attempt, the wip branch in origin, who writes the journal, the question that removes itself",
           "board-runner.sh --stop-after-attempt" in words and "wip/<задача>/<час UTC>" in words and "--source агент" in words
           and "закрито іншим шляхом" in words and "git stash (команда" not in words)
+
+# --- board 724: the guarded files around every session -------------------------------------------------------------------
+SETTINGS_BEFORE = '{"hooks": {}}\n'
+
+
+def guarded_world(plan: str) -> World:
+    w = World(plan)
+    (w.repo / ".claude/settings.json").write_text(SETTINGS_BEFORE)
+    sh(w.repo, "git", "add", "-A")
+    sh(w.repo, "git", "commit", "-q", "-m", "owner: the settings")
+    w.put("todo", "001-touches.md")
+    w.put("todo", "002-next.md")
+    return w
+
+
+def settings_of(w: World, where: str = "") -> str:
+    return sh(w.repo, "git", "show", f"{where}:.claude/settings.json", ok=False).stdout if where else (w.repo / ".claude/settings.json").read_text()
+
+
+def discarded(w: World) -> str:
+    return "".join(path.read_text() for path in (w.repo / ".claude/state/gate/protected/discarded").glob("*.patch"))
+
+
+print("board 724: a session that changed the settings and was cut short — put back, the task parked with a question, the board goes on")
+w = guarded_world("guard:idle done")
+r = w.run()
+text = (w.repo / "tasks/blocked/001-touches.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-touches.md") else ""
+check("the settings are as before the session, in the working tree and in HEAD", settings_of(w) == SETTINGS_BEFORE
+      and settings_of(w, "HEAD") == SETTINGS_BEFORE and sh(w.repo, "git", "status", "--porcelain").stdout == "", settings_of(w) + r.stdout + r.stderr)
+check("the discarded change is kept as a patch on the runner's machine", '+{"disableAllHooks": true}' in discarded(w), discarded(w))
+why, _, asked = text.partition("## Питання до власника")
+check("the task is in blocked/ after ONE attempt, with the reason and a question", len(w.calls()) == 2 and "## Чому зупинилась" in why
+      and "змінила охоронювані файли (.claude/settings.json)" in why and "1. Сесія агента змінила охоронюваний файл" in asked
+      and asked.rstrip().endswith("Відповідь:"), text + r.stdout + r.stderr)
+journal = journal_text(w.repo, "anomalies")
+check("the anomaly journal names the file, the patch and who put it back", "`.claude/settings.json`" in journal and "runner (protected_guard.py)" in journal
+      and ".claude/state/gate/protected/discarded/" in journal, journal)
+check("the next task ran with the settings whole and is done; the runner exits 0", r.returncode == 0 and w.has("tasks/done/002-next/report.md")
+      and " protected-restored 001-touches .claude/settings.json" in events(w) and " task-parked 001-touches protected" in events(w), events(w))
+
+print("board 724: the session committed its change of the settings — the runner commits the restoration itself")
+w = guarded_world("guardc:idle done")
+r = w.run()
+subjects = w.log()
+check("HEAD has the settings as before the session, by a commit of the runner's own", settings_of(w, "HEAD") == SETTINGS_BEFORE
+      and settings_of(w) == SETTINGS_BEFORE and any(line.startswith("protected: .claude/settings.json put back as before the session of 001-touches") for line in subjects)
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", "\n".join(subjects) + r.stdout + r.stderr)
+check("…the task is parked, the journal says a commit carried the change, and the board goes on", w.has("tasks/blocked/001-touches.md")
+      and "commit сесії агента змінив охоронювані файли: .claude/settings.json" in journal_text(w.repo, "anomalies")
+      and w.has("tasks/done/002-next/report.md") and w.origin_head() == w.head(), journal_text(w.repo, "anomalies") + events(w))
+
+print("board 724: the session changed the settings and closed its task — the question is an item of its own")
+w = guarded_world("guard:done done")
+r = w.run()
+items = sorted(path.name for path in (w.repo / "tasks/blocked").glob("*-open-item-protected-001-touches.md"))
+check("the settings are put back and the task stays closed", settings_of(w) == SETTINGS_BEFORE and w.has("tasks/done/001-touches/report.md")
+      and w.has("tasks/done/002-next/report.md"), r.stdout + r.stderr)
+check("one question to the owner in blocked/, with the options and an empty answer line", len(items) == 1
+      and "Що робити зі зміною охоронюваних файлів (.claude/settings.json)" in (w.repo / "tasks/blocked" / items[0]).read_text(encoding="utf-8")
+      and (w.repo / "tasks/blocked" / items[0]).read_text(encoding="utf-8").rstrip().endswith("Відповідь:")
+      and sh(w.repo, "git", "status", "--porcelain").stdout == "", str(items) + r.stdout + r.stderr)
+
+print("board 724, the audits: a session that also goes for the guard's state under .claude/state/ deceives the gate, not the runner")
+for how, said in (("forge", "forged snapshots that agree with the change"), ("jam", "a file where the state directory was")):
+    w = guarded_world(f"{how}:idle done")
+    r = w.run()
+    text = (w.repo / "tasks/blocked/001-touches.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-touches.md") else ""
+    check(f"{said}: the settings are put back all the same — the runner held what it saw before the session", settings_of(w) == SETTINGS_BEFORE
+          and settings_of(w, "HEAD") == SETTINGS_BEFORE, settings_of(w) + r.stdout + r.stderr + events(w))
+    check("…the task is parked with the reason after one session, the journal has the entry, and the next task ran",
+          "змінила охоронювані файли (.claude/settings.json)" in text and len(w.calls()) == 2
+          and " protected-restored 001-touches .claude/settings.json" in events(w) and "runner (protected_guard.py)" in journal_text(w.repo, "anomalies")
+          and w.has("tasks/done/002-next/report.md"), text + events(w))
+
+print("board 724: the check fails closed — whatever it cannot do stops the whole board, and no further session is started")
+w = guarded_world("wreck:idle done")
+r = w.run()
+check("a guarded file that cannot be put back: state=error, reason protected, one session only", "state=error" in w.status()
+      and "reason=protected" in w.status() and len(w.calls()) == 1 and w.has("tasks/todo/002-next.md"), w.status() + r.stdout + r.stderr)
+check("…and the journal names the file and says the board is stopped", ".claude/settings.json" in journal_text(w.repo, "anomalies")
+      and "не вдалося перевірити або повернути" in journal_text(w.repo, "anomalies") and "task board зупинено (причина `protected`)" in journal_text(w.repo, "anomalies"),
+      journal_text(w.repo, "anomalies"))
+
+
+def broken_guard(w: World, command: str) -> str:
+    """A PATH whose python3 fails for `protected_guard.py <command>` and is the real one for everything else."""
+    shims = w.dir / f"shims-{command}"
+    shims.mkdir()
+    (shims / "python3").write_text(f'#!/usr/bin/env bash\nif [ "${{1##*/}}" = protected_guard.py ] && [ "${{4:-}}" = {command} ]; then echo "the guard is broken" >&2; exit 1; fi\n'
+                                   f'exec "{sys.executable}" "$@"\n')
+    (shims / "python3").chmod(0o755)
+    return f"{shims}{os.pathsep}{os.environ['PATH']}"
+
+
+w = guarded_world("guard:idle done")
+r = w.run(PATH=broken_guard(w, "before"))
+check("`before` failed: NO session is started, the board stops with reason protected", "state=error" in w.status() and "reason=protected" in w.status()
+      and len(w.calls()) == 0 and "сесію не запущено" in journal_text(w.repo, "anomalies"), w.status() + r.stdout + r.stderr)
+w = guarded_world("guard:idle done")
+r = w.run(PATH=broken_guard(w, "after"))
+check("`after` broke (exit 1, not 0, 3 or 4): the board stops after that one session, the next task is not started", "state=error" in w.status()
+      and "reason=protected" in w.status() and len(w.calls()) == 1 and w.has("tasks/todo/002-next.md")
+      and "код 1" in journal_text(w.repo, "anomalies"), w.status() + r.stdout + r.stderr + journal_text(w.repo, "anomalies"))
+w = guarded_world("done done")
+r = w.run(PATH=broken_guard(w, "pending"))
+check("`pending` broke: the same stop", "state=error" in w.status() and "reason=protected" in w.status() and len(w.calls()) == 1, w.status() + r.stdout + r.stderr)
+
+print("board 724: the cleaning turn and the minimum turn are sessions too — a change is put back and the owner is asked, wherever the task is")
+w = guarded_world("done-dirty guard:reopen done done")
+r = w.run()
+items = sorted(path.name for path in (w.repo / "tasks/blocked").glob("*-open-item-protected-001-touches.md"))
+check("the cleaning turn changed the settings and moved the task back to doing/: put back, and the question is on the board",
+      settings_of(w) == SETTINGS_BEFORE and len(items) == 1 and "tasks/doing/001-touches.md" not in w.argv(1)[1] and "left the working tree dirty" in w.argv(1)[1],
+      str(items) + events(w) + r.stdout + r.stderr)
+w = audited_world("code-done guard:reopen done")
+w.put("todo", "001-solo.md")
+r = w.run()
+items = sorted(path.name for path in (w.repo / "tasks/blocked").glob("*-open-item-protected-001-solo.md"))
+check("the minimum turn did the same: put back, and the question is on the board", (w.repo / ".claude/settings.json").read_text() == WIRED
+      and len(items) == 1 and "the minimum of its mode is not there" in w.argv(1)[1], str(items) + events(w) + r.stdout + r.stderr)
+w = guarded_world("done-dirty guardc:tidy done")
+r = w.run()
+items = sorted(path.name for path in (w.repo / "tasks/blocked").glob("*-open-item-protected-001-touches.md"))
+check("a cleaning turn that committed its change: reverted by a commit of the runner's, the question asked, both tasks done",
+      settings_of(w, "HEAD") == SETTINGS_BEFORE and settings_of(w) == SETTINGS_BEFORE and len(w.calls()) == 3 and len(items) == 1
+      and w.has("tasks/done/001-touches/report.md") and w.has("tasks/done/002-next/report.md"), str(items) + events(w) + r.stdout + r.stderr)
+
+print("board 724: a session that touched no guarded file is not disturbed")
+w = guarded_world("done done")
+r = w.run()
+check("both tasks are done, nothing parked, no patch, no question", r.returncode == 0 and w.has("tasks/done/001-touches/report.md")
+      and w.has("tasks/done/002-next/report.md") and discarded(w) == "" and "protected-restored" not in events(w)
+      and not list((w.repo / "tasks/blocked").glob("[0-9]*.md")), events(w) + r.stdout + r.stderr)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

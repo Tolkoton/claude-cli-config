@@ -96,6 +96,35 @@ if [ "$STAGED_ONLY" -eq 0 ]; then
   [ -d .engine/journal ] && git add -- .engine/journal
 fi
 
+# A guarded file never goes into an agent's commit (board 724): the constitution, the settings,
+# .engine/rules.md, migrations, CI workflows — the GUARDED_PATTERNS of the list the deny hooks
+# read. `git add -u` above takes every tracked change, the agent's own write to such a file and
+# the owner's uncommitted edit of it alike; after the commit a comparison with HEAD sees nothing.
+# The owner commits these files, and the board runner after the owner's «так» — neither through
+# this script. Without the list nothing is committed: a commit that cannot be checked is refused.
+GUARDED_LIST="$HERE/../hooks/protected-path-list.sh"
+if [ ! -f "$GUARDED_LIST" ]; then
+  echo "[checkpoint] REFUSING to commit: the list of guarded paths ($GUARDED_LIST) is missing." >&2
+  exit 1
+fi
+. "$GUARDED_LIST"
+GUARDED_STAGED=()
+while IFS= read -r -d '' path; do
+  for pattern in "${GUARDED_PATTERNS[@]}"; do
+    if [[ "$path" =~ $pattern ]]; then GUARDED_STAGED+=("$path"); break; fi
+  done
+done < <(git diff --cached --name-only -z)
+if [ "${#GUARDED_STAGED[@]}" -gt 0 ]; then
+  if [ "$STAGED_ONLY" -eq 1 ]; then
+    echo "[checkpoint] REFUSING to commit: a guarded file is staged, and only the owner or the board runner commits one:" >&2
+    printf '[checkpoint]   %s\n' "${GUARDED_STAGED[@]}" >&2
+    echo "[checkpoint] Unstage it (git restore --staged <file>) and commit again. Nothing was committed." >&2
+    exit 1
+  fi
+  git reset -q -- "${GUARDED_STAGED[@]}" || { echo "[checkpoint] cannot unstage the guarded files" >&2; exit 1; }
+  printf '[checkpoint] guarded file left out of the commit (only the owner or the board runner commits it): %s\n' "${GUARDED_STAGED[@]}"
+fi
+
 if git diff --cached --quiet; then
   echo "[checkpoint] nothing staged for $NODE — nothing to commit"
   exit 0
