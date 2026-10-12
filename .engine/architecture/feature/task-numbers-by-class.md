@@ -41,9 +41,8 @@ gets the next one of its class together with every reference to it — and nobod
 - **A2** The first task of class 3 is 301, the tenth 310. A task without a `Клас:` line is in class
   1, after the largest number there. A `Клас:` line naming a class `CLASSES.md` does not have is
   refused with the file's name — never a silent class 1. ("Without a line → class 1" is shown where
-  a number is given without one: the hotfix follow-up (S1), and S2's function that turns a task's
-  text into its class — `None` line → class 1 — tested directly. The inbox takes no unnumbered
-  file without the line — K4.)
+  a number is given without one: the hotfix follow-up (S1) — the one such place. The inbox takes
+  no unnumbered file without the line — K4.)
 - **A3** Two clones of one synthetic repository each create a class-3 task; after the merge there
   are two files 301. `board.py renumber` leaves 301 to the older, the other becomes 302;
   `Залежить від: 301` in the second branch's task becomes 302; `board.py check` is empty; an inbox
@@ -196,7 +195,8 @@ gets the next one of its class together with every reference to it — and nobod
   `Board.queue` (so `board.py next` and `summary`) and `board_review.plan_section` — which sorts
   `todo/` itself and reads the board from a commit of the work branch, not from the disk — both use
   the one key `queue_key`: `tasks/.first` first, then the rows of `CLASSES.md`, lowest number inside
-  a class; dependencies as now (A5, A6). The review feeds the key `src.show("tasks/CLASSES.md")`.
+  a class; dependencies as now (A5, A6). The review feeds the key `src.show("tasks/CLASSES.md")`,
+  and shows the table's `ПОМИЛКА` lines (`table_errors`) beside the duplicate-number ones.
   `tests/test_board_review.py` asserts the plan's order equals `board.py next` after a row is
   moved.
 - **S4 `numbers-renumber`** — delivers: `board.py renumber` after a merge left one number on two files (A3, A4) · contract out: — · depends on: S1, S2
@@ -265,8 +265,8 @@ S2 gives S4: `import_inbox` as S2 leaves it (S4 adds the old-name lookup in fron
 The tracer S1 runs end to end: the real `board.py open-item` on a synthetic board whose largest
 class-7 number is 799 writes `1701-open-item-…md` and never an 8xx file
 (`tests/test_task_classes.py`, the slice's contract-test file).
-The feature is done when A1–A8 hold, shown by: `tests/test_task_classes.py` (A1), `tests/test_board.py`
-(A2, A5, A6, A7),
+The feature is done when A1–A8 hold, shown by: `tests/test_task_classes.py` (A1),
+`tests/test_task_class_table.py` (A2), `tests/test_board.py` (A5, A6, A7),
 a new `tests/test_renumber.py` with two real clones and a merge (A3, A4), `tests/test_board_runner.py`
 (the runner's step and its own commit), and `bash tests/run_all.sh` green.
 

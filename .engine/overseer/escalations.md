@@ -759,3 +759,12 @@ one; do not reopen the old one in conversation.
 - Evidence: `.engine/slices/numbers-class-overflow.md` «Exit criterion»; the cold reader's note N4.
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-12T01:19:38Z — AUTONOMOUS — board-401-s2-hardest-seams-four-critic-rounds
+- Decision: Phase 3 (hardest seams, invariants) of the slice contract `numbers-class-table` reached the loop's fourth round — the circuit breaker. As in slice 1 it was not an oscillation: four fresh critics each found a different gap and each was closed as asked (an unnumbered inbox file deleted by a hand-numbered one of the same call → numbered first; the same loss through a numbered file skipped for its mode → its number stays claimed; nothing tested the order of the table's rows → Seam 6 and I6; a numbered file could be refused for a bad `Клас:` line → a case with `106-y.md`). Nothing is left for the owner to rule on; the cold reader judges the whole contract. One simplification taken on the way: `class_for` lost its `None` branch — no caller of the slice numbers a task without the line.
+- Door: two-way
+- Cost to reverse: the contract is not sealed yet; lines of its text.
+- Why not escalated: the breaker asks the owner to rule on an open objection; none is open.
+- Evidence: `.engine/slices/numbers-class-table.md` «Critic notes».
+- Falsified by: —
+- Status: CLOSED
