@@ -213,7 +213,7 @@ def plan(scenes: list[str]) -> list[tuple[str, str]]:
 def summary(runs: list[JsonObj]) -> JsonObj:
     table = {f"{r['scene']}/{r['variant']}": ("error" if "error" in r else r["good"]) for r in runs}
     return {"runs": len(runs), "after_good": sum(1 for r in runs if r["variant"] == "after" and r.get("good") is True),
-            "after_total": sum(1 for r in runs if r["variant"] == "after"), "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
+            "after_total": sum(1 for r in runs if r["variant"] == "after" and "error" not in r), "errors": sum(1 for r in runs if "error" in r), "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
 
 
 # ------------------------------------------------------------------ the sessions
@@ -284,7 +284,7 @@ def main() -> int:
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-        "before_ref": args.before_ref, "limit_usd": limit, "planned": [f"{s}/{v}" for s, v in todo],
+        "before_ref": args.before_ref, "limit_usd": limit, "planned": [f"{s}/{v}" for s, v in todo], "status": shared.status(runs, len(todo)),
         "scenes": {name: entry["what"] for name, entry in expected.items()}, "summary": summary(runs), "runs": runs,
     }
     print("\n" + json.dumps(report["summary"], indent=2, ensure_ascii=False))

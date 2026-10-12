@@ -244,7 +244,7 @@ def main() -> int:
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-        "limit_usd": limit, "planned": list(args.scenes), "scenes": {name: data["scenes"][name]["what"] for name in names}, "summary": summary(runs), "runs": runs,
+        "limit_usd": limit, "planned": list(args.scenes), "status": analyst.shared.status(runs, len(args.scenes)), "scenes": {name: data["scenes"][name]["what"] for name in names}, "summary": summary(runs), "runs": runs,
     }
     print("\n" + json.dumps(report["summary"], indent=2, ensure_ascii=False))
     if args.out:

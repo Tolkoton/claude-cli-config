@@ -150,11 +150,23 @@ login (401, 403) also stops the runner with exit 3, naming any of `ANTHROPIC_API
 `no-verdicts` (exit 1), never `complete`. `compare_audits.py` reads older files the same way: a
 scenario both files ran, with no valid session on one side, is `NOT MEASURED`, not `WORSE`, and
 the result line says the instrument failed; a scenario only one file has is `only before` /
-`only after` and fails nothing. Another API error (529) is recorded the same way and the runner
+`only after` and fails nothing — but when that one file holds no valid session for it, the result
+line names the scenario as not measured there (board 725). Another API error (529) is recorded the same way and the runner
 goes on; a session cut at `--max-turns`, or one whose error came after the overseer's entry was
 in the ledger, stays a run with its verdict. The record that taught this is
 `baseline/linux-ubuntu-22.04/audit-v0.12.0-release.json` (36 sessions, 36 refused logins, $0.0 —
 true, since no session reached the model). `tests/test_audit_no_session.py`.
+
+**The same in the four other runners** (board 725: `run_analyst_evals.py`, `run_manager_evals.py`,
+`run_tester_evals.py`, `run_simplifier_evals.py`). A session that ended in an error (`is_error` —
+a refused login, a spent limit) is an error row with no score, and a run with one such session, or
+one its ceiling stopped before every planned session, exits non-zero — in the simplifier's runner
+since board 725 (it used to exit 0 when another session was scored; `--rescore` is as it was). The
+results file says what it is in `"status"`: `complete` only when every planned session is there
+and scored, `no-results` when none was scored, else `partial`; the summary counts such sessions in
+`errors` and in no denominator («caught 1 of 1», not «1 of 2»). A file recorded before this has no
+`status`. These runners do not stop at the first refused login and have no `--resume`.
+`tests/test_eval_runners_failed_session.py`.
 
 **Do not commit while an audit against `HEAD` is running.** The file records the commit the ref
 resolved to at the start, but every run's sandbox is built from the ref as given; a commit made

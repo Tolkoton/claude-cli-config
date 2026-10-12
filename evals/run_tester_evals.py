@@ -302,11 +302,12 @@ def summary(runs: list[JsonObj]) -> JsonObj:
         key, again = f"{r['scene']}/{r['arm']}", sum(1 for k in table if k.split("#")[0] == f"{r['scene']}/{r['arm']}")
         table[f"{key}#{again + 1}" if again else key] = shown(r)
     arms = [arm for arm in ARMS if any(r["arm"] == arm for r in runs)]
-    caught = {arm: f"{sum(1 for r in runs if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in runs if r['arm'] == arm)}" for arm in arms}
-    result: JsonObj = {"runs": len(runs), "caught": caught, "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
-    control = [r for r in runs if r["scene"] == "none"]
+    scored = [r for r in runs if "error" not in r]   # a session that gave no result is in no denominator (board 725)
+    caught = {arm: f"{sum(1 for r in scored if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in scored if r['arm'] == arm)}" for arm in arms}
+    result: JsonObj = {"runs": len(runs), "errors": len(runs) - len(scored), "caught": caught, "cost_usd": round(sum(r["cost_usd"] for r in runs), 4), "table": table}
+    control = [r for r in scored if r["scene"] == "none"]
     if any("test_count" in r for r in runs):   # the property set: the control is not a trap, and the arms are compared by more than the catch
-        trapped = [r for r in runs if r["scene"] != "none"]
+        trapped = [r for r in scored if r["scene"] != "none"]
         result["caught"] = {arm: f"{sum(1 for r in trapped if r['arm'] == arm and r.get('caught'))} of {sum(1 for r in trapped if r['arm'] == arm)}" for arm in arms}
         result["by_arm"] = {arm: {
             "fails_on_both": sum(1 for r in trapped if r["arm"] == arm and r.get("outcome") == "fails_on_both"),
@@ -476,7 +477,7 @@ def main() -> int:
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-        "limit_usd": limit, "planned": [f"{s}/{a}" for s, a in todo], "set": args.set, "arms": {arm: arm_says(args.set, arm) for arm in args.arms},
+        "limit_usd": limit, "planned": [f"{s}/{a}" for s, a in todo], "status": analyst.shared.status(runs, len(todo)), "set": args.set, "arms": {arm: arm_says(args.set, arm) for arm in args.arms},
         "scenes": {name: entry["what"] for name, entry in expected.items()}, "summary": summary(runs), "runs": runs,
     }
     print("\n" + json.dumps(report["summary"], indent=2, ensure_ascii=False))

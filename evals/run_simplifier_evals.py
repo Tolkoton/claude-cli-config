@@ -146,6 +146,13 @@ def over_limit(spent: float, next_cost: float, limit: float | None) -> str | Non
     return f"cost limit: ${spent:.2f} spent, a run may cost ${next_cost:.2f}, the limit is ${limit:.2f} — stopping"
 
 
+def status(runs: list[JsonObj], planned: int) -> str:
+    """What a results file says of itself (board 725): `complete` only with every planned session there
+    and scored; `no-results` when none was — a session the API refused is no result; else `partial`."""
+    scored = sum(1 for r in runs if "error" not in r)
+    return "complete" if scored == len(runs) == planned else "partial" if scored else "no-results"
+
+
 def layers(fixture: Path) -> list[Path]:
     """The set and every set under it (`over` in expected.json), the lowest first."""
     under = json.loads((fixture / "expected.json").read_text(encoding="utf-8")).get("over")
@@ -339,7 +346,7 @@ def summary(runs: list[JsonObj]) -> JsonObj:
     recalls = [r["recall"] for r in good]
     precisions = [r["precision"] for r in good if r["precision"] is not None]
     return {
-        "runs": len(runs), "scored": len(good),
+        "runs": len(runs), "scored": len(good), "errors": len(runs) - len(good),
         "recall_mean": round(sum(recalls) / len(good), 3) if good else None,
         "recall_range": [min(recalls), max(recalls)] if good else None,
         "precision_mean": round(sum(precisions) / len(precisions), 3) if precisions else None,
@@ -404,7 +411,7 @@ def main() -> int:
     report: JsonObj = {
         "recorded_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "environment": environment.environment_name(),
         "engine_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip(),
-        "set": args.set, "model": args.model or "the agent's own",
+        "set": args.set, "model": args.model or "the agent's own", "status": status(runs, args.runs),
         "planted": [e["id"] for e in expected["planted"]], "traps": [e["id"] for e in expected["traps"]],
         "summary": summary(runs), "runs": runs,
     }
@@ -413,7 +420,7 @@ def main() -> int:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"results written to {args.out}")
-    return exit_code(report["summary"])
+    return exit_code(report["summary"]) if report["status"] == "complete" else 1   # a refused or unstarted session does not end green (board 725)
 
 
 if __name__ == "__main__":

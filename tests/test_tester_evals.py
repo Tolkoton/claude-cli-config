@@ -164,8 +164,8 @@ rows = [{"scene": "order", "arm": "c", "cost_usd": 0.1, "outcome": "missed", "ca
         {"scene": "order", "arm": "c", "cost_usd": 0.1, "outcome": "caught", "caught": True, "code": "right", "self_deceived": False},
         {"scene": "order", "arm": "c", "cost_usd": 0.0, "error": "x"}]
 got = evals.summary(rows)
-check("the summary counts the code and the self-deceived, and keeps repeated runs apart",
-      got["code_written"] == {"right": 1, "trapped": 1, "broken": 0, "none": 0} and got["self_deceived"] == "1 of 2" and got["caught"] == {"c": "1 of 3"}
+check("the summary counts the code and the self-deceived, keeps repeated runs apart and an error row out of every denominator (board 725)",
+      got["code_written"] == {"right": 1, "trapped": 1, "broken": 0, "none": 0} and got["self_deceived"] == "1 of 2" and got["caught"] == {"c": "1 of 2"} and got["errors"] == 1
       and got["table"] == {"order/c": "missed; code trapped; SELF-DECEIVED", "order/c#2": "caught; code right", "order/c#3": "error"}, got)
 check("no scratch project is left behind by the scoring", not any(work.iterdir()), list(work.iterdir()))
 shutil.rmtree(work)

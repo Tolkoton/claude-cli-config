@@ -20,7 +20,8 @@ the differences: those lost to the account usage limit in one list, other toolin
 another — a session that ran no audit is not a verdict. A scenario both files ran, with no valid
 session on one side, is NOT MEASURED (never WORSE, never "same"), and a file without one verdict
 in it is such on every scenario: the instrument failed (board 014). A scenario only one file has
-is "only before" / "only after" and fails nothing. Last, «дії після вердикту»: every
+is "only before" / "only after" and fails nothing; with no valid session in that one file, the
+result line names it as not measured there (board 725). Last, «дії після вердикту»: every
 session that went on acting after its verdict (edited files, wrote a second ledger entry).
 The verdict counted is the first one; the rest is a breach of the overseer's role, listed
 apart. Files recorded before board 003 carry no such field and list nothing.
@@ -252,7 +253,7 @@ def load_record(path: Path) -> JsonObj:
 
 
 def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix: set[str],
-            record: JsonObj | None = None) -> tuple[str, bool, int]:
+            record: JsonObj | None = None) -> tuple[str, bool, int, list[str]]:
     b, a = scenarios_of(before), scenarios_of(after)
     tables = [scenarios_of(r) for r in noise_runs]
     ids = sorted(set(b) | set(a))
@@ -272,6 +273,7 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
     lines.append("|---|---|---|---|---|---|---|---|")
     ok = True
     unmeasured = 0
+    alone: list[str] = []   # a scenario only one file has, with no valid session there (board 725)
     for sid in ids:
         sb, sa = b.get(sid), a.get(sid)
         rb, ra = rate(sb), rate(sa)
@@ -297,6 +299,8 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
             # A scenario one file does not have at all (the set grows between releases): nothing
             # was lost and nothing failed, there is only nothing to compare it with.
             judgement = "only after" if sb is None else "only before"
+            if rb is None and ra is None:
+                alone.append(f"`{sid}` (only the {'after' if sb is None else 'before'} file has it)")
         elif rb is None or ra is None:
             # Both files ran the scenario and one holds no valid session for it: nothing to
             # subtract, and "same" would read as a clean bill for a side that was never measured.
@@ -363,7 +367,7 @@ def compare(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], must_fix
     lines.append("")
     lines.extend(acted or ["- none"])
     lines.append("")
-    return "\n".join(lines), ok, unmeasured
+    return "\n".join(lines), ok, unmeasured, alone
 
 
 def header(before: JsonObj, after: JsonObj, noise_runs: list[JsonObj], paths: list[str],
@@ -441,10 +445,12 @@ def main() -> int:
         record_path = None
     record = load_record(record_path) if record_path else None
     must_fix = {s for s in args.must_fix.split(",") if s}
-    body, ok, unmeasured = compare(before, after, noise_runs, must_fix, record)
+    body, ok, unmeasured, alone = compare(before, after, noise_runs, must_fix, record)
     result = ("every must-fix scenario FIXED and nothing WORSE" if ok
               else f"NOT met — {unmeasured} scenario(s) {NOT_MEASURED}: the instrument failed, see the lost sessions below the table"
               if unmeasured else "NOT met — see the table")
+    if alone:
+        result += f"; {NOT_MEASURED}, with no valid session in the one file that ran it: {', '.join(alone)} — see the lost sessions below the table"
     text = (
         f"# {args.title}\n\n"
         + header(before, after, noise_runs, [str(args.before), str(args.after), *map(str, args.noise)], record, record_path)

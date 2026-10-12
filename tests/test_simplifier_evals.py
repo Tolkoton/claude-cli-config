@@ -98,7 +98,7 @@ check("the same planted item found three times is one item of recall", s["recall
 check("an empty answer: recall 0, precision undefined", runner.score([], expected)["precision"] is None)
 check("a summary skips a failed run and adds its cost",
       runner.summary([{"error": "x", "cost_usd": 1.0}, {**runner.score(perfect, expected), "cost_usd": 2.0}])
-      == {"runs": 2, "scored": 1, "recall_mean": 1.0, "recall_range": [1.0, 1.0], "precision_mean": 1.0,
+      == {"runs": 2, "scored": 1, "errors": 1, "recall_mean": 1.0, "recall_range": [1.0, 1.0], "precision_mean": 1.0,
           "precision_range": [1.0, 1.0], "traps_touched_total": 0, "ambiguous_total": 0, "read_by_hand_total": 0,
           "found_in_runs": {e["id"]: 1 for e in sorted(expected["planted"], key=lambda e: e["id"])},
           "touched_in_runs": {}, "touched_proposed": {}, "touched_after_validator": {}, "cost_usd": 3.0})

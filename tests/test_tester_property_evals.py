@@ -225,7 +225,7 @@ rows = [{"scene": "conserve", "arm": "a", "cost_usd": 0.1, "outcome": "missed", 
         {"scene": "none", "arm": "c", "cost_usd": 0.0, "error": "x"}]
 got = evals.summary(rows)
 check("the summary keeps the control out of the catch and counts each arm's tests, cost, «fails on both» and clean controls",
-      got["caught"] == {"a": "0 of 1", "c": "1 of 2"} and got["by_arm"]["c"] == {"fails_on_both": 1, "reached_the_trap": "2 of 2", "control_clean": "0 of 2", "tests": 15, "cost_usd": 0.6}
+      got["caught"] == {"a": "0 of 1", "c": "1 of 2"} and got["by_arm"]["c"] == {"fails_on_both": 1, "reached_the_trap": "2 of 2", "control_clean": "0 of 1", "tests": 15, "cost_usd": 0.6}
       and got["by_arm"]["a"]["control_clean"] == "1 of 1" and got["table"]["none/c#2"] == "error", got)
 check("the table has a row a scene and a numbered line a repeat",
       "| `conserve` | 1. missed (5 tests, trap calls 0) | 1. caught (6 tests, trap calls 40, search 5 of 5)<br>2. fails_on_both (6 tests, trap calls 3, search 5 of 5) |" in evals.table(rows)

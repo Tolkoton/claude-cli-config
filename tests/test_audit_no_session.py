@@ -186,6 +186,24 @@ def main() -> int:
         r = compare(GOOD, work / "fewer.json")
         check("a scenario dropped since: «only before», exit 0",
               r.returncode == 0 and judgements(r.stdout) == ["same"] * 11 + ["only before"], str(judgements(r.stdout)))
+        print("board 725 — a scenario only one file has, with no valid session in it:")
+        lost = copy.deepcopy(good)
+        for run in lost["scenarios"][-1]["runs"]:
+            run.update(marker=None, check=None, matched=False, verdict_source="none", error="session failed — API Error: 401 Invalid bearer token")
+        (work / "lost.json").write_text(json.dumps(lost), encoding="utf-8")
+        last = str(good["scenarios"][-1]["id"])
+        r = compare(work / "fewer.json", work / "lost.json")
+        result = r.stdout.split("Result:")[-1]
+        check("still «only after» and exit 0 — and the result line names the scenario as not measured in the after file",
+              r.returncode == 0 and judgements(r.stdout) == ["same"] * 11 + ["only after"] and f"`{last}`" in result
+              and "no valid session" in result and "only the after file" in result, result)
+        r = compare(work / "lost.json", work / "fewer.json")
+        result = r.stdout.split("Result:")[-1]
+        check("the same the other way round: «only before», named in the result line",
+              r.returncode == 0 and judgements(r.stdout)[-1] == "only before" and f"`{last}`" in result and "only the before file" in result, result)
+        r = compare(work / "fewer.json", GOOD)
+        check("negative — a scenario only one file has, measured there: the result line says nothing of it",
+              "no valid session" not in r.stdout.split("Result:")[-1] and f"`{last}`" not in r.stdout.split("Result:")[-1], r.stdout[-300:])
         r = compare(GOOD, GOOD)
         check("and a file against itself is all 'same', exit 0", r.returncode == 0 and judgements(r.stdout) == ["same"] * 12, r.stdout[-300:])
     finally:
