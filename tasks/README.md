@@ -127,7 +127,9 @@ property-based testing, mutation testing, spike, sandbox тощо. Рідкіс�
 Як провести таку задачу — в інтерактивній сесії Claude Code, разом:
 
 1. Дочекайтеся, поки runner зупиниться (`bash .claude/unattended/board-runner.sh --status`), і
-   підтягніть робочу гілку. Поки runner працює, взяти таку задачу не вдасться — task board відмовить.
+   підтягніть робочу гілку. Поки runner працює в цьому ж клоні, взяти таку задачу не вдасться — task board
+   відмовить. В окремому клоні чекати не треба: задача runner-а в `doing/` вашій не заважає — task board
+   відмовить лише тоді, коли в `doing/` вже лежить інша задача з присутнім власником.
 2. Відкрийте Claude Code у репозиторії на робочій гілці й скажіть: «Проведи зі мною задачу NNN з task board».
    Агент знайде її (`python3 .claude/unattended/board.py next --attended`) і перенесе в `doing/`
    (`python3 .claude/unattended/board.py start --attended tasks/todo/NNN-назва.md`).

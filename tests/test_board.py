@@ -262,6 +262,36 @@ r = cli(root, "next", "--attended")
 check("an attended task waits for its dependencies like any other", r.returncode == 4 and r.stdout == "", (r.returncode, r.stdout))
 shutil.rmtree(root, ignore_errors=True)
 
+# The owner's session in a separate clone sees the runner's task in doing/ (board 740): it is the other side's.
+root = new_board()
+put(root, "doing", "013-runners.md", task())
+r = cli(root, "next", "--attended")
+check("only the runner's task in doing/, todo/ empty: `next --attended` does not offer it (exit 3)", r.returncode == 3 and r.stdout == "", (r.returncode, r.stdout, r.stderr))
+put(root, "todo", "714-with-owner.md", attended_task())
+put(root, "todo", "715-ordinary.md", task())
+r = cli(root, "next", "--attended")
+check("the runner's task in doing/ is not in the way: `next --attended` offers the attended 714", r.returncode == 0
+      and r.stdout.strip() == "tasks/todo/714-with-owner.md", (r.returncode, r.stdout, r.stderr))
+r = cli(root, "start", "--attended", "tasks/todo/715-ordinary.md")
+check("…the negative case: `start --attended` of an ORDINARY task beside the runner's is refused — it would be a second one of that side",
+      r.returncode == 2 and "013-runners.md" in r.stderr and (root / "tasks/todo/715-ordinary.md").is_file(), (r.returncode, r.stderr))
+r = cli(root, "start", "--attended", "tasks/todo/714-with-owner.md")
+check("…and `start --attended` puts 714 beside the runner's task", r.returncode == 0 and (root / "tasks/doing/714-with-owner.md").is_file()
+      and (root / "tasks/doing/013-runners.md").is_file(), (r.returncode, r.stderr))
+r = cli(root, "next", unattended=True)
+check("…the runner still sees only its own task", r.returncode == 0 and r.stdout.strip() == "tasks/doing/013-runners.md", (r.returncode, r.stdout, r.stderr))
+r = cli(root, "next", "--attended")
+check("…and the owner's session only its own", r.returncode == 0 and r.stdout.strip() == "tasks/doing/714-with-owner.md", (r.returncode, r.stdout, r.stderr))
+put(root, "todo", "716-second-attended.md", attended_task())
+r = cli(root, "start", "--attended", "tasks/todo/716-second-attended.md")
+check("…the negative case: a second attended task is refused, and the refusal names the attended one, not the runner's", r.returncode == 2
+      and "714-with-owner.md" in r.stderr and "013-runners.md" not in r.stderr and (root / "tasks/todo/716-second-attended.md").is_file(), (r.returncode, r.stderr))
+put(root, "doing", "716-second-attended.md", attended_task())
+r = cli(root, "next", "--attended")
+check("…two attended tasks in doing/ are refused (exit 2)", r.returncode == 2 and "716-second-attended.md" in r.stderr
+      and "013-runners.md" not in r.stderr, (r.returncode, r.stderr))
+shutil.rmtree(root, ignore_errors=True)
+
 # --- unblock ------------------------------------------------------------------------------------
 print("unblock")
 root = new_board()

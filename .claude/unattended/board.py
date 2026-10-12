@@ -130,7 +130,10 @@ the flag is the owner's interactive session and nothing else. An attended task i
 that session's and stops nobody (board 049): a plain `next` neither continues it nor waits for
 it — it offers the next task of todo/ — and a plain `start` puts the runner's task beside it, so
 doing/ holds at most one task of each side. `summary` and the review call it «в роботі з
-власником». `start --attended` is still refused while doing/ holds any task. Whoever asks «which
+власником». The same holds the other way (board 740): the owner's session, which may sit in a
+separate clone while the runner works, neither continues the runner's task nor is stopped by it —
+`next --attended` and `start --attended` look at the attended tasks of doing/ only, and an ordinary
+task started with `--attended` is still the runner's side's, refused beside another. Whoever asks «which
 task is in hand» — the audit permission, the overseer's unit key, a hook's journal entry — gets
 its own side's (`own`, board 712): an agent alone the plain one, the owner's session the attended
 one, or the plain one when no attended task is there.
@@ -467,8 +470,9 @@ def attended_refusal(root: Path) -> str | None:
 
 def cmd_next(board: Board, attended: bool = False) -> int:
     # An agent alone never sees the owner's session's task in doing/ (board 049): it is neither
-    # continued nor in the way. The owner's session continues whatever doing/ holds.
-    doing = board.files("doing") if attended else board.in_hand()
+    # continued nor in the way. Nor does the owner's session see the runner's (board 740): in a
+    # separate clone that task is in doing/ while the runner works on it elsewhere.
+    doing = board.in_hand(attended)
     if len(doing) > 1:
         print("board: tasks/doing/ holds more than one task (" + ", ".join(p.name for p in doing)
               + ") — one at a time; move the extra ones back to tasks/todo/", file=sys.stderr)
@@ -497,7 +501,7 @@ def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> i
         print(f"board: {source.name} needs the owner present («Потрібна присутність власника: так») — it is started only "
               "in an interactive session with the owner: board.py start --attended (tasks/README.md)", file=sys.stderr)
         return EXIT_REFUSED
-    doing = board.files("doing") if attended else board.in_hand()
+    doing = board.in_hand(read(source).attended)   # the side is the task's: an ordinary one is the runner's even with --attended
     if doing:
         print(f"board: tasks/doing/ already holds {doing[0].name} — one task at a time", file=sys.stderr)
         return EXIT_REFUSED
