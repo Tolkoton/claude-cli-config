@@ -136,3 +136,6 @@ test_protected_guard.py
 # Board 301: test_escalation_scope 7.8 s is in (an open gate escalation holds only its own work: the real gate.py, overseer_stop.py,
 # overseer_verdict.py and board.py on synthetic boards; the lock on a PASS is a guard, so it stands on the Stop gate).
 test_escalation_scope.py
+# Board 769: test_engine_lint_oldest 4.5 s is in (the lint's verdict on a machine without the oldest Python: two runs of
+# test_engine_lint on a throwaway copy, each a cold mypy; the lint stands on the Stop gate, so the check of its verdict does too).
+test_engine_lint_oldest.py
