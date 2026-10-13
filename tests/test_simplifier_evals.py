@@ -399,6 +399,8 @@ check("negative — and the kinds of the first round are in that list", all(word
 flat = " ".join(listed.split())
 check("board 746: a check of a state the repository only reads and never sets is `flag_only` at most, by that step of the definition",
       "only reads and never sets" in flat and "environment variable" in flat and "`flag_only` at most" in flat, listed)
+check("board 772: …and the boundary of that rule stands right after it — a parameter or a constant no caller sets is another matter",
+      "`flag_only` at most. a parameter or a constant no caller sets is another matter — every one of its setters would be in the code." in flat, listed)
 traps_request = runner.request_text(traps_box, round2["scope"])
 check("traps: no deterministic signal points at a trap, old or new",
       not any(word in traps_request for word in (*hard_trap_words, "journal", "flock", "ATTEMPTS", "CLOSED", "_write_whole", "vat", "tax")), traps_request)
