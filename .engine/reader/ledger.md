@@ -21,3 +21,8 @@
 - Record: tasks/done/763-open-item-test-gap-fold-then-text-on-a-session-fil/report.md
 - Reason: All four questions hold: every reference I could open says what the report ascribes to it; the single «Що зробити» item is answered (the check already exists, the report says so plainly and shows the green and red runs, code untouched, fast subset reported green); there is no open question for the owner; engine terms stay English (overseer, builder, runner, task board, reader, subagent, commit, fold, mutant). The quoted command outputs are unrecorded and so «не перевірено», which is not a BLOCK by itself.
 - Request: 20261013T072328Z-f99ea4 (attempt 1)
+
+## 2026-10-13T07:26:36Z — 764-open-item-test-gap-fold-on-a-project-whose-shared — READER_PASS
+- Record: tasks/done/764-open-item-test-gap-fold-on-a-project-whose-shared/report.md
+- Reason: All four questions hold: every reference I could open says what the report ascribes to it, the single item of «Що зробити» is answered (the check already exists, so none was added, and the report says so plainly and shows both runs), there is no open question for the owner, and engine terms are in English. The recorded command outputs (PASS/FAIL counts, mutant runs, fast subset) were recorded nowhere I can read and are «не перевірено».
+- Request: 20261013T072600Z-cca844 (attempt 1)
