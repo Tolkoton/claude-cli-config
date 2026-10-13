@@ -96,4 +96,13 @@ fi
 if have python3 && [ -f "$ROOT/.claude/hooks/lesson_queue.py" ]; then
   CLAUDE_PROJECT_DIR="$ROOT" python3 "$ROOT/.claude/hooks/lesson_queue.py" session-start 2>/dev/null || true
 fi
+
+# Board 724: the snapshot of the guarded files (the constitution, the settings, .engine/rules.md,
+# migrations, CI workflows) the Stop gate compares with at the end of every turn. The envelope on
+# stdin names the session and why it starts; nothing above reads stdin. Taken at a start, a resume
+# and a clear — not after a compaction, which is the middle of a turn. Silent.
+GUARD="$(dirname "${BASH_SOURCE[0]}")/protected_guard.py"   # beside this hook, as the list it reads is
+if have python3 && [ -f "$GUARD" ]; then
+  python3 "$GUARD" --root "$ROOT" session-start 2>/dev/null || true
+fi
 exit 0

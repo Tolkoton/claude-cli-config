@@ -53,7 +53,24 @@
 # — a push that failed, a task that vanished from the board — is written into the journal and the
 # work goes on. THE WHOLE BOARD STOPS only on: a pull that conflicts (reason=pull-conflict);
 # claude logged out (reason=logged-out; the task stays in doing/ and is continued by the next
-# start); a git or board.py failure after which nothing can be committed; the soft stop.
+# start); the guarded files could not be recorded, checked or put back around a session
+# (reason=protected, board 724); a git or board.py failure after which nothing can be committed; the soft stop.
+#
+# THE GUARDED FILES AROUND EVERY SESSION (board 724). Before a session the runner records the
+# constitution, the settings, .engine/rules.md, migrations and CI workflows (protected_guard.py
+# `before`), after it it compares (`after`): a file that differs is put back, the discarded change
+# kept as a patch under .claude/state/gate/protected/discarded/, the journal written, and the task
+# parked in blocked/ with a question (reason `protected`); a file that cannot be put back, and a
+# check that could not be made at all (before or after the session), stops the board
+# (reason=protected). The comparison is made from what `before` printed, held in this process; a
+# copy is kept in $GUARD_KEPT while the session runs, so that a runner that died meanwhile (a
+# reboot, a kill) makes the comparison at its next start, before its first pull. This is the check
+# left when a turn was cut short or the session's own hooks were switched off; what the runner
+# itself applies on the owner's «так» (the settings proposal, a rule) happens between sessions and
+# is not seen. WHAT IT HOLDS: a mistaken or naive change of a guarded file — the session only
+# writes the file, by any means. Not a session that goes for the check itself (this script,
+# protected_guard.py, $GUARD_KEPT, the runner's process): it runs as the same Linux user, and
+# that is a documented limit (docs/engine-limits.md, "The same Linux user"), the owner's decision.
 #
 # ONE JOURNAL FOR EVERYTHING ODD (board 035). tasks/ANOMALIES.md is written by the runner, by the
 # Stop gate (an escalation), by a hook (the stuck counter) and by the agent (`board.py anomaly …
@@ -179,6 +196,9 @@ LOCK="$STATE/lock"
 STOP_FLAG="$STATE/stop-after-task"
 STOP_ATTEMPT_FLAG="$STATE/stop-after-attempt"
 GATE_PY="$HERE/../hooks/gate.py"
+GUARD_PY="$HERE/../hooks/protected_guard.py"   # board 724: the guarded files around every session
+GUARD_BEFORE=""; GUARD_PARKS=0; PROTECTED=""
+GUARD_KEPT="$STATE/guard-before"   # the task (line 1) and what `before` printed (line 2), while a session runs
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
 REVIEWED_ACCEPTED="$STATE/reviewed-accepted"   # the numbers of tasks/.reviewed that arrived from the owner (board 100)
 DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
@@ -617,6 +637,57 @@ park_task() {
   OUTCOME=blocked
 }
 
+# guard_session <stem>: the guarded files after an agent's session (board 724) — the constitution,
+# the settings, .engine/rules.md, migrations, CI workflows. The deny hooks and the Stop gate work
+# inside the session and only while its hooks are whole; a turn can be cut short, and a changed
+# settings file would steer the NEXT session. So the runner compares with what it saw before the
+# session: a file that differs is put back (protected_guard.py: a patch of the discarded change,
+# the anomaly journal), and the task goes to blocked/ with a question — sets PROTECTED to the
+# files for run_task, which parks it (GUARD_PARKS=1); from any other caller, and for a task that
+# already left doing/, the question is an item of its own. What the runner saw before the session
+# is held in GUARD_BEFORE. On the ordinary way nothing is passed over in silence: no snapshot —
+# no session; a file that could not be put back, or a check that broke, stops the whole board.
+# A change the agent also COMMITTED leaves the restored file different from HEAD, and only the
+# runner may commit a guarded file: it does, in a commit of its own.
+guard_session() {
+  local stem="$1" rc list found
+  local -a pending=()
+  PROTECTED=$(python3 "$GUARD_PY" --root "$PROJECT_ROOT" after <<< "$GUARD_BEFORE" 2>> "$STATE/logs/protected.log"); rc=$?
+  list=$(echo "$PROTECTED" | tr '\n' ' ' | sed 's/ $//')
+  # Fail closed: only "nothing differs" (0) and "put back" (3) let the board go on. A file that could not be put
+  # back (4) and a check that broke (anything else) both mean the next session might start on changed settings.
+  if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
+    critical "$stem" protected "the guarded files could not be checked or put back after the session of $stem (protected_guard.py after: exit $rc${list:+; files: $list}; see $STATE/logs/protected.log). Look at them by hand, then start the runner again: it compares once more with the record it kept ($GUARD_KEPT)" \
+      "після сесії агента охоронювані файли не вдалося перевірити або повернути до стану перед сесією (\`protected_guard.py after\`: код $rc${list:+; файли: $list})"
+  fi
+  [ "$rc" -eq 3 ] || PROTECTED=""
+  found=$(python3 "$GUARD_PY" --root "$PROJECT_ROOT" pending <<< "$GUARD_BEFORE" 2>> "$STATE/logs/protected.log") \
+    || critical "$stem" protected "protected_guard.py pending failed after the session of $stem (see $STATE/logs/protected.log); look at the guarded files by hand, then start the runner again" \
+      "після сесії агента не вдалося з'ясувати, чи змінив її commit охоронювані файли (\`protected_guard.py pending\`)"
+  while IFS= read -r list; do [ -z "$list" ] || pending+=("$list"); done <<< "$found"
+  if [ "${#pending[@]}" -gt 0 ]; then
+    [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] && git add -A -- "${pending[@]}" 2>> "$STATE/logs/git.log" \
+      && git commit -q -m "protected: ${pending[*]} put back as before the session of $stem — a commit of the session had changed it" -- "${pending[@]}" >> "$STATE/logs/git.log" 2>&1 \
+      || critical "$stem" protected "a commit of the session of $stem changed guarded files (${pending[*]}); they are put back in the working tree, but the runner could not commit that. Commit it by hand, then start the runner again" \
+        "commit сесії агента змінив охоронювані файли (${pending[*]}); у робочому дереві їх повернуто, але закомітити повернення runner не зміг"
+    event "commit $(git rev-parse --short HEAD) protected-restored ${pending[*]}"
+    note_anomaly "$stem" "commit сесії агента змінив охоронювані файли: ${pending[*]}" "файли повернуто до стану перед сесією, і runner закомітив це повернення окремим commit-ом"
+  fi
+  [ -n "$PROTECTED" ] || return 0
+  list=$(echo "$PROTECTED" | tr '\n' ' ' | sed 's/ $//')
+  event "protected-restored $stem $list"
+  say "$stem: the session changed guarded files ($list); put back, the discarded change kept as a patch"
+  if [ "$GUARD_PARKS" -eq 1 ] && [ "$(board where "$stem")" = "doing" ]; then return 0; fi   # run_task parks it
+  board open-item --to blocked --key "protected-$stem" --source runner \
+    --title "Сесія задачі $stem змінила охоронювані файли" \
+    --what "Сесія агента в задачі $stem змінила охоронювані файли ($list), і gates цього не зупинили. Runner повернув їх до стану перед сесією; відкинуту зміну збережено латкою в .claude/state/gate/protected/discarded/ (на сервері runner-а; точний шлях — у журналі аномалій)." \
+    --question "Що робити зі зміною охоронюваних файлів ($list), яку зробила сесія задачі $stem? Варіанти: (а) нічого — файли вже повернуто, напишіть «закрити»; (б) зміна потрібна — напишіть, яка саме, агент подасть її пропозицією (docs/tasks/settings.json) на ваше «так». Порада: (а), якщо ви цієї зміни не просили." > /dev/null \
+    || event "protected-question-failed $stem"
+  board_commit "board: $stem — the session changed guarded files ($list); put back, a question to the owner" \
+    || finish error "$stem" commit "cannot commit the question about the guarded files"
+  PROTECTED=""
+}
+
 # attempt <stem> <prompt of a fresh conversation> <prompt of a continued one>: one claude session
 # for the task, booked in costs.json. Sets NOTE to `limit`, `auth` or nothing (board_state.py)
 # and OUT to the file that holds the session's output.
@@ -630,6 +701,12 @@ attempt() {
   before=$(git rev-parse HEAD)
   status running "$stem"
   event "attempt $stem $n ${session:+resume=$session}"
+  # No snapshot, no session: an unguarded session is not started. The comparison after the session
+  # is made from this variable; the copy in $GUARD_KEPT is for a runner that dies before it gets there.
+  GUARD_BEFORE=$(python3 "$GUARD_PY" --root "$PROJECT_ROOT" before 2>> "$STATE/logs/protected.log") && [ -n "$GUARD_BEFORE" ] \
+    && printf '%s\n%s\n' "$stem" "$GUARD_BEFORE" > "$GUARD_KEPT.new" && mv -f "$GUARD_KEPT.new" "$GUARD_KEPT" \
+    || critical "$stem" protected "the guarded files could not be recorded before a session of $stem (protected_guard.py before failed, or its record could not be kept; see $STATE/logs/protected.log); no session was started. Put that right, then start the runner again" \
+      "перед сесією агента не вдалося записати стан охоронюваних файлів (\`protected_guard.py before\`); сесію не запущено"
   if [ -z "$session" ]; then
     "$CLAUDE_BIN" -p "$2" "${flags[@]}" < /dev/null > "$OUT" 2> "$OUT.err" &
   else
@@ -641,6 +718,8 @@ attempt() {
   after=$(git rev-parse HEAD)
   NOTE=$(memo record "$stem" "$OUT" "$([ "$before" != "$after" ] && echo 1 || echo 0)")
   event "attempt-end $stem $n cost=$(memo get "$stem" cost) commit=$([ "$before" != "$after" ] && echo yes || echo no)${NOTE:+ $NOTE}"
+  guard_session "$stem"
+  rm -f "$GUARD_KEPT"   # compared; a comparison that stopped the board left it for the next start
   publish_gate_questions
   commit_journal "$JOURNAL_OTHERS"
 }
@@ -792,7 +871,10 @@ run_task() {
     if [ -n "$MAX_USD" ] && [ "$(memo get "$stem" left "$MAX_USD")" = "0.00" ]; then
       park_task "$stem" budget "$MAX_USD"; return 0
     fi
-    attempt "$stem" "$first" "$again"
+    GUARD_PARKS=1; attempt "$stem" "$first" "$again"; GUARD_PARKS=0
+    if [ -n "$PROTECTED" ]; then   # board 724: the session changed a guarded file and the task is still open
+      park_task "$stem" protected "$(echo "$PROTECTED" | tr '\n' ' ' | sed 's/ $//')"; return 0
+    fi
     if [ "$NOTE" = "auth" ] && [ "$(board where "$stem")" = "doing" ]; then
       critical "$stem" logged-out "claude is logged out (see $OUT); the task stays in doing/. Log in on this machine (claude, then /login), then start the runner again" \
         "claude розлогінився: сесія відповіла лише проханням увійти; задача лишилась у doing/"
@@ -811,6 +893,17 @@ run_task() {
 event "start pid=$$ branch=$BRANCH once=$ONCE push=$PUSH${MAX_USD:+ max_usd=$MAX_USD}"
 TASK_NAME="-"
 FINISHED=0
+# Board 724: the previous runner died while a session ran (a reboot, a kill) or stopped on a
+# comparison it could not make — the guarded files were never compared with what it saw before
+# that session. Compared now, before the first pull (what a pull brings is the owner's) and before
+# any session: otherwise a file the dead runner's session changed would be the next `before`.
+if [ -s "$GUARD_KEPT" ]; then
+  TASK_NAME=$(head -n 1 "$GUARD_KEPT"); GUARD_BEFORE=$(tail -n +2 "$GUARD_KEPT")
+  event "protected-leftover $TASK_NAME"
+  guard_session "$TASK_NAME"
+  rm -f "$GUARD_KEPT"
+  GUARD_BEFORE=""; TASK_NAME="-"
+fi
 while :; do
   LOCAL_ANSWERS=$(local_gate_answers)
   reviewed_guard

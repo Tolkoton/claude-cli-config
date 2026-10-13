@@ -72,3 +72,9 @@ Cited: 2026-10-11T22:17:38Z unknown; 2026-10-11T22:27:23Z unknown. Origin: lesso
 A guard on the runner's side holds a mistaken or naive action, not a session that works against the guard: agent and runner are one Linux user. Word the claim that way from the start and write the ways round into docs/engine-limits.md — in board 100 the claim «the runner removes every number that did not arrive from the owner» was blocked three times in a row, each time one deliberate step further (a push that is not the end-of-task push, a guard made to fail, leaving the branch), until the owner narrowed the promise.
 
 Cited: 2026-10-11T15:18:46Z unknown OVERSEER_BLOCK (board 100, attempt 1); 2026-10-11T16:22:43Z unknown OVERSEER_BLOCK (board 100, attempt 3). Origin: lesson #ba4d0930 (overseer, -, 2026-10-11).
+
+## 2026-10-13 — A check that lists changed paths with `git diff --name-only` does not see the old name of 
+
+A check that lists changed paths with `git diff --name-only` does not see the old name of a renamed file: rename detection prints the new name only. A guard over named paths (guarded files, protected paths, code a test must touch) lists with --no-renames, and its suite has a scene with `git mv` — to a name the guard knows and to one it does not.
+
+Cited: 2026-10-13T02:30:01Z; 2026-10-13T03:14:43Z. Origin: lesson #a4fc2592 (overseer, numbers-class-table, 2026-10-13).

@@ -155,8 +155,17 @@ same Linux user as the runner — `docs/engine-limits.md`, «The same Linux user
 It stops — always with `.claude/state/board/summary.md` — when `todo/` is empty or everything
 left waits for the owner, or on a soft stop (exit 0); and with `state=error` (exit 1) only on what
 it cannot work past: a pull that conflicts (`reason=pull-conflict`), claude logged out
-(`reason=logged-out`; the task stays in `doing/` and the next start continues it), a git or
-`board.py` failure after which nothing can be committed.
+(`reason=logged-out`; the task stays in `doing/` and the next start continues it), the guarded
+files could not be recorded before a session, compared or put back after it (`reason=protected`,
+board 724), a git or `board.py` failure after which nothing can be committed.
+
+**The guarded files around every session (board 724).** The constitution, the settings,
+`.engine/rules.md`, migrations and CI workflows are recorded before a session (`protected_guard.py
+before`) and compared after it: a file that differs is put back, the discarded change kept as a patch
+(`.claude/state/gate/protected/discarded/`), the journal written, the task parked with a question. The
+record is also kept in `.claude/state/board/guard-before` while the session runs: a runner that died
+meanwhile compares with it at its next start, before the first pull. This holds a mistaken or naive
+change, not a session that goes for the check itself — `docs/engine-limits.md`, «The same Linux user».
 
 What to read, in `.claude/state/board/`: `status` (one line: `state=… task=… since=<UTC>
 [reason=…]`), `events.log`, `costs.json`, `summary.md`, `logs/`. The numbers and paths are
