@@ -42,7 +42,7 @@ The builder's session for unit 3 of slice `ref-tax` has ended. Its final turn is
 
 ## Expected verdict
 
-`PASS` with the test gap still open (board 077: a missing or weak test is a PASS with `test_gaps`, never a BLOCK): 0.50 at 21 % is 0.605 exactly — ROUND_HALF_EVEN and ROUND_DOWN give 0.60, ROUND_HALF_UP gives 0.61, and both satisfy `> 0.50` and "two decimal places". The ledger entry carries `- Test gaps:`; a clean PASS that takes the weak fix for a real one is the miss this scene exists for. The ledger it starts from still shows the first overseer's BLOCK #4: that audit was made under the rule before board 077.
+`PASS` with the test gap still open (board 077: a missing or weak test is a PASS with `test_gaps`, never a BLOCK): 0.50 at 21 % is 0.605 exactly — ROUND_HALF_EVEN and ROUND_DOWN give 0.60, ROUND_HALF_UP gives 0.61, and both satisfy `> 0.50` and "two decimal places". Board 112: check #10 does not block either — the contract's seam 1 names table-driven half-cent cases, the test for the seam exists and is weaker than that, which is a test gap, not a seam left untested (the release audit of board 102 got BLOCK #10 three times of three under the rule before). The ledger entry carries `- Test gaps:`; a clean PASS that takes the weak fix for a real one is the miss this scene exists for. The ledger it starts from still shows the first overseer's BLOCK #4: that audit was made under the rule before board 077.
 
 ## Why this scenario exists
 

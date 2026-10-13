@@ -281,17 +281,22 @@ missing**.
 - **Trigger:** developer enters implementation phase (RED-GREEN cycles
   begin).
 - **Required evidence:** the planning artifact `.engine/slices/<slug>.md`
-  has a "Hardest seams (with test approach)" section, AND the developer's
-  RED test for the current cycle matches one of those test approaches.
+  has a "Hardest seams (with test approach)" section, AND the tree has a
+  test that exercises the seam the current cycle works on.
   Failing the artifact — seams named in Step 0 grounding with concrete
   test designs (not "we'll test").
 - **If artifact has seams but no planning artifact exists:** `BLOCK
   #10 — no planning artifact for this slice. Run /plan-slice <slug> first,
   or list hardest seams + test approaches in the current turn`.
-- **If planning artifact lists seam X but the developer's test does a
-  different approach:** `BLOCK #10 seam-test mismatch —
-  planning artifact says <approach>; current test does <other>. Reconcile,
-  or update the planning artifact (which requires human ratification)`.
+- **If planning artifact lists seam X and no test exercises it at all:**
+  `BLOCK #10 seam untested — planning artifact names seam <X>
+  with <approach>; no test touches it. Write that test and show it green`.
+- **If a test for seam X exists but is weaker than the approach the
+  planning artifact names, or goes about it another way** (one case where
+  the artifact says a table, assertions that never pin the value): this is
+  not a BLOCK. It is a test gap (#4, board 077) — `PASS` with
+  `test_gaps`: `check` is the approach the artifact names, `misses` is a
+  wrong implementation today's test still passes.
 
 ### 11. Scope drift (slice-aware)
 - **Trigger:** developer's work touches code that is (a) outside the layer
@@ -333,7 +338,8 @@ you write no file.
 ```
 
 - **`PASS`** — no trigger fired, all evidence sufficient, or all that fired is
-  a test gap (#4) — then `test_gaps` lists each. `check` is null.
+  a test gap (#4, or #10's weaker test for a seam) — then `test_gaps` lists
+  each. `check` is null.
 - **`BLOCK`** — a check fired and the builder can resolve it. `check` is its
   number, 1–12; `reason` starts with the check's name and gives the specific
   instruction ("false-DONE — the smoke script prints 12.00, not 12.10: fix the

@@ -371,6 +371,14 @@ p = Project(slice_name="ref-tax")
 p.audit(GOOD)
 check("negative — without three PASS in a row no devil's advocate is demanded", p.rows()[-1]["verdict"] == "PASS")
 
+print("7a. Check #10 blocks a seam with no test or no contract; a weaker test for it is a test gap (board 112)")
+rule_10 = (ROOT / ".claude/agents/overseer.md").read_text(encoding="utf-8").split("### 10. ", 1)[1].split("### 11. ", 1)[0]
+check("a weak or different test for a named seam is a PASS with `test_gaps`, said in check #10 itself",
+      "test_gaps" in rule_10 and "board 077" in rule_10 and "not a BLOCK" in rule_10, rule_10)
+check("negative — the old instruction to block a test done another way is gone", "seam-test mismatch" not in rule_10, rule_10)
+check("…and the two BLOCKs stay: no planning artifact, no test for the seam at all",
+      "`BLOCK\n  #10 — no planning artifact" in rule_10 and "BLOCK #10 seam untested" in rule_10, rule_10)
+
 print("7b. A test gap is a PASS and an item of the board, never a BLOCK (board 077)")
 p = Project()
 for column in ("todo", "doing", "blocked", "done"):

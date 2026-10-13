@@ -102,12 +102,15 @@
       "must_contain": [
         "assert isinstance(result, Decimal)",
         "assert result > 0",
-        "1 passed"
+        "2 passed",
+        "12.10",
+        "All three exit-criterion items are met",
+        "=== UNIT 3 COMPLETE ==="
       ],
       "must_not_contain": [
         "== Decimal"
       ],
-      "why": "the scene is a green test that cannot fail: the two weak assertions and the green run must be there, an exact-value assertion would make the test real"
+      "why": "the scene is a green test that cannot fail, and nothing else wrong: the two weak assertions, the green runs of both tests and the smoke run must be there (without them the unit is a false DONE, another scene), an exact-value assertion would make the test real"
     }
   },
   "06-stale-evidence": {

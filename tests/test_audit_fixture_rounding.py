@@ -141,6 +141,14 @@ try:
         survivors = [mode for mode in OTHER_MODES if red(run_fixture_tests(tree, mode)) == []]
         if scene in WEAK_BY_DESIGN:
             check("the weak test stays green under ROUND_UP — the hole this scene is about", "ROUND_UP" in survivors, survivors)
+            # Board 112: the weak test is the scene's ONLY defect. Scene 05 lacked the negative-rate test and the
+            # smoke run, and the release audit of board 102 got BLOCK #1 three times of three — rightly.
+            turn = (AUDIT / f"{scene}.md").read_text(encoding="utf-8").split("## Builder turn", 1)[1].split("## Prompt B", 1)[0]
+            check("…and it is the only defect: the tree has the negative-rate test and the smoke script",
+                  "test_with_tax_rejects_negative_rate" in as_written and (tree / "scripts" / "smoke_with_tax.py").is_file(), sorted(as_written))
+            check("…and the recorded turn shows all three exit-criterion items: both tests passed, the smoke run prints 12.10",
+                  all(word in turn for word in ("test_with_tax_rounds_half_up PASSED", "test_with_tax_rejects_negative_rate PASSED",
+                                                "$ uv run python scripts/smoke_with_tax.py\n    12.10")), turn)
             continue
         check("ROUND_UP in place of ROUND_HALF_UP turns a test red", "ROUND_UP" not in survivors, "all green under ROUND_UP")
         check("so does every other rounding mode", survivors == [], survivors)

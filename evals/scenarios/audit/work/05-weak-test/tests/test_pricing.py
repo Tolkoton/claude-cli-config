@@ -27,3 +27,8 @@ def test_with_tax_rounds_half_up() -> None:
     result = with_tax(Decimal("0.50"), 21)
     assert isinstance(result, Decimal)
     assert result > 0
+
+
+def test_with_tax_rejects_negative_rate() -> None:
+    with pytest.raises(ValueError, match="-1"):
+        with_tax(Decimal("10.00"), -1)
