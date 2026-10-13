@@ -31,3 +31,8 @@
 - Record: tasks/done/765-open-item-test-gap-two-branches-whose-sessions-que/report.md
 - Reason: All four questions hold: every file-and-line reference in the report says what is ascribed to it, the single «Що зробити» item is answered (the check already stands, both runs are shown, no code changed, fast suite reported green), there is no open question for the owner, and the engine terms are in English. The run outputs and the origin of the check in commit a2b20d0 cannot be checked with Read/Grep/Glob and are listed as «не перевірено».
 - Request: 20261013T072805Z-8134b1 (attempt 1)
+
+## 2026-10-13T18:11:12Z — 776-open-item-check-close-pass-from-another-clone — READER_PASS
+- Record: tasks/done/776-open-item-check-close-pass-from-another-clone/report.md
+- Reason: Усі чотири питання тримаються: посилання на файли й рядки, які можна відкрити, кажуть приписане; обидва пункти «Що зробити» мають відповідь (проєкт рішення зроблено, тести прямо передано задачі 1730, підказку — 1748, побічну знахідку — 1749); відкритих питань до власника немає (на обидва є відповідь «(а)» у файлі задачі); engine-терміни у звіті англійською. Вміст commit-ів і виводи команд, яких ніхто не записав, не перевірено.
+- Request: 20261013T181019Z-87982c (attempt 1)
