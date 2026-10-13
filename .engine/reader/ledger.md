@@ -36,3 +36,8 @@
 - Record: tasks/done/776-open-item-check-close-pass-from-another-clone/report.md
 - Reason: Усі чотири питання тримаються: посилання на файли й рядки, які можна відкрити, кажуть приписане; обидва пункти «Що зробити» мають відповідь (проєкт рішення зроблено, тести прямо передано задачі 1730, підказку — 1748, побічну знахідку — 1749); відкритих питань до власника немає (на обидва є відповідь «(а)» у файлі задачі); engine-терміни у звіті англійською. Вміст commit-ів і виводи команд, яких ніхто не записав, не перевірено.
 - Request: 20261013T181019Z-87982c (attempt 1)
+
+## 2026-10-13T18:39:48Z — 1734-open-item-gemini-api-key-in-runner-parent-processe — READER_PASS
+- Record: tasks/done/1734-open-item-gemini-api-key-in-runner-parent-processe/report.md
+- Reason: All four questions hold: every reference I could open says what the report ascribes to it, the single item of «Що зробити» (carry out the owner's answer «(б)», record it, close) is answered in the report, there is no open question left for the owner, and the engine terms in the report are English (runner, task board, reader, commit, hooks).
+- Request: 20261013T183922Z-c130de (attempt 1)
