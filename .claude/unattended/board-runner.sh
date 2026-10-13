@@ -111,6 +111,8 @@
 #               task=<name|-> since=<UTC> [reason=<word>]
 #   events.log  one UTC line per event      costs.json  per task: attempts, sessions, cost
 #   summary.md  written at every stop       logs/       the raw output of every attempt
+# An open gate escalation that names no file covers all work (board 301): no task is started, the
+# runner stops with state=waiting-owner reason=gate-escalation and summary.md names its stamp.
 # Exit 0: idle, waiting-owner, stopped (--once, --stop-after-task, --stop-after-attempt). Exit 1: error.
 #
 # A GATE QUESTION (tasks/blocked/9NN-gate-escalation-*.md, written by gate.py when the Stop gate
@@ -931,6 +933,10 @@ while :; do
       push_branch
       if [ "$RC" -eq 5 ]; then
         finish idle - extra-cap "what is left are tasks with extra sessions, and the extra sessions of the last seven days are at the cap (EXTRA_SESSIONS_WEEK_USD): they wait in tasks/todo/ until the sum falls, nobody is asked ($FINISHED task(s) closed in this run)"
+      fi
+      HOLD=$(board gate-hold)
+      if [ "$RC" -eq 4 ] && [ -n "$HOLD" ]; then   # board 301: every session would end in a BLOCK
+        finish waiting-owner - gate-escalation "the gate escalation $HOLD covers all work: until the owner closes it no OVERSEER_PASS is accepted, so no new task is started ($FINISHED task(s) closed in this run)"
       fi
       if [ "$RC" -eq 4 ] || [ -n "$(find tasks/blocked -maxdepth 1 -name '[0-9]*.md' 2>/dev/null | head -1)" ]; then
         finish waiting-owner - owner "nothing can move: what is left waits for the owner's answers, for the owner's presence or for tasks that are not done ($FINISHED task(s) closed in this run)"

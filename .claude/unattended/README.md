@@ -35,7 +35,13 @@ from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, a
 answered tasks from `tasks/blocked/`. A question the Stop gate put there after giving up
 (`9NN-gate-escalation-*.md`) it commits and pushes at once; when the owner's answer `так`
 arrives by the pull or the inbox, the runner itself runs `gate.py --close-escalation` and moves
-that task to `done/` — no agent is started for it (`.claude/references/gate.md`). An action the
+that task to `done/` — no agent is started for it (`.claude/references/gate.md`). While a gate
+escalation is open the runner does not spend a session on a task whose PASS it would refuse (board
+301): the task whose turn the gate gave up on and a task whose own commits changed an escalated file
+wait in `todo/` (`board.py summary` says for which escalation) while other tasks go on — their PASS is
+accepted, and the escalated file stays unjudged; an escalation that names no file covers all work, so
+the runner starts nothing, places no cleanup task and stops with `state=waiting-owner
+reason=gate-escalation`, the stamp in `summary.md`. An action the
 owner approved with `так` under a question that offers it (`Дія runner-а: apply-settings <sha256>`)
 the runner takes itself, through `owner_action.py`, whose list is short: the settings
 proposal is checked by `settings_check.py` (it ships with the engine, so this works in every

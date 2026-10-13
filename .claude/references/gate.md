@@ -196,11 +196,21 @@ is a new exemption.
 ## An open escalation refuses the PASS
 
 The `GATE_MAX_BLOCKS`th block also records the escalation in `.claude/state/gate/escalations.json`:
-the files it blocked on (every file it looked at, when the failure named none). While it is open,
-`overseer_verdict.py` records a BLOCK ("gate escalation open") in place of the overseer's PASS as long as
-any of those files is in the range no accepted PASS has covered. The lock is keyed on the files, not on the
-slice's name — `.engine/PROGRESS.md` is the agent's own file. Other work passes once the escalated
-changes are set aside uncommitted (`git stash push -- <files>`).
+the files it blocked on (every file it looked at, when the failure named none) and, in a project with a
+task board, the task in `tasks/doing/` whose turn it was (`work`). While it is open,
+`overseer_verdict.py` records a BLOCK ("gate escalation open") in place of the overseer's PASS for the
+unit the escalation covers. The lock is keyed on the files, not on the slice's name —
+`.engine/PROGRESS.md` is the agent's own file — and on whose change it is (board 301): it covers a unit
+whose own change to one of those files is still in the range no accepted PASS has covered (the task in
+hand changed the file in one of its commits, or the file differs from HEAD in the tree), and every unit of
+the task named in `work` while the file is unjudged. The unit of another board task passes; its PASS
+moves the base, but the escalated files are written into `held` (`gate-allows-judged.json`) with the
+commit their change is counted from: neither the change nor its gate exemptions become judged, and the
+first audit after the close has them back in its range. Without a board task nobody can tell whose a
+change is, and the lock covers every unit while the files are unjudged — there other work passes once
+the escalated changes are set aside uncommitted (`git stash push -- <files>`). An escalation that names
+no file covers all work. The board starts no task whose PASS would be refused (`board.py`, A GATE
+ESCALATION HOLDS A TASK).
 
 In a project with a task board (`tasks/`) the escalation is also written as a task,
 `tasks/blocked/9NN-gate-escalation-<stamp>.md`, with what the gate blocked on and one question.

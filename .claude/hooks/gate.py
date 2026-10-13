@@ -969,11 +969,24 @@ def read_escalations(root: Path) -> dict[str, Any]:
     return data
 
 
+def work_in_hand(root: Path) -> str:
+    """The board task of this session in tasks/doing/ (board.py in_hand); empty with none or no board."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board
+
+        return str(board.in_hand(root / "tasks"))
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        return ""
+
+
 def open_escalation(root: Path, stamp: str, report: Report, task: str | None = None,
                     waiting: dict[str, Any] | None = None) -> None:
     """Machine state beside the parked entry: overseer_stop.py refuses an OVERSEER_PASS while an
-    escalation of the slice is open. In .claude/state/, which no agent tool may write — the park
-    queue is the agent's own file and could not carry a lock on the agent."""
+    escalation of the work is open. In .claude/state/, which no agent tool may write — the park
+    queue is the agent's own file and could not carry a lock on the agent. `work` is the board
+    task whose turn the gate gave up on (board 301): its PASS is not accepted while the escalation
+    is open, and the board does not start it."""
     data = read_escalations(root)
     # The files the gate blocked on; when a failure named none (a test run that just says
     # "failed"), every file the gate looked at. The lock is keyed on these, not on a slice name.
@@ -983,6 +996,9 @@ def open_escalation(root: Path, stamp: str, report: Report, task: str | None = N
              "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]}
     if task:
         entry["task"] = task
+    work = work_in_hand(root)
+    if work:
+        entry["work"] = work
     if waiting:
         entry["waiting"] = waiting
     data["open"].append(entry)

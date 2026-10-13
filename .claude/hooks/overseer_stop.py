@@ -368,36 +368,25 @@ def _open_gate_escalation(project_dir: Path) -> tuple[str, str] | None:
     board runner does on the owner's answer «так» under the gate's question in tasks/blocked/.
 
     Covers — by FILES, never by the slice's name: the active slice is whatever .engine/PROGRESS.md
-    says, and the agent writes that file. An escalation holds while any file the gate blocked on
-    is still in the range no accepted PASS has covered (changed since the last one, committed or
-    not). An escalation that recorded no file holds for everything. The slice is named in the
-    message only."""
+    says, and the agent writes that file. An escalation holds the unit whose own change to a file
+    the gate blocked on is still in the range no accepted PASS has covered; the work of another
+    board task, which did not touch those files, passes, and its PASS leaves them unjudged (board
+    301: gate_allows.escalation_over, where the rule and its reasons are). An escalation that
+    recorded no file holds for everything. The slice is named in the message only."""
     try:
+        import gate_allows
+
+        return gate_allows.escalation_over(project_dir)
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+    try:   # cannot tell whose the work is: the lock holds rather than opens
         data = json.loads(
             (project_dir / ".claude" / "state" / "gate" / "escalations.json").read_text(encoding="utf-8")
         )
-        entries = [e for e in data.get("open", []) if isinstance(e, dict)]
-    except (OSError, ValueError, AttributeError):
+        entry = next(e for e in data.get("open", []) if isinstance(e, dict))
+    except (OSError, ValueError, AttributeError, StopIteration):
         return None
-    if not entries:
-        return None
-    unit: set[str] | None = None
-    for entry in entries:
-        stamp, raised_in = str(entry.get("stamp", "?")), str(entry.get("slice", NO_SLICE))
-        where = f"raised in slice `{raised_in}`" if raised_in != NO_SLICE else "raised outside any slice"
-        files = {str(f) for f in entry.get("files") or []}
-        if not files:
-            return stamp, f"{where}, on no particular file — it covers all work"
-        if unit is None:
-            try:
-                import gate_allows
-
-                unit = gate_allows.unit_files(project_dir)
-            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
-                unit = set(files)  # cannot tell the range: the lock holds rather than opens
-        if files & unit:
-            return stamp, f"{where}, on " + ", ".join(sorted(files & unit)[:5])
-    return None
+    return str(entry.get("stamp", "?")), "its files could not be compared with this work — it covers all work"
 
 
 def _gate_allow_review(project_dir: Path) -> str:
@@ -409,6 +398,8 @@ def _gate_allow_review(project_dir: Path) -> str:
         import gate_allows
 
         listing = gate_allows.render(gate_allows.record_request(project_dir))
+        # Board 301: the files an open escalation keeps out of this audit, and the held ones it gets back.
+        listing = "\n\n".join(part for part in (listing, gate_allows.aside_note(project_dir)) if part)
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         return COLLECTOR_FAILED_NOTICE.format(error=f"{type(exc).__name__}: {exc}"[:160])
     return f"\n\n{listing}" if listing else ""

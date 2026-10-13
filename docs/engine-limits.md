@@ -438,12 +438,19 @@ such exemption before the overseer, who judges it (check #4). What that rests on
   set — with the same limit: an agent that clears the variable on purpose, or forges an answer
   through the inbox, is not something a script can see. `.engine/rules.md` itself is an ordinary
   project file; an edit of it by hand is caught by review of the diff, not by a hook.
-- **The lock is keyed on files, so it is wide.** The slice's name is the agent's to write
-  (`.engine/PROGRESS.md`), the diff is not. An escalation therefore holds every PASS while the
-  files the gate blocked on are in the range no accepted PASS has covered — in practice all work
-  on the branch until the owner closes it or the escalated changes are set aside uncommitted. The
-  owner's "for this slice" is met in the strict direction: the slice cannot pass, and neither can
-  anything stacked on its unanswered files.
+- **The lock is keyed on files and on whose change it is (board 301).** The slice's name is the
+  agent's to write (`.engine/PROGRESS.md`), the diff is not. An escalation holds the PASS of a unit
+  whose own change to a file the gate blocked on is still unjudged: the task in hand changed it in
+  one of its commits (every stay in `tasks/doing/`, read from git) or it differs from HEAD in the
+  tree. Another task's unit passes, and its PASS accepts nothing in those files: they are written
+  into `held` and stay unjudged, with their gate exemptions, until an audit after the close. What
+  this rests on: "whose" is read from the commits between the board's moves of the task file, so
+  a change committed while no task was in `doing/`, or by a session that moved its task file
+  itself, is attributed by those moves — and without a board task nobody can tell, so the lock is
+  as wide as before: every PASS while the files are unjudged. A unit that builds ON the escalated
+  change without touching the file passes; the overseer is told the file is set aside, and whether
+  the unit stands without it is the overseer's judgement, not a script's. The board holds only
+  what can be told before a task starts (`board.py`, A GATE ESCALATION HOLDS A TASK).
 - **The collector sees what the guard sees.** `.sh`, `.pyi`, `setup.cfg`, a `conftest.py`
   `collect_ignore`: the bypass guard does not watch them, so no gate-allow can exist there to
   hide. That is a limit of the gate (package 7), unchanged here.

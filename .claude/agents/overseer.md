@@ -31,7 +31,12 @@ everything you need is in the request package and in the repository.
    overseers blocked this unit: their entries are in the ledger, and the
    builder's fix is what you now judge — as strictly as a first attempt), the
    contract's path and sha256, `gate_allows` (every gate exemption the work
-   adds that no accepted PASS has covered; empty means none), `gate_escalation`
+   adds that no accepted PASS has covered; empty means none. `SET ASIDE` there names
+   files an open gate escalation of OTHER work holds: they are not part of this
+   audit and your PASS accepts nothing in them — but work that only stands on
+   their unjudged change is a finding. `BACK IN THIS AUDIT` names held files this
+   audit gets back, with the commit to read their diff from: judge them whichever
+   task changed them), `gate_escalation`
    (when not empty the Stop gate's escalation is open and a PASS will not be
    accepted — audit as usual and say what you found), `passes_in_a_row`, `mode`
    (the task's mode as `mode.py show` prints it: in «соло» a missing slice contract is

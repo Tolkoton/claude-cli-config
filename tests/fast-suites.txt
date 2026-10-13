@@ -133,3 +133,6 @@ test_symlink_loop_outside_hooks.py
 # Board 724: test_protected_guard 3.3 s is in (the guard stands between an agent and the settings; about forty runs of gate.py,
 # env-check.sh and commit_checkpoint.sh on synthetic projects). The runner's scenes are in test_board_runner, which stays out.
 test_protected_guard.py
+# Board 301: test_escalation_scope 7.8 s is in (an open gate escalation holds only its own work: the real gate.py, overseer_stop.py,
+# overseer_verdict.py and board.py on synthetic boards; the lock on a PASS is a guard, so it stands on the Stop gate).
+test_escalation_scope.py

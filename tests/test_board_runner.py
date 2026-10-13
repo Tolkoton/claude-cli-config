@@ -992,6 +992,44 @@ check("closed in a terminal earlier: the question still leaves the board, the re
       "вже не була відкрита" in (w.repo / f"tasks/done/{name.removesuffix('.md')}/report.md").read_text()
       and "was-not-open" in events(w) and "state=idle" in w.status(), events(w))
 
+print("board 301: an open gate escalation that covers all work — the runner starts no new task")
+w = World("done done")
+w.put("todo", "001-first.md")
+(w.repo / ".claude/state/gate").mkdir(parents=True)
+(w.repo / ".claude/state/gate/escalations.json").write_text(json.dumps(
+    {"open": [{"stamp": "2026-10-12T01:56:46Z", "slice": "(none)", "files": []}], "closed": [], "refusals": []}))
+r = w.run()
+said = (w.state / "summary.md").read_text()
+check("negative — no session is started and the task stays in todo/", w.calls() == [] and w.has("tasks/todo/001-first.md")
+      and not w.has("tasks/doing/001-first.md"), (w.calls(), r.stdout + r.stderr))
+check("the runner waits for the owner (exit 0), and the reason names the escalation", r.returncode == 0
+      and "state=waiting-owner" in w.status() and "reason=gate-escalation" in w.status(), w.status())
+check("summary.md says why: the escalation's stamp, in the state line and in the board's own lines",
+      "`waiting-owner` — the gate escalation 2026-10-12T01:56:46Z covers all work" in said
+      and "ескалація gates 2026-10-12T01:56:46Z накриває всю роботу" in said, said)
+check("no cleanup task was placed for the free time", not list((w.repo / "tasks/todo").glob("*cleanup*")), sorted(p.name for p in (w.repo / "tasks/todo").iterdir()))
+env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(w.repo)}
+subprocess.run([sys.executable, str(GATE), "--close-escalation", "2026-10-12T01:56:46Z"], cwd=w.repo, env=env, capture_output=True, check=True)
+r = w.run()
+check("the owner closed it: the next run takes the task", len(w.calls()) == 1 and w.has("tasks/done/001-first/report.md"), (w.status(), r.stdout + r.stderr))
+w = World("done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+(w.repo / "mod.py").write_text("x = 1\n")
+sh(w.repo, "git", "add", "mod.py")
+sh(w.repo, "git", "commit", "-q", "-m", "code")
+(w.repo / ".claude/state/gate").mkdir(parents=True)
+(w.repo / ".claude/state/gate/escalations.json").write_text(json.dumps(
+    {"open": [{"stamp": "2026-10-12T01:56:46Z", "slice": "(none)", "files": ["mod.py"], "work": "001-first"}], "closed": [], "refusals": []}))
+(w.repo / "mod.py").write_text("x = 1\nq = 9\n")
+sh(w.repo, "git", "commit", "-q", "-am", "the change the gate gave up on")
+r = w.run()
+check("an escalation on one task's file: that task waits in todo/, the other one is done",
+      w.has("tasks/todo/001-first.md") and w.has("tasks/done/002-second/report.md") and len(w.calls()) == 1
+      and "state=waiting-owner" in w.status(), (w.status(), r.stdout + r.stderr))
+check("…and the summary says what it waits for",
+      "чекає, поки власник закриє ескалацію gates 2026-10-12T01:56:46Z: 001-first.md" in (w.state / "summary.md").read_text(), (w.state / "summary.md").read_text())
+
 print("board 005: a question that appears during a session is published before the task closes")
 w = World("gateq done")
 w.put("todo", "001-first.md")

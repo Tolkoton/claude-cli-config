@@ -37,6 +37,23 @@ reason, and which occurrence) and not listed again; `--all` lists them too. Runn
 by hand records nothing. State: .claude/state/overseer/gate-allows-{judged,pending}.json.
 Exit 0 always — except 2 for a base that is not a commit.
 
+AN OPEN GATE ESCALATION HOLDS ITS OWN WORK ONLY (board 301). The base is one for the whole
+branch, so a file the Stop gate gave up on stayed in the range of every later unit, whichever task
+it belonged to, and no PASS could move the base while the escalation was open: on 2026-10-12
+eleven tasks were refused for one file of a twelfth. Now `escalation_over` asks whose the change
+is. An escalation covers a unit when a file it names is still unjudged AND is the unit's own: the
+task in hand changed it in one of its commits (every stay of the task in tasks/doing/,
+mode.task_commits) or it differs from HEAD in the working tree; the task the gate gave up on
+(`work` in the escalation) is covered while the file is unjudged at all. With no board task
+nobody can tell whose a change is, and the escalation covers the whole range, as it did. An
+escalation that names no file covers everything.
+What a PASS of other work must not do is accept the escalated change behind the owner's back, so
+such a file is SET ASIDE: the request does not list its exemptions, and the accepted PASS, which
+moves the base past the change, writes the file into `held` with the commit its change is counted
+from. A held file stays in the unjudged range (`unjudged`) and its exemptions stay unjudged until
+a request that does not set it aside is passed — the first audit after the owner closed the
+escalation, whose request says the file is back and from where to read its diff.
+
 Standard library only; imports gate.py so the two can never disagree about a diff or a reason.
 """
 
@@ -50,6 +67,7 @@ import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 import gate
 
@@ -203,6 +221,16 @@ def read_judged(root: Path) -> tuple[str, set[str]]:
         return "", set()
 
 
+def read_held(root: Path) -> dict[str, str]:
+    """file → the commit its unjudged change is counted from, for the files an accepted PASS set
+    aside (AN OPEN GATE ESCALATION HOLDS ITS OWN WORK ONLY); empty when none."""
+    try:
+        held = json.loads((root / JUDGED_REL).read_text(encoding="utf-8")).get("held")
+    except (OSError, ValueError, AttributeError, TypeError):
+        return {}
+    return {str(rel): str(since) for rel, since in held.items()} if isinstance(held, dict) else {}
+
+
 def default_base(root: Path) -> str:
     """Where "not yet judged" starts: the last accepted PASS, else the slice's base_commit, else
     the point this branch left the main one, else HEAD."""
@@ -226,9 +254,96 @@ def default_base(root: Path) -> str:
     return "HEAD"
 
 
+def differs(root: Path, rel: str, since: str) -> bool:
+    """`rel` is a file now and is not what the commit `since` has."""
+    if not (root / rel).is_file():
+        return False
+    return (gate.git(root, "cat-file", "-e", f"{since}:{rel}").returncode != 0
+            or gate.git(root, "diff", "--quiet", since, "--", rel).returncode != 0)
+
+
+def unjudged(root: Path) -> dict[str, str]:
+    """Every file no accepted PASS has covered → the commit its change is counted from: the base,
+    and for a file a PASS set aside, the base of that time."""
+    if not gate.has_head(root):
+        return {}
+    base = default_base(root)
+    files = {rel: base for rel in changed_since(root, base)} if is_commit(root, base) else {}
+    for rel, since in read_held(root).items():
+        if is_commit(root, since) and differs(root, rel, since):
+            files[rel] = since
+    return files
+
+
+def own_files(root: Path, task: str, tree: bool = True) -> set[str] | None:
+    """What the task changed itself: the files of its commits and, with `tree`, whatever differs
+    from HEAD in the working tree. None — whose a change is cannot be told: no board task, or one
+    git never saw in tasks/doing/. Without `tree` (a task that waits in todo/) such a task has
+    changed nothing."""
+    if not task:
+        return None
+    try:
+        import mode
+
+        commits = mode.task_commits(root, task)
+        if commits is None:
+            return None if tree else set()
+        files = {rel for commit in commits for rel in mode._changed(root, commit)}
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        return None
+    return files | set(changed_since(root, "HEAD")) if tree else files
+
+
+def open_escalations(root: Path) -> list[dict[str, Any]]:
+    return [e for e in gate.read_escalations(root)["open"] if isinstance(e, dict)]
+
+
+def escalation_over(root: Path, task: str | None = None, tree: bool = True,
+                    files: dict[str, str] | None = None) -> tuple[str, str] | None:
+    """(timestamp, scope text) of the open gate escalation a verdict on the task's work runs into,
+    or None (AN OPEN GATE ESCALATION HOLDS ITS OWN WORK ONLY). `task` — the session's task in
+    doing/ unless named; `tree=False` asks for a task that waits in todo/, whose work is its
+    commits alone; `files` — `unjudged(root)` when the caller has it."""
+    entries = open_escalations(root)
+    if not entries:
+        return None
+    task = gate.work_in_hand(root) if task is None else task
+    own: set[str] | None = None
+    asked = False
+    for entry in entries:
+        stamp, raised_in = str(entry.get("stamp", "?")), str(entry.get("slice", gate.NO_SLICE))
+        where = f"raised in slice `{raised_in}`" if raised_in != gate.NO_SLICE else "raised outside any slice"
+        named = {str(f) for f in entry.get("files") or []}
+        if not named:
+            return stamp, f"{where}, on no particular file — it covers all work"
+        if not asked:
+            files = unjudged(root) if files is None else files
+            own, asked = own_files(root, task, tree), True
+        covered = named & set(files or {})
+        if own is not None and task != str(entry.get("work") or ""):
+            covered &= own
+        if covered:
+            return stamp, f"{where}, on " + ", ".join(sorted(covered)[:5])
+    return None
+
+
+def set_aside(root: Path, files: dict[str, str] | None = None) -> dict[str, str]:
+    """The unjudged files of open gate escalations that the unit in hand does not answer for →
+    the commit their change is counted from. Empty when an escalation covers the unit: its
+    verdict cannot be PASS, and nothing is kept from its auditor."""
+    entries = open_escalations(root)
+    if not entries:
+        return {}
+    files = unjudged(root) if files is None else files
+    if escalation_over(root, files=files) is not None:
+        return {}
+    named = {str(f) for entry in entries for f in entry.get("files") or []}
+    return {rel: since for rel, since in files.items() if rel in named}
+
+
 def collect(root: Path, base: str | None = None, include_judged: bool = False) -> list[Allow]:
-    """Every gate exemption the diff against the base adds and no accepted PASS has seen.
-    Raises ValueError for a base that is no commit."""
+    """Every gate exemption the diff against the base adds and no accepted PASS has seen — but
+    for the files set aside. Raises ValueError for a base that is no commit."""
     if not gate.has_head(root):
         return []
     ref = base or default_base(root)
@@ -236,7 +351,11 @@ def collect(root: Path, base: str | None = None, include_judged: bool = False) -
         raise ValueError(f"base '{ref}' is not a commit in this repository")
     grants = gate.contract_grants(root)
     allows: list[Allow] = []
-    for rel in changed_since(root, ref):
+    since = {rel: ref for rel in changed_since(root, ref)} if base else unjudged(root)
+    aside = {} if base else set_aside(root, since)
+    for rel, start in sorted(since.items()):
+        if rel in aside:
+            continue
         is_contract = rel.startswith(SLICES_PREFIX) and rel.endswith(".md")
         if not (rel.endswith(".py") or gate.is_config_file(rel) or is_contract):
             continue
@@ -244,7 +363,7 @@ def collect(root: Path, base: str | None = None, include_judged: bool = False) -
             text = (root / rel).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        added = added_since(root, rel, ref)
+        added = added_since(root, rel, start)
         if rel.endswith(".py"):
             allows.extend(from_python(rel, text, added, grants))
             continue
@@ -255,7 +374,7 @@ def collect(root: Path, base: str | None = None, include_judged: bool = False) -
                 found = [Allow(rel, 1, "contract", f"config change (granted by {grant[0]})", grant[1], True)]
         if rel == ".claude/project.env":
             # PROJECT_MARKER / CODE_EXTENSIONS pass on the contract's grant alone: show it where it is used.
-            before, after = gate.parse_env_text(gate.git(root, "show", f"{ref}:{rel}").stdout), gate.parse_env_text(text)
+            before, after = gate.parse_env_text(gate.git(root, "show", f"{start}:{rel}").stdout), gate.parse_env_text(text)
             for name in gate.SCOPE_KEYS:
                 grant = grants.get(name.lower())
                 if grant and before.get(name, "") != after.get(name, ""):
@@ -276,9 +395,34 @@ def record_request(root: Path) -> list[Allow]:
     this request shows and at which commit. Only an accepted PASS turns that into "judged"."""
     allows = collect(root)
     head = gate.git(root, "rev-parse", "-q", "--verify", "HEAD").stdout.strip()
+    # `held` is the whole of it after this request: a file held before and not set aside now is shown now.
     gate.write_json(root / PENDING_REL, {"commit": head, "shown": sorted(a.fingerprint for a in allows),
-                                         "requested_utc": gate.utc_now()})
+                                         "held": set_aside(root), "requested_utc": gate.utc_now()})
     return allows
+
+
+ASIDE_NOTE = (
+    "SET ASIDE — an open gate escalation holds {files}, changed by other work and not by this unit. "
+    "They are not part of this audit: a PASS here accepts nothing in them, and their gate exemptions "
+    "are not listed. They stay unjudged until the owner closes the escalation."
+)
+BACK_NOTE = (
+    "BACK IN THIS AUDIT — {files}: changed while a gate escalation was open on them, and set aside "
+    "by every PASS since. No PASS has covered that change; it is part of this audit, whichever "
+    "task made it. Read it with `git diff <commit> -- <file>`."
+)
+
+
+def aside_note(root: Path) -> str:
+    """What the overseer is told about the files an open escalation keeps out of this audit, and
+    about the held files this audit gets back; the empty string when there are neither."""
+    files = unjudged(root)
+    aside, held = set_aside(root, files), read_held(root)
+    back = sorted(rel for rel in held if rel in files and rel not in aside)
+    notes = [ASIDE_NOTE.format(files=", ".join(sorted(aside)))] if aside else []
+    if back:
+        notes.append(BACK_NOTE.format(files=", ".join(f"{rel} (since {held[rel][:12]})" for rel in back)))
+    return "\n\n".join(notes)
 
 
 def drop_request(root: Path) -> None:
@@ -293,10 +437,12 @@ def record_pass(root: Path) -> bool:
     try:
         pending = json.loads((root / PENDING_REL).read_text(encoding="utf-8"))
         commit, shown = str(pending["commit"]), {str(x) for x in pending["shown"]}
-    except (OSError, ValueError, KeyError, TypeError):
+        held = pending.get("held")
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return False
     previous, judged = read_judged(root)
     gate.write_json(root / JUDGED_REL, {"commit": commit or previous, "judged": sorted(judged | shown)[-JUDGED_CAP:],
+                                        "held": held if isinstance(held, dict) else read_held(root),
                                         "updated_utc": gate.utc_now()})
     drop_request(root)
     return True
@@ -319,11 +465,8 @@ def render(allows: list[Allow]) -> str:
 
 
 def unit_files(root: Path) -> set[str]:
-    """Files changed since the base — the range the next verdict speaks for."""
-    if not gate.has_head(root):
-        return set()
-    base = default_base(root)
-    return set(changed_since(root, base)) if is_commit(root, base) else set()
+    """Files changed since the base, and the held ones — the range no accepted PASS has covered."""
+    return set(unjudged(root))
 
 
 def main(argv: list[str] | None = None) -> int:

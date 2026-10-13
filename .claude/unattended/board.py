@@ -51,6 +51,8 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py gate-closed             the gate's questions in blocked/ that nobody answered and whose
                                      escalation is closed already: one `name<TAB>stamp` line each
     board.py gate-reject <name>      its answer is wiped and the question asked again
+    board.py gate-hold               the stamp of an open gate escalation that covers all work (see
+                                     A GATE ESCALATION HOLDS A TASK); prints nothing when there is none
     board.py owner-actions           blocked/ tasks that carry an allowed action the owner answered
                                      «так» (a rule proposal: also «ні»): one
                                      `name<TAB>action<TAB>argument<TAB>sha256` line each
@@ -130,6 +132,18 @@ not while a cleanup task waits in todo/, doing/ or blocked/; not sooner than CLE
 a project without `.claude/hooks/simplifier.py`. One already in todo/ waits the same way while the
 owner's attended task is in doing/ (board 838): `next` does not offer it and `start` refuses it —
 two authors in the same files would conflict at the merge. The engine schedules nothing else.
+
+A GATE ESCALATION HOLDS A TASK (board 301). While the Stop gate's escalation is open the overseer's
+PASS is not accepted for the work it covers (.claude/hooks/gate_allows.py, `escalation_over`), so a
+session spent on such a task ends in a BLOCK whatever it does: on 2026-10-12 the runner took eleven
+tasks one after another, and each came back with the same question. A task in todo/ whose verdict the
+escalation would refuse is therefore not offered by `next` and not moved by `start`, and `summary`
+says what it waits for: the task whose turn the gate gave up on (`work` in the escalation), a task
+whose own earlier commits changed a file the escalation names, and — when the escalation names no
+file and so covers all work — every task; then no cleanup task is placed either, and the runner
+stops with `waiting-owner`. Only what can be told before the start is held: a task that will change
+an escalated file for the first time is found by the overseer, not here. `--attended` is not held —
+the owner is there to close the escalation. Without gate_allows.py beside the board nothing is held.
 
 AN ATTENDED TASK (board 016) says `Потрібна присутність власника: так` under its title: work no
 agent may do alone — above all a change to its own guards, which the permission classifier
@@ -410,6 +424,7 @@ def read(path: Path) -> Task:
 class Board:
     def __init__(self, tasks: Path) -> None:
         self.tasks = tasks
+        self._unjudged: dict[str, str] | None = None   # gate_allows.unjudged, asked once for all of todo/
 
     def files(self, column: str) -> list[Path]:
         """The task files of todo/, doing/ or blocked/, lowest number first."""
@@ -463,11 +478,30 @@ class Board:
         owners = self.in_hand(True)
         return owners[0] if owners and CLEANUP_NAME.match(path.name) else None
 
+    def gate_hold(self, path: Path | None = None) -> str | None:
+        """The stamp of the open gate escalation that would refuse the task's verdict; with no path —
+        of one that covers all work (A GATE ESCALATION HOLDS A TASK). None — nothing holds. Best effort."""
+        try:
+            import gate_allows
+
+            root = self.tasks.parent
+            entries = gate_allows.open_escalations(root)
+            whole = [str(entry.get("stamp", "?")) for entry in entries if not entry.get("files")]
+            if whole or path is None or not entries:
+                return whole[0] if whole else None
+            if self._unjudged is None:
+                self._unjudged = gate_allows.unjudged(root)
+            over = gate_allows.escalation_over(root, path.stem, tree=False, files=self._unjudged)
+            return over[0] if over else None
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError):
+            return None
+
     def ready(self, attended: bool = False) -> list[tuple[Path, Task]]:
         """The tasks of the queue that could start, in its order: for an agent alone, never an
         attended one; with attended=True (the owner's session), the attended ones."""
         return [(p, task) for p in self.queue() for task in [read(p)]
-                if task.attended == attended and not self.unmet(task) and not task.mode_error and not self.held_cleanup(p)]
+                if task.attended == attended and not self.unmet(task) and not task.mode_error and not self.held_cleanup(p)
+                and (attended or not self.gate_hold(p))]
 
     def eligible(self, attended: bool = False) -> Path | None:
         """The first task that can start. For an agent alone a task with extra sessions comes after
@@ -546,6 +580,11 @@ def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> i
     if held:
         print(f"board: {source.name} is a cleanup task and waits while the owner's attended task {held.name} is in tasks/doing/ "
               "(two authors in the same files would conflict at the merge)", file=sys.stderr)
+        return EXIT_REFUSED
+    stamp = None if attended else board.gate_hold(source)
+    if stamp:
+        print(f"board: {source.name} waits for the owner to close the gate escalation {stamp}: while it is open the "
+              "overseer's PASS is not accepted for this task's work (tasks/README.md, «Питання від gates»)", file=sys.stderr)
         return EXIT_REFUSED
     doing = board.in_hand(read(source).attended)   # the side is the task's: an ordinary one is the runner's even with --attended
     if doing:
@@ -1234,6 +1273,8 @@ def cleanup_task(board: Board, root: Path, today: date) -> Path | None:
         return None
     if board.files("doing") or board.eligible() is not None:   # the owner's attended task too (board 723, the owner's answer)
         return None
+    if board.gate_hold():   # an escalation that covers all work would refuse its units too (board 301)
+        return None
     if extra_refusal(board.tasks):   # a simplifier pass is extra sessions: it waits for the weekly sum (board 110)
         return None
     number, often = _own_number(board), "раз на добу" if every == 1 else f"раз на {every} діб"
@@ -1461,8 +1502,15 @@ def summary(board: Board) -> list[str]:
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
     held = extra_refusal(board.tasks)
+    whole = board.gate_hold()
+    if whole:
+        lines.append(f"ескалація gates {whole} накриває всю роботу: поки власник її не закрив, overseer не приймає жодного PASS — "
+                     "нові задачі не беруться (питання gates — у `blocked/`)")
     for path in todo:
         waiting = read(path)
+        stamp = None if whole else board.gate_hold(path)
+        if stamp:
+            lines.append(f"чекає, поки власник закриє ескалацію gates {stamp}: {path.name} — доти overseer не прийме її PASS")
         if waiting.attended:
             lines.append(f"чекає на присутність власника: {path.name} — лише в інтерактивній сесії з власником")
         if board.held_cleanup(path):
@@ -1522,6 +1570,7 @@ def main() -> int:
     book_parser.add_argument("usd", type=float, help="what the session reported it cost")
     commands.add_parser("extra-wait")
     commands.add_parser("extra-waits").add_argument("name")
+    commands.add_parser("gate-hold")
     commands.add_parser("gate-answers")
     gate_done_parser = commands.add_parser("gate-done")
     gate_done_parser.add_argument("name")
@@ -1682,6 +1731,9 @@ def main() -> int:
             print(f"board: extra-wait: {waits}", file=sys.stderr)
             return EXIT_REFUSED
         print(board.shown(waits))
+        return 0
+    if args.command == "gate-hold":
+        print(board.gate_hold() or "", end="\n" if board.gate_hold() else "")
         return 0
     if args.command == "extra-waits":
         waiting = board.tasks / "todo" / f"{args.name.removesuffix('.md')}.md"
