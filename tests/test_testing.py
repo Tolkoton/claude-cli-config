@@ -20,6 +20,8 @@ Run:   python3 tests/test_testing.py       Exit: 0 all green, 1 otherwise.
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +34,7 @@ SCRIPT = HOOKS / "testing.py"
 sys.path.insert(0, str(HOOKS))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import testing
+import tool_versions
 from hook_env import hook_env
 
 PASS = FAIL = 0
@@ -166,8 +169,8 @@ def seal_contract(repo: Path, slug: str) -> None:
                    capture_output=True, text=True, check=True)
 
 
-def cli(repo: Path, *args: str, stdin: str = "") -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(SCRIPT), *args], env=hook_env(repo), input=stdin, capture_output=True, text=True, check=False)
+def cli(repo: Path, *args: str, stdin: str = "", python: str = sys.executable) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([python, str(SCRIPT), *args], env=hook_env(repo), input=stdin, capture_output=True, text=True, check=False)
 
 
 def request_id(out: subprocess.CompletedProcess[str]) -> str:
@@ -369,12 +372,23 @@ check("inside the tester: a test file is allowed", guard(r, {"agent_type": "slic
 (r / "tests").mkdir(exist_ok=True)
 for loop in ("src/loop.py", "tests/test_loop.py"):
     (r / loop).symlink_to(Path(loop).name)
-for loop, wanted in (("src/loop.py", "test files only"), ("tests/test_loop.py", "")):
-    looped = cli(r, "guard", stdin=json.dumps({"agent_type": "slice-tester", "tool_name": "Write", "tool_input": {"file_path": str(r / loop)}}))
-    reason = json.loads(looped.stdout)["hookSpecificOutput"]["permissionDecisionReason"] if looped.stdout.strip() else ""
-    check(f"inside the tester: the symlink loop {loop} gets the decision its name gets ({'refused' if wanted else 'allowed'}), "
-          "no traceback (bug 007)", looped.returncode == 0 and "Traceback" not in looped.stderr and (wanted in reason if wanted else reason == ""),
-          f"rc={looped.returncode} {looped.stderr.strip().splitlines()[-1:] if looped.stderr.strip() else ''} {reason}")
+# Board 768: the suites run under whatever `python3` is, and from 3.13 on resolve() no longer raises — there these cases
+# stayed green with resolve() put back. So they run under the suite's own interpreter and under each older supported
+# one on PATH (tool_versions.MIN_PYTHON … 3.12), and every one of them must give the same decision with exit 0.
+pythons = {"this python": sys.executable}
+for minor in range(int(tool_versions.MIN_PYTHON.split(".")[1]), 13):
+    found = shutil.which(f"python3.{minor}")
+    if found is None:
+        print(f"  note python3.{minor} is not on PATH: the symlink-loop cases do not run under it here")
+    elif os.path.realpath(found) != os.path.realpath(sys.executable):
+        pythons[f"python3.{minor}"] = found
+for name, python in pythons.items():
+    for loop, wanted in (("src/loop.py", "test files only"), ("tests/test_loop.py", "")):
+        looped = cli(r, "guard", stdin=json.dumps({"agent_type": "slice-tester", "tool_name": "Write", "tool_input": {"file_path": str(r / loop)}}), python=python)
+        reason = json.loads(looped.stdout)["hookSpecificOutput"]["permissionDecisionReason"] if looped.stdout.strip() else ""
+        check(f"inside the tester, {name}: the symlink loop {loop} gets the decision its name gets ({'refused' if wanted else 'allowed'}), "
+              "no traceback (bug 007)", looped.returncode == 0 and "Traceback" not in looped.stderr and (wanted in reason if wanted else reason == ""),
+              f"rc={looped.returncode} {looped.stderr.strip().splitlines()[-1:] if looped.stderr.strip() else ''} {reason}")
 check("inside the tester: starting an agent is refused", "starts no agent" in guard(r, {"agent_type": "slice-tester", "tool_name": "Agent", "tool_input": {}}))
 answer(r, TESTER | {"slice": "discount"})
 tester_line = cli(r, "request", "discount", "--tester", "contract").stdout.strip()
