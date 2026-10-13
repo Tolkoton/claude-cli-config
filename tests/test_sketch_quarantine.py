@@ -204,6 +204,12 @@ try:
     blocks = [(f.file, f.rule) for f in report.findings if f.severity == "block"]
     check("negative — the same deletion in src/sketches/ (a directory that only shares the name, inside SOURCE_DIRS) is still the delete guard's block",
           blocks == [("src/sketches/kept.py", "delete/untested")], blocks)
+    silenced = project(before={"src/sketches/deep.py": "def b() -> int:\n    return 2\n"})
+    (silenced / "src/sketches/deep.py").write_text("def b() -> int:\n    return 2  # type: ignore\n", encoding="utf-8")
+    report, _ = gate.run_layer("stop", silenced, None, None)
+    blocks = [(f.file, f.line, f.rule) for f in report.findings if f.severity == "block"]
+    check("negative — a `# type: ignore` added in src/sketches/ (the same shared name) is still the bypass guard's block",
+          blocks == [("src/sketches/deep.py", 2, "bypass/type-ignore")], blocks)
 
     print("the full layers: the default ruff / mypy / pytest leave sketches/ out")
     for layer in ("pre_commit", "ci"):
