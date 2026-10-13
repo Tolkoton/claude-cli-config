@@ -263,7 +263,8 @@ FRESH_BLOCK_REASON = (
     "claim the unit again (`=== UNIT N COMPLETE ===`) — another overseer, which has seen neither this "
     "audit nor your fix, will judge the result. If you cannot: put the item on the task board — `python3 "
     ".claude/unattended/board.py open-item --to blocked --title … --what … --question …` (a question for the "
-    "owner; `--to todo` when it is work for an agent) — and take the next unblocked one. Do not record a "
+    "owner; `--to proposed` when it is work an agent could do: a proposal the owner puts to work) — and take the next "
+    "unblocked one. Do not record a "
     "verdict yourself."
 )
 FRESH_THREE_BLOCKS_REASON = (

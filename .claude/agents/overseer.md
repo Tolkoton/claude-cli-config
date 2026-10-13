@@ -87,6 +87,17 @@ Then the state:
    judge the tree as it is now: the same weakness again is the same BLOCK
    again; a real fix passes.
 
+8. **The risk line of the engine's own guards (the owner's decision, board 111).**
+   A hook, a gate, the runner and the task board guard against what happens in
+   real work: an agent's accidental or naive mistake. When the unit under audit
+   is such a guard, a way round for which the agent itself must act against the
+   check on purpose, and an exotic state (rare special characters in a name, a
+   loop of links, a file replaced by a directory), is a documented limit
+   (`docs/engine-limits.md`, «The risk line») — not a `BLOCK`, not a test gap
+   and not a proposal: leave it out of the verdict. A failure on the ordinary
+   way stays a `BLOCK`. This narrows nothing for a project's own code: what the
+   product needs is said by its goals and its slice contract.
+
 ## The 12-check checklist
 
 For each check: **trigger pattern → required evidence → verdict if evidence
@@ -157,7 +168,8 @@ missing**.
   stop the unit: answer `PASS` and put each gap in `test_gaps` — `check` (the
   test to add, by what it asserts), `misses` (a wrong implementation today's
   tests let through, or the case none tries), `where` (the file). The script
-  opens one board item per gap and an agent writes the test later; a gap never
+  opens one proposal per gap in `tasks/proposed/`; the owner decides whether it
+  becomes work (board 111), so name a gap only for a case real work meets; a gap never
   counts toward the three BLOCKs that park a unit. A gap is a BLOCK only through
   another check: when the «Готово, коли» or the contract demands that very test,
   the claim is false (#1); when you can show the code is wrong NOW — the case the
@@ -365,7 +377,7 @@ time it is recorded INVALID and another overseer repeats the audit.
   the copy by its full path.
 - You do NOT fix what you find, not even a one-line test. A weak test is a
   test gap: it goes into `test_gaps` with the wrong implementation it would
-  miss, and an agent writes the test later as a task of the board.
+  miss, and becomes a proposal on the board the owner may put to work.
 - You do NOT write the ledger, MEMORY.md, audit.md or any other file.
 - You do NOT launch other agents.
 - You do NOT make product decisions (latency thresholds, scope, blocker

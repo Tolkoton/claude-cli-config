@@ -284,11 +284,11 @@ def main() -> int:
     check("…the candidate is out of the queue either way (both sessions triaged it)", "aaaa1111" not in {e["id"] for e in lesson_queue.entries(root)})
     raised = lesson_queue.raise_contradictions(root)
     task = (root / raised[0]).read_text() if raised else ""
-    check("collect puts it on the board for an agent: one task in todo/ with both triages and the settle command",
-          len(raised) == 1 and raised[0].startswith("tasks/todo/") and "discard" in task and "engine" in task and "settle aaaa1111" in task, raised)
+    check("collect puts it on the board as a proposal (board 111): one file in proposed/, none in todo/, with both triages and the settle command",
+          len(raised) == 1 and raised[0].startswith("tasks/proposed/") and not list((root / "tasks/todo").glob("[0-9]*.md")) and "discard" in task and "engine" in task and "settle aaaa1111" in task, raised)
     check("…once: a second collect finds the open task", lesson_queue.raise_contradictions(root) == raised)
     lesson_queue.collect(root)
-    check("…and collect() itself raises nothing new", len(list((root / "tasks/todo").glob("*-open-item-*.md"))) == 1)
+    check("…and collect() itself raises nothing new", len(list((root / "tasks/proposed").glob("*-open-item-*.md"))) == 1)
     cli = subprocess.run([sys.executable, str(JOURNAL), "--root", str(root), "contradictions"], capture_output=True, text=True, env=hook_env(root), check=False)
     check("journal.py contradictions: exit 1 and the candidate named", cli.returncode == 1 and "#aaaa1111" in cli.stdout, cli.stdout + cli.stderr)
     check("negative — settle without a reason is refused", lesson_queue.settle(root, "aaaa1111", "discard", " ")[0] is False)

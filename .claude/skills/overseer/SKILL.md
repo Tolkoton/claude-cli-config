@@ -49,8 +49,8 @@ not say:
 3. Launch the agent `overseer` with exactly that line, in the foreground.
 4. Report its verdict to whoever asked: the verdict, the check, the reason —
    as the agent gave them — and its test gaps: since board 077 a missing or weak
-   test is a PASS whose gaps the script has opened as items in `tasks/todo/`,
-   never a BLOCK. Do NOT act on the verdict (no fix, no next unit)
+   test is a PASS whose gaps the script has opened as proposals in `tasks/proposed/`
+   (the owner puts one to work, board 111), never a BLOCK. Do NOT act on the verdict (no fix, no next unit)
    unless asked: an audit asked for by hand is a report.
 
 `python3 .claude/hooks/overseer_verdict.py status` shows the pending request

@@ -309,8 +309,9 @@ check("step 3: no separate tester here", "tester" in failing and "not called" in
 cause = flat(section(command, "4."))
 check("step 4: the cause is written before the fix, and tells where it showed from why it happened",
       "before the fix is written" in cause and "where it showed" in cause and "why it happened" in cause, cause[:300])
-check("step 4: the same places are searched; neighbours are fixed within the budget or become tasks",
-      "same cause" in cause and "search" in cause.lower() and "inside the budget" in cause and "new task" in cause)
+check("step 4: the same places are searched; neighbours are fixed within the budget or become proposals of tasks (board 111)",
+      "same cause" in cause and "search" in cause.lower() and "inside the budget" in cause and "new task" in cause
+      and "tasks/proposed/" in cause and "tasks/todo/" not in cause)
 fix = flat(section(command, "5."))
 check("step 5: the budget — zero new files, public names, abstractions, dependencies; 40 new lines of working code",
       all(w in fix for w in ("zero new files", "zero new public names", "zero new abstractions", "zero new dependencies", "40 new lines of working code")), fix[:400])

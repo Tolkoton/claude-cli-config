@@ -109,7 +109,8 @@ python3 .claude/hooks/hotfix.py debt --record .engine/bugs/<number-name>.md
 The script — not your memory — leaves both traces: a line in `.engine/debt.md` (what was put
 off: the test before the code, the record of the cause, the search for the same places; the
 commit; the date; the term — seven days) and, where the project has a task board, the follow-up
-task `tasks/todo/NNN-hotfix-followup-<number-name>.md`: a full `/bugfix` of the same place. It
+`tasks/proposed/NNN-hotfix-followup-<number-name>.md`: a full `/bugfix` of the same place, a proposal
+the owner puts to work (a file with its number in the inbox; nothing takes a task from `proposed/`). It
 refuses a fix over the limit, a card with no fix, and a card without its way back. Stage
 `.engine/debt.md`, the follow-up task and the card together with the fix.
 

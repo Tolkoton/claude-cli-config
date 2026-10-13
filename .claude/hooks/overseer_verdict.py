@@ -41,7 +41,7 @@ and for the next overseer.
 TEST GAPS (board 077, the owner's decision). A gap in the tests of code that does what the claim
 says — a wrong implementation the tests let through, an edge case none tries — does not stop the
 unit: the agent answers PASS and lists each gap in `test_gaps`, and this script opens one item per
-gap in tasks/todo/ (board.py open_item; without a board the ledger alone keeps it). A BLOCK on
+gap in tasks/proposed/ (board.py open_item; the owner puts it to work, board 111; without a board the ledger alone keeps it). A BLOCK on
 check #4 is refused unless it names a silenced check (a gate-allow and its kin): that is all #4
 still blocks. So a test gap never counts toward the three BLOCKs that park a unit.
 
@@ -636,7 +636,7 @@ def gap_key(check: str) -> str:
 
 
 def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonObj]:
-    """One item in tasks/todo/ per test gap (board 077), named by the check to write; `task` is its
+    """One proposal in tasks/proposed/ per test gap (board 077; board 111: the owner puts it to work), named by the check to write; `task` is its
     path, or empty without a board. The item's key is the check, so the same gap found again by the
     next overseer returns the item still open instead of a second one. Best effort."""
     opened: list[JsonObj] = []
@@ -661,7 +661,7 @@ def open_test_gaps(root: Path, row: JsonObj, gaps: list[JsonObj]) -> list[JsonOb
         if tasks is not None and board is not None:
             try:
                 made = board.open_item(
-                    tasks, "todo", f"Брак тесту (overseer): {one_line(check, 200)}",
+                    tasks, "proposed", f"Брак тесту (overseer): {one_line(check, 200)}",
                     f"Overseer {told} юніт `{row.get('unit_key') or row.get('slice')}` ({row['verdict']}, запит `{row['request']}`) "
                     f"і {found} брак тесту: {misses}" + (f" Де: `{where}`." if where else "")
                     + " Вердикт — у ledger: `python3 .claude/hooks/journal.py show ledger`.",

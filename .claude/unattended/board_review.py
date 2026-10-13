@@ -119,7 +119,7 @@ class Source:
         return git(self.root, "show", f"{self.sha}:{path}").stdout if path in self.files else ""
 
     def column(self, name: str) -> list[str]:
-        """The task files of todo/, doing/ or blocked/, lowest number first — as board.Board.files."""
+        """The task files of todo/, doing/, blocked/ or proposed/, lowest number first — as board.Board.files."""
         prefix = f"tasks/{name}/"
         found = [p for p in self.files if p.startswith(prefix) and board.TASK_NAME.match(p[len(prefix):])]
         return sorted(found, key=lambda p: (board.number_of(posixpath.basename(p)) or 0, p))
@@ -591,6 +591,18 @@ def attended_lines(src: Source) -> list[str]:
              "«Задачі з присутнім власником»)."), "", *lines]
 
 
+def proposed_lines(src: Source) -> list[str]:
+    """What agents, hooks and the overseer found and could do (board 111): the files of proposed/. Nothing
+    takes a task from there; the owner puts one to work."""
+    offered = src.column(board.PROPOSED)
+    if not offered:
+        return [f"- Немає (тека `tasks/{board.PROPOSED}/`)."]
+    return [(f"Пропозицій: {len(offered)} (тека `tasks/{board.PROPOSED}/`). Це знахідки агентів, overseer-а й hook-ів; runner їх не бере. "
+             "Щоб поставити пропозицію в роботу, покладіть в inbox файл із її номером (можна копію самої пропозиції, можна свій текст) — "
+             "він ляже в `todo/`. Непотрібна пропозиція просто лежить далі й нічого не зупиняє."), "",
+            *(f"- `{posixpath.basename(path)}` — {title_of(src.show(path), posixpath.basename(path))}" for path in offered)]
+
+
 def waiting_section(src: Source, state: Path) -> list[str]:
     asked: list[Asked] = [(path, text, board.parse(text)) for path in src.column("blocked") for text in [src.show(path)]]
     total = sum(task.answers.count("") for _, _, task in asked)
@@ -600,7 +612,8 @@ def waiting_section(src: Source, state: Path) -> list[str]:
             "### Задачі, що потребують вашої присутності", "", *attended_lines(src), "",
             "### Пропозиції налаштувань", "", *settings_lines(src, asked), "",
             "### Відкриті ескалації", "", *escalation_lines(src, state, asked), "",
-            "### Пропозиції правил", "", *rule_lines(src, asked)]
+            "### Пропозиції правил", "", *rule_lines(src, asked), "",
+            "### Пропозиції нової роботи", "", *proposed_lines(src)]
 
 
 # ------------------------------------------------------------------ the goals document (board 051)
@@ -740,7 +753,7 @@ def plan_section(src: Source) -> list[str]:
     todo = sorted(src.column("todo"), key=lambda p: (board.parse(src.show(p)).extra, rank(posixpath.basename(p))))
     if not todo:
         return ["У `todo/` порожньо."]
-    place = {board.number_of(posixpath.basename(p)): c for c in ("todo", "doing", "blocked") for p in src.column(c)}
+    place = {board.number_of(posixpath.basename(p)): c for c in ("todo", "doing", "blocked", board.PROPOSED) for p in src.column(c)}
     place.update({board.number_of(s): "done" for s in src.done()})
     lines = []
     first_free = not [p for p in src.column("doing") if not board.parse(src.show(p)).attended]   # the owner's session's task is not in the way

@@ -734,8 +734,8 @@ testing.review_task(r)
 check("…and not a second time", len(testing.rows(r, kind="review_task")) == 1)
 argv = json.loads((r / "board-argv.json").read_text(encoding="utf-8"))
 what, todo = argv[argv.index("--what") + 1], argv[argv.index("--do") + 1]
-check("the review task goes to todo/ with the two questions to the owner and the spike's report (board 064)",
-      argv[argv.index("--to") + 1] == "todo" and "Чи братися за stateful testing" in todo and "Чи повертатися до бібліотеки property-based testing" in todo
+check("the review task is a proposal (board 111) with the two questions to the owner and the spike's report (board 064)",
+      argv[argv.index("--to") + 1] == "proposed" and "Чи братися за stateful testing" in todo and "Чи повертатися до бібліотеки property-based testing" in todo
       and "tasks/done/063-property-tests-spike/report.md" in todo and "яких не було серед прикладів tester-а" in todo, todo)
 check("…and with what the live slices showed: invariants written, «none», contracts without the section",
       "записано 1 у 1 slice-ах" in what and "«немає — причина» — 1" in what and "slice contract без розділу — 8" in what and "перевіркою №4 — 0" in what, what)

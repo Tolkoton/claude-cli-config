@@ -31,8 +31,9 @@ python3 .claude/unattended/board.py open-item --to blocked --title "<the item, i
 ```
 
 `--to blocked` is a question for the owner (`7NN-open-item-….md` with an empty `Відповідь:`; any
-answer returns it to `todo/` as an instruction); `--to todo` is work an agent can do later
-(`--do` says what); `--key <item id>` names the item, so a second call returns the task still
+answer returns it to `todo/` as an instruction); `--to proposed` is work an agent could do later
+(`--do` says what) — a proposal in `tasks/proposed/`, which the runner never takes and only the owner
+puts to work (a file with its number in the inbox; board 111; `--to todo` is the old name and lands there too); `--key <item id>` names the item, so a second call returns the task still
 open instead of writing another. If the item is your own board task, ask in that task and move
 it to `tasks/blocked/` instead (`tasks/README.md`, rule 4).
 

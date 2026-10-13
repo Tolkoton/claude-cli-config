@@ -25,8 +25,9 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      weekly sum is at its cap (A TASK WITH EXTRA SESSIONS)
     board.py start [--attended] <todo file>   move it to doing/ (refused while doing/ holds a task
                                      of the same side: see AN ATTENDED TASK)
-    board.py where <NNN-name>        todo | doing | blocked | done | missing
-    board.py import-inbox <dir>      take new task files in (see `import_inbox`)
+    board.py where <NNN-name>        todo | doing | blocked | proposed | done | missing
+    board.py import-inbox <dir>      take new task files in (see `import_inbox`); a file with the number
+                                     of a proposal puts it to work (A PROPOSAL)
     board.py unblock                 blocked/ tasks whose every answer is filled go back to todo/
     board.py reviewed-reject --accepted <file> [--known <rev>]
                                      the runner's call before a pull and before a push: numbers in
@@ -67,15 +68,17 @@ exception reads only: `review` takes the board from the work branch in origin (b
     board.py action-reject <name>    its answer is wiped and the question asked again
     board.py park <NNN-name> <reason> [--detail N] [--stash SHA] [--wip BRANCH [--wip-remote NAME]]
                  [--verdicts FILE]   the runner gives up on a task, not on the board (see below)
-    board.py open-item --to <blocked|todo|done> --title T --what W [--question Q] [--do D]
+    board.py open-item --to <blocked|proposed|todo|done> --title T --what W [--question Q] [--do D]
                  [--key K] [--source WHO]
                                      something open becomes a task of the board (see AN OPEN ITEM);
+                                     `todo` is the old name of `proposed` and lands there (A PROPOSAL);
                                      prints its path; exit 1: no board, or nothing to ask
     board.py anomaly <task|-> <what happened> <what was done> [--source WHO]
                                      one entry in tasks/ANOMALIES.md; WHO wrote it: runner
                                      (the default), агент, gates, hook <name>
     board.py summary                 the board in a dozen lines, for the owner
-    board.py check                   two files with one number in a column: the errors, exit 1 (board 065)
+    board.py check                   two files with one number in a column, or one number in proposed/
+                                     and in todo/: the errors, exit 1 (board 065, board 111)
     board.py review [--since <commit|date>] [--offline]
                                      the owner's review: one markdown document about the work
                                      branch in origin; changes nothing (board_review.py)
@@ -191,12 +194,21 @@ the way every task is: by moving to done/. `open_item` (the command `open-item`;
 .claude/hooks/overseer_verdict.py when a unit is parked, and by an agent that an escalation or a
 refused ask-gated command leaves with something only the owner can settle) writes
 `NNN-open-item-<key>.md` (a number of class 7): into blocked/ with one question and an empty `Відповідь:` when the
-owner must answer, into todo/ when it is work for an agent, into done/ (task.md and report.md)
-when it is recorded as already settled. With `--key` the line `Відкритий пункт: <key>` goes under
-the title, and a second call with the key of a task still in todo/, doing/ or blocked/ returns
-that task instead of writing another. The logs .engine/overseer/parked.md and escalations.md are
+owner must answer, into proposed/ when it is work an agent could do (A PROPOSAL), into done/ (task.md
+and report.md) when it is recorded as already settled. With `--key` the line `Відкритий пункт: <key>` goes
+under the title, and a second call with the key of a task still in proposed/, todo/, doing/ or blocked/
+returns that task instead of writing another. The logs .engine/overseer/parked.md and escalations.md are
 history: they are appended to where a project has no board, nothing in them is ever closed, and
 nothing reads them to learn what is open.
+
+A PROPOSAL (board 111, the owner's decision). New work is put to work by the owner alone. What an agent,
+a hook or the overseer finds and could do later — an open item that is work, a test gap, the follow-up
+of an urgent fix — is a file of the fifth column, tasks/proposed/, and nothing takes a task from there:
+`next` and `start` read todo/ only. Its number is taken like any other (`taken`), so no new task gets
+it; one number in proposed/ and in todo/ is an error `check` shows. The owner puts a proposal to work
+through the inbox: a file with the proposal's number replaces it and lies in todo/ with the inbox text
+(`import_inbox`). `summary` and the review count the proposals and name them. A question for the owner
+goes to blocked/ as before.
 
 A gate question whose escalation was CLOSED ANOTHER WAY (board 035) — the owner ran `gate.py
 --close-escalation` in a terminal, so the stamp is among the closed ones in
@@ -264,7 +276,8 @@ import journal  # the anomaly journal: every session adds to its own file (board
 import mode as mode_reader  # the one reader of the mode and of «nobody is watching» (board 097)
 import task_classes  # a task's number: its class x 100 + its place in the class (board 401)
 
-COLUMNS = ("todo", "doing", "blocked", "done")
+PROPOSED = "proposed"  # tasks/proposed/: work somebody other than the owner found; nothing is taken from it (A PROPOSAL)
+COLUMNS = ("todo", "doing", "blocked", "done", PROPOSED)
 FIRST = ".first"  # tasks/.first: the todo/ tasks the owner answered (THE OWNER'S ANSWERS FIRST)
 REVIEWED = ".reviewed"  # tasks/.reviewed: the closed tasks without working code the owner looked over (board 100)
 REVIEWED_LINE = re.compile(r"^[ \t]*(\d{3,})(?![\w.])")
@@ -427,7 +440,7 @@ class Board:
         self._unjudged: dict[str, str] | None = None   # gate_allows.unjudged, asked once for all of todo/
 
     def files(self, column: str) -> list[Path]:
-        """The task files of todo/, doing/ or blocked/, lowest number first."""
+        """The task files of todo/, doing/, blocked/ or proposed/, lowest number first."""
         found = [p for p in (self.tasks / column).glob("*.md") if p.is_file() and TASK_NAME.match(p.name)]
         return sorted(found, key=lambda p: (number_of(p.name) or 0, p.name))
 
@@ -443,7 +456,7 @@ class Board:
         return {n for p in paths if (n := number_of(p.name)) is not None}
 
     def taken(self) -> set[int]:
-        """Every number of the four columns: what a new task's number is counted from."""
+        """Every number of the five columns: what a new task's number is counted from."""
         return {n for column in COLUMNS for n in self.numbers(column)}
 
     def unmet(self, task: Task) -> list[int]:
@@ -600,7 +613,7 @@ def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> i
 
 def cmd_where(board: Board, stem: str) -> int:
     stem = stem.removesuffix(".md")
-    for column in ("todo", "doing", "blocked"):
+    for column in ("todo", "doing", "blocked", PROPOSED):
         if (board.tasks / column / f"{stem}.md").is_file():
             print(column)
             return 0
@@ -613,6 +626,8 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
 
     imported  a new number: into todo/
     replaced  the number is in todo/: the inbox file takes its place (the owner's newer text)
+    taken from proposed/  the number is a proposal's (A PROPOSAL): the owner puts it to work — the
+              proposal leaves proposed/ and the inbox file lies in todo/, with the owner's text
     answered  the number is in blocked/ and the inbox copy has every answer filled: it replaces
               the blocked file — this is how an answer arrives without git; `unblock` then moves it
     skipped   the number is in doing/ or done/ (nothing there is ever touched), or in blocked/
@@ -645,13 +660,15 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
             lines.append(f"{source.name} skipped: {number:03d} is in {busy}/")
             continue
         todo = [] if blocked else board.with_number("todo", number)
-        twins = blocked or todo
+        offered = [] if blocked or todo else board.with_number(PROPOSED, number)
+        twins = blocked or todo or offered
         if len(twins) > 1:
+            several = twins
             twins = [p for p in twins if p.name == source.name]
-            blocked, todo = (twins, []) if blocked else ([], twins)
+            blocked, todo, offered = (twins, [], []) if blocked else ([], twins, []) if todo else ([], [], twins)
             if not twins:
                 lines.append(f"{source.name} skipped: {number:03d} is the number of several files in one column and none has this name")
-                _ambiguous(board, source.name, board.with_number("blocked", number) or board.with_number("todo", number))
+                _ambiguous(board, source.name, several)
                 continue
         if blocked:
             if not parse(content.decode("utf-8", "replace")).answered:
@@ -659,7 +676,7 @@ def import_inbox(board: Board, inbox: Path) -> list[str]:
                 continue
             column, verb, old = "blocked", "answered", blocked
         else:
-            column, verb, old = "todo", "replaced" if todo else "imported", todo
+            column, verb, old = "todo", "replaced" if todo else f"taken from {PROPOSED}/" if offered else "imported", todo or offered
         for path in old:
             path.unlink()
         target = board.tasks / column / source.name
@@ -847,8 +864,18 @@ def duplicate_lines(columns: dict[str, list[str]]) -> list[str]:
     return lines
 
 
+def proposed_lines(columns: dict[str, list[str]]) -> list[str]:
+    """ONE NUMBER IN proposed/ AND IN todo/ (A PROPOSAL), one line per number: the inbox file that puts
+    a proposal to work would replace the task instead."""
+    waiting = {number: name for name in sorted(columns.get("todo", [])) if (number := number_of(name)) is not None}
+    return [f"ПОМИЛКА: один номер {number:03d} у todo/ і в {PROPOSED}/: todo/{waiting[number]}, {PROPOSED}/{name} — "
+            "перенумеруйте один із них: файл з inbox із цим номером замінить задачу в todo/, а не поставить пропозицію в роботу"
+            for name in sorted(columns.get(PROPOSED, [])) if (number := number_of(name)) in waiting]
+
+
 def duplicates(board: Board) -> list[str]:
-    return duplicate_lines({c: [p.name for p in (board.done() if c == "done" else board.files(c))] for c in COLUMNS})
+    columns = {c: [p.name for p in (board.done() if c == "done" else board.files(c))] for c in COLUMNS}
+    return [*duplicate_lines(columns), *proposed_lines(columns)]
 
 
 def errors(board: Board) -> list[str]:
@@ -988,15 +1015,17 @@ def rule_question(board: Board, ident: str, rule: str, why: str, origin: str, ad
 
 def open_item(board: Board, column: str, title: str, what: str, question: str = "", do: str = "",
               key: str = "", source: str = "") -> Path | None:
-    """Something open as a task of the board (board 037): a question in blocked/, work in todo/,
-    or — settled already — a directory in done/ whose report is `do`. None when the project has
-    no board or a question is asked without its text; the task that already carries `key` when
-    one is still in todo/, doing/ or blocked/."""
+    """Something open as a task of the board (board 037): a question in blocked/, work as a proposal
+    in proposed/ (`column` "proposed", or its old name "todo": only the owner puts work into todo/ —
+    A PROPOSAL), or — settled already — a directory in done/ whose report is `do`. None when the
+    project has no board or a question is asked without its text; the task that already carries
+    `key` when one is still in proposed/, todo/, doing/ or blocked/."""
+    column = PROPOSED if column == "todo" else column
     title, what, question, do, key, source = (" ".join(part.replace("<!--", "<! --").split()) for part in (title, what, question, do, key, source))
     if not board.tasks.is_dir() or not title or (column == "blocked" and not question):
         return None
     if key:
-        for path in (p for c in ("todo", "doing", "blocked") for p in board.files(c)):
+        for path in (p for c in ("todo", "doing", "blocked", PROPOSED) for p in board.files(c)):
             found = ITEM.search(path.read_text(encoding="utf-8").split("\n## ", 1)[0])
             if found and found.group(1) == key:
                 return path
@@ -1006,12 +1035,13 @@ def open_item(board: Board, column: str, title: str, what: str, question: str = 
     work, ready = {
         "blocked": (("Це питання до власника, не робота для агента. Коли власник відповість, задача повернеться в чергу: "
                      "виконай відповідь, запиши її у звіт і закрий задачу."), "Власник відповів, і відповідь виконано."),
-        "todo": (do or "Розібратися з описаним вище і довести справу до кінця; чого без власника не вирішити — питанням у `tasks/blocked/`.",
+        PROPOSED: (do or "Розібратися з описаним вище і довести справу до кінця; чого без власника не вирішити — питанням у `tasks/blocked/`.",
                  "Описане вище зроблено і перевірено, або на нього є відповідь власника."),
         "done": ("Нічого: пункт записано вже закритим. Чому — у `report.md` поруч.", "Уже готово."),
     }[column]
     text = (f"# {number} — {title}\n\nЗалежить від: —\nАудит потрібен: ні\n" + (f"Відкритий пункт: {key}\n" if key else "")
             + f"\n## Що сталося\n{what or '(не записано)'}\n\n- Записано: {now}, {source or RUNNER}\n"
+            + (PROPOSAL_NOTE if column == PROPOSED else "")
             + f"\n## Що зробити\n{work}\n\n## Готово, коли\n{ready}\n\n## Питання до власника\n"
             + (f"1. {question}\n   Відповідь:\n" if column == "blocked" else ""))
     name = f"{number}-open-item-{slug}"
@@ -1025,6 +1055,10 @@ def open_item(board: Board, column: str, title: str, what: str, question: str = 
         target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
     return target
+
+
+PROPOSAL_NOTE = (f"- Це пропозиція, а не задача в черзі: runner із `tasks/{PROPOSED}/` нічого не бере. У роботу її ставить "
+                 "власник — файлом із цим номером в inbox.\n")
 
 
 def gate_answers(board: Board) -> list[str]:
@@ -1168,8 +1202,8 @@ def _every(root: Path, key: str, default: int) -> int:
 
 
 def task_file(tasks: Path, stem: str) -> Path | None:
-    """Where the task `stem` lies now: its file in todo/, doing/ or blocked/, or done/<stem>/task.md."""
-    places = [tasks / column / f"{stem}.md" for column in ("todo", "doing", "blocked")] + [tasks / "done" / stem / "task.md"]
+    """Where the task `stem` lies now: its file in todo/, doing/, blocked/ or proposed/, or done/<stem>/task.md."""
+    places = [tasks / column / f"{stem}.md" for column in ("todo", "doing", "blocked", PROPOSED)] + [tasks / "done" / stem / "task.md"]
     return next((p for p in places if p.is_file()), None)
 
 
@@ -1494,10 +1528,17 @@ def first_open_question(task: Task) -> str:
     return "(питань не записано)"
 
 
+def title_of(path: Path) -> str:
+    """A task file's title without its number, for one line of the summary."""
+    found = re.search(r"^#[ \t]+(?:\d+[ \t]*[—–-][ \t]*)?(\S.*?)[ \t]*$", _text(path), re.MULTILINE)
+    return found.group(1) if found else "(без назви)"
+
+
 def summary(board: Board) -> list[str]:
     todo, doing, blocked, done = board.files("todo"), board.files("doing"), board.files("blocked"), board.done()
     known = {n for column in COLUMNS for n in board.numbers(column)}
-    lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}", *errors(board)]
+    offered = board.files(PROPOSED)
+    lines = [f"todo: {len(todo)}   doing: {len(doing)}   blocked: {len(blocked)}   done: {len(done)}   {PROPOSED}: {len(offered)}", *errors(board)]
     lines += [f"в роботі з власником: {p.name}" if read(p).attended else f"в роботі: {p.name}" for p in doing]
     for path in blocked:
         lines.append(f"чекає відповіді власника: {path.name} — {first_open_question(read(path))}")
@@ -1524,6 +1565,9 @@ def summary(board: Board) -> list[str]:
             waits = ", ".join(f"{n:03d}" + ("" if n in known else " (такої задачі ніде немає)") for n in unmet)
             lines.append(f"чекає на залежності: {path.name} — {waits}")
     lines += [f"першою, бо власник відповів: {p.name}" for p in todo if p.name in board.first()]
+    if offered:
+        lines.append(f"пропозицій у `{PROPOSED}/`: {len(offered)} — runner їх не бере; у роботу пропозицію ставить власник: файл із її номером в inbox")
+        lines += [f"пропозиція: {p.name} — {title_of(p)}" for p in offered]
     task = board.eligible() if not board.in_hand() else None
     if task:
         lines.append(f"наступна: {task.name}")
@@ -1599,11 +1643,12 @@ def main() -> int:
     anomaly_parser.add_argument("done")
     anomaly_parser.add_argument("--source", default=RUNNER, help="who writes: runner (default), агент, gates, hook <name>")
     item_parser = commands.add_parser("open-item")
-    item_parser.add_argument("--to", choices=("blocked", "todo", "done"), required=True, help="blocked: the owner must answer; todo: work for an agent; done: settled already")
+    item_parser.add_argument("--to", choices=("blocked", PROPOSED, "todo", "done"), required=True,
+                             help="blocked: the owner must answer; proposed (todo is its old name): work an agent could do — a proposal the owner puts to work; done: settled already")
     item_parser.add_argument("--title", required=True)
     item_parser.add_argument("--what", required=True, help="what happened and what it waits for")
     item_parser.add_argument("--question", default="", help="the one question to the owner (required with --to blocked)")
-    item_parser.add_argument("--do", default="", help="todo: what to do; done: why it is settled (the report)")
+    item_parser.add_argument("--do", default="", help="proposed: what to do; done: why it is settled (the report)")
     item_parser.add_argument("--key", default="", help="the item's own name: a second call with it returns the task still open")
     item_parser.add_argument("--source", default="агент", help="who writes: агент (default), hook <name>, overseer")
     commands.add_parser("summary")

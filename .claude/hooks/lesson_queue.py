@@ -245,8 +245,8 @@ def collect_parked(root: Path, queue: bool = True) -> int:
         if add(root, "parked", match["item"], f"{match['item']}: {bullet(body, 'Blocked on') or 'parked'}", queue):
             added += 1
     # Board 037: where the project has a task board a parked item is a task with the line
-    # `Відкритий пункт: <item>` — in blocked/ or todo/ while it is open — and no entry in the log.
-    for path in sorted(p for column in ("blocked", "todo") for p in (root / "tasks" / column).glob("*.md")):
+    # `Відкритий пункт: <item>` — in blocked/, todo/ or proposed/ while it is open — and no entry in the log.
+    for path in sorted(p for column in ("blocked", "todo", "proposed") for p in (root / "tasks" / column).glob("*.md")):
         head = read(path).split("\n## ", 1)[0]
         item = re.search(r"^Відкритий пункт:[ \t]*(\S.*?)[ \t]*$", head, re.MULTILINE)
         title = re.search(r"^# \d+ — (.+)$", head, re.MULTILINE)
@@ -297,7 +297,7 @@ def raise_contradictions(root: Path) -> list[str]:
         candidate = next((ln for ln in lines if journal.CANDIDATE_RE.match(ln) and ln.endswith(f"#{ident}")), f"#{ident}")
         how = "; ".join(f"{r['date']} → {r['to']} ({r['note']})" for r in rows)
         path = board.open_item(
-            board.Board(root / "tasks"), "todo", f"Дві сесії по-різному розібрали кандидата уроку #{ident}",
+            board.Board(root / "tasks"), "proposed", f"Дві сесії по-різному розібрали кандидата уроку #{ident}",
             f"Кандидат: {candidate}. Розбори: {how}. Скрипт не вибирає між ними (задача 739).",
             do=("Вирішити — справа агента: зважити обидва розбори й лишити один. Наслідки іншого прибрати руками (запис у "
                 "`.engine/overseer/MEMORY.md`, пропозицію правила в `.engine/rule-proposals.md` разом із питанням у `tasks/blocked/`, "

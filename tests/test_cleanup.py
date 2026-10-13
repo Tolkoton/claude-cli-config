@@ -335,8 +335,10 @@ try:
     for manual in ("tasks/README.md", "templates/project/tasks/README.md", ".claude/unattended/README.md", ".claude/references/simplifier.md"):
         words = " ".join((ROOT / manual).read_text(encoding="utf-8").split())
         check(f"{manual} names the cleanup task and its setting", "cleanup-task" in words and "CLEANUP_EVERY_DAYS" in words, manual)
-    for env_file in (".claude/project.env", "templates/project/.claude/project.env"):
-        check(f"{env_file} documents CLEANUP_EVERY_DAYS, empty by default", '\nCLEANUP_EVERY_DAYS=""\n' in (ROOT / env_file).read_text(encoding="utf-8"), env_file)
+    # The engine's own board places no cleanup task (board 111: new work only through the owner); a project's default is as it was.
+    for env_file, value in ((".claude/project.env", "0"), ("templates/project/.claude/project.env", "")):
+        check(f"{env_file} documents CLEANUP_EVERY_DAYS, {'empty by default' if not value else 'switched off here'}",
+              f'\nCLEANUP_EVERY_DAYS="{value}"\n' in (ROOT / env_file).read_text(encoding="utf-8"), env_file)
     check("board.py lists the command", "board.py cleanup-task" in BOARD.read_text(encoding="utf-8").split('"""')[1])
 finally:
     for d in worlds:

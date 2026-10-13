@@ -82,7 +82,7 @@ test manager-а).
 
 ```mermaid
 flowchart TD
-    src["хто кладе задачу: власник (файл або inbox);<br/>runner — догляд і прибирання;<br/>gates, уроки, overseer, агенти — питання й відкриті пункти"] --> todo["todo/"]
+    src["хто кладе задачу: власник (файл або inbox);<br/>runner — догляд і прибирання;<br/>gates, уроки, overseer, агенти — лише питання (blocked/)<br/>й пропозиції (proposed/): у todo/ їх ставить власник"] --> todo["todo/"]
     todo -->|"board.py next / start<br/>(окремий commit)"| doing["doing/"]
     todo -.->|"«присутність власника: так» —<br/>runner не бере; лише сесія з власником"| attended["start --attended"]
     doing --> agent["runner: свіжа сесія агента<br/>(board-runner.sh)"]

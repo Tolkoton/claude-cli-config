@@ -74,7 +74,7 @@ DOCUMENT_QUESTIONS = [
     "Чи технічні терміни англійською там, де читає власник?",
 ]
 # The board's own moves and the journals scripts write: what a task changes there is not its document.
-BOOKKEEPING = ("tasks/todo/", "tasks/doing/", "tasks/blocked/", "tasks/done/", "tasks/.", ".engine/reader/",
+BOOKKEEPING = ("tasks/todo/", "tasks/doing/", "tasks/blocked/", "tasks/done/", "tasks/proposed/", "tasks/.", ".engine/reader/",
                journal.PIECES_REL.as_posix() + "/", *(kind.shared for kind in journal.JOURNALS.values()))
 BLOCKS_TO_PARK = 3
 EXIT_OK, EXIT_REFUSED, EXIT_USAGE = 0, 1, 2

@@ -661,6 +661,32 @@ places, keeps the gate and the overseer, and holds the fix to a hard limit
 - **A push made by hand, or by anything but the runner,** from a checkout that holds such a
   number reaches origin and takes the task off the list.
 
+## The risk line: what the engine's own guards are for (board 111)
+
+The owner's decision (board 111, 2026-10-13). The engine's own guards — the hooks, the gates, the
+runner, the task board — guard against what happens in real work: an agent's accidental or naive
+mistake, made the ordinary way. Two kinds of case are outside them, on purpose:
+
+- **the agent's own deliberate way round a check** — a session that sets out to defeat the guard
+  itself (rewrites the check's state or script, signals the runner, shapes an input so that the
+  check breaks). «The same Linux user» below is the fullest account of why nothing short of an
+  operating-system boundary closes these;
+- **exotic states** — rare special characters in a file name, a loop of links, a file replaced by a
+  directory, a clock that runs backwards, and their kin, where no ordinary work produces them.
+
+Such a case is a documented limit: it is written here, under the mechanism it belongs to, and it is
+not a defect. The overseer does not answer `BLOCK` for it and names no test gap for it
+(`.claude/agents/overseer.md`, operating principle 8); an agent does not propose work for it
+(`tasks/README.md`, rule 13). A failure on the ordinary way is a defect and gets fixed. The line is
+drawn for the engine's own code only: for a project built with the engine, what the product must
+withstand is said by its goals and its slice contract, and the overseer judges against those.
+
+The same decision moved every finding of an agent, a hook or the overseer out of the queue: it is
+a proposal in `tasks/proposed/`, and only the owner puts work into `tasks/todo/` (`tasks/README.md`,
+«Нова робота — лише через власника»). Not held: `tasks/todo/` is an ordinary directory, and nothing
+refuses a file an agent writes there by hand — the rule and the scripts keep the ordinary way, and
+the commit that adds such a file shows in the branch.
+
 ## The same Linux user: what a check on the runner's side cannot hold (board 100)
 
 The agent's session and the board runner run as one Linux user, with the same rights on the disk

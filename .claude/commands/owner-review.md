@@ -50,6 +50,8 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    never takes them; they are done in an interactive session, not in this one), the settings proposals, the gate's open escalations
    and the rule proposals (each names its question in `blocked/`): each either gets an answer, becomes a new task, or waits.
    Everything open is a task of the board; the logs `escalations.md` and `parked.md` are history and are not part of the review.
+   Last in the section, «Пропозиції нової роботи»: what agents, hooks and the overseer found, in `tasks/proposed/` — the runner
+   takes none of it. For each, the owner says: to work (a file with the proposal's number for the inbox, below), or let it lie.
 5. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
    whether the follow-up task should move up the queue); then what the runner, the gate, a hook or the agent found odd, wrote into
    the anomaly journal (`tasks/ANOMALIES.md` and the sessions' files `.engine/journal/anomalies/`) and worked past (each entry says who wrote it): a task the runner parked in
@@ -104,7 +106,8 @@ hooks refuse it, and the runner removes a number that was written on its machine
   classes 7, 8 or 9 (700–999 and their continuations 1701…, 1801…, 1901…: open items, rule questions, the gate's).
   Or leave the number out: a file `short-latin-name.md` with a line `Клас: <class>` under its title gets its number
   when the runner takes the inbox. A number that is already in `todo/` **replaces**
-  that task — use it only when the owner wants that task rewritten;
+  that task — use it only when the owner wants that task rewritten; a number that is in `proposed/` **puts that
+  proposal to work** — the file (the proposal's own text from origin, or the owner's) lands in `todo/` in its place;
 - fill `Залежить від:` and `## Що зробити` / `## Готово, коли` from what the owner said;
   `Аудит потрібен: ні` unless the owner asked for the paid audit; no other line is needed for
   extra sessions (evals, measurements: board 078); «спершу проєкт» when

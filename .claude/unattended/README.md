@@ -32,7 +32,9 @@ and says so; a flag left by a runner that died is removed when the next one star
 
 Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
 from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, and returns
-answered tasks from `tasks/blocked/`. An inbox file that comes without a number (`name.md`) and with a
+answered tasks from `tasks/blocked/`. It takes nothing from `tasks/proposed/` (board 111): what agents, hooks and
+the overseer found waits there as proposals, and an inbox file with a proposal's number is the owner putting it to
+work — it replaces the proposal and lands in `todo/`. An inbox file that comes without a number (`name.md`) and with a
 `Клас:` line gets the next number of that class of `tasks/CLASSES.md` (board 401: a number is its class x 100
 + its place in the class; a full class goes on in the hundred a thousand higher, 799 -> 1701); a class the
 table does not hold is a refusal — the file stays in the inbox, with an entry in the anomaly journal. A question the Stop gate put there after giving up

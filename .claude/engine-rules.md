@@ -47,7 +47,7 @@ the next unblocked item. A `gate-allow` is not a way through: the overseer reads
   exactly that line as its prompt, change nothing until it answers, then end the turn. You never
   audit or write a verdict: `overseer_verdict.py` writes the ledger from the agent's answer, and
   `OVERSEER_PASS` typed by you is ignored. After a BLOCK you fix and claim again — another overseer
-  judges it; three BLOCKs park the task; a test gap is a PASS plus a `todo/` item (`skills/overseer`).
+  judges it; three BLOCKs park the task; a test gap is a PASS plus a `proposed/` item (`skills/overseer`).
 - Planning stands the overseer down: `python3 .claude/hooks/overseer_phase.py set plan` before
   drafting a contract, `… clear` when done. Never write `.claude/state/` with your own tools —
   it is the state of hooks and scripts; the named scripts are the only sanctioned path.
@@ -88,12 +88,12 @@ work runs through the task board only (below); detail: `.claude/references/unatt
 
 ## The task board and extra sessions
 Work arrives as files in `tasks/` (`tasks/README.md`): take the first `todo/` task with its
-dependencies in `done/`, move it to `doing/` in its own commit, end in `done/NNN-name/` with
-`report.md` — or in `blocked/` with a question for the owner. Extra Claude sessions (evals, critics,
-measurements) are ordinary work under a weekly cap: at it start none, commit, `board.py extra-wait`
-(README rule 12). The overseer's audit run needs `Аудит потрібен: так`. Full tests once.
-Quality over price: no dollar limit on a task; only the runner's `BOARD_MAX_USD` guards a loop (it
-parks the task with a question). Wherever the owner reads, technical terms stay English: `unattended.md`.
+dependencies in `done/`, move it to `doing/` in its own commit, end in `done/NNN-name/` with `report.md` —
+or in `blocked/` with a question for the owner. Extra Claude sessions (evals, critics, measurements) are
+ordinary work under a weekly cap: at it start none, commit, `board.py extra-wait` (README rule 12). The
+overseer's audit run needs `Аудит потрібен: так`. Full tests once. Quality over price: no dollar limit; only
+`BOARD_MAX_USD` guards a loop (it parks the task). Only the owner puts work into `todo/`: a finding is a proposal
+(`proposed/`), a guard's designed limit is not work (rule 13). For the owner technical terms stay English: `unattended.md`.
 
 ## Constitution
 Every agent reads and obeys `.claude/constitution.md`. It overrides any conflicting

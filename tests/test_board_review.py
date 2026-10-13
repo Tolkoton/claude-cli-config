@@ -182,6 +182,7 @@ def build() -> tuple[Path, Path, Path, dict[str, str]]:
     write(work, "tasks/todo/950-answered.md", task("950 — ВЛАСНИК-ВІДПОВІВ"))
     write(work, "tasks/todo/060-pipeline.md", task("060 — Конвеєрна").replace("Аудит потрібен:", "Режим: конвеєр\nАудит потрібен:"))
     write(work, "tasks/todo/070-bad-mode.md", task("070 — Без режиму").replace("Аудит потрібен:", "Режим: абищо\nАудит потрібен:"))
+    write(work, "tasks/proposed/701-open-item-found.md", task("701 — ПРОПОЗИЦІЯ-АГЕНТА"))
     write(work, "tasks/.first", "950-answered.md\n007-gone.md\n")
     write(work, "docs/tasks/settings.json", '{"proposal": true}\n')
     write(work, ".claude/settings.json", '{"proposal": false}\n')
@@ -320,6 +321,11 @@ check("…a proposal nobody asked the owner about says so, and borrows no other 
 with_state = cli(clone, state=state).stdout
 check("with the state files: the gate's open escalation of this machine", "ШТАМП-Gates" in section(with_state, "Чекає на власника"))
 check("--since does not hide what waits", waits == waiting, waits)
+offered_part = waiting.split("### Пропозиції нової роботи", 1)[-1].split("\n### ", 1)[0]
+check("a proposal is under «Чекає на власника», by name and title, with how to put it to work (board 111)", "### Пропозиції нової роботи" in waiting
+      and "`701-open-item-found.md`" in offered_part and "ПРОПОЗИЦІЯ-АГЕНТА" in offered_part and "inbox" in offered_part and "Пропозицій: 1" in offered_part, offered_part)
+check("…«Стан зараз» counts the column, and «План» does not list it: the runner takes nothing from proposed/", "proposed: 1" in section(doc, "Стан зараз")
+      and "701-open-item-found" not in section(doc, "План"), section(doc, "Стан зараз") + section(doc, "План"))
 attended_part = waiting.split("### Задачі, що потребують вашої присутності", 1)[-1].split("\n### ", 1)[0]
 check("a task that needs the owner present is under «Чекає на власника», by name and title (board 016)", "040-attended.md" in attended_part
       and "ЗАДАЧА-З-ВЛАСНИКОМ" in attended_part and "tasks/README.md" in attended_part, waiting)

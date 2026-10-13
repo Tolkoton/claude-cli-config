@@ -274,7 +274,9 @@ def cmd_debt(root: Path, args: argparse.Namespace) -> int:
     followup = "none — the project has no task board; the full /bugfix is owed all the same"
     if (tasks / "todo").is_dir():
         number = next_number(tasks)
-        followup = f"tasks/todo/{number:03d}-hotfix-followup-{stem}.md"
+        # A proposal, not a task of todo/: new work is put to work by the owner alone (board 111).
+        followup = f"tasks/proposed/{number:03d}-hotfix-followup-{stem}.md"
+        (root / followup).parent.mkdir(parents=True, exist_ok=True)
         (root / followup).write_text(followup_text(number, stem, commit, outcome.base_commit, recorded.isoformat(), due.isoformat()), encoding="utf-8")
     line = f"- {stem} | open | recorded {recorded.isoformat()} | due {due.isoformat()} | commit {commit} | deferred: {DEFERRED} | follow-up: {followup}"
     path = root / DEBT_REL

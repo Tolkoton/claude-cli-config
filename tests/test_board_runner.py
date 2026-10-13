@@ -2458,5 +2458,23 @@ check("both tasks are done, nothing parked, no patch, no question", r.returncode
       and w.has("tasks/done/002-next/report.md") and discarded(w) == "" and "protected-restored" not in events(w)
       and not (w.state / "guard-before").exists() and "protected-leftover" not in events(w) and not list((w.repo / "tasks/blocked").glob("[0-9]*.md")), events(w) + r.stdout + r.stderr)
 
+print("board 111: the runner takes nothing from proposed/ — new work is put to work by the owner alone")
+w = World("done")
+(w.repo / "tasks/proposed").mkdir()
+w.put("proposed", "701-open-item-found.md", task().replace("# Задача", "# 701 — ЗНАХІДКА-АГЕНТА"))
+r = w.run()
+summary_text = (w.state / "summary.md").read_text(encoding="utf-8") if (w.state / "summary.md").is_file() else ""
+check("NEGATIVE — a board with a proposal only: no session is started, the proposal stays where it is, the runner stops idle",
+      r.returncode == 0 and w.calls() == [] and w.has("tasks/proposed/701-open-item-found.md") and not w.has("tasks/doing/701-open-item-found.md")
+      and "reason=todo-empty" in w.status(), w.status() + r.stdout + r.stderr)
+check("…and its summary counts proposed/ and names the proposal", "proposed: 1" in summary_text and "701-open-item-found.md" in summary_text
+      and "ЗНАХІДКА-АГЕНТА" in summary_text, summary_text)
+(w.inbox / "701-open-item-found.md").write_text(task().replace("# Задача", "# 701 — СЛОВО-ВЛАСНИКА"), encoding="utf-8")
+r = w.run()
+check("the owner's file with its number in the inbox puts it to work: one session, the task done with the owner's text, proposed/ empty",
+      r.returncode == 0 and len(w.calls()) == 1 and w.has("tasks/done/701-open-item-found/report.md") and not w.has("tasks/proposed/701-open-item-found.md")
+      and "СЛОВО-ВЛАСНИКА" in (w.repo / "tasks/done/701-open-item-found/task.md").read_text(encoding="utf-8"), w.status() + events(w) + r.stdout + r.stderr)
+check("…and the move out of proposed/ is committed: the tree is clean", porcelain(w) == "", porcelain(w))
+
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

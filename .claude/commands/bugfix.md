@@ -78,8 +78,8 @@ has not been found yet.
 Then search the project for the same cause — the same call, the same assumption, the copy of
 that code — and write down the search you ran and what it found. A neighbour with the same cause
 is fixed here, with its own failing test, if the whole fix stays inside the budget; otherwise it
-becomes a new task (a file in `tasks/todo/`, or a line in the record when the project has no
-board) and is not touched.
+becomes a proposal of a new task (`board.py open-item --to proposed`: a file in `tasks/proposed/` the
+owner puts to work; or a line in the record when the project has no board) and is not touched.
 
 ## 5. The smallest fix
 

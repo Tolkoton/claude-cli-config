@@ -13,6 +13,8 @@
 # WHAT IT DOES, in the order it does it (tasks/README.md is the board's manual):
 #   before every task   fetch and `pull --rebase` the work branch — new tasks and the owner's
 #                       answers arrive this way; take new files from the inbox into tasks/todo/
+#                       (a file with the number of a proposal in tasks/proposed/ puts it to work: nothing else
+#                       ever leaves that column — the runner takes no task from it, board 111)
 #                       (one commit); close the gate escalations the owner answered «так»
 #                       and take the actions the owner answered «так» (see below); move answered tasks from tasks/blocked/ back to todo/ (one commit)
 #   the task            the first in todo/ whose dependencies are in done/ goes to doing/ in a

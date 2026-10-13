@@ -383,11 +383,12 @@ check("a BLOCK on #4 for a weak test goes back to the agent: a test gap is a PAS
       "VERDICT REFUSED" in said and "test_gaps" in said and "board 077" in said and not p.rows(), said)
 said = p.answer(GOOD | {"test_gaps": [GAP]})
 row = p.rows()[-1] if p.rows() else {}
-items = sorted((p.root / "tasks/todo").glob("*.md"))
+items = sorted((p.root / "tasks/proposed").glob("*.md"))
 check("…answered PASS with the gap: recorded PASS, the gap in the row with its board item",
-      row.get("verdict") == "PASS" and row.get("test_gaps", [{}])[0].get("task", "").startswith("tasks/todo/7"), str(row))
-check("…the item in todo/ is work for an agent and names the check to write",
-      len(items) == 1 and GAP["check"] in items[0].read_text(encoding="utf-8") and "Брак тесту" in items[0].read_text(encoding="utf-8"),
+      row.get("verdict") == "PASS" and row.get("test_gaps", [{}])[0].get("task", "").startswith("tasks/proposed/7"), str(row))
+check("…the item is a proposal in proposed/ (board 111), none in todo/, and names the check to write",
+      len(items) == 1 and GAP["check"] in items[0].read_text(encoding="utf-8") and "Брак тесту" in items[0].read_text(encoding="utf-8")
+      and not list((p.root / "tasks/todo").glob("[0-9]*.md")),
       str([i.name for i in items]))
 check("…the ledger entry says so", "- Test gaps: " in p.first_entry() and GAP["check"] in p.first_entry() and "OVERSEER_PASS" in p.first_entry(), p.first_entry())
 check("…and the Stop hook continues as on any PASS", "OVERSEER_PASS recorded" in p.stop("Answered."))
@@ -396,7 +397,7 @@ check("…and the Stop hook continues as on any PASS", "OVERSEER_PASS recorded" 
 (p.root / "src/pricing.py").open("a", encoding="utf-8").write("# more\n")
 p.audit(GOOD | {"test_gaps": [GAP]}, "More.\n\n=== UNIT 3 COMPLETE ===", shell="echo more >> src/pricing.py")
 check("negative — the same gap found again by the next overseer returns the item still open, not a second one",
-      len(sorted((p.root / "tasks/todo").glob("*.md"))) == 1 and p.rows()[-1]["verdict"] == "PASS", str(sorted((p.root / "tasks/todo").glob("*.md"))))
+      len(sorted((p.root / "tasks/proposed").glob("*.md"))) == 1 and p.rows()[-1]["verdict"] == "PASS", str(sorted((p.root / "tasks/proposed").glob("*.md"))))
 (p.root / "src/pricing.py").open("a", encoding="utf-8").write("# again\n")
 p.audit(GOOD | {"test_gaps": [GAP]}, "Again.\n\n=== UNIT 3 COMPLETE ===", shell="echo again >> src/pricing.py")
 said = p.stop("Answered.")
@@ -415,7 +416,7 @@ for why, (one, two) in PAIRS.items():
     _, rid = p.claim()
     p.launch(f"OVERSEER_REQUEST {rid}")
     p.answer(GOOD | {"test_gaps": [{"check": one, "misses": "the first case"}, {"check": two, "misses": "the second case"}]})
-    items = sorted((p.root / "tasks/todo").glob("*.md"))
+    items = sorted((p.root / "tasks/proposed").glob("*.md"))
     texts = [i.read_text(encoding="utf-8") for i in items]
     tasks = [g.get("task") for g in (p.rows()[-1].get("test_gaps") or [])] if p.rows() else []
     check(f"NEGATIVE — two gaps whose checks share {why}: two items, each with its own check, each gap's row names its own",
@@ -425,8 +426,8 @@ for why, (one, two) in PAIRS.items():
     p.audit(GOOD | {"test_gaps": [{"check": "  " + two.upper().replace(" ", "  "), "misses": "the second case"}]},
             "More.\n\n=== UNIT 3 COMPLETE ===", shell="echo more >> src/pricing.py")
     check("…and the second of them found again (other case, other spacing) returns its item, not a third",
-          len(sorted((p.root / "tasks/todo").glob("*.md"))) == 2 and p.rows()[-1]["test_gaps"][0]["task"] == tasks[1],
-          str(sorted((p.root / "tasks/todo").glob("*.md"))))
+          len(sorted((p.root / "tasks/proposed").glob("*.md"))) == 2 and p.rows()[-1]["test_gaps"][0]["task"] == tasks[1],
+          str(sorted((p.root / "tasks/proposed").glob("*.md"))))
 p = Project()
 _, rid = p.claim()
 p.launch(f"OVERSEER_REQUEST {rid}")
@@ -443,7 +444,7 @@ for answer, verdict, words, name in (
     _, rid = p.claim()
     p.launch(f"OVERSEER_REQUEST {rid}")
     p.answer(answer | {"test_gaps": [GAP]})
-    items = sorted((p.root / "tasks/todo").glob("*.md"))
+    items = sorted((p.root / "tasks/proposed").glob("*.md"))
     text = items[0].read_text(encoding="utf-8") if items else ""
     told, found = words.split(" … ")
     other = "PASS" if verdict == "BLOCK" else "BLOCK"

@@ -559,9 +559,10 @@ item.write_text(text.replace("Відповідь:", "Відповідь: зап�
 check("an answered item goes back to todo/ like every answered task", cli(root, "unblock").stdout.strip() == item.name and (root / "tasks/todo" / item.name).is_file())
 r = cli(root, "open-item", "--to", "todo", "--title", "Вердикт не записано", "--what", "hook не побачив відповіді", "--do", "знайти причину")
 work = root / r.stdout.strip()
-check("--to todo: the next free number, no question, what to do in the task; `next` offers the lower number first",
-      re.fullmatch(r"tasks/todo/702-open-item-\d{14}\.md", r.stdout.strip()) is not None
-      and board.read(work).answers == () and "знайти причину" in work.read_text(encoding="utf-8") and cli(root, "next").stdout.strip().endswith(item.name), r.stdout + r.stderr)
+check("--to todo is a proposal (board 111): the next free number, no question, what to do in the task, in proposed/; `next` offers the task of todo/ only",
+      re.fullmatch(r"tasks/proposed/702-open-item-\d{14}\.md", r.stdout.strip()) is not None
+      and board.read(work).answers == () and "знайти причину" in work.read_text(encoding="utf-8") and cli(root, "next").stdout.strip().endswith(item.name)
+      and [p.name for p in (root / "tasks/todo").glob("[0-9]*")] == [item.name], r.stdout + r.stderr)
 r = cli(root, "open-item", "--to", "done", "--key", "C8b", "--title", "Прогін після переміщення", "--what", "чекав грошей", "--do", "закрито рішенням власника")
 closed = root / r.stdout.strip()
 check("--to done: a directory with task.md and report.md, and the reason in the report",
@@ -670,7 +671,7 @@ parsed = board.parse(template)
 check("the template itself parses: no dependency, no audit, not attended, no open question",
       parsed.depends == () and not parsed.audit and not parsed.attended and parsed.answers == (), parsed)
 check("tasks/TEMPLATE.md is the seed, byte for byte", template == (ROOT / "templates/project/tasks/TEMPLATE.md").read_text(encoding="utf-8"))
-check("the four columns exist here", all((ROOT / "tasks" / c).is_dir() for c in board.COLUMNS))
+check("the five columns exist here", all((ROOT / "tasks" / c).is_dir() for c in board.COLUMNS))
 check("tasks/README.md exists here and as a seed", (ROOT / "tasks/README.md").is_file() and (ROOT / "templates/project/tasks/README.md").is_file())
 
 
@@ -701,7 +702,7 @@ with tempfile.TemporaryDirectory(prefix="board-install-") as tmp:
 
     r = engine("install")
     check("install exits 0", r.returncode == 0, r.stdout + r.stderr)
-    check("the project gets the four columns", all((proj / "tasks" / c).is_dir() for c in board.COLUMNS), r.stdout)
+    check("the project gets the five columns", all((proj / "tasks" / c).is_dir() for c in board.COLUMNS), r.stdout)
     check("…the README and the template, from the seeds",
           (proj / "tasks/README.md").is_file() and (proj / "tasks/TEMPLATE.md").is_file()
           and (proj / "tasks/README.md").read_bytes() == (ROOT / "templates/project/tasks/README.md").read_bytes())

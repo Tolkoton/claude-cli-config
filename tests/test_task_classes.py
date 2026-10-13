@@ -38,7 +38,7 @@ from hook_env import hook_env, sandbox_dir
 ROOT = Path(__file__).resolve().parent.parent
 BOARD = ROOT / ".claude/unattended/board.py"
 CLASSES = ROOT / ".claude/unattended/task_classes.py"
-COLUMNS = ("todo", "doing", "blocked", "done")
+COLUMNS = ("todo", "doing", "blocked", "done", "proposed")
 TASK = "# Задача\n\nЗалежить від: —\nАудит потрібен: ні\n\n## Що зробити\n- щось\n\n## Готово, коли\n- готово\n\n## Питання до власника\n{ask}"
 ASK = "1. Що?\n   Відповідь:\n"
 
@@ -313,6 +313,9 @@ def test_board_taken_is_every_number_of_the_four_columns() -> None:
     taken = b.Board(root / "tasks").taken()
     check("Board.taken: a set with the numbers of todo/, doing/, blocked/ and done/ together", taken == {101, 1701, 250, 603, 844, 401, 99} and isinstance(taken, set), taken)
     check("...and of an empty board the empty set", b.Board(new_board() / "tasks").taken() == set())
+    offered = new_board("todo/701-open-item-a", "proposed/702-open-item-b")
+    check("...and of proposed/ (board 111): a proposal's number is taken, the next open item is 703",
+          b.Board(offered / "tasks").taken() == {701, 702} and Path(open_item(offered, "c")).name.startswith("703-"), b.Board(offered / "tasks").taken())
 
 
 FRESH = """
@@ -345,9 +348,9 @@ def test_open_item_cli_seventeen_calls_from_783() -> None:
     root = new_board("todo/783-open-item-x")
     said = [open_item(root, f"Відкритий пункт номер {n}") for n in range(1, 18)]
     want = [*range(784, 800), 1701]
-    numbers = [int(Path(line).name.split("-")[0]) if line.startswith("tasks/todo/") and Path(line).name.split("-")[0].isdigit() else line for line in said]
+    numbers = [int(Path(line).name.split("-")[0]) if line.startswith("tasks/proposed/") and Path(line).name.split("-")[0].isdigit() else line for line in said]
     check("seventeen `open-item --to todo` calls on a board with 783: the names printed are 784...799, then 1701", numbers == want, numbers)
-    check("...every one of them an open item written to todo/", all("-open-item-" in line and (root / line).is_file() for line in said), said)
+    check("...every one of them an open item written to proposed/ (board 111)", all("-open-item-" in line and (root / line).is_file() for line in said), said)
     check("...the board holds 783...799 and 1701 and nothing else; no file appears in 800-899", numbers_of(root) == [*range(783, 800), 1701], numbers_of(root))
 
 
@@ -368,7 +371,7 @@ def test_gate_question_after_999_is_1901() -> None:
 def test_todays_board_open_item_is_1701() -> None:
     root = today_board()
     said = open_item(root, "Ще один відкритий пункт")
-    check("today's board (799, 801-843, 901): the open item is tasks/todo/1701-open-item-...", said.startswith("tasks/todo/1701-open-item-") and (root / said).is_file(), said)
+    check("today's board (799, 801-843, 901): the open item is tasks/proposed/1701-open-item-...", said.startswith("tasks/proposed/1701-open-item-") and (root / said).is_file(), said)
     check("...and the board gained that one number only", numbers_of(root) == [799, *range(801, 844), 901, 1701], numbers_of(root))
 
 

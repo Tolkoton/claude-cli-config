@@ -167,7 +167,7 @@ def debts(root: Path) -> list[str]:
 
 
 def followups(root: Path) -> list[Path]:
-    return sorted((root / "tasks/todo").glob("*-hotfix-followup-*.md"))
+    return sorted((root / "tasks/proposed").glob("*-hotfix-followup-*.md"))
 
 
 try:
@@ -287,8 +287,9 @@ try:
           and f"due {due}" in lines[0] and f"commit {fix[:7]}" in lines[0]
           and all(w in lines[0] for w in ("test before the code", "cause", "same places")), out(r) + str(lines))
     made = followups(root)
-    check("…and the follow-up task in tasks/todo/: the next number of class 1 (103 is in done/), the name of the card", len(made) == 1
-          and made[0].name == f"104-hotfix-followup-{card.stem}.md" and made[0].name in lines[0], made)
+    check("…and the follow-up task as a proposal in tasks/proposed/, none in tasks/todo/ (board 111): the next number of class 1 (103 is in done/), the name of the card",
+          len(made) == 1 and made[0].name == f"104-hotfix-followup-{card.stem}.md" and f"tasks/proposed/{made[0].name}" in lines[0]
+          and not list((root / "tasks/todo").glob("[0-9]*.md")), made)
     follow = made[0].read_text(encoding="utf-8") if made else ""
     parsed = board.parse(follow)
     check("the follow-up is an ordinary board task: a full /bugfix of the same place, the card, the commit, the term, how to close the debt",
@@ -296,7 +297,7 @@ try:
           and not parsed.attended and not parsed.depends and "## Готово, коли" in follow, follow)
     (root / "tasks/doing/010-urgent.md").rename(root / "tasks/done/010-urgent.md")
     r2 = run(root, ROOT / ".claude/unattended/board.py", "--root", str(root), "next")
-    check("…which the board offers like any other", made and made[0].name in r2.stdout, out(r2))
+    check("…which the board does not offer: nothing is taken from proposed/ (board 111)", made and r2.returncode == 3 and r2.stdout == "", out(r2))
     noted = card.read_text(encoding="utf-8")
     check("the card carries the debt: its status, the line and the follow-up", re.search(r"^status: fixed, debt open", noted, re.MULTILINE) is not None
           and lines[0] in noted and made[0].name in noted, noted[-600:])

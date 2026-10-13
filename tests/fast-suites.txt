@@ -145,3 +145,5 @@ test_engine_lint_tracked.py
 # Board 780: test_golden_place_env 3.6 s is in (the golden set's runner on a synthetic sandbox, six runs, and one partial run of the
 # real set under CLAUDE_CODE_REMOTE=true; the golden set is the gate's twin, so what it hands a hook is checked on the Stop gate).
 test_golden_place_env.py
+# Board 111: test_proposed 2 s is in (the column proposed/: about forty runs of board.py on synthetic boards).
+test_proposed.py

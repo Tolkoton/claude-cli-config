@@ -1205,7 +1205,7 @@ def review_task(root: Path) -> None:
     board = root / ".claude" / "unattended" / "board.py"
     if board.is_file() and (root / "tasks").is_dir():
         subprocess.run(
-            [sys.executable, str(board), "open-item", "--to", "todo", "--key", "testing-review", "--source", "hook testing.py",
+            [sys.executable, str(board), "open-item", "--to", "proposed", "--key", "testing-review", "--source", "hook testing.py",
              "--title", "розбір тестування після десяти slice-ів",
              "--what", f"У журналі тестування .engine/testing/ledger.md набралося {len(done)} slice-ів із рішенням test manager-а. " + review_numbers(root, done),
              "--do", ("Розбір, а не вирок: що впіймали незалежні тести, чого не впіймано понад overseer-а, де test manager помилився (скільки разів "
