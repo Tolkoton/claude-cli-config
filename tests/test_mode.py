@@ -634,6 +634,17 @@ for env_text, rel in (('SOURCE_DIRS="src"\nCODE_EXTENSIONS=""\n', "src/a.py"), (
     r = run(MODE, bare_env, "--root", str(bare_env), "check-close", "080-empty")
     check(f"negative — empty CODE_EXTENSIONS{' and SOURCE_DIRS' if not env_text else ''}: every file asks for an audit, as the Stop hook "
           f"reads it — {rel} with no PASS is missing", r.returncode == 1 and f"змінив робочий код ({rel})" in r.stdout, said(r))
+# board 775: the sketches' quarantine is no working code in соло either, even where every file asks for an audit
+quarantined = project(git=True)
+start(quarantined, "087-sketch-file")
+code(quarantined, "sketches/rate/probe.py", "print(61, 429)\n")
+commit_all(quarantined, "a probe")
+close(quarantined, "087-sketch-file")
+check("negative — соло, empty CODE_EXTENSIONS and SOURCE_DIRS, a commit that changed only sketches/rate/probe.py: no overseer PASS is asked "
+      "for it — what is missing is the reader's PASS on the report, and no commit is named",
+      closing(quarantined, "087-sketch-file") == ("соло", [UNREAD.format("087-sketch-file")]), closing(quarantined, "087-sketch-file"))
+check("…and with the reader's PASS on its report the task closes with nothing missing", read_it(quarantined, "087-sketch-file", report_of("087-sketch-file")) == ""
+      and closing(quarantined, "087-sketch-file") == ("соло", []), closing(quarantined, "087-sketch-file"))
 start(cc, "081-parked-once")
 code(cc, "src/j.py", "J = 1\n")
 commit_all(cc, "unit 1, never audited")
