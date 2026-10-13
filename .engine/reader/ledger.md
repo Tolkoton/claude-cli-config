@@ -46,3 +46,8 @@
 - Record: tasks/done/1738-open-item-838-cleanup-in-doing-beside-attended/report.md
 - Reason: All four questions hold: every file-and-line reference and the one commit say what the report ascribes to them; the single item of «Що зробити» (carry out the owner's answer «(в)», record it in the report, close the task) is answered with no changes made; the report raises no new question for the owner and the task's only question is already answered; technical terms (runner, task board, reader, commit, overseer) stay English.
 - Request: 20261013T184036Z-7340fa (attempt 1)
+
+## 2026-10-13T21:22:26Z — 113-new-project-path-in-docs — READER_PASS
+- Record: tasks/done/113-new-project-path-in-docs/report.md
+- Reason: All four questions hold: every file-and-line reference in the report and in the two documents says what is ascribed to it, each of the three «Що зробити» items is answered in docs/TEMPLATE-SETUP.md, docs/OWNER-GUIDE.md or the report's «Чого бракує в коді», there is no open question for the owner, and the engine terms in the report and in OWNER-GUIDE are English (runner, inbox, hook, Stop gate, commit, overseer, task board).
+- Request: 20261013T212130Z-ed04a1 (attempt 1)
