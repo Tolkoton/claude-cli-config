@@ -73,3 +73,9 @@ From: lesson #ff81a785 (gate, task-class-overflow, 2026-10-11).
 slice-builder: before the UNIT COMPLETE sentinel, walk the sealed exit criterion line by line and show each line's command and output in the claiming turn; a line that is neither shown nor named as unmet is a false-DONE (overseer BLOCK 20261012T001754Z-109051: «ruff also on the changed suites» was run on the production files only). The skill's Step 7 could say so in one sentence.
 
 From: lesson #1ed7ee98 (overseer, task-class-overflow, 2026-10-12).
+
+## 2026-10-13 — A fix for a cause that is a call (for example Path.resolve() on a given path) is finished 
+
+A fix for a cause that is a call (for example Path.resolve() on a given path) is finished only when the search for the same call has covered every file the repository ships, not only the directories the first reproduction pointed at (board 008-resolve-loop-outside-hooks).
+
+From: lesson #075a8475 (agent, 008-resolve-loop-outside-hooks, 2026-10-12).
