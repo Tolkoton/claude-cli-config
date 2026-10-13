@@ -21,7 +21,8 @@
 #                       `board.py unblock` writes tasks/.first, `board.py next` reads it). A task
 #                       that needs the owner present is never taken, and one left in doing/ by
 #                       the owner's session stops no task: it stays as it is, beside the runner's own task
-#                       (only the cleanup task waits for it, board 723)
+#                       (only the cleanup task waits for it: not placed, board 723;
+#                       one already in todo/ is not taken, board 838)
 #   while it is open    a session that ended with the task still in doing/ is continued
 #                       (--resume); a usage-limit notice waits 15 minutes and is not an attempt
 #   the task is closed  when the agent moved it to done/ or blocked/. Then: the working tree is

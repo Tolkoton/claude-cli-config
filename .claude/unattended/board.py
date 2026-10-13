@@ -127,7 +127,9 @@ runner puts `NNN-cleanup-<date>.md` into todo/ itself (`cleanup-task`): a task t
 simplifier's nightly mode and acts by its rules. Not while a task is in doing/ or one can start;
 not while a cleanup task waits in todo/, doing/ or blocked/; not sooner than CLEANUP_EVERY_DAYS
 (`.claude/project.env`; empty — 1, `0` — never) after the newest one, wherever it lies; and not in
-a project without `.claude/hooks/simplifier.py`. The engine schedules nothing else.
+a project without `.claude/hooks/simplifier.py`. One already in todo/ waits the same way while the
+owner's attended task is in doing/ (board 838): `next` does not offer it and `start` refuses it —
+two authors in the same files would conflict at the merge. The engine schedules nothing else.
 
 AN ATTENDED TASK (board 016) says `Потрібна присутність власника: так` under its title: work no
 agent may do alone — above all a change to its own guards, which the permission classifier
@@ -456,11 +458,16 @@ class Board:
         an agent alone the others (AN ATTENDED TASK)."""
         return [p for p in self.files("doing") if read(p).attended == attended]
 
+    def held_cleanup(self, path: Path) -> Path | None:
+        """The owner's attended task in doing/ a cleanup task waits for (THE CLEANUP TASK); None — it does not wait."""
+        owners = self.in_hand(True)
+        return owners[0] if owners and CLEANUP_NAME.match(path.name) else None
+
     def ready(self, attended: bool = False) -> list[tuple[Path, Task]]:
         """The tasks of the queue that could start, in its order: for an agent alone, never an
         attended one; with attended=True (the owner's session), the attended ones."""
         return [(p, task) for p in self.queue() for task in [read(p)]
-                if task.attended == attended and not self.unmet(task) and not task.mode_error]
+                if task.attended == attended and not self.unmet(task) and not task.mode_error and not self.held_cleanup(p)]
 
     def eligible(self, attended: bool = False) -> Path | None:
         """The first task that can start. For an agent alone a task with extra sessions comes after
@@ -534,6 +541,11 @@ def cmd_start(board: Board, root: Path, given: str, attended: bool = False) -> i
     if read(source).attended and not attended:
         print(f"board: {source.name} needs the owner present («Потрібна присутність власника: так») — it is started only "
               "in an interactive session with the owner: board.py start --attended (tasks/README.md)", file=sys.stderr)
+        return EXIT_REFUSED
+    held = board.held_cleanup(source)
+    if held:
+        print(f"board: {source.name} is a cleanup task and waits while the owner's attended task {held.name} is in tasks/doing/ "
+              "(two authors in the same files would conflict at the merge)", file=sys.stderr)
         return EXIT_REFUSED
     doing = board.in_hand(read(source).attended)   # the side is the task's: an ordinary one is the runner's even with --attended
     if doing:
@@ -1453,6 +1465,8 @@ def summary(board: Board) -> list[str]:
         waiting = read(path)
         if waiting.attended:
             lines.append(f"чекає на присутність власника: {path.name} — лише в інтерактивній сесії з власником")
+        if board.held_cleanup(path):
+            lines.append(f"чекає, поки закриється задача з присутнім власником: {path.name}")
         if waiting.mode_error:
             lines.append(f"не береться: {path.name} — {waiting.mode_error}")
         if waiting.extra:

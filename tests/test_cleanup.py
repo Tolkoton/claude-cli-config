@@ -210,6 +210,23 @@ try:
     check("all that is left waits for the owner — present, a dependency, an answer: the cleanup is placed after them",
           waits.cleanup("2026-10-05") == "tasks/todo/401-cleanup-2026-10-05.md" and waits.board("next").stdout.strip() == "tasks/todo/401-cleanup-2026-10-05.md")
 
+    held = World().task("doing", "010-with-owner", more=ATTENDED).task("todo", "401-cleanup-2026-10-05")
+    r = held.board("next")
+    check("board 838, the owner's answer: NEGATIVE — a cleanup task already in todo/ is not offered while the owner's attended task is in doing/",
+          r.returncode == 4 and r.stdout.strip() == "", out(r))
+    r = held.board("start", "tasks/todo/401-cleanup-2026-10-05.md")
+    check("…NEGATIVE: nor started beside it — refused, with the task it waits for named",
+          r.returncode == 2 and "010-with-owner.md" in r.stderr and held.tasks("todo") == ["401-cleanup-2026-10-05.md"], out(r))
+    check("…the summary says what it waits for", "чекає, поки закриється задача з присутнім власником: 401-cleanup-2026-10-05.md" in held.board("summary").stdout, held.board("summary").stdout)
+    check("…an ordinary task is still taken beside the owner's", held.task("todo", "020-work").board("next").stdout.strip() == "tasks/todo/020-work.md")
+    held.move("020-work", "todo", "done")
+    held.move("010-with-owner", "doing", "done")
+    check("…the same board once the owner's task is done: the cleanup task is offered and starts",
+          held.board("next").stdout.strip() == "tasks/todo/401-cleanup-2026-10-05.md" and held.board("start", "tasks/todo/401-cleanup-2026-10-05.md").returncode == 0
+          and "чекає, поки" not in held.board("summary").stdout, held.board("summary").stdout)
+    check("…NEGATIVE: the owner's attended task still in todo/ holds nothing (covered above too)",
+          World().task("todo", "010-with-owner", more=ATTENDED).task("todo", "401-cleanup-2026-10-05").board("next").stdout.strip() == "tasks/todo/401-cleanup-2026-10-05.md")
+
     check("CLEANUP_EVERY_DAYS=0: never", World(env='CLEANUP_EVERY_DAYS="0"\n').cleanup("2026-10-05") == "")
     rare = World(env='CLEANUP_EVERY_DAYS="3"\n').task("done", "401-cleanup-2026-10-05")
     late = [rare.cleanup("2026-10-07"), rare.cleanup("2026-10-08")]
@@ -286,6 +303,18 @@ try:
     check("board 723: the owner's attended task in doing/ and nothing to take — the runner places no cleanup, starts no agent and stops idle",
           r.returncode == 0 and w.said("calls") == [] and w.said("nightly") == [] and not any(PLACED in s for s in w.subjects())
           and w.tasks("doing") == ["010-with-owner.md"] and w.tasks("todo") == [] and "state=idle" in w.status(), out(r) + str(w.subjects()))
+
+    w = World().task("doing", "010-with-owner", more=ATTENDED).task("todo", "401-cleanup-2026-10-05")
+    w.commit("the owner works on a task with an agent; a cleanup task is already in todo/")
+    r = w.runner("2026-10-05")
+    check("board 838: NEGATIVE — the runner does not take the cleanup task that waits in todo/ beside the owner's attended task: no agent, nothing moved",
+          r.returncode == 0 and w.said("calls") == [] and w.said("nightly") == [] and w.tasks("doing") == ["010-with-owner.md"]
+          and w.tasks("todo") == ["401-cleanup-2026-10-05.md"] and "state=waiting-owner" in w.status(), out(r) + w.status())
+    w.move("010-with-owner", "doing", "done")
+    w.commit("the owner's task is closed")
+    r = w.runner("2026-10-05")
+    check("…and takes it once the owner's task is closed", r.returncode == 0 and w.tasks("done") == ["010-with-owner", "401-cleanup-2026-10-05"]
+          and w.said("calls") == ["401-cleanup-2026-10-05.md | Your task is the file tasks/doing/401-cleanup-2026-10-05.md"], out(r) + str(w.said("calls")))
 
     w = World(env='CLEANUP_EVERY_DAYS="0"\n')
     r = w.runner("2026-10-05")

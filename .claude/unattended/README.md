@@ -71,7 +71,7 @@ one too, board 723), `CLEANUP_EVERY_DAYS` in `project.env` (empty: 1, `0`:
 never); the pass after that task finds nothing due and stops as before. A task that says `Потрібна присутність
 власника: так` it never takes (`board.py next` does not offer one): such a task is done in an interactive
 session with the owner (`tasks/README.md`). Left in `doing/` it stops no task: the runner leaves it as it is,
-takes the next tasks beside it (only the cleanup task waits for it, board 723), and the review shows it as «у роботі з власником». A task the owner has just
+takes the next tasks beside it (only the cleanup task waits for it: not placed, board 723, and one already in `todo/` not taken, board 838), and the review shows it as «у роботі з власником». A task the owner has just
 answered is taken first after the one in hand, whatever its number (`tasks/.first`, written by `board.py unblock`).
 It moves the task to `doing/` in its own commit and starts
 `claude -p` with `--settings .claude/settings.json --permission-mode auto --output-format json`.
