@@ -16,3 +16,8 @@
 - Record: tasks/done/794-open-item-088-release-step-for-a-project/report.md
 - Reason: All four questions hold: every file-and-line reference in the report opens to what is ascribed to it, the single item of «Що зробити» (carry out the owner's answer, record it in the report, close) is done in both documents with the release command plainly deferred, there is no open question left for the owner, and the engine terms in the report and the two documents are English.
 - Request: 20261013T044247Z-2f4155 (attempt 1)
+
+## 2026-10-13T07:24:16Z — 763-open-item-test-gap-fold-then-text-on-a-session-fil — READER_PASS
+- Record: tasks/done/763-open-item-test-gap-fold-then-text-on-a-session-fil/report.md
+- Reason: All four questions hold: every reference I could open says what the report ascribes to it; the single «Що зробити» item is answered (the check already exists, the report says so plainly and shows the green and red runs, code untouched, fast subset reported green); there is no open question for the owner; engine terms stay English (overseer, builder, runner, task board, reader, subagent, commit, fold, mutant). The quoted command outputs are unrecorded and so «не перевірено», which is not a BLOCK by itself.
+- Request: 20261013T072328Z-f99ea4 (attempt 1)
