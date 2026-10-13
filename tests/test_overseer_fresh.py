@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -249,6 +250,38 @@ check("board 739 — the route sends the builder to the whole ledger (`journal.p
       "journal.py show ledger" in said and "newest entry of .engine/overseer/ledger.md" not in said and "ADR draft:" in newest, said + newest)
 check("…and that pointer is needed: the shared ledger.md alone does not hold the new entry (only a fold puts it there)",
       "ADR draft:" not in shared, shared[-300:])
+
+
+def named_by(project: Project, said: str) -> str:
+    """What the route message sends the builder to, read the way the builder would: the output of the
+    `journal.py show ledger` command it names (the engine's script, in this project), else the text of
+    the first `.engine/….md` file it names. Empty when it names neither, or the command fails."""
+    command = re.search(r"`python3 (\S*journal\.py) show ledger`", said)
+    if command:
+        script = ROOT / command[1]
+        done = project.run(script, ["show", "ledger"]) if script.is_file() else None
+        return done.stdout if done and done.returncode == 0 else ""
+    named = re.search(r"\.engine/[\w/.-]+\.md", said)
+    return (project.root / named[0]).read_text(encoding="utf-8") if named and (project.root / named[0]).is_file() else ""
+
+
+def top_entry(ledger: str) -> str:
+    start = ledger.find("\n## 20")
+    return ledger[start + 1:].split("\n## ")[0] if start >= 0 else ""
+
+
+# board 762: the message is followed, not read for a phrase — and the ledger already holds older entries,
+# so "newest" is a claim about the order, not about the only entry there is.
+p = Project(ledger=LEDGER_SEED.replace("(no entries yet)\n", THREE_PASSES))
+rid = p.audit({"verdict": "ADR_REQUIRED", "reason": "tax rate as float contradicts the contract", "evidence": ["src/pricing.py:1"], "adr": {"title": "Rate type"}})
+said = p.stop("The overseer agent asks for an ADR.")
+top = top_entry(named_by(p, said))
+check("board 762 — what the ADR_REQUIRED route names (the command it gives, else the file) holds this verdict's entry as its newest one, above three older ones",
+      bool(top) and f"request {rid}" in said and "OVERSEER_ADR_REQUIRED" in top.splitlines()[0] and f"- Request: {rid} " in top, said + " | top entry: " + top)
+check("…with the draft in that entry", "ADR draft:" in top and "Rate type" in top, top)
+check("negative — the three older entries are below it, and the shared ledger.md alone has them on top",
+      named_by(p, said).count("OVERSEER_PASS") == 3
+      and "OVERSEER_PASS" in top_entry((p.root / ".engine/overseer/ledger.md").read_text(encoding="utf-8")), named_by(p, said)[:400])
 
 print("5. The tree is compared before and after the audit")
 p = Project()
