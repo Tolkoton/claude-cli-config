@@ -79,3 +79,9 @@ From: lesson #1ed7ee98 (overseer, task-class-overflow, 2026-10-12).
 A fix for a cause that is a call (for example Path.resolve() on a given path) is finished only when the search for the same call has covered every file the repository ships, not only the directories the first reproduction pointed at (board 008-resolve-loop-outside-hooks).
 
 From: lesson #075a8475 (agent, 008-resolve-loop-outside-hooks, 2026-10-12).
+
+## 2026-10-13 — A sentence a unit adds to an owner's guide is a claim like any other: before writing «pass
+
+A sentence a unit adds to an owner's guide is a claim like any other: before writing «passes before or after X», walk the guide's own order of steps on a real install (board 786: the Step 6 text promised silence that Step 2 broke).
+
+From: lesson #de8551e8 (overseer, numbers-class-table, 2026-10-13).
