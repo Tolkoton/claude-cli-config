@@ -58,6 +58,17 @@ id of every engine file. Commit it with the rest — it is how a later update te
 untouched engine file from one you changed. `engine.py` never commits; review the result
 with `git status`.
 
+**Before the command.** The target must be an existing directory, and the board runner needs it
+to be a git repository with at least one commit: for an empty folder, `git init` it first (outside
+git `engine.py` still installs, with the note `not a git repository`). For an existing repository,
+start from a clean working tree, so that the install is the only change `git status` shows.
+
+**After the command, commit the install yourself**, in your own terminal, before the first Claude
+Code session in the project: `engine.py` never commits, and an agent may not commit outside an
+`unattended/*` branch. Until that commit the engine's own files are untracked, and the Stop gate
+reads them as the session's change and blocks the turn on files the session did not write (open
+item 786 on the engine's board).
+
 `--dry-run` prints the plan and writes nothing. A project that already holds a copy made
 by hand (`cp -r .claude`) is adopted by the same command: untouched engine files are
 recognised against the engine's history and updated, edited ones are kept and reported.
@@ -339,6 +350,113 @@ check, and stops with questions. A project installed before this command existed
 
 ---
 
+## Step 9 — The goals document
+
+`.engine/goals.md` is seeded as an empty form (version 0, not approved). It is written with the
+owner, in an interactive Claude Code session in the project:
+
+- **a new project** — `/business-analyst`: it asks, writes one numbered line per goal, principle,
+  non-goal, constraint and done-when, and seals the document with `python3 .claude/hooks/goals.py
+  seal` only after the owner's explicit yes. It then names the next command, `/master-architect`;
+- **a project that already has code** — `/onboard` first (Step 8), then the same
+  `/business-analyst`.
+
+The command needs the owner: started with nobody in the conversation it writes nothing from
+guesses and stops. A goals text the owner hands over in a board task is the one unattended road:
+the agent writes the document, the question in `tasks/blocked/` shows it whole, and the owner's
+«так» has the runner seal exactly that text (`.claude/references/business-analysis.md`, "The first
+seal without the owner").
+
+---
+
+## Step 10 — The first task and the board runner
+
+The runner (`.claude/unattended/board-runner.sh`, manual: `.claude/unattended/README.md`) takes
+tasks from `tasks/todo/` one at a time, each in a fresh session. Before its first start, once:
+
+1. **The work branch.** The runner works on `unattended/work` only and does not create it: with
+   the branch neither in the checkout nor on `origin` it stops with `state=error reason=branch`.
+
+   ```bash
+   cd /path/to/your-project
+   git switch -c unattended/work
+   git push -u origin unattended/work     # when the project has a remote
+   ```
+
+   A project with no remote runs with `--no-push`; without the flag every closed task leaves a
+   "push failed" entry in the anomaly journal and the work goes on.
+2. **Trust the directory.** Open Claude Code in the project interactively once and accept the
+   trust dialog. Until then a headless session ignores the `allow` list of `.claude/settings.json`
+   and says so only in a log nobody reads, `.claude/state/board/logs/<task>-<n>.json.err` (open
+   item 791 on the engine's board). `claude` must be logged in for the same Linux user: a
+   logged-out runner stops with `reason=logged-out`.
+3. **The first task.** Copy `tasks/TEMPLATE.md` to `tasks/todo/NNN-name.md` (the number is the
+   class x 100 + the place in the class, `tasks/CLASSES.md`), fill «Що зробити» and «Готово,
+   коли», and commit it on the work branch in your own terminal — or put the file into the
+   runner's inbox (below), and the runner commits it. `tasks/README.md` in the project is the
+   board's manual.
+4. **Start it**, in the project's directory. The runner is one foreground command that stops by
+   itself when nothing can move; tmux only keeps it alive after you log out:
+
+   ```bash
+   mkdir -p ~/engine-ops/your-project/tasks-inbox
+   tmux new -d -s your-project-board \
+     'cd /path/to/your-project && BOARD_INBOX="$HOME/engine-ops/your-project/tasks-inbox" \
+      bash .claude/unattended/board-runner.sh >> "$HOME/engine-ops/your-project/board-runner.log" 2>&1'
+   ```
+
+   Start it from a shell without `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and
+   `CLAUDE_CODE_OAUTH_TOKEN` when the sessions are to run on the subscription `claude` is logged
+   in with.
+
+**Where to look.** `bash .claude/unattended/board-runner.sh --status` prints the status line
+(`state=running|waiting-limit|idle|waiting-owner|stopped|error`) and the board, and runs nothing.
+A finished task is `tasks/done/NNN-name/report.md`; a question for the owner is a file in
+`tasks/blocked/`. On the server, `.claude/state/board/` holds `status`, `events.log`,
+`summary.md`, `costs.json` and `logs/`.
+
+**Answering.** The owner writes the answer on the `Відповідь:` line of the file in
+`tasks/blocked/` — in the branch on the remote, or as a copy of the file put into the inbox — and
+the runner takes the task again first. A stopped runner (`idle`, `waiting-owner`) does not wake
+by itself: start it again after new tasks or answers. `docs/OWNER-GUIDE.md` is the owner's side of
+all this.
+
+**Stopping.** `--stop-after-task` or `--stop-after-attempt`, never `kill`.
+
+---
+
+## Two runners on one server: the engine's and a project's
+
+The engine works on itself through the same board, so a server may hold two runners. What keeps
+them apart, and what does not:
+
+| | the engine's runner | a project's runner |
+|---|---|---|
+| directory | the engine's checkout (`~/engine`) | the project's own checkout |
+| tmux session | `engine-board` | a name of its own (`your-project-board`) |
+| lock and state | `.claude/state/board/` of that checkout | `.claude/state/board/` of that checkout |
+| inbox | `~/engine-ops/tasks-inbox` (the default) | **must be set**: `BOARD_INBOX` |
+
+- **The lock is per checkout.** One checkout runs one runner (`.claude/state/board/lock`); nothing
+  stops a second runner in another checkout.
+- **The inbox is not per checkout.** `BOARD_INBOX` defaults to `~/engine-ops/tasks-inbox` for
+  every runner, whatever project it works in: two runners started without it take each other's
+  tasks and answers, whichever looks first. Give the project's runner an inbox of its own, and
+  keep it under `~/engine-ops/` — the deny hooks guard any directory of that name against an
+  agent's write (`docs/engine-limits.md`, "The owner's word"), and a directory elsewhere is not
+  guarded. `/owner-review` names the inbox as `BOARD_INBOX` too, but the `cp` command it prints
+  at the end carries the default path: in a project, copy the files into the project's inbox
+  instead.
+- **Do not run both at once.** Both draw on the same subscription limit, and neither knows of
+  the other: a runner that meets the limit waits 15 minutes and tries again
+  (`state=waiting-limit`), so two of them eat each other's working time. The spending guards do
+  not add up either: `BOARD_MAX_USD`, `EXTRA_SESSIONS_WEEK_USD` and `costs.json` count one
+  checkout's sessions only. Take turns instead: `bash .claude/unattended/board-runner.sh
+  --stop-after-task` in one checkout, wait for `state=stopped` in its `--status`, then start the
+  other.
+
+---
+
 ## What happens if you skip a step?
 
 | Skipped step | Consequence |
@@ -349,6 +467,8 @@ check, and stops with questions. A project installed before this command existed
 | Step 5 (AGENTS.md) | Agents lack project context; slice-planner-critic may misfire on scope |
 | Step 6 (smoke test) | You discover broken hooks in production, not during setup |
 | Step 7 (orientation) | Agent starts with no context; first actions may be off-target |
+| Step 9 (goals) | The architects have no approved line of the goals document to cite |
+| Step 10 (branch, trust, inbox) | The runner stops with `reason=branch`; the `allow` list is ignored; two runners on one server share one inbox |
 
 ---
 
