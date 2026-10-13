@@ -101,7 +101,7 @@ def root_from(module: Any, where: Path) -> Path:
 
 
 def engine_lock(engine: Any) -> None:
-    text = engine.render_lock("v1 — «тег»", "c0ffee", {"b": "2", "a": "1"}, ["s"])
+    text = engine.render_lock("v1 — «тег»", "c0ffee", {"b": "2", "a": "1"}, ["s"], {"s": "3"})
     data = json.loads(text)
     check("the lock is written with schema 1 — the number every lock on disk already carries", data["schema"] == 1, data)
     check("...indented by two spaces, non-ASCII as written", '\n  "schema": 1' in text and "«тег»" in text, text)
@@ -110,6 +110,9 @@ def engine_lock(engine: Any) -> None:
     lock = project / engine.LOCK
     lock.write_text(text, encoding="utf-8")
     check("...and read back", engine.read_lock(project).files == {"a": "1", "b": "2"})
+    check("...with the blob every seeded file started from", engine.read_lock(project).seeds == {"s": "3"})
+    lock.write_text(json.dumps({k: v for k, v in data.items() if k != "seeds"}), encoding="utf-8")
+    check("a lock written before the seeds were recorded is read, with none", engine.read_lock(project).seeds == {})
     lock.write_text(json.dumps({**data, "schema": 2}), encoding="utf-8")
     check("a lock of another schema is refused, not half-read", raises(engine.EngineError, lambda: engine.read_lock(project)))
     lock.write_text(json.dumps({"schema": 1, "files": {}}), encoding="utf-8")

@@ -54,8 +54,11 @@ decides what happens to each path:
   project's `.gitignore`.
 
 The project gets `.claude/engine-lock.json`: the installed ref, its commit and the git blob
-id of every engine file. Commit it with the rest — it is how a later update tells an
-untouched engine file from one you changed. `engine.py` never commits; review the result
+id of every engine file and of every seeded file as it was seeded. Commit it with the rest —
+it is how a later update tells an untouched engine file from one you changed, and how the
+gates tell an install you have not committed yet from a session's own work (the smoke check of
+Step 6 and a first session pass before your first commit; a file changed since the install is
+judged as usual). `engine.py` never commits; review the result
 with `git status`.
 
 **Before the command.** The target must be an existing directory, and the board runner needs it
@@ -288,7 +291,8 @@ Run these in the project root to confirm the hooks are wired correctly:
 # 1. Overseer dry-run — must print a BLOCK (that is expected)
 python3 .claude/hooks/overseer_stop.py --dry-run <<< '{}'
 
-# 2. Verify-on-stop — exit 0 expected. If you have staged code files it will
+# 2. Verify-on-stop — exit 0 and no output expected, before or after you commit the install:
+#    the engine's own files, untouched, are not judged. If you have staged code files it will
 #    attempt your LINT_CMD/TEST_CMD; "command not found" is expected when
 #    tools aren't installed globally — it means config was read correctly.
 echo '{"stop_hook_active":false}' | bash .claude/hooks/verify-on-stop.sh; echo "exit: $?"

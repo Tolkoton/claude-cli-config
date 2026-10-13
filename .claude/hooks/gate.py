@@ -36,6 +36,12 @@ Settings stay in .claude/project.env: CODE_EXTENSIONS, PROJECT_MARKER, LINT_CMD,
 TEST_CMD, FORMAT_CMD, and the optional keys TEST_CMD_FULL (pre_commit / ci only), GATE_MAX_BLOCKS,
 DELETE_GUARD_LINES and COVERAGE_CMD.
 
+AN INSTALL NOT YET COMMITTED (stop, pre_commit; board 786). `engine.py install` never commits, so
+until the owner's first commit the engine's own files are untracked and would read as the turn's
+work. A file that the base lacks AND that is byte for byte what .claude/engine-lock.json recorded
+(an engine file, or a seeded one as it was seeded) is left out of everything below; one changed byte,
+or a file the base already has, and it is judged like any other. See installed.py.
+
 BYPASS GUARD (stop, pre_commit). A block when the turn's diff ADDS a `# type: ignore`, a `# noqa`,
 a pytest skip / skipif / xfail, or CHANGES the linter's or the type checker's configuration
 (the parsed [tool.ruff] / [tool.mypy] of pyproject.toml, ruff.toml, mypy.ini, and the gate's own
@@ -680,6 +686,29 @@ def protected_guard_module() -> Any:
     import protected_guard
 
     return protected_guard
+
+
+def installed_module() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import installed
+
+    return installed
+
+
+def without_install(root: Path, layer: str, files: list[str], diff_ref: str | None, report: Report) -> list[str]:
+    """`files` less the engine's own files of an install nobody has committed yet (installed.py,
+    board 786): not in the base, byte for byte what engine-lock.json recorded — no turn's work."""
+    if layer not in ("stop", "pre_commit"):
+        return files
+    if layer == "pre_commit":
+        untouched = installed_module().as_installed(root, files, index=True)
+    else:
+        untouched = installed_module().as_installed(root, files, ref=diff_ref)
+    if untouched:
+        report.add(Finding(None, None, "installed", "log",
+                           f"{len(untouched)} file(s) are the engine's install as engine-lock.json recorded it, "
+                           "not yet committed — not judged"))
+    return [f for f in files if f not in untouched]
 
 
 def add_guarded(report: Report, found: list[dict[str, Any]]) -> None:
@@ -1358,6 +1387,7 @@ def quarantine(root: Path, env: dict[str, str], layer: str, files: list[str], di
 def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
                  diff_ref: str | None, report: Report) -> None:
     full = layer in ("pre_commit", "ci")
+    files = without_install(root, layer, files, diff_ref, report)   # before anything judges
     report.files = files
     started = time.perf_counter()
     quarantine(root, env, layer, files, diff_ref, report)   # before anything is skipped: a sketch's docs/ change is seen too

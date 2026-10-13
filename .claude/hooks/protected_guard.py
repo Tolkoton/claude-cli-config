@@ -32,6 +32,8 @@ discarded content), writes the anomaly journal and blocks the turn once so that 
 what was discarded. The agent has no command to run. Without a snapshot of the session (it began
 before this guard, or SessionStart did not run), and when the gate is run by hand, the comparison
 is with HEAD and nothing is put back: the gate cannot tell the agent's change from the owner's.
+A guarded file of an install nobody has committed yet — not in HEAD, and byte for byte what
+engine-lock.json recorded — is nobody's change and is not reported (installed.py, board 786).
 
 WHAT IS PROMISED (the owner's answer, board 724): a mistaken or naive change of a guarded file
 — made directly, with a tool, through a shell variable, by a commit — is caught, put back, kept
@@ -297,7 +299,13 @@ def against_head(root: Path) -> list[dict[str, Any]]:
     # --no-renames, here and in `pending`: a rename lists the new name only, and the old one is the guarded file.
     names = (git(root, "diff", "--no-renames", "--name-only", "-z", "HEAD", "--").stdout.split("\0")
              + git(root, "ls-files", "-z", "--others", "--exclude-standard").stdout.split("\0"))
-    names = [rel for rel in names if rel not in ELSEWHERE]
+    names = [rel for rel in names if rel and rel not in ELSEWHERE and is_guarded(rel, known)]
+    # An install nobody has committed yet is nobody's change (installed.py, board 786).
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import installed
+
+    untouched = installed.as_installed(root, names)
+    names = [rel for rel in names if rel not in untouched]
     return [finding(rel, "protected/changed",
                     "a guarded file differs from HEAD, and there is no snapshot of the guarded files to compare with (the session "
                     "began before this guard, its SessionStart hook did not run, or the gate was run by hand), so the gate cannot "
@@ -305,7 +313,7 @@ def against_head(root: Path) -> list[dict[str, Any]]:
                     f"if this turn changed it, put it back (`git checkout -- {rel}` only when the change is yours) and propose the "
                     "change instead; if it did not, leave the file and tell the owner: `python3 .claude/hooks/protected_guard.py "
                     "accept` in the owner's terminal takes the files as they are")
-            for rel in sorted({rel for rel in names if rel and is_guarded(rel, known)})]
+            for rel in sorted(set(names))]
 
 
 def at_stop(root: Path, session: str | None) -> list[dict[str, Any]]:

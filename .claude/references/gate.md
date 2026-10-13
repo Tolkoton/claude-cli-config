@@ -91,6 +91,20 @@ free may be taken. The escalation is recorded as usual and entered in the anomal
 question is put on the board by the first Stop gate run after the rebase or merge is over, or by
 the board runner (`gate.py --ask-waiting`).
 
+## An install not yet committed (stop, pre_commit) — `installed.py`
+
+`engine.py install` never commits, so until the owner's first commit every engine file is
+untracked and would read as the turn's own work — the engine's own justified `# noqa` lines, the
+seeded `project.env`, the shipped `ruff.toml` (board 786). A file that the diff base lacks **and**
+that is byte for byte what `.claude/engine-lock.json` recorded (`files`: an engine file; `seeds`:
+a seeded file as it was seeded) is left out of the guards and the checks; the report carries one
+`log` finding, `installed`, with the count. Both conditions, never one: a changed byte makes it
+somebody's edit, and a file the base already has is the project's — putting a tracked
+`project.env` back to its seed is a change of the gate's scope like any other. No lock, an
+unreadable lock, a lock written before `seeds` existed: nothing is taken on trust. The same rule
+keeps `protected_guard.py`, compared with HEAD, from reporting the untouched constitution,
+settings and `.engine/rules.md` of such an install.
+
 ## The bypass guard (stop, pre_commit)
 
 A block when the turn's diff **adds** a `# type: ignore`, a `# noqa`, `pytest.mark.skip` /

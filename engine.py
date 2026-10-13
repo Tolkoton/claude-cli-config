@@ -25,7 +25,9 @@ ref says who owns every path:
            twice per event.
 
 The project keeps `.claude/engine-lock.json`: the ref, the commit and the git blob id of every
-engine file as installed. That is how an update tells "unchanged since install" (replace it)
+engine file as installed, and of every seeded file as it was seeded (`seeds` — that is how the
+gates tell an install nobody has committed yet from a turn's own work: .claude/hooks/installed.py).
+The blob ids are how an update tells "unchanged since install" (replace it)
 from "edited here" (report it, keep it). One exception to "keep it": a kept `.claude/settings.json`
 gains the overseer's two handlers when it lacks them (`wire` in the report names each one) — the
 audit runs through them and through nothing else; a file that is not readable JSON is left alone
@@ -638,6 +640,7 @@ class Lock:
     installed_utc: str
     files: dict[str, str]
     seeded: list[str]
+    seeds: dict[str, str]
 
 
 def read_lock(project: Path) -> Lock | None:
@@ -650,14 +653,15 @@ def read_lock(project: Path) -> Lock | None:
             raise EngineError(f"{path}: schema {data.get('schema')!r}, this engine.py reads {LOCK_SCHEMA}")
         files = {str(k): str(v) for k, v in dict(data["files"]).items()}
         seeded = [str(s) for s in list(data.get("seeded", []))]
-        return Lock(str(data["ref"]), str(data["commit"]), str(data.get("installed_utc", "")), files, seeded)
+        seeds = {str(k): str(v) for k, v in dict(data.get("seeds", {})).items()}
+        return Lock(str(data["ref"]), str(data["commit"]), str(data.get("installed_utc", "")), files, seeded, seeds)
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise EngineError(
             f"{path} cannot be read ({exc}); restore it from git, or delete it to adopt the copy anew"
         ) from None
 
 
-def render_lock(ref: str, commit: str, files: dict[str, str], seeded: list[str]) -> str:
+def render_lock(ref: str, commit: str, files: dict[str, str], seeded: list[str], seeds: dict[str, str]) -> str:
     data = {
         "schema": LOCK_SCHEMA,
         "ref": ref,
@@ -665,6 +669,7 @@ def render_lock(ref: str, commit: str, files: dict[str, str], seeded: list[str])
         "installed_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "files": dict(sorted(files.items())),
         "seeded": sorted(seeded),
+        "seeds": dict(sorted(seeds.items())),
     }
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
@@ -833,6 +838,9 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     # 3. Project files that start from a seed — created once, never overwritten.
     seeded_before = set(lock.seeded) if lock else set()
     seeded = set(seeded_before)
+    # The blob each seeded file started from: how the gate tells an install nobody has committed
+    # yet from a turn's own work (.claude/hooks/installed.py, board 786).
+    seed_blobs = dict(lock.seeds) if lock else {}
     seeded_targets = {seed_target for seed_target, _ in seeds}
     for target_path, seed_path in seeds:
         target = project / target_path
@@ -866,6 +874,7 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
                 )
                 blobs_needed.add(seed_entry.blob)
                 seeded.add(target_path)
+                seed_blobs[target_path] = seed_entry.blob
             else:
                 what = (
                     "holds only the engine's own records from an old copy, nothing of this project"
@@ -881,6 +890,7 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
             )
             blobs_needed.add(seed_entry.blob)
             seeded.add(target_path)
+            seed_blobs[target_path] = seed_entry.blob
 
     # 3b. The settings proposal follows the live settings file (when this ref's map knows it).
     if any(r.pattern == PROPOSAL and r.owner == "project" for r in rules):
@@ -917,9 +927,10 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
         and lock.commit == commit
         and lock.files == new_files
         and set(lock.seeded) == seeded
+        and lock.seeds == seed_blobs
     )
     if not unchanged_lock or any(a.verb != "keep" for a in plan.actions):
-        plan.lock_text = render_lock(ref, commit, new_files, sorted(seeded))
+        plan.lock_text = render_lock(ref, commit, new_files, sorted(seeded), seed_blobs)
     if lock is not None and lock.commit != commit and src.is_ancestor(commit, lock.commit):
         plan.notes.append(f"this moves the project BACK from {lock.ref} ({lock.commit[:7]}) to an older engine")
 
