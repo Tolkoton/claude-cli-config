@@ -40,7 +40,8 @@ AN INSTALL NOT YET COMMITTED (stop, pre_commit; board 786). `engine.py install` 
 until the owner's first commit the engine's own files are untracked and would read as the turn's
 work. A file that the base lacks AND that is byte for byte what .claude/engine-lock.json recorded
 (an engine file, or a seeded one as it was seeded) is left out of everything below; one changed byte,
-or a file the base already has, and it is judged like any other. See installed.py.
+or a file the base already has, and it is judged like any other — a seeded file (project.env)
+against the seed it started from, so only the keys really changed are named. See installed.py.
 
 BYPASS GUARD (stop, pre_commit). A block when the turn's diff ADDS a `# type: ignore`, a `# noqa`,
 a pytest skip / skipif / xfail, or CHANGES the linter's or the type checker's configuration
@@ -626,6 +627,9 @@ def guard_config(
     added: set[int] | None, report: Report,
 ) -> None:
     old, new = old_text(root, layer, rel, diff_ref), new_text(root, layer, rel)
+    if old is None:
+        # Seeded by an install nobody has committed yet: the base is the seed, not nothing (board 786).
+        old = installed_module().seed_text(root, rel, None if layer == "pre_commit" else diff_ref)
     if rel == BASELINE_FILE:
         guard_baseline(root, rel, old, new, report)
         return

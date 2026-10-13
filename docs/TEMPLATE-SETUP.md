@@ -56,10 +56,9 @@ decides what happens to each path:
 The project gets `.claude/engine-lock.json`: the installed ref, its commit and the git blob
 id of every engine file and of every seeded file as it was seeded. Commit it with the rest —
 it is how a later update tells an untouched engine file from one you changed, and how the
-gates tell an install you have not committed yet from a session's own work (the smoke check of
-Step 6 and a first session pass before your first commit; a file changed since the install is
-judged as usual). `engine.py` never commits; review the result
-with `git status`.
+gates tell an install you have not committed yet from a session's own work: an engine file or a
+seeded file that is still byte for byte what was installed is not judged. `engine.py` never
+commits; review the result with `git status`.
 
 **Before the command.** The target must be an existing directory, and the board runner needs it
 to be a git repository with at least one commit: for an empty folder, `git init` it first (outside
@@ -68,9 +67,13 @@ start from a clean working tree, so that the install is the only change `git sta
 
 **After the command, commit the install yourself**, in your own terminal, before the first Claude
 Code session in the project: `engine.py` never commits, and an agent may not commit outside an
-`unattended/*` branch. Until that commit the engine's own files are untracked, and the Stop gate
-reads them as the session's change and blocks the turn on files the session did not write (open
-item 786 on the engine's board).
+`unattended/*` branch. Commit again after Steps 2–5, before the smoke check of Step 6. An untouched
+install passes the Stop gate uncommitted, and so does a `.claude/project.env` in which you set
+`SOURCE_DIRS` or the check commands (it is compared with its seed). What you change beyond that
+before a commit the gate cannot tell from a session's work, and it blocks: `CODE_EXTENSIONS`,
+`PROJECT_MARKER`, `DELETE_GUARD_LINES` or `PUSH_PROTECTED_BRANCHES` in `project.env`, the linter's
+configuration, a suppression in an engine file — and, when the gate is run by hand as in Step 6,
+an edited `.claude/settings.json`, constitution or `.engine/rules.md`. The commit ends it.
 
 `--dry-run` prints the plan and writes nothing. A project that already holds a copy made
 by hand (`cp -r .claude`) is adopted by the same command: untouched engine files are
@@ -291,8 +294,8 @@ Run these in the project root to confirm the hooks are wired correctly:
 # 1. Overseer dry-run — must print a BLOCK (that is expected)
 python3 .claude/hooks/overseer_stop.py --dry-run <<< '{}'
 
-# 2. Verify-on-stop — exit 0 and no output expected, before or after you commit the install:
-#    the engine's own files, untouched, are not judged. If you have staged code files it will
+# 2. Verify-on-stop — exit 0 and no output expected once the install and your configuration
+#    are committed (Step 1, "After the command"). If you have staged code files it will
 #    attempt your LINT_CMD/TEST_CMD; "command not found" is expected when
 #    tools aren't installed globally — it means config was read correctly.
 echo '{"stop_hook_active":false}' | bash .claude/hooks/verify-on-stop.sh; echo "exit: $?"

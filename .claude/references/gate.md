@@ -100,7 +100,11 @@ that is byte for byte what `.claude/engine-lock.json` recorded (`files`: an engi
 a seeded file as it was seeded) is left out of the guards and the checks; the report carries one
 `log` finding, `installed`, with the count. Both conditions, never one: a changed byte makes it
 somebody's edit, and a file the base already has is the project's — putting a tracked
-`project.env` back to its seed is a change of the gate's scope like any other. No lock, an
+`project.env` back to its seed is a change of the gate's scope like any other. A seeded file edited
+before the first commit is compared with the seed it started from (`engine.py` keeps the text in
+`.claude/state/install/seeds/`, believed only while its blob id is the lock's), so the guard names
+the keys really changed: `SOURCE_DIRS` set in `project.env` is not "a change of `CODE_EXTENSIONS`";
+a change of `CODE_EXTENSIONS` itself still blocks until the owner commits it. No lock, an
 unreadable lock, a lock written before `seeds` existed: nothing is taken on trust. The same rule
 keeps `protected_guard.py`, compared with HEAD, from reporting the untouched constitution,
 settings and `.engine/rules.md` of such an install.

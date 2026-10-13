@@ -21,10 +21,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tests"))
-from hook_env import hook_env  # noqa: E402  # gate-allow: the helper lives beside the suites
+from hook_env import hook_env
 
+ROOT = Path(__file__).resolve().parent.parent
 PASS = FAIL = 0
 SMOKE = "echo '{\"stop_hook_active\":false}' | bash .claude/hooks/verify-on-stop.sh"
 NOQA = "# " + "noqa"
@@ -79,6 +78,11 @@ def blocks(project: Path) -> list[str]:
     return [f"{f['rule']} {f['file']}" for f in json.loads(path.read_text())["findings"] if f["severity"] == "block"]
 
 
+def report_text(project: Path) -> str:
+    path = project / ".claude/state/gate/last-report.json"
+    return path.read_text() if path.is_file() else ""
+
+
 def lesson_text(project: Path) -> str:
     return "".join(p.read_text() for p in sorted((project / ".engine/journal").rglob("*.md")))
 
@@ -122,6 +126,26 @@ with tempfile.TemporaryDirectory(prefix="fresh-install-gate-") as tmp:
     smoke(p)
     check("a seeded project.env changed before the first commit blocks",
           blocks(p) == ["bypass/config .claude/project.env"], blocks(p))
+
+    check("... and the block names the key that changed", "CODE_EXTENSIONS" in report_text(p), report_text(p))
+
+    print("step 2 before the first commit: project.env configured, the gate's scope left alone")
+    p = fresh("configured")
+    env_file = p / ".claude/project.env"
+    env_file.write_text(env_file.read_text() + 'SOURCE_DIRS="app"\n')
+    proc, payload = smoke(p)
+    check("SOURCE_DIRS set in the seeded project.env: no block, CODE_EXTENSIONS was not changed",
+          blocks(p) == [] and payload.get("decision") != "block", (blocks(p), report_text(p)))
+    env_file.write_text(env_file.read_text().replace('LINT_CMD=""', 'LINT_CMD="npm run lint"'))
+    smoke(p)
+    check("a check command set there too: no finding names a key nobody changed",
+          "CODE_EXTENSIONS" not in report_text(p), report_text(p))
+    copy = p / ".claude/state/install/seeds/.claude/project.env"
+    copy.write_text(env_file.read_text().replace('CODE_EXTENSIONS="py"', 'CODE_EXTENSIONS="md"'))
+    env_file.write_text(copy.read_text())
+    smoke(p)
+    check("a seed copy that is not what the lock recorded is not believed",
+          blocks(p) == ["bypass/config .claude/project.env"] and "CODE_EXTENSIONS" in report_text(p), report_text(p))
 
     p = fresh("ruff")
     (p / ".claude/ruff.toml").write_text((p / ".claude/ruff.toml").read_text() + 'ignore = ["E501"]\n')

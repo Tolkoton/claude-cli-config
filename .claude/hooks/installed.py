@@ -16,7 +16,14 @@ names the files that are BOTH
 
 Both, never one. A file the base already has is the project's from then on: putting a tracked
 project.env back to its seed is a change like any other, and the lock excuses nothing there.
-A file that differs from the lock by one byte is somebody's edit. No lock, an unreadable lock,
+A file that differs from the lock by one byte is somebody's edit — and then
+
+    seed_text(root, rel, ref=None) -> str | None
+
+gives what a seeded file started from, so that the edit is compared with its seed and not with
+nothing: an owner who set SOURCE_DIRS in project.env before the first commit did not "change
+CODE_EXTENSIONS". engine.py keeps the text beside the other machine state
+(.claude/state/install/seeds/<path>); it is believed only while its blob id is the lock's. No lock, an unreadable lock,
 a lock that does not name the file: nothing is taken on trust, and the caller judges as before.
 
 The limit: the lock is a file of the project, under `.claude/`, which Claude Code protects from
@@ -32,6 +39,7 @@ import subprocess
 from pathlib import Path
 
 LOCK_REL = ".claude/engine-lock.json"
+SEEDS_REL = ".claude/state/install/seeds"
 
 
 def recorded(root: Path) -> dict[str, str]:
@@ -83,3 +91,16 @@ def as_installed(root: Path, files: list[str], ref: str | None = None, index: bo
         if data is not None and lock[rel] in blob_ids(data, len(lock[rel])):
             same.add(rel)
     return same
+
+
+def seed_text(root: Path, rel: str, ref: str | None = None) -> str | None:
+    want = recorded(root).get(rel)
+    if want is None or in_base(root, ref or "HEAD", [rel]):
+        return None
+    data = content(root, f"{SEEDS_REL}/{rel}", index=False)
+    if data is None or want not in blob_ids(data, len(want)):
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None

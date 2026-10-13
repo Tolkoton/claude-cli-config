@@ -81,6 +81,7 @@ from pathlib import Path
 
 OWNERSHIP = ".claude/ownership.txt"
 LOCK = ".claude/engine-lock.json"
+SEED_COPIES = ".claude/state/install/seeds"  # machine state: each seeded file as it was seeded (hooks/installed.py)
 PERSONAL = "user/settings.json"
 HOME_SETTINGS = "settings.json"
 BACKUP_PREFIX = "settings.json.engine-backup-"
@@ -715,6 +716,7 @@ class Plan:
     gitignore: str | None = None
     lock_text: str | None = None
     contents: dict[str, bytes] = field(default_factory=dict)
+    seed_blobs: dict[str, str] = field(default_factory=dict)
 
     @property
     def held_back(self) -> list[Action]:
@@ -931,6 +933,7 @@ def plan_sync(src: EngineSource, ref: str, project: Path, reseed_pristine: bool,
     )
     if not unchanged_lock or any(a.verb != "keep" for a in plan.actions):
         plan.lock_text = render_lock(ref, commit, new_files, sorted(seeded), seed_blobs)
+    plan.seed_blobs = seed_blobs
     if lock is not None and lock.commit != commit and src.is_ancestor(commit, lock.commit):
         plan.notes.append(f"this moves the project BACK from {lock.ref} ({lock.commit[:7]}) to an older engine")
 
@@ -1093,6 +1096,12 @@ def apply_plan(plan: Plan) -> None:
             if target.is_symlink():
                 target.unlink()
             target.write_bytes(plan.contents[action.blob])
+            if action.verb in ("seed", "reseed") and action.path in plan.seed_blobs:
+                # What the file started from, for the gates: a project.env edited before the first
+                # commit is compared with its seed, not with nothing (board 786).
+                copy = plan.project / SEED_COPIES / action.path
+                copy.parent.mkdir(parents=True, exist_ok=True)
+                copy.write_bytes(plan.contents[action.blob])
         if action.verb in (*WRITING_VERBS, "chmod"):
             current = target.stat().st_mode
             target.chmod(current | 0o111 if action.mode == "100755" else current & ~0o111)
