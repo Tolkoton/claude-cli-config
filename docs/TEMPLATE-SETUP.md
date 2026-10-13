@@ -395,9 +395,21 @@ AGENTS.md         — agent roster and project context (loaded via @AGENTS.md)
 
 ---
 
+## Releasing your project
+
+The engine has no release step for a project, by the owner's decision (board 794). The runner's
+work ends when a task is in `tasks/done/` with its report and the work branch (`unattended/work`)
+is pushed to `origin`. Merging that branch into `main`, tagging a version and whatever "shipping"
+means for your project are yours, in your own terminal: the agent merges and pushes only when a
+person asks in the conversation, and a push into `main` or `stable` (`PUSH_PROTECTED_BRANCHES`)
+is refused by `block-dangerous.sh` whoever asks. `engine.py release` releases the engine itself
+and is not installed into a project.
+
+---
+
 ## Keeping the engine up to date
 
-How a new version comes to exist — the tag, `main` and `stable` — is `docs/release.md`.
+How a new version of the engine comes to exist — the tag, `main` and `stable` — is `docs/release.md`.
 
 ```bash
 git -C /path/to/claude-cli-config pull --tags                     # the new versions
