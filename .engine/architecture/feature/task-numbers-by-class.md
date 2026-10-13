@@ -1,5 +1,12 @@
 # Feature task-numbers-by-class — a task's number is its class × 100 + its place in the class
 
+> **Cut by the owner, 2026-10-13** (the answers to questions 1 and 2 in the task): the feature ends with S1
+> `task-class-overflow` and S2 `numbers-class-table` plus the documents of what they built. S3
+> `numbers-queue-order` (the queue by the rows of `CLASSES.md`) and S4 `numbers-renumber` are NOT built and no
+> open item holds them: there are no parallel sessions or cloud branches now, so equal numbers after a merge
+> do not happen. The queue stays by number; `task_classes.queue_key` is written and tested, nothing calls it.
+> What follows is the plan as it was drawn, kept as the record.
+
 Frame source: board task `tasks/doing/401-task-numbers-by-class-build.md` (the owner's text) and the
 design it builds, `tasks/done/741-open-item-attended-session-task-numbers-600-699/design.md` (second
 version, above the rule), with the owner's four answers in `task.md` beside it: «(1) так, (2) +10,

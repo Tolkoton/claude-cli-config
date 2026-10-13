@@ -1,0 +1,4 @@
+- 2026-10-13 | parked | test-gap-a-check-in-tests-test-board-py-beside-the-negative-of-board-efb602a9 | test-gap-a-check-in-tests-test-board-py-beside-the-negative-of-board-efb602a9: Брак тесту (overseer): a check in tests/test_board.py (beside the NEGATIVE of board 401) that neither tasks/CLASSES.md no #4b18f363
+- 2026-10-13 | parked | test-gap-a-check-that-claude-commands-owner-review-md-no-longer-tells-a15116a9 | test-gap-a-check-that-claude-commands-owner-review-md-no-longer-tells-a15116a9: Брак тесту (overseer): a check that .claude/commands/owner-review.md no longer tells the session to number a new task by #df5b6cb0
+- 2026-10-13 | resolved:discard | discard #4b18f363
+- 2026-10-13 | resolved:discard | discard #df5b6cb0

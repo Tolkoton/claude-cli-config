@@ -10,7 +10,8 @@ This module only counts and reads the table. It reads no task: the caller hands 
 the board holds. Giving a task its class and the renumbering after a merge are not here.
 
 THE TABLE (tasks/CLASSES.md) is the owner's: a Markdown table whose rows begin with `|` and a class
-number 0...9; the order of its rows is the order the queue takes the classes in.
+number 0...9. The queue does not read it yet: `board.py next` goes by number (`queue_key` is written
+and tested for the day the order of the rows becomes the order of the queue; nothing calls it).
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-CLASSES_FILE = "CLASSES.md"  # tasks/CLASSES.md: a row a class, the order of the rows the order of the queue
+CLASSES_FILE = "CLASSES.md"  # tasks/CLASSES.md: a row a class
 _DIGITS = re.compile(r"[0-9]+")  # ASCII digits only: `\d` and int() also take digits of other scripts
 _NUMBERED = re.compile(r"(\d{3,})-.")  # a task's number as board.number_of reads it from a name
 UNCLASSED, OWN, OPEN_ITEMS, RULES, GATES = 1, 4, 7, 8, 9  # nobody gave a class; the runner's own; the three kinds of question

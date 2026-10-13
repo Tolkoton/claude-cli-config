@@ -756,7 +756,7 @@ MANUAL = {
         "Що змінилось для власника", "демонстрація на хвилину", "витрати", "діапазон commit-ів", "відкладене"),
     "then the task goes to done/NNN-name/ with task.md and report.md": ("`done/NNN-назва/`", "`task.md`", "`report.md`"),
     "a gate question is the owner's to answer and the runner's to close (board 005)": (
-        "9NN-gate-escalation", "не заповнюй", "закриття ескалації не запускай", "Номери від 900"),
+        "9NN-gate-escalation", "не заповнюй", "закриття ескалації не запускай", "Клас 9 лишіть для gates"),
     "an action the owner approves is the runner's to take, from a short list (board 008)": (
         "action-line apply-settings", "Відповідь «так» виконує runner", "Сам команду не запускай",
         "застосувати пропозицію налаштувань, зробити урок правилом, закрити ескалацію gates"),
@@ -764,7 +764,7 @@ MANUAL = {
         "## Одна форма згоди", "рівно одне слово `так`", "регістр і розділові знаки не важать", "«так, але…»",
         "застосовується, задача йде агентові", "«Закрити ескалацію?»", "рівно одне слово «так»; будь-яка інша відповідь", "`/owner-review`"),
     "a lesson becomes a rule only on the owner's answer (board 040)": (
-        "Урок робить правилом лише власник", "`lesson_queue.py promote` не запускай", "8NN-rule-proposal", "Номери від 800",
+        "Урок робить правилом лише власник", "`lesson_queue.py promote` не запускай", "8NN-rule-proposal", "Клас 8 лишіть для таких питань",
         "зробити урок правилом"),
     "a task that needs the owner present is never the runner's; how to do one with the owner (board 016)": (
         "Потрібна присутність власника: так", "Runner її не бере ніколи", "next --attended", "start --attended",
@@ -777,6 +777,10 @@ MANUAL = {
 }
 MANUAL["board 110: an extra session is booked, asked for at the cap, and the task waits instead of asking"] = (
     "board.py extra-book", "board.py extra-allowed", "board.py extra-wait", "`Додаткові сесії: так`", "`EXTRA_SESSIONS_WEEK_USD`", "`extra-cap`")
+MANUAL["numbers by class: the table, a number for an unnumbered inbox file, a full class goes on (board 401)"] = (
+    "## Номери й класи", "`tasks/CLASSES.md`", "`Клас: 3`", "1701–1799", "Старі задачі не перейменовуються")
+check("NEGATIVE: neither manual promises what board 401 did not build — a queue by the table's rows, `renumber`",
+      all("renumber" not in text and "порядок рядків `CLASSES.md` її не змінює" in text for text in (seed, here)))
 for rule, phrases in MANUAL.items():
     missing = [ph for ph in phrases if ph not in seed]
     check(f"manual: {rule}", not missing, missing)
