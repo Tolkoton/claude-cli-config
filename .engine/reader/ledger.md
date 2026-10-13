@@ -11,3 +11,8 @@
 - Record: tasks/done/777-open-item-gemini-api-key-in-session-environment/report.md
 - Reason: Усі чотири питання тримаються: посилання, які можна відкрити, кажуть те, що їм приписано; єдиний пункт «Що зробити» (виконати відповідь «ні», записати у звіт, закрити пункт) виконано; єдине відкрите питання (1734) має три варіанти й пораду; технічні терміни в звіті та у файлі питання англійською. Виводи команд у середовищі сесії ніде не записані — не перевірено, не BLOCK.
 - Request: 20261013T034105Z-2bda21 (attempt 1)
+
+## 2026-10-13T04:43:19Z — 794-open-item-088-release-step-for-a-project — READER_PASS
+- Record: tasks/done/794-open-item-088-release-step-for-a-project/report.md
+- Reason: All four questions hold: every file-and-line reference in the report opens to what is ascribed to it, the single item of «Що зробити» (carry out the owner's answer, record it in the report, close) is done in both documents with the release command plainly deferred, there is no open question left for the owner, and the engine terms in the report and the two documents are English.
+- Request: 20261013T044247Z-2f4155 (attempt 1)
