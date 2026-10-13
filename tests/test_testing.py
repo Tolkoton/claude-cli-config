@@ -494,6 +494,22 @@ check("the planner chose the OTHER reading: the file is not sealed, a fresh test
 out = answer(r, handin([test("test_half"), test("test_half", LINE_ERRORS)]))
 check("with no request pending nothing is recorded by hand", out.returncode == 1 and "no request is pending" in out.stderr.lower(), out.stderr)
 
+# ------------------------------------------------------------------ the row carried in the ledger's comment (board 770)
+print("the ledger — a row whose value holds '--' and '-->'")
+r = Path(tempfile.mkdtemp(prefix="testing-ledger-"))
+carried_row = {"kind": "decision", "slice": "discount", "line": "a -- b -->", "reason": "x --- y ----> z", "tests": ["dropped"]}
+testing.ledger(r, "a decision", ["one line"], carried_row)
+ledger = (r / ".engine/testing/ledger.md").read_text(encoding="utf-8")
+written = [line for line in ledger.splitlines() if line.startswith("<!-- row: ")]
+check("the row is written as one comment line", len(written) == 1 and written[0].endswith(" -->"), ledger)
+check("…with no '--' between '<!-- row: ' and ' -->': a '-->' in a value does not end the comment early",
+      len(written) == 1 and "--" not in written[0][len("<!-- row: "):-len(" -->")], written)
+check("…and the comment closes once, at the end of the line", ledger.count("-->") == 1 and ledger.rstrip("\n").endswith(" -->"), ledger)
+check("LEDGER_ROW_RE finds exactly one row", len(testing.LEDGER_ROW_RE.findall(ledger)) == 1, testing.LEDGER_ROW_RE.findall(ledger))
+check("the row is read back as it was given, without its bulky fields",
+      testing.ledger_rows(ledger) == [{k: v for k, v in carried_row.items() if k != "tests"}], testing.ledger_rows(ledger))
+shutil.rmtree(r, ignore_errors=True)
+
 # ------------------------------------------------------------------ invariants (board 064)
 print("invariants — the section is checked before the contract is sealed")
 
