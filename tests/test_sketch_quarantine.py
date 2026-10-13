@@ -198,6 +198,12 @@ try:
     report, _ = gate.run_layer("stop", working, None, None)
     blocks = [(f.file, f.rule) for f in report.findings if f.severity == "block"]
     check("negative — the same deletion in working code is still the delete guard's block", blocks == [("src/kept.py", "delete/untested")], blocks)
+    deeper = project(before={"src/sketches/kept.py": long_function})
+    (deeper / "src/sketches/kept.py").write_text("def b():\n    return 2\n", encoding="utf-8")
+    report, _ = gate.run_layer("stop", deeper, None, None)
+    blocks = [(f.file, f.rule) for f in report.findings if f.severity == "block"]
+    check("negative — the same deletion in src/sketches/ (a directory that only shares the name, inside SOURCE_DIRS) is still the delete guard's block",
+          blocks == [("src/sketches/kept.py", "delete/untested")], blocks)
 
     print("the full layers: the default ruff / mypy / pytest leave sketches/ out")
     for layer in ("pre_commit", "ci"):
