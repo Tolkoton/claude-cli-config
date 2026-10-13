@@ -41,3 +41,8 @@
 - Record: tasks/done/1734-open-item-gemini-api-key-in-runner-parent-processe/report.md
 - Reason: All four questions hold: every reference I could open says what the report ascribes to it, the single item of «Що зробити» (carry out the owner's answer «(б)», record it, close) is answered in the report, there is no open question left for the owner, and the engine terms in the report are English (runner, task board, reader, commit, hooks).
 - Request: 20261013T183922Z-c130de (attempt 1)
+
+## 2026-10-13T18:41:03Z — 1738-open-item-838-cleanup-in-doing-beside-attended — READER_PASS
+- Record: tasks/done/1738-open-item-838-cleanup-in-doing-beside-attended/report.md
+- Reason: All four questions hold: every file-and-line reference and the one commit say what the report ascribes to them; the single item of «Що зробити» (carry out the owner's answer «(в)», record it in the report, close the task) is answered with no changes made; the report raises no new question for the owner and the task's only question is already answered; technical terms (runner, task board, reader, commit, overseer) stay English.
+- Request: 20261013T184036Z-7340fa (attempt 1)
