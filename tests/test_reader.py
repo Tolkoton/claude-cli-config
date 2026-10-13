@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The fresh reader of a sketch's record (board 099): reader.py request, guard, record.
+"""The fresh reader of a record (board 099: a sketch's record; board 100: a task's report): reader.py request, guard, record.
 
   - `request` takes only a sketch record of the project and prints the one launch line;
   - `guard`: the reader starts with exactly `READER_REQUEST <id>` of the pending request and nothing
@@ -10,7 +10,11 @@
     SubagentHandback (no last_assistant_message) is read too;
   - `passed()` holds only for the record as it is now;
   - three BLOCKs in a row on one record leave the marker the runner parks the task on; a PASS between
-    them resets the count.
+    them resets the count;
+  - a task's report (`--report`): only the report of that task; the package names the task file, the
+    task's commits and every document the task changed (never the board's moves or a journal); a
+    document that changed while the report was read makes the reading INVALID; `passed()` holds only
+    while the report and every document read stand, and only if every document asked about was read.
 
 Run:   python3 tests/test_reader.py       Exit: 0 all green, 1 otherwise.
 """
@@ -24,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from hook_env import hook_env
 
@@ -80,7 +85,7 @@ def ask(task: str = "071-sketch", rel: str = REL) -> str:
 try:
     print("request: a sketch record only, then the one launch line")
     done = cli("request", "071-sketch", "--record", "README.md")
-    check("negative — a file that is not a sketch record is refused", done.returncode == 1 and "is not a sketch record" in done.stderr, done.stderr)
+    check("negative — a file that is not a sketch record is refused", done.returncode == 1 and "neither a sketch record" in done.stderr, done.stderr)
     done = cli("request", "071-sketch", "--record", ".engine/sketches/none.md")
     check("negative — a record that does not exist is refused", done.returncode == 1, done.stderr)
 
@@ -160,6 +165,85 @@ try:
     launch(f"READER_REQUEST {(reader.pending(root) or {}).get('id')}")
     answer(block)
     check("…the third after the park parks it again", marker.exists())
+finally:
+    shutil.rmtree(root, ignore_errors=True)
+
+# ------------------------------------------------------------------ a task's report (board 100)
+print("a task's report: the package names the documents the task changed, and the PASS holds only while they stand")
+root = Path(tempfile.mkdtemp(prefix="reader-doc-")).resolve()   # cli() and reader.rows() read this global
+REPORT = "tasks/done/090-design/report.md"
+DOC_PASS = {"verdict": "PASS", "reason": "the references say what the report ascribes to them; every item has its answer",
+            "evidence": ["docs/design.md:1 — the decision the report quotes"]}
+
+
+def git(*args: str) -> None:
+    subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
+
+
+def write(rel: str, text: str) -> None:
+    (root / rel).parent.mkdir(parents=True, exist_ok=True)
+    (root / rel).write_text(text, encoding="utf-8")
+
+
+def package(rid: str) -> dict[str, Any]:
+    asked: dict[str, Any] = json.loads((root / f".claude/state/reader/requests/{rid}/request.json").read_text(encoding="utf-8"))
+    return asked
+
+
+try:
+    git("init", "-q", "-b", "unattended/work")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    write(".gitignore", ".claude/state/\n")
+    write("docs/old.md", "what was there before the task\n")
+    git("add", "-A")
+    git("commit", "-qm", "the project")
+    write("tasks/doing/090-design.md", "# 090 — проєкт\n\n## Що зробити\n- проєкт рішення\n\n## Питання до власника\n")
+    git("add", "-A")
+    git("commit", "-qm", "board: 090-design → doing")
+    write("docs/design.md", "Рішення: один файл.\n")
+    write("tasks/ANOMALIES.md", "# Журнал аномалій\n")
+    git("add", "-A")
+    git("commit", "-qm", "the design")
+    done = cli("request", "090-design", "--report")
+    check("negative — no report yet: refused", done.returncode == 1 and "neither a sketch record" in done.stderr, done.stderr)
+    write(REPORT, "# Звіт\n\n## Що змінилось для власника\n- проєкт у docs/design.md\n")
+    write("docs/notes.md", "ще не закомічено\n")
+    done = cli("request", "091-other", "--record", REPORT)
+    check("negative — the report of another task is refused", done.returncode == 1 and "is not the report of the task 091-other" in done.stderr, done.stderr)
+    done = cli("request", "092-nowhere", "--record", "tasks/done/092-nowhere/report.md")
+    check("negative — a task that is in neither doing/ nor done/ has no report to read", done.returncode == 1, done.stderr)
+    rid = ask("090-design", REPORT)
+    asked = package(rid)
+    check("the package: the kind, the task file, the four questions, the task's commits", asked.get("kind") == "document"
+          and asked.get("task_file") == "tasks/doing/090-design.md" and len(asked.get("questions", [])) == 4
+          and [c["subject"] for c in asked["commits"]] == ["the design"], asked)
+    check("…and every document the task changed, committed or not — never the report itself, the board's moves or a journal",
+          sorted(asked["files"]) == ["docs/design.md", "docs/notes.md"], asked.get("files"))
+    launch(f"READER_REQUEST {rid}")
+    write("docs/design.md", "Рішення: два файли.\n")
+    answer(DOC_PASS)
+    check("negative — a document of the package changed while the report was read: INVALID, no PASS",
+          reader.rows(root)[-1]["verdict"] == "INVALID" and "docs/design.md changed while the report" in reader.rows(root)[-1]["reason"]
+          and not reader.passed(root, REPORT), reader.rows(root)[-1])
+    launch(f"READER_REQUEST {ask('090-design', REPORT)}")
+    answer(DOC_PASS)
+    check("a PASS on the report and its documents as they are", reader.rows(root)[-1]["verdict"] == "PASS"
+          and reader.passed(root, REPORT, ["docs/design.md", "docs/notes.md"]), reader.rows(root)[-1])
+    check("…in the journal under the task and the report's path", f"— 090-design — READER_PASS\n- Record: {REPORT}" in
+          (root / ".engine/reader/ledger.md").read_text(encoding="utf-8"))
+    check("negative — passed(): a document the task changed that the reader never got", not reader.passed(root, REPORT, ["docs/design.md", "docs/late.md"]))
+    write("docs/notes.md", "переписано після PASS\n")
+    check("negative — passed(): not once a document changed after the PASS", not reader.passed(root, REPORT, ["docs/design.md"]))
+    write("docs/notes.md", "ще не закомічено\n")
+    write(REPORT, "# Звіт\n\nпереписано після PASS\n")
+    check("negative — passed(): not once the report changed after the PASS", not reader.passed(root, REPORT))
+    marker = root / ".claude/state/board/reader-blocks-090-design.json"
+    for n in (1, 2, 3):
+        launch(f"READER_REQUEST {ask('090-design', REPORT)}")
+        answer({"verdict": "BLOCK", "reason": "docs/design.md:1 says one file, the report says two", "evidence": ["docs/design.md:1 — «один файл»"]})
+    left = json.loads(marker.read_text(encoding="utf-8")) if marker.exists() else {}
+    check("three BLOCKs in a row on a report leave the runner's marker too", left.get("record") == REPORT and len(left.get("blocks", [])) == 3, left)
 finally:
     shutil.rmtree(root, ignore_errors=True)
 

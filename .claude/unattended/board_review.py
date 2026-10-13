@@ -14,8 +14,15 @@ state this clone knows (its remote-tracking ref) is shown, and the document says
 The runner's own state — `.claude/state/board/` — is not in git; it is read when the review runs
 on the runner's machine and replaced by what git shows when it does not.
 
-WHAT IT SHOWS, in eight sections: the state now; what was done since `--since` (default: the
-newest version tag), each finished task with the owner's parts of its report; everything that
+WHAT IT SHOWS, in sections: the state now; what was done since `--since` (default: the
+newest version tag), each finished task with the owner's parts of its report; the changed documents
+and designs to look over (board 100; the approved design is board 080, §6) — every closed task none of
+whose commits changed working code, with its title, the documents it changed and the verdict of the
+fresh reader (.engine/reader/ledger.md), shown until its number stands in tasks/.reviewed as the
+branch has it, whatever `--since` says; closing never waited for this, and a problem found is a new
+task. The list begins where the reader first read a task's report in this project: a task closed
+before that was never promised a reading, and one that never lay in doing/ (the runner closed the
+owner's own answer) holds nothing an agent wrote; everything that
 waits for the owner — every unfilled `Відповідь:` in blocked/ with the text above it, the
 tasks that need the owner present (`Потрібна присутність власника: так`, board 016), the
 settings proposals, the gate's open escalations, the rule proposals (board 037: what is open is read from the board
@@ -54,6 +61,7 @@ import goals  # the goals document's reader lives with the hooks
 import hotfix  # and so does the reader of the urgent fixes' debts (.engine/debt.md, board 075)
 import journal  # the journals every session adds to in its own file (board 739)
 import mode as mode_reader  # and the one reader of a task's mode (board 097)
+import reader as record_reader  # which of a task's changes are documents (board 100)
 import testing  # and the reader of the testing ledger (.engine/testing/ledger.md, board 062)
 
 CONTEXT_BUDGET = 200
@@ -79,6 +87,9 @@ STATES = {
 # The parts of a report the review quotes, by the start of the heading (reports word them freely).
 OWNER_PARTS = (("що змінилось для власника",), ("демонстрація",), ("рішення, які я ухвалив сам",), ("витрати",), ("commit", "діапазон commit"))
 CANDIDATE_PARTS = (("відкладене",), ("чого мені бракувало",))
+READER_LEDGER = record_reader.LEDGER_REL.as_posix()
+READING = re.compile(r"^## (\S+) — \S+ — READER_(PASS|BLOCK|INVALID)\n- Record: (tasks/done/[^/\n]+/report\.md)\n- Reason: (.*)$", re.MULTILINE)
+DOCUMENTS_SHOWN = 12
 
 
 class ReviewError(Exception):
@@ -114,7 +125,7 @@ class Source:
         return sorted(found, key=lambda p: (board.number_of(posixpath.basename(p)) or 0, p))
 
     def done(self) -> list[str]:
-        stems = {p.split("/")[2] for p in self.files if p.startswith("tasks/done/") and p.count("/") >= 3}
+        stems = {p.split("/")[2] for p in self.files if p.startswith("tasks/done/") and p.count("/") == 3 and p.endswith("/task.md")}
         return sorted((s for s in stems if board.DONE_NAME.match(s)), key=lambda s: (board.number_of(s) or 0, s))
 
     def log(self, *args: str) -> str:
@@ -436,6 +447,61 @@ def done_section(src: Source, stems: list[str], costs: dict[str, dict[str, Any]]
                 lines += quoted(*part)
         lines += [f"Повний звіт: `{folder}/report.md`", ""]
     return lines
+
+
+# ------------------------------------------------------------------ changed documents and designs (board 100)
+
+
+def readings(src: Source) -> list[tuple[str, str, str, str]]:
+    """The readers' verdicts on tasks' reports, oldest first: (utc, verdict, the report, the reason)."""
+    return [(m.group(1), m.group(2), m.group(3), m.group(4)) for m in READING.finditer(src.show(READER_LEDGER))]
+
+
+def unreviewed(src: Source) -> list[tuple[str, list[str]]]:
+    """(the task, the documents it changed) for every closed task without working code the owner has not
+    looked over: closed since the reader first read a task's report here, once in doing/, no commit of it
+    changed working code, its number not in tasks/.reviewed."""
+    read = readings(src)
+    if not read:
+        return []
+    closed = src.log("--format=", "--name-only", "--diff-filter=A", "--no-renames", f"--since={read[0][0]}", src.sha, "--", "tasks/done")
+    stems = {p.split("/")[2] for p in closed.splitlines() if p.startswith("tasks/done/") and p.endswith("/task.md")}
+    seen = set(board.reviewed_numbers(src.show(f"tasks/{board.REVIEWED}")))
+    is_code = mode_reader.working_code(src.root, src.show(".claude/project.env"))
+    found = []
+    for stem in src.done():
+        commits = mode_reader.task_commits(src.root, stem, src.sha) if stem in stems and board.number_of(stem) not in seen else None
+        if commits is None:
+            continue
+        changed = [rel for commit in commits for rel in mode_reader._changed(src.root, commit)]
+        if not any(is_code(rel) for rel in changed):
+            report = f"tasks/done/{stem}/report.md"
+            found.append((stem, [*([report] if report in src.files else []), *record_reader.documents(changed, report)]))
+    return found
+
+
+def verdict_line(read: list[tuple[str, str, str, str]], stem: str) -> str:
+    mine = [row for row in read if row[2] == f"tasks/done/{stem}/report.md"]
+    if not mine:
+        return "Вердикт reader-а: немає — звіт цієї задачі reader не читав."
+    utc, verdict, _, reason = mine[-1]
+    return f"Вердикт reader-а: {verdict} ({stamp(as_utc(utc))}, читань: {len(mine)})" + (f" — {reason}" if verdict != "PASS" else ".")
+
+
+def documents_section(src: Source) -> list[str]:
+    waiting = unreviewed(src)
+    how = (f"Запис висить, доки номера задачі немає у `tasks/{board.REVIEWED}` (номери, по одному в рядку): допишіть його в гілці або покладіть "
+           f"файл `{board.REVIEWED}` в inbox — його готує `/owner-review`; агент цього файла не пише. Закриття задачі на вас не чекало. "
+           "Знайшли проблему — це нова задача; стару ніхто не відкриває.")
+    if not waiting:
+        return ["Закритих задач без робочого коду, яких ви ще не переглянули, немає."]
+    read = readings(src)
+    lines = [f"Закритих задач без робочого коду, яких ви ще не переглянули: {len(waiting)}. {how}", ""]
+    for stem, changed in waiting:
+        shown = ", ".join(f"`{rel}`" for rel in changed[:DOCUMENTS_SHOWN]) + (f" і ще {len(changed) - DOCUMENTS_SHOWN}" if len(changed) > DOCUMENTS_SHOWN else "")
+        lines += [f"### {stem} — {title_of(src.show(f'tasks/done/{stem}/task.md'), stem)}", "", verdict_line(read, stem),
+                  f"Змінені документи: {shown or 'жодного'}.", ""]
+    return lines[:-1]
 
 
 # ------------------------------------------------------------------ what waits for the owner
@@ -861,6 +927,7 @@ def review(root: Path, state: Path, remote: str, branch: str, given: str | None,
              f"Період для «Зроблено», кандидатів і витрат: {period.shown}. Огляд нічого не змінює.", ""]
     for title, body in (("Стан зараз", now_section(src, state, now)),
                         ("Зроблено", done_section(src, stems, costs)),
+                        ("Змінені документи й проєкти — переглянь", documents_section(src)),
                         ("Чекає на власника", waiting_section(src, state)),
                         ("Цілі та звірка з ними", goals_section(src)),
                         ("Тестування", testing_section(src, period)),

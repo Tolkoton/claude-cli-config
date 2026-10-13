@@ -1,5 +1,5 @@
 ---
-description: The owner's review session. Runs `board.py review` (read-only), walks the document with the owner section by section, and prepares the owner's answers and new tasks as files the owner then copies into the board's inbox with one command. Changes nothing else. Use when the owner wants to look at what was planned, what is done and what waits for them.
+description: The owner's review session. Runs `board.py review` (read-only), walks the document with the owner section by section, and prepares the owner's answers, new tasks and the list of the documents they looked over as files the owner then copies into the board's inbox with one command. Changes nothing else. Use when the owner wants to look at what was planned, what is done and what waits for them.
 ---
 
 You are running the **owner's review** of the task board. The owner reviews when they have time,
@@ -38,20 +38,27 @@ for the owner before moving on (`AskUserQuestion` is right here). Do not paste t
    The line about the debts of urgent fixes (`/hotfix`): how many are open and until when; at three, the next urgent fix starts with a question.
 2. **Зроблено** — per finished task: what changed for the owner, then the decisions the agent
    took alone. Ask whether any of those decisions should be reversed — a reversal is a new task.
-3. **Чекає на власника** — every open question, one at a time, with its context and options. The
+3. **Змінені документи й проєкти — переглянь** — the closed tasks that changed no working code: no overseer judged them, a fresh
+   `reader` read each report before the task closed, and each hangs here until the owner has looked it over. Per task: the title,
+   what the documents are (open the report or a document when the owner asks — `git show <commit>:<path>`), the reader's verdict;
+   a task with no verdict, or with a BLOCK, say so first. Ask of each: looked over, a problem found, or later. «Looked over» is
+   the owner's word for that task only — never infer it from silence or from a remark about another task; it goes into the file
+   `.reviewed` (below). A problem is a new task (below); the closed task is never reopened, and whether it also counts as
+   looked over is the owner's to say. «Later» writes nothing: the entry stays.
+4. **Чекає на власника** — every open question, one at a time, with its context and options. The
    owner may answer, or leave it for later. Also the tasks that need the owner present (the runner
    never takes them; they are done in an interactive session, not in this one), the settings proposals, the gate's open escalations
    and the rule proposals (each names its question in `blocked/`): each either gets an answer, becomes a new task, or waits.
    Everything open is a task of the board; the logs `escalations.md` and `parked.md` are history and are not part of the review.
-4. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
+5. **Аномалії** — first the overdue debts of urgent fixes (the seven days passed and the full `/bugfix` is not done: ask
    whether the follow-up task should move up the queue); then what the runner, the gate, a hook or the agent found odd, wrote into
    the anomaly journal (`tasks/ANOMALIES.md` and the sessions' files `.engine/journal/anomalies/`) and worked past (each entry says who wrote it): a task the runner parked in
    `blocked/` itself (its question is in the section above; its uncommitted work is on the `wip/…`
    branch the entry names), a failed push, a gate escalation, a stop of the whole board. Say each in a sentence; one that needs a fix is a new task.
-5. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
+6. **План** — the order of `todo/` and what stands on a dependency. A change of order or a
    rewritten task is a file for the inbox (below).
-6. **Кандидати в нові задачі** — for each: a task now, later, or never.
-7. **Здоров'я** — say it plainly; a red number is a candidate for a task. The test and golden-set
+7. **Кандидати в нові задачі** — for each: a task now, later, or never.
+8. **Здоров'я** — say it plainly; a red number is a candidate for a task. The test and golden-set
    lines come from the machine records of the runs themselves (time, commit, green of all); where
    the document says there is no record, say that, do not fill it in from memory.
 
@@ -83,6 +90,12 @@ to deliver instead of pretending they arrived.
 - save it under the same name in the session's directory, and only when **every** answer in
   that file is filled: the board does not accept a copy that leaves a question open. If the owner answered
   only some, write nothing for that task and tell them which questions remain.
+
+**The tasks the owner looked over** are one file named `.reviewed`: the number of each such task, one a line, nothing else. Write
+it into the session's directory only when the owner said «looked over» of at least one task, with exactly those numbers. If the
+inbox already holds a `.reviewed` the runner has not taken yet (reading the inbox is allowed), start from its numbers — the
+owner's copy replaces that file. The runner adds the numbers to `tasks/.reviewed` of the board; you never write that file — the
+hooks refuse it, and the runner removes a number that was written on its machine in the ordinary way (the limit: `docs/engine-limits.md`, «The same Linux user»).
 
 **A new task** is a file `NNN-short-latin-name.md` made from `tasks/TEMPLATE.md`:
 

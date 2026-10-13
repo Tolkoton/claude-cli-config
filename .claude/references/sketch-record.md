@@ -29,6 +29,7 @@ $ <the exact command, from the project root>
 
 ## Who reads it
 
+The same reader reads the report of a task that changed no working code (board 100; `tasks/README.md`, «Правила для агента», 6).
 Before the task closes, a fresh **reader** (`.claude/agents/reader.md`) reads the record and judges one
 thing: does the output prove the answer? Ask for it with
 `python3 .claude/hooks/reader.py request <task> --record .engine/sketches/<name>.md` and launch the agent

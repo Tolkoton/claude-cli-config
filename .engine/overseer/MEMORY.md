@@ -66,3 +66,9 @@ Cited: 2026-10-10T07:49:44Z unknown OVERSEER_BLOCK (board 739, attempt 1); 2026-
 A fix that answers a BLOCK must be tested against the claim as it is worded, not only against the case the auditor reproduced: in board 108 both fixes were blocked a second time for the same weakness one step narrower (the lockfile's text instead of what the runner starts; the key taken after a 200-character cut).
 
 Cited: 2026-10-11T22:17:38Z unknown; 2026-10-11T22:27:23Z unknown. Origin: lesson #5177e8d4 (overseer, -, 2026-10-11).
+
+## 2026-10-13 — A guard on the runner's side holds a mistaken or naive action, not a session that works ag
+
+A guard on the runner's side holds a mistaken or naive action, not a session that works against the guard: agent and runner are one Linux user. Word the claim that way from the start and write the ways round into docs/engine-limits.md — in board 100 the claim «the runner removes every number that did not arrive from the owner» was blocked three times in a row, each time one deliberate step further (a push that is not the end-of-task push, a guard made to fail, leaving the branch), until the owner narrowed the promise.
+
+Cited: 2026-10-11T15:18:46Z unknown OVERSEER_BLOCK (board 100, attempt 1); 2026-10-11T16:22:43Z unknown OVERSEER_BLOCK (board 100, attempt 3). Origin: lesson #ba4d0930 (overseer, -, 2026-10-11).

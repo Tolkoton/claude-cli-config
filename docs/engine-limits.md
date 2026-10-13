@@ -547,6 +547,70 @@ places, keeps the gate and the overseer, and holds the fix to a hard limit
   is: the record is checked by its content, not by who wrote the output into it. Output pasted by
   hand rather than produced by the command is not detected.
 
+## The reader of a task without working code (board 100)
+
+- **The reader checks that the documents are true and complete, not that the decision is right.**
+  That stays the owner's — which is why the task then hangs in the owner's review.
+- **The reader is read-only** (Read, Grep, Glob): a reference to a command's output that no file
+  records, or to a commit outside the task's own (the package lists those), it cannot check; it
+  names such a reference «не перевірено» instead of blocking on it.
+- **The PASS covers the report and the documents the task changed, as they were read.** The board's
+  own moves (`tasks/todo|doing|blocked|done/`), the dot-files of `tasks/` and the journals scripts
+  write are not documents and are not fingerprinted: a change there after the PASS is not seen.
+- **«Without working code» is read from the task's commits at closing.** A task whose only code
+  change was made and reverted inside it is a task with working code: the overseer's rule applies.
+- **The owner's list begins with the first report a reader read in the project.** A task closed
+  before that, and one that never lay in `doing/` (a gate's question, a rule proposal the runner
+  closed on the owner's answer), is not listed. A task the runner itself closed after it lay in
+  `doing/` is listed with «вердикт: немає».
+- **`tasks/.reviewed` is guarded against a mistaken or naive mark, not against a deliberate one.**
+  The hooks refuse an agent's edit and typed shell write of the file. A number written in the
+  ordinary way by something a hook never sees — into the file, committed or not — is removed by
+  the runner before its next pull and before every push of the work branch it makes
+  (`push_branch`: the end of a task, a stop after an attempt, a gate's question), with a journal
+  entry; a file given another shape (bytes that are not UTF-8, a link, a directory) is read as the
+  review reads it or removed whole. Until then (a session without the runner) the number is in
+  the checkout, and the review, which reads origin, does not see it. After the guard the runner
+  looks at HEAD once more (`board.py reviewed-clean`) and withholds its push when the number is
+  still there; a guard that failed stops the board with `state=error reason=reviewed`. What this
+  does not hold is in «The same Linux user» below.
+- **A push made by hand, or by anything but the runner,** from a checkout that holds such a
+  number reaches origin and takes the task off the list.
+
+## The same Linux user: what a check on the runner's side cannot hold (board 100)
+
+The agent's session and the board runner run as one Linux user, with the same rights on the disk
+and on git. A check the runner makes therefore holds against a mistake and against a naive
+attempt — the ordinary way of doing the thing — and not against a session that sets out to get
+past the check itself. That is the owner's decision (the answer in board 100, 2026-10-12): a way
+round for which the session must act against the check on purpose is a documented limit, not a
+defect; a failure on the ordinary way is a defect and gets fixed.
+
+**`tasks/.reviewed` — «the owner looked it over» (board 100).** Held: an agent writes a task's
+number into the file, by any means a hook does not see, and commits it or not — the runner
+removes it before every push of the work branch, the task stays in the owner's review. Not held
+(the first was reproduced by an overseer while the task was built — the third BLOCK in the task):
+
+- the guard and the check after it judge HEAD of the checkout, the push sends the branch. A
+  session that commits the number on `unattended/work` and then leaves the branch
+  (`git switch --detach HEAD~1`) gets it to origin on the runner's next push;
+- a session that makes the guard fail on purpose (a file shaped so that `board.py
+  reviewed-reject` breaks) relies on the check after it; where both can be made to fail, or the
+  scripts themselves are rewritten, nothing is left;
+- the record of the numbers that arrived (`.claude/state/board/reviewed-accepted`) is machine
+  state: a script that writes a number into it makes that number the owner's for the runner.
+  On a machine with no record (lost, or new) whatever this clone's remote-tracking ref of the
+  branch holds counts as the owner's;
+- the session can push by itself (the rules forbid it and a hook refuses the typed command; a
+  script is not seen).
+
+All of it shows in the transcript, the diff or the journal of events; nothing makes it
+impossible. What closes it is a boundary the operating system holds — agent sessions under a
+Linux user of their own, which cannot write the runner's state, its checkout's refs or its
+record. That is an open item on the board (1731, «сесії агента під окремим користувачем
+Linux»), for later. The same rights are behind the forgeable overseer verdict («The overseer as a separate
+agent» below) and the paths past «the owner wrote it» of board 737.
+
 ## The snapshot "as it was" (board 071)
 
 With `.engine/baseline.json` the gate asks "no worse than it was" (`.claude/references/gate.md`).

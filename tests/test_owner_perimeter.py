@@ -30,6 +30,7 @@ P = main_repo("feat/x")
 V = "CLAUDE" + "CODE"      # split, so that the hook under test does not refuse a shell command that handles THIS file
 OPS = "~/engine-" + "ops"
 KEY = f"{OPS}/simplifier-" + "key.sh"
+SEEN = "tasks/" + ".reviewed"   # split for the same reason: the numbers of the tasks the owner looked over (board 100)
 PASS = FAIL = 0
 
 
@@ -67,6 +68,9 @@ REFUSED = [
     f"sed -i s/a/b/ {OPS}/bin/claude", f"echo x >> {OPS}/board-runner.log", f"rm {OPS}/anomalies.md", f"rm -rf {OPS}", f"mkdir -p {OPS}/tasks-inbox && touch {OPS}/tasks-inbox/x.md",
     f"python3 -c 'open(os.path.expanduser(\"{OPS}/tasks-inbox/a.md\"),\"w\").write(\"x\")'", f"chmod +x {OPS}/bin/claude", "ln -s /tmp/x ../engine-ops/tasks-inbox/x.md",
     "cp a.md /srv/someone/engine-ops/tasks-inbox/a.md",
+    # «the owner looked it over» (board 100): the agent does not write a task's number there
+    f"echo 100 >> {SEEN}", f"printf '100\\n' > {SEEN}", f"tee -a {SEEN} <<< 100", f"sed -i '$ a 100' {SEEN}",
+    f"cp /tmp/reviewed {SEEN}", f"rm {SEEN}", f"echo 100 >> {P}/{SEEN}", f"python3 -c 'open(\"{SEEN}\",\"a\").write(\"100\\n\")'",
 ]
 ALLOWED = [
     f"echo ${V}", f'echo "${{{V}:-unset}}"', f"env | grep {V}", f"printenv {V}", f"grep -rn {V} .claude/hooks/", f"[ -n \"${V}\" ] && echo in-session",
@@ -76,6 +80,7 @@ ALLOWED = [
     f"ls {OPS}", f"cat {OPS}/board-runner.log | tail -20", f"tail -5 {OPS}/anomalies.md", f"ls {OPS}/tasks-inbox/", f"grep -c board {OPS}/events.log",
     f"cp {OPS}/board-runner.log /tmp/log-copy.txt", f"diff {OPS}/tasks-inbox/a.md tasks/blocked/a.md", "echo x > docs/engine-ops-notes.md", "ls engine-ops-old/",
     "bash .claude/unattended/board-runner.sh --status",
+    f"cat {SEEN}", f"grep -c . {SEEN}", f"git log --oneline -3 -- {SEEN}", "echo 100 > /tmp/owner-review-1/.reviewed", f"echo x > docs/{SEEN}.md",
 ]
 
 print("a command that clears the owner's variable, or writes into the operator's directory, is refused")
@@ -99,9 +104,11 @@ check("negative — the journal beside it is read freely", shell(f"tail -20 {OPS
 print("\nan editing tool does not write into the operator's directory either")
 home = str(Path.home())
 for tool, path in (("Write", f"{home}/engine-ops/tasks-inbox/732-answer.md"), ("Edit", f"{home}/engine-ops/bin/claude"), ("MultiEdit", f"{home}/engine-ops/anomalies.md"),
-                   ("Write", "/srv/other/engine-ops/tasks-inbox/a.md"), ("Edit", f"{home}/engine-ops/simplifier-" + "key.sh")):
+                   ("Write", "/srv/other/engine-ops/tasks-inbox/a.md"), ("Edit", f"{home}/engine-ops/simplifier-" + "key.sh"),
+                   ("Write", f"{P}/{SEEN}"), ("Edit", f"{P}/{SEEN}"), ("MultiEdit", SEEN)):
     check(f"{tool} {path.replace(home, '~')}: denied", edit_denied(tool, path))
-for tool, path in (("Edit", f"{P}/docs/engine-ops-notes.md"), ("Write", f"{P}/tasks/todo/900-new.md"), ("Write", "/tmp/owner-review-20261006-1500/732-answer.md")):
+for tool, path in (("Edit", f"{P}/docs/engine-ops-notes.md"), ("Write", f"{P}/tasks/todo/900-new.md"), ("Write", "/tmp/owner-review-20261006-1500/732-answer.md"),
+                   ("Write", "/tmp/owner-review-20261006-1500/.reviewed"), ("Edit", f"{P}/tasks/README.md")):
     check(f"negative — {tool} {path.replace(P, '<project>')}: not denied", not edit_denied(tool, path))
 
 print("\n/owner-review prepares the files and hands the owner the command (it no longer writes into the inbox)")
