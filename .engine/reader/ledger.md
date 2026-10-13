@@ -26,3 +26,8 @@
 - Record: tasks/done/764-open-item-test-gap-fold-on-a-project-whose-shared/report.md
 - Reason: All four questions hold: every reference I could open says what the report ascribes to it, the single item of «Що зробити» is answered (the check already exists, so none was added, and the report says so plainly and shows both runs), there is no open question for the owner, and engine terms are in English. The recorded command outputs (PASS/FAIL counts, mutant runs, fast subset) were recorded nowhere I can read and are «не перевірено».
 - Request: 20261013T072600Z-cca844 (attempt 1)
+
+## 2026-10-13T07:28:32Z — 765-open-item-test-gap-two-branches-whose-sessions-que — READER_PASS
+- Record: tasks/done/765-open-item-test-gap-two-branches-whose-sessions-que/report.md
+- Reason: All four questions hold: every file-and-line reference in the report says what is ascribed to it, the single «Що зробити» item is answered (the check already stands, both runs are shown, no code changed, fast suite reported green), there is no open question for the owner, and the engine terms are in English. The run outputs and the origin of the check in commit a2b20d0 cannot be checked with Read/Grep/Glob and are listed as «не перевірено».
+- Request: 20261013T072805Z-8134b1 (attempt 1)
