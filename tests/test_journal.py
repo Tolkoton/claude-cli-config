@@ -64,6 +64,16 @@ def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=root, capture_output=True, text=True, check=False)
 
 
+def blind_scenarios(scenarios: list[tuple[str, dict]]) -> list[str]:
+    """The hook scenarios that watch a session's file under .engine/journal/ without running as that session."""
+    found = []
+    for name, scenario in scenarios:
+        watched = Path(str(scenario.get("check_file", "")))
+        if journal.PIECES_REL in watched.parents and scenario.get("env", {}).get("CLAUDE_CODE_SESSION_ID") != watched.stem:
+            found.append(f"{name}: {scenario['id']}")
+    return found
+
+
 @contextlib.contextmanager
 def session(name: str | None) -> Iterator[None]:
     """Run the writers as one Claude Code session (CLAUDE_CODE_SESSION_ID), or as none."""
@@ -322,9 +332,26 @@ def main() -> int:
 
     print("the golden set watches the files the hooks write")
     shared = {j.shared for j in journal.JOURNALS.values()}
-    stale = [f"{path.name}: {s['id']}" for path in sorted((ROOT / "evals/scenarios/hooks").glob("*.json"))
-             for s in json.loads(path.read_text(encoding="utf-8"))["scenarios"] if s.get("check_file") in shared]
+    golden = [(path.name, s) for path in sorted((ROOT / "evals/scenarios/hooks").glob("*.json"))
+              for s in json.loads(path.read_text(encoding="utf-8"))["scenarios"]]
+    stale = [f"{name}: {s['id']}" for name, s in golden if s.get("check_file") in shared]
     check("no hook scenario watches a journal's shared file — no hook writes it, so `file changed: false` could never fail", stale == [], stale)
+
+    blind = blind_scenarios(golden)
+    check("every hook scenario that watches a session's file under .engine/journal/ runs as that session (golden.md ↔ CLAUDE_CODE_SESSION_ID=golden)"
+          " — else the hook writes another session's file and `file changed: false` could never fail", blind == [], blind)
+    watching = [s for _, s in golden if str(s.get("check_file", "")).startswith(f"{journal.PIECES_REL.as_posix()}/")]
+    check("…and the golden set does hold such scenarios, with `file changed: false` among them",
+          any(s.get("expect_file_changed") is False for s in watching), [s["id"] for s in watching])
+    own = {"id": "own", "check_file": ".engine/journal/ledger/golden.md", "expect_file_changed": False, "env": {"CLAUDE_CODE_SESSION_ID": "golden"}}
+    check("negative — a scenario without the env line is named", blind_scenarios([("x.json", {**own, "id": "no-env", "env": {}})]) == ["x.json: no-env"])
+    check("negative — …and one without `env` at all", blind_scenarios([("x.json", {k: v for k, v in own.items() if k != "env"})]) == ["x.json: own"])
+    check("negative — a scenario run as another session is named",
+          blind_scenarios([("x.json", {**own, "id": "other", "env": {"CLAUDE_CODE_SESSION_ID": "silver"}})]) == ["x.json: other"])
+    check("negative — CLAUDE_SESSION_ID alone does not count: the hook reads CLAUDE_CODE_SESSION_ID first, and the run inherits it",
+          blind_scenarios([("x.json", {**own, "id": "second-name", "env": {"CLAUDE_SESSION_ID": "golden"}})]) == ["x.json: second-name"])
+    check("the session's own scenario, and one that watches a file outside .engine/journal/, are not named",
+          blind_scenarios([("x.json", own), ("x.json", {"id": "elsewhere", "check_file": "tasks/ANOMALIES.md"}), ("x.json", {"id": "no-file"})]) == [])
 
     print("the command line and board_review")
     root = base()
