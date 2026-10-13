@@ -60,6 +60,10 @@ DEFAULT_TIMEOUT_S = 240
 # project state a hook could read a decision from.
 KEEP_ON_CLEAN = (".venv", ".mypy_cache", ".ruff_cache", ".pytest_cache")
 DETAIL_CHARS = 200
+# WHERE the runner stands — under the board's runner, in a cloud container — never reaches a
+# hook from the runner's own environment: the set answers the same on every machine, and a
+# scenario that is about the place sets the variable itself, in its `env` (board 780).
+PLACE_VARIABLES = ("CLAUDE_UNATTENDED_SESSION", "CLAUDE_CODE_REMOTE")
 
 JsonObj = dict[str, Any]
 
@@ -219,7 +223,8 @@ def run_scenario(
                 hook_path = own
         env = dict(os.environ)
         env["CLAUDE_PROJECT_DIR"] = str(project_dir)
-        env.pop("CLAUDE_UNATTENDED_SESSION", None)
+        for name in PLACE_VARIABLES:
+            env.pop(name, None)
         env.update(substitute(scenario.get("env", {}), mapping))
         interpreter = [sys.executable] if hook.endswith(".py") else ["bash"]
         envelope = json.dumps(substitute(scenario.get("input", {}), mapping))
