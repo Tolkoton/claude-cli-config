@@ -128,7 +128,9 @@
 # the owner's «так» or «ні» under a rule question — a lesson becomes a rule in .engine/rules.md,
 # or its proposal is closed), `update-deps` (board 076: the patches and minor versions the owner
 # approved under the question of a /maintain task — owner_action.py updates them one at a time,
-# each checked by the full gate and committed on its own or rolled back) and the gate's
+# each checked by the full gate and committed on its own or rolled back), `amend-goals` /
+# `seal-goals` (boards 051, 787: goals.py puts an approved amendment in place of the goals document
+# and seals it, or puts the first seal on the document the owner approved) and the gate's
 # `close-escalation` above.
 # The same rule for where the answer came from applies. The offer is then replaced by the
 # outcome and the task returns to todo/ for the agent to check and report; a rule question the

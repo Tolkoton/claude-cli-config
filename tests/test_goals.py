@@ -14,6 +14,10 @@
     board runner's action, through owner_action.py) is refused inside a session and for another
     sha256; applied, it seals the new document and lists what cited a changed line for review;
   - the board offers `amend-goals` as an owner action with the sha256 of the proposal;
+  - the first seal without the owner in the conversation (board 787): the board offers `seal-goals`
+    with the sha256 of the document itself; owner_action.py seals exactly that document on the
+    owner's «так» — refused inside a session, stale for another sha256 or a document that changed
+    since the question, failed for a document nothing could cite or one approved before;
   - `unreconciled` and `requests` list what the owner's review shows;
   - the lesson queue takes the source `analyst`; the simplifier never removes from the goals
     document by itself.
@@ -224,6 +228,70 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a lesson from the owner's correction of the analyst is queued with the source `analyst`", r.returncode == 0 and "| analyst |" in queue, out(r) + queue)
     r = run(LESSONS, root, "add", "--source", "nobody", "x")
     check("an unknown source is still refused", r.returncode != 0, out(r))
+
+print("the first seal on the owner's «так», nobody in the conversation (board 787)")
+with tempfile.TemporaryDirectory() as tmp:
+    root = project(tmp)
+    document, seal = root / ".engine/goals.md", root / ".claude/state/goals/goals.sha256"
+    sha = hashlib.sha256(document.read_bytes()).hexdigest()
+    r = run(GOALS, root, "seal", session=True, unattended=True)
+    check("the refusal of an unattended first seal names the way: the action seal-goals", r.returncode == 2 and "seal-goals" in r.stderr, out(r))
+    r = run(BOARD, root, "--root", str(root), "action-line", "seal-goals")
+    check("the board offers the action with the sha256 of the document itself", r.stdout.strip() == f"Дія runner-а: seal-goals {sha}", out(r))
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", sha, session=True)
+    check("seal-goals is refused inside a session", r.returncode == 2 and not seal.exists(), out(r))
+    r = run(GOALS, root, "first-seal", sha, session=True)
+    check("…and so is goals.py first-seal typed by an agent", r.returncode == 2 and not seal.exists(), out(r))
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", "0" * 64)
+    check("seal-goals with another sha256 is stale (exit 3)", r.returncode == 3 and not seal.exists(), out(r))
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", "")
+    check("seal-goals with no sha256 is stale (exit 3)", r.returncode == 3 and not seal.exists(), out(r))
+    document.write_text(DOCUMENT + "- G3. Те, що агент дописав після запитання.\n", encoding="utf-8")
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", sha)
+    check("a document that changed after the question is not the one approved: stale, not sealed", r.returncode == 3 and not seal.exists(), out(r))
+    document.write_text("# Цілі\n\nХочемо, щоб було добре.\n", encoding="utf-8")
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", hashlib.sha256(document.read_bytes()).hexdigest())
+    check("a document with no numbered line is not sealed even on «так» (exit 1)", r.returncode == 1 and "no numbered line" in r.stderr and not seal.exists(), out(r))
+    document.write_text(DOCUMENT + "- G1. Ще раз.\n", encoding="utf-8")
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", hashlib.sha256(document.read_bytes()).hexdigest())
+    check("…nor one that uses a number twice (exit 1)", r.returncode == 1 and "numbered twice" in r.stderr and not seal.exists(), out(r))
+    document.unlink()
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", sha)
+    check("no document: stale (exit 3)", r.returncode == 3 and not seal.exists(), out(r))
+    r = run(BOARD, root, "--root", str(root), "action-line", "seal-goals")
+    check("…and the board has nothing to offer", r.returncode != 0 and "Дія runner-а" not in r.stdout, out(r))
+    document.write_text(DOCUMENT, encoding="utf-8")
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", sha)
+    check("seal-goals on the owner's word: that document is sealed, untouched",
+          r.returncode == 0 and seal.read_text(encoding="utf-8").split()[0] == sha and document.read_text(encoding="utf-8") == DOCUMENT
+          and run(GOALS, root, "status").returncode == 0, out(r))
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", sha)
+    check("the same answer again changes nothing (exit 0)", r.returncode == 0 and seal.read_text(encoding="utf-8").split()[0] == sha, out(r))
+    document.write_text(DOCUMENT + "- G3. Нове.\n", encoding="utf-8")
+    r = run(OWNER_ACTION, root, "--root", str(root), "seal-goals", hashlib.sha256(document.read_bytes()).hexdigest())
+    check("an approved document that changed is not sealed again this way: that is amend-goals (exit 1)",
+          r.returncode == 1 and "amend-goals" in r.stderr and seal.read_text(encoding="utf-8").split()[0] == sha and run(GOALS, root, "status").returncode == 3, out(r))
+
+    print("…and on the board")
+    document.write_text(DOCUMENT, encoding="utf-8")
+    seal.unlink()
+    (root / "tasks/blocked").mkdir(parents=True)
+    question = root / "tasks/blocked/101-first-goals.md"
+    offer = run(BOARD, root, "--root", str(root), "action-line", "seal-goals").stdout.strip()
+    question.write_text(f"# 101 — Цілі\n\n## Питання до власника\n1. Затвердити документ цілей?\n   {offer}\n   Відповідь: так, але без G1\n", encoding="utf-8")
+    r = run(BOARD, root, "--root", str(root), "owner-actions")
+    check("«так, але…» is an instruction: the runner is given nothing to do", r.returncode == 0 and not r.stdout.strip(), out(r))
+    question.write_text(question.read_text(encoding="utf-8").replace("так, але без G1", "так"), encoding="utf-8")
+    r = run(BOARD, root, "--root", str(root), "owner-actions")
+    check("«так» under the offer is the runner's to act on, with the sha256 offered",
+          r.stdout.split("\t")[:3] == ["101-first-goals.md", "seal-goals", sha], out(r))
+    for outcome, expect in (("failed", "не запечатано"), ("stale", "інший sha256"), ("applied", "запечатано")):
+        kept = question.read_text(encoding="utf-8")
+        r = run(BOARD, root, "--root", str(root), "action-done", question.name, outcome)
+        note = question.read_text(encoding="utf-8")
+        check(f"the outcome «{outcome}» replaces the offer and says what happened to the seal",
+              r.returncode == 0 and "Дія runner-а" not in note and "seal-goals" in note and expect in note and "попередній файл" not in note, out(r) + note)
+        question.write_text(kept, encoding="utf-8")
 
 print("the owner's review")
 sys.path.insert(0, str(ROOT / ".claude/unattended"))

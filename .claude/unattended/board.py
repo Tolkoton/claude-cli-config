@@ -91,8 +91,9 @@ punctuation do not count (`is_word`). Everything else, «так, але…» inc
 for the agent and nothing is applied.
 
 AN OWNER ACTION (board 008) is something only the owner may decide and no agent may do: applying
-the settings proposal, and (board 051) amending the approved goals document from
-`.engine/goals/proposed.md` (`amend-goals`). The agent asks its question and writes under it the
+the settings proposal, (board 051) amending the approved goals document from
+`.engine/goals/proposed.md` (`amend-goals`), and (board 787) the first seal on a goals document
+written with nobody in the conversation (`seal-goals`, the sha256 of `.engine/goals.md` itself). The agent asks its question and writes under it the
 line `Дія runner-а: apply-settings <sha256 of the proposal>` (`action-line` prints it). The
 owner's answer «так» is acted on by board-runner.sh through owner_action.py, never by an agent;
 `unblock` leaves such a task where it is until the runner has replaced the offer with the
@@ -272,13 +273,14 @@ COUNT_WORDS = {2: "двох", 3: "трьох"}
 CONSENT = "так"  # the one form of the owner's consent (board 036): see `is_word`
 # What the runner may do on the owner's «так». `close-escalation` is offered by the gate's own
 # question (the `Ескалація gates:` line), the rest by an action line.
-OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "update-deps", "close-escalation")
+OWNER_ACTIONS = ("apply-settings", "promote-rule", "amend-goals", "seal-goals", "update-deps", "close-escalation")
 RULE_ACTION, RULE_DECLINE, RULE_NO = "promote-rule", "reject-rule", "ні"  # «ні» under a rule question closes the proposal
 RULE = re.compile(r"^Пропозиція правила:\s*RP-(\w+)", re.MULTILINE)
 ACTION = re.compile(r"^[\s>*_-]*Дія (?:runner-а|виконавця):[ \t]*`?([a-z][a-z-]*)(?:[ \t]+([0-9a-f]{64}))?`?[ \t]*$", re.MULTILINE)
 DEPS_ACTION, DEPS_RESULT = "update-deps", ".engine/maintain/update-result.md"
+SEAL_ACTION = "seal-goals"  # the first seal on the goals document (board 787)
 ACTION_FILES = {"apply-settings": "docs/tasks/settings.json", "amend-goals": ".engine/goals/proposed.md",
-                DEPS_ACTION: ".engine/maintain/updates.json"}  # the file whose sha256 the offer names
+                SEAL_ACTION: ".engine/goals.md", DEPS_ACTION: ".engine/maintain/updates.json"}  # the file whose sha256 the offer names
 MAINTAIN_NAME = re.compile(r"^\d{3,}-maintain-(\d{4}-\d\d-\d\d)(?:\.md)?$")
 MAINTAIN_COMMAND, MAINTAIN_DAYS = ".claude/commands/maintain.md", 7
 CLEANUP_NAME = re.compile(r"^\d{3,}-cleanup-(\d{4}-\d\d-\d\d)(?:\.md)?$")
@@ -1062,6 +1064,11 @@ RULE_OUTCOMES = {
     (DEPS_ACTION, "failed"): "Дію не виконано ({now}, runner): {action} — жодної залежності не оновлено: немає `DEPS_UPDATE_CMD`, робоче дерево "
                              f"було не чисте, перевірки не зелені ще до оновлень або гілка не `unattended/*` (подробиці — `{DEPS_RESULT}` або журнал на "
                              "сервері: .claude/state/board/logs/owner-action.log). Агентові: напиши причину у звіт; оновлювати знову — лише новим питанням.",
+    (SEAL_ACTION, "applied"): "Дію виконано ({now}, runner): {action} — за відповіддю власника «так» документ цілей `.engine/goals.md` запечатано таким, "
+                              "як він був у запитанні: він чинний. Агентові: переконайся (`goals.py status`) і закрий задачу звітом.",
+    (SEAL_ACTION, "failed"): "Дію не виконано ({now}, runner): {action} — документ цілей не запечатано: у ньому немає жодного нумерованого рядка, номер "
+                             "ужито двічі, або документ уже затверджували і відтоді змінили — тоді це поправка, `amend-goals` (журнал на сервері: "
+                             ".claude/state/board/logs/owner-action.log). Агентові: виправ і спитай знову.",
     (RULE_ACTION, "applied"): "Дію виконано ({now}, runner): {action} — за відповіддю власника «так» правило додано до `.engine/rules.md`.",
     (RULE_ACTION, "failed"): "Дію не виконано ({now}, runner): {action} — правило не додано: постійний контекст перевищив би "
                              "200 рядків (журнал на сервері: .claude/state/board/logs/owner-action.log). Агентові: скороти "

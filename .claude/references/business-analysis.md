@@ -156,6 +156,13 @@ owner's answer:
 4. Every decision that cited a changed line is listed in `.engine/goals/to-review.md`; the
    architect rereads each and ticks it.
 
+**The first seal without the owner.** A document written with nobody in the conversation (a task
+from the board that carries the goals' text) is not sealed by the agent: `goals.py seal` refuses.
+The question goes to `tasks/blocked/` — the whole document shown in it — with the line
+`python3 .claude/unattended/board.py action-line seal-goals` prints under it (the sha256 of
+`.engine/goals.md` itself); the owner's «так» has the board runner seal exactly that text. Until
+then the document is not in force, and a change after the question needs a new question.
+
 ## 9. The owner's corrections are lessons
 
 When the owner corrects the document on their own remark, not on an architect's request — "this

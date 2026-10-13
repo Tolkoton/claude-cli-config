@@ -45,7 +45,11 @@ place of the offer. `engine.py` gives a project its `docs/tasks/settings.json` a
 own live settings. An approved goals document is amended the same way (board 051): the offer
 `Дія runner-а: amend-goals <sha256 of .engine/goals/proposed.md>`; on `так` the runner has `goals.py` check
 that the proposal is a lawful amendment, put it in place of `.engine/goals.md`, seal it and list what cited a
-changed line; the agent, when the task returns to it, commits the document. A lesson
+changed line; the agent, when the task returns to it, commits the document. The first seal on a goals
+document written with nobody in the conversation goes the same way (board 787): the offer
+`Дія runner-а: seal-goals <sha256 of .engine/goals.md>` under a question that shows the whole document; on
+`так` the runner has `goals.py` seal exactly that document — one that changed since the question is stale,
+one already approved and changed is an amendment, not a first seal. A lesson
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
 `Дія runner-а: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the

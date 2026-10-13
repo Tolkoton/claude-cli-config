@@ -10,6 +10,7 @@
     python3 .claude/hooks/goals.py requests                  # the architects' requests and how each ended
     python3 .claude/hooks/goals.py proposal                  # is .engine/goals/proposed.md a lawful amendment
     python3 .claude/hooks/goals.py amend <sha256>            # the board runner's, on the owner's «так»
+    python3 .claude/hooks/goals.py first-seal <sha256>       # the board runner's, on the owner's «так»
 
 WHY. `.engine/goals.md` is what the owner wants from the project: goals (G), principles (P),
 non-goals (N), hard constraints (C), done-when (D), open questions (Q) — one numbered line each,
@@ -19,11 +20,14 @@ the line it names exists, still stands, and says today what it said when it was 
 
   * the document is SEALED, like a slice contract: `seal` writes its SHA-256 into machine state
     (`.claude/state/goals/goals.sha256`). The first seal follows the owner's approval in the
-    conversation with the analyst and is refused in an unattended session. A changed document
+    conversation with the analyst and is refused in an unattended session; with nobody in the
+    conversation it is `first-seal` — the board runner's action on the owner's «так» under a
+    question that offers `Дія runner-а: seal-goals <sha256 of .engine/goals.md>` (board 787): the
+    document sealed is the one that sha256 names, and no other. A changed document
     is not in force until it is sealed again, and that is the owner's act: `--owner-approved`
     in the owner's own terminal, or `amend` — the board runner's action on the owner's «так»
     under a question that offers `Дія runner-а: amend-goals <sha256 of .engine/goals/proposed.md>`.
-    Inside a Claude Code session neither works: an agent can type both;
+    Inside a Claude Code session none of the three works: an agent can type them all;
   * numbers are permanent: a line that no longer holds stays, struck through (`- ~~G2. …~~`).
     `proposal` and `amend` refuse an amendment that drops or revives a number or does not raise
     the version;
@@ -328,7 +332,8 @@ def cmd_seal(root: Path, owner_flag: bool, in_session: bool) -> int:
         return EXIT_USAGE if in_session else EXIT_REFUSED
     if now == "unsealed" and unattended(root):
         print("REFUSED: the first approval of the goals document is given by the owner in the conversation with the analyst; "
-              "nobody is here to give it (unattended session)", file=sys.stderr)
+              "nobody is here to give it (unattended session). Ask on the task board: a question in tasks/blocked/ with the line "
+              "`board.py action-line seal-goals` prints; the owner's «так» has the board runner seal it", file=sys.stderr)
         return EXIT_USAGE
     print(f"sealed {GOALS_REL}  sha256 {write_seal(root)[:12]}…  -> {STATE_REL.as_posix()}")
     return EXIT_OK
@@ -428,6 +433,35 @@ def amend(root: Path, approved: str, in_session: bool) -> int:
     return EXIT_OK
 
 
+def first_seal(root: Path, approved: str, in_session: bool) -> int:
+    """The first seal with nobody in the conversation: the document the owner said «так» to — the one `approved` names — is sealed as it is."""
+    if in_session:
+        print("first-seal: refused inside a Claude Code session (CLAUDECODE is set): approving the goals document is the owner's act — "
+              "the conversation with the analyst, or «так» under a question that offers `Дія runner-а: seal-goals <sha256>`", file=sys.stderr)
+        return EXIT_USAGE
+    document = root / GOALS_REL
+    if not approved or digest(document) != approved:
+        print(f"first-seal: {GOALS_REL} is {digest(document) or 'absent'}, the owner approved {approved or '(no sha256)'}; not sealed", file=sys.stderr)
+        return EXIT_REFUSED
+    now = state(root)
+    if now == "changed":
+        print(f"first-seal: {STATE_TEXT[now]}; a document approved before changes by an amendment only (`amend-goals`)", file=sys.stderr)
+        return 1
+    try:
+        found = items(document.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        print(f"first-seal: {exc}", file=sys.stderr)
+        return 1
+    if not found:
+        print(f"first-seal: {GOALS_REL} has no numbered line (`- G1. …`): nothing a decision could cite", file=sys.stderr)
+        return 1
+    if now == "sealed":
+        print(f"first-seal: {STATE_TEXT[now]}")
+        return EXIT_OK
+    print(f"first-seal: sealed {GOALS_REL}  sha256 {write_seal(root)[:12]}…  -> {STATE_REL.as_posix()}")
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -439,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("affected").add_argument("ids", nargs="+")
     sub.add_parser("quote").add_argument("request")
     sub.add_parser("amend").add_argument("sha256")
+    sub.add_parser("first-seal").add_argument("sha256")
     args = parser.parse_args(argv)
     root = project_root()
     in_session = bool(os.environ.get("CLAUDECODE"))
@@ -456,6 +491,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_proposal(root)
     if args.command == "amend":
         return amend(root, args.sha256, in_session)
+    if args.command == "first-seal":
+        return first_seal(root, args.sha256, in_session)
     if not show(GOALS_REL):
         print(STATE_TEXT["absent"], file=sys.stderr)
         return EXIT_NONE

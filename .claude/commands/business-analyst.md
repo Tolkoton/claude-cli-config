@@ -52,7 +52,8 @@ you find before showing it.
 
 **Approval.** Show the owner the whole document and ask for approval in so many words. Only
 after an explicit yes: `python3 .claude/hooks/goals.py seal`. Then tell the owner the next
-command — `/master-architect` in a new project.
+command — `/master-architect` in a new project. With nobody in the conversation `seal` refuses:
+the approval is asked on the task board (method §8, «The first seal without the owner»).
 
 # Changing the document
 

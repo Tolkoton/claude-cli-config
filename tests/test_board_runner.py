@@ -1168,6 +1168,69 @@ direct = subprocess.run([sys.executable, str(ROOT / ".claude/unattended/owner_ac
                         env=env, capture_output=True, text=True, check=False)
 check("owner_action.py itself refuses what is not on its list (exit 2)", direct.returncode == 2 and "not an allowed action" in direct.stderr and not w.has("PWNED"), direct.stderr)
 
+# --- board 787: the first seal on a goals document, with nobody in the conversation ---------------
+GOALS_TEXT = "# Цілі\nВерсія: 1\n\n## Цілі\n- G1. Покупець оформлює замовлення сам.\n"
+
+
+def goals_world() -> tuple[World, str]:
+    """A repository whose agent wrote `.engine/goals.md` unattended; 787 waits in blocked/ with the
+    question and the offer (board.py action-line seal-goals). Returns the world and the offer."""
+    w = World("done")
+    (w.repo / ".engine").mkdir(exist_ok=True)
+    (w.repo / ".engine/goals.md").write_text(GOALS_TEXT, encoding="utf-8")
+    sh(w.repo, "git", "add", ".engine/goals.md")
+    sh(w.repo, "git", "commit", "-q", "-m", "the goals document, unsealed")
+    offer = sh(w.repo, sys.executable, str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "action-line", "seal-goals").stdout.strip()
+    w.put("blocked", "787-goals.md", task(questions=f"1. Затвердити документ цілей?\n   {offer}\n   Відповідь:\n"))
+    sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+    return w, offer
+
+
+def goals_state(w: World) -> int:
+    """goals.py status as the owner's terminal sees it: 0 sealed, 4 no approval recorded."""
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"} | {"CLAUDE_PROJECT_DIR": str(w.repo)}
+    return subprocess.run([sys.executable, str(ROOT / ".claude/hooks/goals.py"), "status"], cwd=w.repo, env=env, capture_output=True, text=True, check=False).returncode
+
+
+print("board 787: the first seal → the owner's «так» → the runner seals the document that was offered")
+w, offer = goals_world()
+w.run()
+check("unanswered: nothing is sealed, no agent starts, the runner waits for the owner", goals_state(w) == 4 and w.calls() == [] and "state=waiting-owner" in w.status(), w.status())
+owner_answers(w, "787-goals.md", "так")
+w.run()
+done = (w.repo / "tasks/done/787-goals/task.md").read_text(encoding="utf-8") if w.has("tasks/done/787-goals/task.md") else ""
+check("the owner answered «так»: the document is sealed, by the runner, before any agent was started", goals_state(w) == 0
+      and "action-applied seal-goals 787-goals.md" in events(w) and events(w).index("action-applied") < events(w).index(" attempt 787-goals 1"), events(w))
+check("…the document itself is untouched, the offer replaced by the outcome, the tree clean", (w.repo / ".engine/goals.md").read_text(encoding="utf-8") == GOALS_TEXT
+      and "Дію виконано" in done and "запечатано" in done and "Дія runner-а:" not in done and sh(w.repo, "git", "status", "--porcelain").stdout == "", done)
+
+print("board 787: «так» the owner did not send seals nothing")
+w, offer = goals_world()
+w.run()
+write_answer(w.repo / "tasks/blocked/787-goals.md", "так")
+w.run()
+check("an answer written on this machine is wiped and asked again; nothing is sealed", goals_state(w) == 4 and "action-answer-rejected seal-goals 787-goals.md" in events(w)
+      and "action-applied" not in events(w) and offer in (w.repo / "tasks/blocked/787-goals.md").read_text(encoding="utf-8"), events(w))
+
+print("board 787: the document changed after the question — the owner approved another text")
+w, offer = goals_world()
+w.run()
+(w.repo / ".engine/goals.md").write_text(GOALS_TEXT + "- G2. Те, чого власник не бачив.\n", encoding="utf-8")
+sh(w.repo, "git", "commit", "-q", "-am", "agent: one more goal")
+owner_answers(w, "787-goals.md", "так")
+w.run()
+back = (w.repo / "tasks/done/787-goals/task.md").read_text(encoding="utf-8") if w.has("tasks/done/787-goals/task.md") else ""
+check("not sealed; the task returns to the agent with the reason", goals_state(w) == 4 and "action-stale seal-goals 787-goals.md" in events(w)
+      and "Дію не виконано" in back and "sha256" in back, events(w))
+
+print("board 787: a runner an agent started seals nothing")
+w, offer = goals_world()
+w.run()
+owner_answers(w, "787-goals.md", "так")
+w.run(CLAUDECODE="1")
+check("owner_action.py refuses; the question stays in blocked/ with its offer", goals_state(w) == 4 and "action-refused seal-goals 787-goals.md rc=2" in events(w)
+      and offer in (w.repo / "tasks/blocked/787-goals.md").read_text(encoding="utf-8") and w.calls() == [], events(w))
+
 # --- board 040: a lesson becomes a rule only on the owner's «так» ---------------------------------
 LQ = ROOT / ".claude/hooks/lesson_queue.py"
 RULE_TEXT = "Show the RED before the GREEN."

@@ -5,6 +5,7 @@
     owner_action.py [--root DIR] promote-rule <sha256>
     owner_action.py [--root DIR] reject-rule <sha256>
     owner_action.py [--root DIR] amend-goals <sha256>
+    owner_action.py [--root DIR] seal-goals <sha256>
     owner_action.py [--root DIR] update-deps <sha256>
 
 `apply-settings` is the one way the shared settings change, in the engine's repository and in
@@ -27,6 +28,12 @@ stale. `reject-rule` is the owner's «ні»: the proposal is marked REJECTED.
 document `.engine/goals/proposed.md`. goals.py checks that it is a lawful amendment of the sealed
 `.engine/goals.md` (no number dropped or reused, the version raised), puts it in its place, seals
 it, and lists every decision that cited a changed line in `.engine/goals/to-review.md`.
+
+`seal-goals` is the one way a goals document gets its first seal with nobody in the conversation
+(board 787): the owner answered «так» under a question that offers the sha256 of `.engine/goals.md`
+itself. goals.py seals that document as it is — a document that changed since the question is
+stale, one no decision could cite (no numbered line, a number used twice) or one approved before
+(that is `amend-goals`) is not sealed. The seal is machine state: nothing is left to commit.
 
 `update-deps` is the one way the engine changes a project's packages (board 076): the owner
 answered «так» under the question that ends a `/maintain` task, which lists the patches and minor
@@ -140,6 +147,13 @@ def amend_goals(root: Path, approved: str) -> int:
     import goals
 
     return goals.amend(root, approved, in_session=False)  # main() has already refused a session
+
+
+def seal_goals(root: Path, approved: str) -> int:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+    import goals
+
+    return goals.first_seal(root, approved, in_session=False)  # main() has already refused a session
 
 
 def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -270,7 +284,7 @@ def update_deps(root: Path, approved: str) -> int:
 
 
 ACTIONS = {"apply-settings": apply_settings, "promote-rule": promote_rule, "reject-rule": reject_rule, "amend-goals": amend_goals,
-           "update-deps": update_deps}
+           "seal-goals": seal_goals, "update-deps": update_deps}
 
 
 def main() -> int:
