@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """env-check.sh: silent on a complete machine, specific on an incomplete one, never failing."""
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -178,6 +180,44 @@ res = run(plain, failing, CLAUDE_CODE_REMOTE="true")
 check("the fetch fails: exit 0 and one line for the agent naming the command, not a question for the owner",
       res.returncode == 0 and "git fetch --unshallow --tags origin" in res.stdout and "shallow" in res.stdout
       and res.stdout.count("\n- ") == 1 and "Tell the user" not in res.stdout, res.stdout[:300])
+
+# Board 761: the fetch runs under `timeout`, below the time Claude Code gives the hook itself (the `timeout` of the
+# SessionStart entry in settings.json; 60 s when it names none) — a hung fetch must end before the whole hook is
+# killed, or the failure line and the lesson digest after it are lost. A `timeout` shim records its argv.
+settings = json.loads((ROOT / ".claude/settings.json").read_text())
+HOOK_LIMIT = next(h.get("timeout", 60) for entry in settings["hooks"]["SessionStart"] for h in entry["hooks"]
+                  if "env-check.sh" in h.get("command", ""))
+
+
+def timeout_shim(path: str, body: str) -> Path:
+    """Put a `timeout` on the shim PATH that records its argv, then does `body`."""
+    shim = Path(path) / "timeout"
+    shim.unlink(missing_ok=True)
+    shim.write_text(f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{Path(path) / "timeout.log"}"\n{body}\n')
+    shim.chmod(0o755)
+    return Path(path) / "timeout.log"
+
+
+limited, log = git_shim("true")
+tlog = timeout_shim(limited, 'shift; exec "$@"')
+res = run(plain, limited, CLAUDE_CODE_REMOTE="true")
+argv = tlog.read_text() if tlog.exists() else ""
+under = re.fullmatch(rf"(\d+)s? git -C {re.escape(str(plain))} {FETCH}\n", argv)
+check(f"cloud session, shallow clone, `timeout` on PATH: the fetch runs as `timeout <n> git -C <root> fetch …`, n under the hook's {HOOK_LIMIT} s",
+      res.returncode == 0 and under is not None and 0 < int(under.group(1)) < HOOK_LIMIT and res.stdout == "",
+      f"timeout argv: {argv!r}; {res.stdout[:200]}")
+
+memory = Path(tempfile.mkdtemp(prefix="envcheck-memory-"))
+(memory / ".claude").mkdir()
+(memory / ".claude/hooks").symlink_to(ROOT / ".claude/hooks")
+(memory / ".engine/overseer").mkdir(parents=True)
+(memory / ".engine/overseer/MEMORY.md").write_text("## 2026-08-27 — A pattern\n")
+cut, log = git_shim("true")
+timeout_shim(cut, "exit 124")                                     # the limit reached: the fetch never came back
+res = run(memory, cut, CLAUDE_CODE_REMOTE="true")
+check("the fetch is cut off at the limit (`timeout` answers 124): exit 0, the one line, and the lesson digest still follows it",
+      res.returncode == 0 and " fetch " not in log.read_text() and res.stdout.count("git fetch --unshallow --tags origin") == 1
+      and 0 < res.stdout.find("shallow") < res.stdout.find("## lessons"), res.stdout[:400])
 
 for name, env, answer in (("negative — not a cloud session (no CLAUDE_CODE_REMOTE), shallow clone", {}, "true"),
                           ("negative — CLAUDE_CODE_REMOTE=false, shallow clone", {"CLAUDE_CODE_REMOTE": "false"}, "true"),
