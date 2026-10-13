@@ -519,7 +519,8 @@ What that does not give:
   does not cover it, the audit request carries no contract hash for it, and a `gate-allow` line
   written in it grants nothing. Its budget is the exception: the limits seen first are kept in
   machine state, as for a slice.
-- **The budget is measured only while `.engine/PROGRESS.md` marks the record IN PROGRESS**, and
+- **The budget is measured only while `.engine/PROGRESS.md` marks the record IN PROGRESS** (a
+  slice also without the card, while it is the active one — «The active slice» below), and
   held at turn end only when `COMPLEXITY_GATE` is `warn` or `call`. With the gate off the
   measurement happens when the builder runs `complexity_budget.py check`, as the command says.
 - **Three attempts are counted by the builder.** The record has room for three; nothing counts them.
@@ -881,6 +882,31 @@ Every audit is done by the agent `overseer` in a fresh context, and the verdict 
 - **A mutation run is whatever `MUTATION_CMD` prints.** The script records its duration, its
   exit code and its output; it does not parse survivors, and there is no score. How many
   survived and how many were handled is the number the builder records with `mutation-result`.
+
+## The active slice (board 789)
+
+Which slice a claimed unit belongs to is read by one function, `gate.active_slice`: the block
+`.engine/PROGRESS.md` marks IN PROGRESS, and with no such block — `/feature-architect`,
+`/plan-slice` and the slice builder write none — the last slice `testing.py request <slug>
+--point a` opened under the session's board task. The audit request (`slice`, `contract`,
+`unit_key`), the check of a contract changed after approval, the testing gate and the complexity
+budget all take it from there.
+
+- **A slice nobody opened is still unknown.** The row is written by the request of point (a). A
+  builder who skips that request gets an audit request with `slice: unknown` and no contract, and
+  the testing gate has no slice to hold: the script knows the slice from the builder's first
+  step, not from the contract's existence.
+- **It follows the board task, and only one.** A slice is the task's while that task is this
+  session's one task in `tasks/doing/`; a session without a board task has no active slice
+  unless a card says IN PROGRESS. A row written before board 789 names no task and counts for
+  nothing.
+- **The last one opened, not the one being claimed.** Opening the next slice before the audit of
+  the previous one makes that audit carry the next slice's name and contract. `testing.py`
+  refuses to open a slice while another has no decision of point (b), nothing more.
+- **A card IN PROGRESS wins, whatever it names.** With a bug record or a hotfix card whose heading says IN PROGRESS
+  no slice is active, even inside a pipeline task.
+- **The lesson queue names its slice its own way** (`lesson_queue.current_slice`: the card, else
+  the newest contract file) and does not read this.
 
 ## The simplifier
 

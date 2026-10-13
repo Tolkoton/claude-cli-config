@@ -147,3 +147,6 @@ test_engine_lint_tracked.py
 test_golden_place_env.py
 # Board 111: test_proposed 2 s is in (the column proposed/: about forty runs of board.py on synthetic boards).
 test_proposed.py
+# Board 789: test_active_slice 1.4 s is in (which slice an audit request names with no card IN PROGRESS: six throwaway
+# repositories, a dozen runs of testing.py and overseer_verdict.py; the Stop hook asks this at every claimed unit).
+test_active_slice.py

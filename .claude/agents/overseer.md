@@ -50,7 +50,8 @@ Then the state:
 6. `.engine/overseer/escalations.md` — human decisions on prior escalations
 7. `CLAUDE.md` — project conventions
 8. `.engine/PROGRESS.md` — identifies the CURRENT slice (IN PROGRESS / CODE
-   COMPLETE / BLOCKED)
+   COMPLETE / BLOCKED). In the pipeline no block may say IN PROGRESS: the slice is then the
+   one `request.json` names (`slice`, `contract`) — the last one opened under the board task
 9. `.engine/slices/<slug>.md` — **the slice planning artifact**. If it exists
    it is LOAD-BEARING: checks #1, #8, #10, #11 reference it — read it before
    any verdict that touches design, exit, seams, or scope.

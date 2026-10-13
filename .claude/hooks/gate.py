@@ -972,20 +972,31 @@ def write_count(root: Path, session: str, count: int) -> None:
 def active_slice(root: Path) -> str | None:
     """The slug of the slice .engine/PROGRESS.md marks IN PROGRESS (the convention overseer_stop.py
     and complexity_budget.py read): a `.engine/slices/<slug>.md` path in that block, else the slug
-    of its `## Slice <slug>` heading. None when no slice is active."""
+    of its `## Slice <slug>` heading. With no heading IN PROGRESS at all — in the pipeline nobody
+    writes one (board 789) — the slice testing.py opened last under this session's board task.
+    None when no slice is active."""
     try:
         text = (root / ".engine" / "PROGRESS.md").read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
-        return None
+        text = ""
+    marked = False
     for block in re.split(r"(?=^## )", text, flags=re.MULTILINE):
         if "IN PROGRESS" not in block.upper():
             continue
+        marked = marked or "IN PROGRESS" in block.split("\n", 1)[0].upper()
         named = re.search(r"\.engine/slices/([\w.-]+)\.md", block)
         heading = re.search(r"^##\s+Slice\s+([\w.-]+)", block, re.MULTILINE)
         found = named or heading
         if found:
             return found.group(1)
-    return None
+    if marked:   # a bug record or a hotfix card is the work in hand: no slice is (the words in an entry's body mark nothing)
+        return None
+    try:
+        import testing
+
+        return testing.opened_slice(root, work_in_hand(root))
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        return None
 
 
 def read_escalations(root: Path) -> dict[str, Any]:

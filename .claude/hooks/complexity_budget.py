@@ -179,11 +179,12 @@ def git(root: Path, *args: str) -> str:
 
 
 def active_contract(root: Path) -> Path | None:
-    """The slice — or the bug record — .engine/PROGRESS.md marks IN PROGRESS: the engine's own convention."""
+    """The slice — or the bug record — .engine/PROGRESS.md marks IN PROGRESS: the engine's own convention.
+    With no such card, the contract of the slice the session's board task has open."""
     try:
         text = (root / ".engine/PROGRESS.md").read_text(encoding="utf-8")
     except OSError:
-        return None
+        text = ""
     blocks = re.split(r"(?m)^(?=#{1,3} )", text)
     for block in blocks:
         if not ACTIVE_RE.search(block):
@@ -197,7 +198,13 @@ def active_contract(root: Path) -> Path | None:
         )
         if candidate and (root / candidate).is_file():
             return root / candidate
-    return None
+    # No card names it: the slice the board task has open (gate.active_slice owns that reading, board 789).
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import gate as gate_module
+
+    opened = gate_module.active_slice(root)
+    contract = root / ".engine/slices" / f"{opened}.md"
+    return contract if opened and contract.is_file() else None
 
 
 def parse_budget(contract: Path) -> Budget | None:

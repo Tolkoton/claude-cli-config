@@ -14,7 +14,8 @@ A bug record (`.engine/bugs/<number-name>.md`, written by `/bugfix` from
 `.claude/templates/bug-record.md`) carries the same section, ready-made and small: no new files,
 names, abstractions or dependencies, 40 new lines. It is measured the same way while
 `.engine/PROGRESS.md` marks that record IN PROGRESS, and `complexity_budget.py check` reports it
-whatever `COMPLEXITY_GATE` says. An overrun the simplifier does not justify makes the fix a slice.
+whatever `COMPLEXITY_GATE` says. (A slice needs no card: without one the budget measures the
+slice the board task has open — `testing.py request <slug> --point a` opens it.) An overrun the simplifier does not justify makes the fix a slice.
 
 The card of an urgent fix (`/hotfix`, written by `hotfix.py start` from
 `.claude/templates/hotfix-record.md`) is the one budget that IS a ceiling. Its section says

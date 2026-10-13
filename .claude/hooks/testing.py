@@ -832,6 +832,18 @@ def unfinished(root: Path, slug: str) -> str | None:
     return left[0] if left else None
 
 
+def opened_slice(root: Path, task: str) -> str | None:
+    """The slice a board task has in hand — the last one opened under it — for the scripts that ask
+    which slice is active when no card IN PROGRESS says (gate.active_slice, board 789). It stays the
+    task's until the next one opens: its audit may follow point (b). None with no task, with no such
+    row (a row written before 789 names no task), for a parked slice and for a contract that is gone."""
+    mine = [r for r in rows(root, kind="opened") if task and r.get("task") == task]
+    slug = str(mine[-1].get("slice")) if mine else ""
+    if not re.fullmatch(r"[\w.-]+", slug) or last(root, slug, "parked") is not None or not contract_path(root, slug).is_file():
+        return None
+    return slug
+
+
 def undone(root: Path, slug: str) -> list[str]:
     """The checks the manager said to do NOW at point (b) of this slice that nobody did since:
     a decision is not the check. Empty when there is no such decision or everything was done."""
@@ -868,7 +880,11 @@ def request_manager(root: Path, env: dict[str, str], slug: str, point: str) -> t
             return 3, "BLOCKED: the next slice does not start while a check decided at point (b) is not done:\n- " + "\n- ".join(owed)
         if last(root, slug, "opened") is None:
             head = test_touch.git(root, "rev-parse", "HEAD").stdout.strip()
-            append_row(root, {"type": "opened", "slice": slug, "base": head}, f"{slug} — the slice opens", [f"the code before it: {head[:12]}"])
+            import gate
+
+            task = gate.work_in_hand(root)   # whose slice it is: gate.active_slice reads it (board 789)
+            append_row(root, {"type": "opened", "slice": slug, "base": head, "task": task}, f"{slug} — the slice opens",
+                       [f"the code before it: {head[:12]}", f"the board task: {task or 'none'}"])
         facts = facts_a(root, env, slug)
     else:
         if last(root, slug, "decision", point="a") is None:
