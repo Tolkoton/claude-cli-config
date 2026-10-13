@@ -139,3 +139,6 @@ test_escalation_scope.py
 # Board 769: test_engine_lint_oldest 4.5 s is in (the lint's verdict on a machine without the oldest Python: two runs of
 # test_engine_lint on a throwaway copy, each a cold mypy; the lint stands on the Stop gate, so the check of its verdict does too).
 test_engine_lint_oldest.py
+# Board 771: test_engine_lint_tracked 6 s is in (the set of files the oldest Python compiles: three runs of test_engine_lint on a
+# throwaway git repository with every tracked .py file; the lint stands on the Stop gate, so the check of what it covers does too).
+test_engine_lint_tracked.py

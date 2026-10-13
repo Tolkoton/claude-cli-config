@@ -112,17 +112,24 @@ def main() -> int:
     # Board 748: the hooks say «Python 3.11+» (tool_versions.MIN_PYTHON), and a form that only 3.12 parses (a backslash inside an f-string's
     # expression) once kept testing.py from starting under 3.11 unseen — the suites run under the newest python3.
     # Every Python file of the repository is compiled by the oldest supported interpreter when it is on PATH (nothing
-    # is written: compile() in memory).
+    # is written: compile() in memory). Board 771: every one is what git lists — the tracked files and the new ones it
+    # does not ignore, at any depth (the scenes under evals/scenarios/ too) — not a glob of the top-level directories.
     oldest = shutil.which(f"python{MIN_PYTHON}")
-    every = sorted({*py_files, "engine.py", *(str(p.relative_to(ROOT)) for d in ("evals", "tests") for p in (ROOT / d).glob("*.py"))})
+    listed = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.py"],
+                            cwd=ROOT, capture_output=True, text=True, check=False)
+    every = sorted({f for f in listed.stdout.split("\0") if f and (ROOT / f).is_file()})
     if oldest is None:
         print(f"  note python{MIN_PYTHON} is not on PATH: the oldest supported Python does not compile the files here (ruff judged the engine's for it above)")
+    elif listed.returncode != 0 or not every:
+        print(f"  FAIL python{MIN_PYTHON} compiles every Python file of the repository: git listed none (exit {listed.returncode}) "
+              f"{listed.stderr.strip()[:200]} — nothing was compiled")
+        failed += 1
     else:
         probe = ("import sys\nbad = []\nfor f in sys.argv[1:]:\n    try:\n        compile(open(f, encoding='utf-8').read(), f, 'exec')\n"
                  "    except SyntaxError as exc:\n        bad.append(f'{f}:{exc.lineno}: {exc.msg}')\nprint('\\n'.join(bad))\nsys.exit(1 if bad else 0)")
         r = subprocess.run([oldest, "-c", probe, *every], cwd=ROOT, capture_output=True, text=True, check=False)
         ok = r.returncode == 0
-        print(f"  {'ok  ' if ok else 'FAIL'} python{MIN_PYTHON} compiles every Python file of the repository ({len(every)})  {r.stdout.strip()[:300]}")
+        print(f"  {'ok  ' if ok else 'FAIL'} python{MIN_PYTHON} compiles every Python file of the repository — tracked, or new and not ignored ({len(every)})  {r.stdout.strip()[:3000]}")
         failed += 0 if ok else 1
 
     print(f"\n{'FAIL' if failed else 'PASS'}: engine lint {'has findings' if failed else 'clean'}")
