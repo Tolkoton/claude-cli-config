@@ -28,9 +28,6 @@ Pre-flight:
 
 # Unattended operation — the one human round becomes a written frame
 
-Read `.claude/state/overseer/mode`. Contents `unattended` → nobody is in the loop;
-absent or anything else → attended, and Phase 1 runs interactively as written.
-
 Unattended, Phase 1 does not ask and does not block. Derive the frame from the
 domain map, the architecture map, and the existing code; write it into the
 feature artifact; mark every item the owner would have ratified as

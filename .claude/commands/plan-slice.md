@@ -21,10 +21,6 @@ Pre-flight:
 
 ## Unattended operation — a hard gate becomes a park
 
-Read `.claude/state/overseer/mode`. Contents `unattended` → nobody is in the loop;
-absent or anything else → attended, and every gate below behaves exactly as
-written.
-
 Unattended, a gate that would block instead **parks**: put the item on the task
 board with what it needs (`python3 .claude/unattended/board.py open-item --to
 blocked …`), continue with whatever else can move, and surface it at the next

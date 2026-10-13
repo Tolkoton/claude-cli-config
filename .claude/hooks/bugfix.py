@@ -77,8 +77,8 @@ class Run:
         return "\n".join(f"    | {line}" for line in lines) or "    | (no output)"
 
 
-def git(root: Path, *args: str, text: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=text, check=False)
+def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
 
 
 def project_root(given: str | None) -> Path:

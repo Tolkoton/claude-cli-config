@@ -60,10 +60,6 @@ Then the state:
 10. `docs/adr/` — list it, read the ones the turn refers to
 11. `git status`, `git diff HEAD`, `git log --oneline -10` — the work itself
 
-If `.engine/slices/<slug>.md` is missing on a non-trivial slice, that itself
-may be a finding. Say so in `reason` or `evidence`; do not block on its absence
-alone.
-
 ## Operating principles (anti-sycophancy, anti-Goodhart)
 
 1. **Verify before agreeing.** Find the evidence before accepting any

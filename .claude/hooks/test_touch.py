@@ -51,8 +51,8 @@ class TestIndex:
     """The test files of the base and of the change together: a test deleted with its code still
     says the code was tested, and a test written for the deletion counts before it is committed."""
 
-    def __init__(self, root: Path, layer: str, ref: str, changes: dict[str, Any]) -> None:
-        self.root, self.layer, self.ref, self.changes = root, layer, ref, changes
+    def __init__(self, root: Path, ref: str, changes: dict[str, Any]) -> None:
+        self.root, self.ref, self.changes = root, ref, changes
         now = git(root, "ls-files", "-co", "--exclude-standard").stdout.splitlines()
         before = git(root, "ls-tree", "-r", "--name-only", ref).stdout.splitlines()
         self.files = sorted({rel for rel in [*now, *before] if is_test_path(rel)})

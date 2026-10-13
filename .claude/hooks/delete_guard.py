@@ -514,7 +514,7 @@ def check(root: Path, layer: str, diff_ref: str | None, env: dict[str, str],
                 None, None, "delete/coverage-unavailable", "warn",
                 f"{COVERAGE_KEY} left no readable {COVERAGE_FILE} on the code before the change; the coarser check is used",
                 f"run it by hand in a clean checkout: {command}"))
-    tests = TestIndex(root, layer, ref, changes)
+    tests = TestIndex(root, ref, changes)
     rows = confirmations(root)
 
     def way_through(unit: Unit) -> str:

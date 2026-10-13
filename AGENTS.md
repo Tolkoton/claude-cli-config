@@ -44,7 +44,7 @@ task at a time, each in a fresh session.
 | `.claude/hooks/` | The hooks, wired only in the project's `settings.json` |
 | `.claude/state/` | Machine state, written by hooks and scripts only; one `.gitignore` line |
 | `.engine/` | What the agent produces: records, slices, architecture, premises, PROGRESS |
-| `.engine/goals.md` | The project's goals; changed only by the owner's answer (`goals.py`). This repository has none yet |
+| `.engine/goals.md` | The project's goals; changed only by the owner's answer (`goals.py`) |
 | `tasks/` | The task board: `todo/ doing/ blocked/ done/`; `board-runner.sh` works from it (`tasks/README.md`) |
 | `docs/working-on-the-engine.md` | Read on demand: the verification commands, the rarer paths (ownership, seeds, `user/`, limits) |
 | `docs/release.md` | The release order: `engine.py release <version>`, the owner's command only |

@@ -388,14 +388,14 @@ def feature_of(root: Path, slug: str) -> tuple[Feature, Slice] | None:
     return None
 
 
-def slug_of(root: Path, feature: Feature, item: Slice) -> str | None:
+def slug_of(root: Path, item: Slice) -> str | None:
     """The slug the slice was planned under: the contract in .engine/slices/ that names it."""
     folder = root / ".engine" / "slices"
     return next((p.stem for p in sorted(folder.glob("*.md")) if item.is_slug(p.stem)), None) if folder.is_dir() else None
 
 
-def finished(root: Path, feature: Feature, item: Slice) -> bool:
-    slug = slug_of(root, feature, item)
+def finished(root: Path, item: Slice) -> bool:
+    slug = slug_of(root, item)
     return slug is not None and last(root, slug, "decision", point="b") is not None
 
 
@@ -416,7 +416,7 @@ def touch(root: Path, env: dict[str, str], files: dict[str, set[int]], overlay: 
         return []
     command = env.get(test_touch.COVERAGE_KEY, "").strip()
     report = test_touch.run_coverage(root, "HEAD", command, overlay) if command else None
-    tests = test_touch.TestIndex(root, "stop", "HEAD", {})
+    tests = test_touch.TestIndex(root, "HEAD", {})
     found = []
     for rel, lines in sorted(files.items()):
         if report is not None:
@@ -479,7 +479,7 @@ def changed_code(root: Path, env: dict[str, str], base: str) -> tuple[dict[str, 
     return code, counts
 
 
-def tree_overlay(root: Path, base: str) -> dict[str, str]:
+def tree_overlay(root: Path) -> dict[str, str]:
     """Everything that differs from HEAD, as it is now: laid over the checkout before coverage runs."""
     names = test_touch.git(root, "diff", "--name-only", "HEAD", "--").stdout.splitlines()
     names += test_touch.git(root, "ls-files", "-o", "--exclude-standard").stdout.splitlines()
@@ -542,14 +542,14 @@ def block_facts(root: Path, slug: str) -> JsonObj:
         return {"feature": None, "note": "no feature artifact names this slice: it stands alone, one block"}
     feature, item = found
     block = feature.block_of(item)
-    done = [s for s in feature.slices if s.id != item.id and finished(root, feature, s)]
+    done = [s for s in feature.slices if s.id != item.id and finished(root, s)]
     done_ids = {s.id for s in done}
     others = [s for s in feature.slices if s.id != item.id]
     neighbours = {b if a in {s.id for s in block} else a for a, b in feature.edges
                   if (a in {s.id for s in block}) != (b in {s.id for s in block})}
     ready_blocks = sorted({s.block for s in feature.slices if s.id in neighbours and s.block != item.block
                            and all(o.id in done_ids for o in feature.slices if o.block == s.block)})
-    earlier = [slug_of(root, feature, s) for s in block if s.id in done_ids]
+    earlier = [slug_of(root, s) for s in block if s.id in done_ids]
     return {
         "feature": feature.name, "slice_id": item.id, "tracer_bullet": item.tracer,
         "consumers": sorted(b for a, b in feature.edges if a == item.id), "public_contract": item.public,
@@ -637,7 +637,7 @@ def block_slugs(root: Path, slug: str) -> list[str]:
     found = feature_of(root, slug)
     if found is None:
         return [slug]
-    return [s for s in (slug_of(root, found[0], item) for item in found[0].block_of(found[1])) if s]
+    return [s for s in (slug_of(root, item) for item in found[0].block_of(found[1])) if s]
 
 
 def block_base(root: Path, slug: str) -> str:
@@ -673,7 +673,7 @@ def facts_b(root: Path, env: dict[str, str], slug: str) -> JsonObj:
         "events_due": due, "debts": [d | {"due": d["until"] in due} for d in open_debts(root)],
         "mutation_cmd_set": bool(env.get("MUTATION_CMD", "").strip()),
         "last_mutation_run_of_block": runs[-1] if runs else None,
-        "changed_code_and_tests": touch(root, env, code, tree_overlay(root, base)),
+        "changed_code_and_tests": touch(root, env, code, tree_overlay(root)),
     }
 
 
@@ -1410,12 +1410,12 @@ def feature_close(root: Path, name: str) -> tuple[int, str]:
     feature = parse_feature(name, path.read_text(encoding="utf-8", errors="replace"))
     problems = []
     for item in feature.slices:
-        slug = slug_of(root, feature, item)
+        slug = slug_of(root, item)
         if slug and contract_sealed(root, slug) and last(root, slug, "decision", point="b") is None and last(root, slug, "parked") is None:
             problems.append(f"{item.id} ({slug}): no decision of point (b)")
         problems += undone(root, slug) if slug else []
     due = {"feature-closed"} | {f"block-closed:{b}" for b in feature.blocks()}
-    ours = {slug_of(root, feature, s) for s in feature.slices}
+    ours = {slug_of(root, s) for s in feature.slices}
     problems += [f"debt: the {d['kind']} check deferred at {d['slice']} until {d['until']} was never run" for d in open_debts(root)
                  if d["until"] in due and d["slice"] in ours]
     if problems:

@@ -55,22 +55,6 @@ You are extending a known system one isolated logical piece at a time. The user 
 
 7. **Manual smoke verification at the end.** A `scripts/smoke_test_<slice>.py` that exercises the real path against the real system, prints results, and gives the user explicit human-verifiable instructions. The slice is NOT complete until the smoke result is recorded. This is a genuine human-input dependency (reason 1) whenever the verification needs eyes on a real external system — so it **parks**, it does not halt: write the script, add a `PARKED / external-verification` entry to the parked log with `python3 .claude/hooks/journal.py add parked` (this session's own file of it, board 739), mark the slice `CODE COMPLETE — SMOKE PENDING` in `.engine/PROGRESS.md`, and move to the next unblocked item. If the smoke can be asserted programmatically against a sandbox, do that instead and close the slice without parking.
 
-## When to use this skill
-
-User says or implies:
-- "Implement the upload module" / "Build the magic-link generator"
-- "Add a thin slice for X"
-- "Build piece 1 of the pipeline"
-- "Small isolated function for Y"
-- "Wrap this vendor SDK in a clean function for our use"
-- "Let's start small and test if X works in our system"
-- "Incrementally add..."
-
-User context typically includes:
-- Rough idea of the larger system (sketch, not full architecture)
-- External dependencies already accessible (`.env`, vendor docs in repo)
-- No urgent need for full architecture process
-
 ## When NOT to use this skill
 
 | If the user wants... | Use instead |

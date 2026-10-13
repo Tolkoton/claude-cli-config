@@ -754,8 +754,6 @@ def _main_fresh(envelope: dict[str, object], project_dir: Path) -> NoReturn:
         _emit_block(FRESH_PASS_IGNORED_REASON)
     if REQUEST_TYPED_RE.search(message) and not _same_continue_message(project_dir, message):
         _emit_block(FRESH_REQUEST_TYPED_REASON)
-    if _phase_is_plan(project_dir):
-        _passthrough()
     _passthrough()
 
 
@@ -766,8 +764,6 @@ def _main_unwired(envelope: dict[str, object], project_dir: Path) -> NoReturn:
     if not _phase_is_plan(project_dir) and _claimed_unit(project_dir, envelope, message) is not None:
         _record_audit(project_dir, message)
         _emit_block(NOT_WIRED_REASON, NOT_WIRED_HUMAN)
-    if HALT_MARKER_RE.search(message) or _phase_is_plan(project_dir):
-        _passthrough()
     _passthrough()
 
 
