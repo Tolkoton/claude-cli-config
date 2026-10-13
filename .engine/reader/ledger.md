@@ -6,3 +6,8 @@
 - Record: .engine/sketches/reader-live-check.md
 - Reason: The output of `grep -n 'reader.py' .claude/settings.json` shows both command lines — `reader.py guard` at line 186 and `reader.py record` at line 297 — and the answer «так» claims only that both hooks are in the file. A read-only search of /home/lao/engine/.claude/settings.json returns the same two lines at the same numbers, each inside a hook entry of type `command`, so the output belongs to the command named.
 - Request: 20261011T085117Z-ea69f8 (attempt 1)
+
+## 2026-10-13T03:41:39Z — 777-open-item-gemini-api-key-in-session-environment — READER_PASS
+- Record: tasks/done/777-open-item-gemini-api-key-in-session-environment/report.md
+- Reason: Усі чотири питання тримаються: посилання, які можна відкрити, кажуть те, що їм приписано; єдиний пункт «Що зробити» (виконати відповідь «ні», записати у звіт, закрити пункт) виконано; єдине відкрите питання (1734) має три варіанти й пораду; технічні терміни в звіті та у файлі питання англійською. Виводи команд у середовищі сесії ніде не записані — не перевірено, не BLOCK.
+- Request: 20261013T034105Z-2bda21 (attempt 1)
