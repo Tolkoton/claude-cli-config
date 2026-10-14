@@ -113,6 +113,8 @@
 #               task=<name|-> since=<UTC> [reason=<word>]
 #   events.log  one UTC line per event      costs.json  per task: attempts, sessions, cost
 #   summary.md  written at every stop       logs/       the raw output of every attempt
+# A session whose stderr (logs/<task>-<n>.json.err) says the workspace is not trusted leaves one entry
+# in the anomaly journal — once a project — and a line in summary.md (board 791); the work goes on.
 # An open gate escalation that names no file covers all work (board 301): no task is started, the
 # runner stops with state=waiting-owner reason=gate-escalation and summary.md names its stamp.
 # Exit 0: idle, waiting-owner, stopped (--once, --stop-after-task, --stop-after-attempt). Exit 1: error.
@@ -209,6 +211,8 @@ GUARD_KEPT="$STATE/guard-before"   # the task (line 1) and what `before` printed
 ACCEPTED="$STATE/gate-accepted"   # answers that arrived from the owner: name, stamp, sha256
 REVIEWED_ACCEPTED="$STATE/reviewed-accepted"   # the numbers of tasks/.reviewed that arrived from the owner (board 100)
 DIRTY_BEFORE="$STATE/dirty-before" # what was uncommitted when the task in doing/ was started
+UNTRUSTED_NOTED="$STATE/untrusted-workspace"   # board 791: the journal has its entry — one a project
+UNTRUSTED_LOG=""   # the first log of this run in which claude said the workspace is not trusted
 blocks_marker() { echo "$STATE/three-blocks-$1.json"; }   # left by overseer_stop.py after the third BLOCK
 reader_marker() { echo "$STATE/reader-blocks-$1.json"; }   # left by reader.py after the third BLOCK on one record (board 099)
 board() { python3 "$HERE/board.py" --root "$PROJECT_ROOT" "$@"; }
@@ -302,6 +306,7 @@ finish() {
     echo "- Стан: \`$state\` — $sentence"
     [ "$task" = "-" ] || echo "- Задача: \`$task\`"
     echo "- Гілка: \`$BRANCH\` на \`$(git rev-parse --short HEAD 2>/dev/null)\`"
+    [ -z "$UNTRUSTED_LOG" ] || echo "- Увага: теку проєкту не позначено довіреною — Claude Code не застосовує список \`allow\` з \`.claude/settings.json\` (так сказала сесія: \`$UNTRUSTED_LOG\`). Відкрийте Claude Code в цій теці один раз і прийміть trust dialog."
     echo
     echo "## Task board"
     echo
@@ -695,6 +700,21 @@ guard_session() {
   PROTECTED=""
 }
 
+# trust_check <stem>: claude said in the session's stderr that the workspace is not trusted, so the
+# `allow` list of the settings is not applied (board 791). Nobody reads that log: the runner puts it
+# into the anomaly journal — once a project, the marker in the state directory says it is there — and
+# into the summary of every run in which a session said it. The work goes on.
+trust_check() {
+  local said
+  said=$(grep -m1 'this workspace has not been trusted' "$OUT.err" 2>/dev/null) || return 0
+  [ -n "$UNTRUSTED_LOG" ] || UNTRUSTED_LOG="${OUT#"$PROJECT_ROOT"/}.err"
+  event "untrusted-workspace $1"
+  [ ! -e "$UNTRUSTED_NOTED" ] || return 0
+  now > "$UNTRUSTED_NOTED"
+  note_anomaly "$1" "теку проєкту не позначено довіреною: сесія агента написала в stderr (\`${OUT#"$PROJECT_ROOT"/}.err\`) «$(printf '%s' "$said" | cut -c1-300)» — список \`allow\` з \`.claude/settings.json\` у такій теці не діє" \
+    "роботу продовжено (сесія йде з \`--permission-mode auto\`). Власникові: відкрити Claude Code в теці проєкту один раз і прийняти trust dialog. Запис робиться один раз на проєкт; поки тека не довірена, про це каже підсумок кожного запуску runner-а."
+}
+
 # attempt <stem> <prompt of a fresh conversation> <prompt of a continued one>: one claude session
 # for the task, booked in costs.json. Sets NOTE to `limit`, `auth` or nothing (board_state.py)
 # and OUT to the file that holds the session's output.
@@ -725,6 +745,7 @@ attempt() {
   after=$(git rev-parse HEAD)
   NOTE=$(memo record "$stem" "$OUT" "$([ "$before" != "$after" ] && echo 1 || echo 0)")
   event "attempt-end $stem $n cost=$(memo get "$stem" cost) commit=$([ "$before" != "$after" ] && echo yes || echo no)${NOTE:+ $NOTE}"
+  trust_check "$stem"
   guard_session "$stem"
   rm -f "$GUARD_KEPT"   # compared; a comparison that stopped the board left it for the next start
   publish_gate_questions

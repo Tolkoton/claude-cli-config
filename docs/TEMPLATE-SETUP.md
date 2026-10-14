@@ -394,8 +394,10 @@ tasks from `tasks/todo/` one at a time, each in a fresh session. Before its firs
    "push failed" entry in the anomaly journal and the work goes on.
 2. **Trust the directory.** Open Claude Code in the project interactively once and accept the
    trust dialog. Until then a headless session ignores the `allow` list of `.claude/settings.json`
-   and says so only in a log nobody reads, `.claude/state/board/logs/<task>-<n>.json.err` (open
-   item 791 on the engine's board). `claude` must be logged in for the same Linux user: a
+   and says so only in its stderr, `.claude/state/board/logs/<task>-<n>.json.err`. The runner reads
+   that log after every session: a project that skipped this step gets one entry in the anomaly
+   journal and a line «Увага: теку проєкту не позначено довіреною…» in the summary of every run,
+   and the work goes on. `claude` must be logged in for the same Linux user: a
    logged-out runner stops with `reason=logged-out`.
 3. **The first task.** Copy `tasks/TEMPLATE.md` to `tasks/todo/NNN-name.md` (the number is the
    class x 100 + the place in the class, `tasks/CLASSES.md`), fill «Що зробити» and «Готово,

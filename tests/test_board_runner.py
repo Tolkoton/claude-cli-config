@@ -75,6 +75,9 @@ byte that is not UTF-8), `link` (a symbolic link whose target reads as the numbe
 then taken out of the working tree and left so), `stuck` (committed, then replaced in the working
 tree by a directory nobody can read or remove — the guard itself breaks on it).
 
+FAKE_STDERR=<text> is written to the session's stderr by the calls FAKE_STDERR_CALLS names (their
+numbers, from 0, separated by commas; without it — by every call): what claude itself says there (board 791).
+
 A conversation's reported cost is its running total (1 USD a call unless FAKE_COST says
 otherwise); `--resume ID` keeps the id, a call without it opens a new conversation.
 
@@ -129,6 +132,8 @@ if os.environ.get("FAKE_STOP_AT") == str(n):   # the operator asks for a soft st
     else:
         asked = subprocess.run(["bash", os.environ["FAKE_RUNNER"], f"--stop-after-{kind}"], capture_output=True, text=True)
         (home / "stop-asked").write_text(f"{asked.returncode}\n{asked.stdout}{asked.stderr}")
+if os.environ.get("FAKE_STDERR") and str(n) in os.environ.get("FAKE_STDERR_CALLS", str(n)).split(","):
+    print(os.environ["FAKE_STDERR"], file=sys.stderr)
 session = argv[argv.index("--resume") + 1] if "--resume" in argv else f"s{n + 1}"
 costs = json.loads((home / "costs").read_text()) if (home / "costs").exists() else {}
 costs[session] = costs.get(session, 0.0) + float(os.environ.get("FAKE_COST", "1"))
@@ -2475,6 +2480,51 @@ check("the owner's file with its number in the inbox puts it to work: one sessio
       r.returncode == 0 and len(w.calls()) == 1 and w.has("tasks/done/701-open-item-found/report.md") and not w.has("tasks/proposed/701-open-item-found.md")
       and "СЛОВО-ВЛАСНИКА" in (w.repo / "tasks/done/701-open-item-found/task.md").read_text(encoding="utf-8"), w.status() + events(w) + r.stdout + r.stderr)
 check("…and the move out of proposed/ is committed: the tree is clean", porcelain(w) == "", porcelain(w))
+
+print("board 791: claude says the workspace is not trusted — one journal entry for the project, a line in the summary")
+UNTRUSTED = ("Ignoring 13 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code "
+             "interactively here once and accept the trust dialog, or set projects[…].hasTrustDialogAccepted: true in ~/.claude.json")
+TRUST_WORDS = "не позначено довіреною"
+
+
+def summary_of(world: World) -> str:
+    return (world.state / "summary.md").read_text(encoding="utf-8")
+
+
+w = World("done done done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run(FAKE_STDERR=UNTRUSTED)
+journal = journal_text(w.repo, "anomalies")
+check("two sessions said it: both tasks are done all the same, and the journal holds ONE entry, by the runner, with what to do",
+      r.returncode == 0 and w.has("tasks/done/001-first/report.md") and w.has("tasks/done/002-second/report.md") and len(w.calls()) == 2
+      and journal.count(TRUST_WORDS) == 1 and "## " in journal and "— 001-first" in journal and "Хто записав: runner" in journal
+      and "trust dialog" in journal and "13" in journal, journal + w.status() + r.stdout + r.stderr)
+check("…the summary has the line, with the log it was read from", TRUST_WORDS in summary_of(w) and "001-first-1.json.err" in summary_of(w)
+      or "002-second-1.json.err" in summary_of(w) and TRUST_WORDS in summary_of(w), summary_of(w))
+check("…and the entry is committed and pushed: the tree is clean", porcelain(w) == "" and w.origin_head() == w.head(), porcelain(w))
+w.put("todo", "003-third.md")
+r = w.run(FAKE_STDERR=UNTRUSTED)
+check("the next start of the runner, still not trusted: no second entry (once a project), the summary says it again", r.returncode == 0
+      and w.has("tasks/done/003-third/report.md") and journal_text(w.repo, "anomalies").count(TRUST_WORDS) == 1 and TRUST_WORDS in summary_of(w),
+      journal_text(w.repo, "anomalies") + summary_of(w) + r.stderr)
+w.put("todo", "004-fourth.md")
+r = w.run()
+check("NEGATIVE — the owner accepted the trust dialog, the session says nothing: no line in the summary, no new entry", r.returncode == 0
+      and w.has("tasks/done/004-fourth/report.md") and TRUST_WORDS not in summary_of(w) and journal_text(w.repo, "anomalies").count(TRUST_WORDS) == 1,
+      summary_of(w) + r.stderr)
+w = World("done")
+w.put("todo", "001-first.md")
+r = w.run(FAKE_STDERR="Warning: something else about a workspace and its permissions.allow entries")
+check("NEGATIVE — another line in stderr: no entry, no line in the summary", r.returncode == 0 and w.has("tasks/done/001-first/report.md")
+      and not journal_text(w.repo, "anomalies") and TRUST_WORDS not in summary_of(w), journal_text(w.repo, "anomalies") + summary_of(w))
+w = World("work done done")
+w.put("todo", "001-first.md")
+w.put("todo", "002-second.md")
+r = w.run(FAKE_STDERR=UNTRUSTED, FAKE_STDERR_CALLS="0")
+check("only the first of three sessions said it, the last ones did not: the entry is there, the summary of this run still names it",
+      r.returncode == 0 and len(w.calls()) == 3 and journal_text(w.repo, "anomalies").count(TRUST_WORDS) == 1 and TRUST_WORDS in summary_of(w)
+      and "001-first-1.json.err" in summary_of(w), summary_of(w) + r.stderr)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)

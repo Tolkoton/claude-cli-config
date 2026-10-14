@@ -30,6 +30,14 @@ task stays in `doing/` with its uncommitted work, its conversation, its clock an
 the next start continues it (`--resume`). With no runner working either command sets nothing
 and says so; a flag left by a runner that died is removed when the next one starts.
 
+**Before the first start, trust the directory (board 791).** Open Claude Code in the project interactively once
+and accept the trust dialog. Until then a headless session ignores the `allow` list of `.claude/settings.json`
+and says so only in its stderr, `.claude/state/board/logs/<task>-<n>.json.err`. The task may pass all the same
+(the sessions run with `--permission-mode auto`), so the runner reads that log after every session: the line
+«this workspace has not been trusted» gives one entry in the anomaly journal — once a project, the marker is
+`.claude/state/board/untrusted-workspace` — and a line «Увага: теку проєкту не позначено довіреною…» in
+`summary.md` of every run in which a session said it. The work is not stopped.
+
 Before every task it fetches and rebases the work branch (`unattended/work`), takes new files
 from the inbox (`~/engine-ops/tasks-inbox/`, if it exists) into `tasks/todo/`, and returns
 answered tasks from `tasks/blocked/`. It takes nothing from `tasks/proposed/` (board 111): what agents, hooks and
