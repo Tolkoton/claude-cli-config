@@ -51,3 +51,8 @@
 - Record: tasks/done/113-new-project-path-in-docs/report.md
 - Reason: All four questions hold: every file-and-line reference in the report and in the two documents says what is ascribed to it, each of the three «Що зробити» items is answered in docs/TEMPLATE-SETUP.md, docs/OWNER-GUIDE.md or the report's «Чого бракує в коді», there is no open question for the owner, and the engine terms in the report and in OWNER-GUIDE are English (runner, inbox, hook, Stop gate, commit, overseer, task board).
 - Request: 20261013T212130Z-ed04a1 (attempt 1)
+
+## 2026-10-14T02:38:34Z — 102-release-audit-v0120 — READER_PASS
+- Record: tasks/done/102-release-audit-v0120/report.md
+- Reason: All four questions hold: every reference I could open says what the report ascribes to it, each of the four «Що зробити» items has its answer in the report, there is no open question (both owner questions in the task file carry options, advice and an answer), and engine terms stay English. Several numbers rest on command output nobody recorded and are listed as «не перевірено».
+- Request: 20261014T023649Z-e085d0 (attempt 1)
