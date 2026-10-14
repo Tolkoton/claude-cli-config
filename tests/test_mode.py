@@ -758,6 +758,86 @@ check("negative — the chain ends in a commit with no PASS: all three are named
       [line.split("«")[1].split("»")[0] for line in closing(cc, "093-chain-unaudited")[1]]
       == ["unit 1, committed on a BLOCK", "unit 1, a second try, never audited", "unit 1, the fix, never audited"],
       closing(cc, "093-chain-unaudited"))
+# Board 1730: a commit whose file a commit of ANOTHER task changed later is covered by a PASS of its own task that saw
+# the file as that other commit left it (the task waited in blocked/ meanwhile — what kept board 752 from closing).
+
+
+def park(at: Path, name: str) -> None:
+    (at / "tasks/doing" / f"{name}.md").rename(at / "tasks/blocked" / f"{name}.md")
+    commit_all(at, f"board: {name} → blocked")
+
+
+def back(at: Path, name: str) -> None:
+    (at / "tasks/blocked" / f"{name}.md").rename(at / "tasks/doing" / f"{name}.md")
+    commit_all(at, f"board: {name} → doing, again")
+
+
+def other_task(at: Path, name: str, rel: str, text: str) -> None:
+    """Another task, start to done/, changes the file with a PASS of its own."""
+    start(at, name)
+    code(at, rel, text)
+    audited(at, name, f"r{name[:3]}")
+    commit_all(at, f"{name}: the other task's change")
+    close(at, name)
+
+
+def named(at: Path, name: str) -> list[str]:
+    return [line.split("«")[1].split("»")[0] for line in closing(at, name)[1]]
+
+
+start(cc, "094-foreign-replaced")
+code(cc, "src/fa.py", "FA = 1\n")
+code(cc, "src/fb.py", "FB = 1\n")
+audited(cc, "094-foreign-replaced", "r094a", verdict_word="BLOCK")   # the audit that saw exactly this code was a BLOCK
+commit_all(cc, "unit 1, two files")
+park(cc, "094-foreign-replaced")
+other_task(cc, "095-the-other-task", "src/fa.py", "FA = 1\nOTHER = 1\n")
+back(cc, "094-foreign-replaced")
+close(cc, "094-foreign-replaced")
+check("negative — another task changed the commit's file and this task has no PASS (the other task's PASS is not its own): named",
+      named(cc, "094-foreign-replaced") == ["unit 1, two files"], closing(cc, "094-foreign-replaced"))
+audited(cc, "094-foreign-replaced", "r094b")
+check("board 752 — a commit, a later commit of another task in one of its files, a PASS on the tree after it: covered",
+      closing(cc, "094-foreign-replaced") == ("соло", []), closing(cc, "094-foreign-replaced"))
+check("…and the other task closes on its own PASS", closing(cc, "095-the-other-task") == ("соло", []), closing(cc, "095-the-other-task"))
+other_task(cc, "096-a-third-task", "src/fa.py", "FA = 1\nOTHER = 1\nTHIRD = 1\n")
+check("…a third task changes the file after that PASS: the commit stays covered — what came later is the third task's to answer for",
+      closing(cc, "094-foreign-replaced") == ("соло", []), closing(cc, "094-foreign-replaced"))
+start(cc, "097-pass-before-the-commit")
+audited(cc, "097-pass-before-the-commit", "r097")   # sees src/fa.py as it was before this task's commit
+code(cc, "src/fa.py", "FA = 2\n")
+commit_all(cc, "unit 1, after the PASS")
+park(cc, "097-pass-before-the-commit")
+other_task(cc, "098-the-other-task", "src/fa.py", "FA = 1\nOTHER = 1\nTHIRD = 1\n")   # puts back what that PASS saw
+back(cc, "097-pass-before-the-commit")
+close(cc, "097-pass-before-the-commit")
+check("negative — the task's PASS saw the tree before the other task's commit, which left the file with the same content: named",
+      named(cc, "097-pass-before-the-commit") == ["unit 1, after the PASS"], closing(cc, "097-pass-before-the-commit"))
+start(cc, "099-changed-after-the-pass")
+code(cc, "src/fc.py", "FC = 1\n")
+commit_all(cc, "unit 1, never audited")
+park(cc, "099-changed-after-the-pass")
+other_task(cc, "100-the-other-task", "src/fc.py", "FC = 1\nOTHER = 1\n")
+back(cc, "099-changed-after-the-pass")
+code(cc, "src/fc.py", "FC = 1\nOTHER = 1\nMINE = 1\n")
+audited(cc, "099-changed-after-the-pass", "r099")   # sees an edit that is neither the commit nor what the other task left
+code(cc, "src/fc.py", "FC = 1\nOTHER = 1\nMINE = 2  # changed after the PASS\n")
+commit_all(cc, "unit 2, edited after its PASS")
+close(cc, "099-changed-after-the-pass")
+check("negative — the file was changed once more after the PASS: neither the first commit nor the last is covered",
+      named(cc, "099-changed-after-the-pass") == ["unit 1, never audited", "unit 2, edited after its PASS"], closing(cc, "099-changed-after-the-pass"))
+start(cc, "101-own-commit-after")
+code(cc, "src/fd.py", "FD = 1\n")
+commit_all(cc, "unit 1, never audited")
+park(cc, "101-own-commit-after")
+other_task(cc, "102-the-other-task", "src/fd.py", "FD = 1\nOTHER = 1\n")
+back(cc, "101-own-commit-after")
+audited(cc, "101-own-commit-after", "r101")
+code(cc, "src/fd.py", "FD = 1\nOTHER = 1\nMINE = 1\n")
+commit_all(cc, "unit 2, never audited")
+close(cc, "101-own-commit-after")
+check("negative — the task changes the file itself after the PASS on the other task's state: that commit is named, the first is covered",
+      named(cc, "101-own-commit-after") == ["unit 2, never audited"], closing(cc, "101-own-commit-after"))
 start(cc, "084-cyrillic")
 code(cc, "src/модуль.py", "N = 1\n")
 commit_all(cc, "a module named outside ASCII")

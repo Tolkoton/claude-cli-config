@@ -136,7 +136,8 @@ check the runner asks `python3 .claude/hooks/mode.py check-close <task>`, which 
 the Stop hook asks an audit for: under `SOURCE_DIRS`, else an extension of `CODE_EXTENSIONS`, else
 every file; never `tasks/` or `.engine/`), in every stay of the task in `doing/` and in the turn
 back, a PASS of the overseer whose audit saw exactly that code (a commit whose code a later commit of the task
-with such a PASS replaced is covered too — board 754); in конвеєр also the feature artifact and a matching seal on every slice contract the task
+with such a PASS replaced is covered too — board 754; so is a commit whose file a commit of another task changed later, when a
+PASS of this task saw the file as that commit left it — board 1730); in конвеєр also the feature artifact and a matching seal on every slice contract the task
 wrote; in ескіз the record `.engine/sketches/<name>.md` with a reader's PASS on it as it is and no change outside
 `sketches/`, `.engine/`, `tasks/` (board 099); in соло and конвеєр, when no commit of the task changed working
 code, a reader's PASS on its `report.md` as it is, read together with every document the task's commits changed,

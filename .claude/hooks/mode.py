@@ -417,18 +417,40 @@ def _seen(root: Path, tree: dict[str, Any], rel: str) -> str:
     return str(recorded).partition(":")[2] if recorded is not None else _digest(root, str(tree["head"]), rel)
 
 
+def _left_by_others(root: Path, commit: str, rel: str, own: set[str]) -> list[tuple[str, str]]:
+    """(another task's later commit in the file, the content it left), up to the task's own next commit in
+    it: a PASS of the task whose request held such a commit saw this commit's change with theirs on top (board 1730)."""
+    left: list[tuple[str, str]] = []
+    for later in _lines(_git(root, "log", "--reverse", "--format=%H", "--no-renames", "--ancestry-path", f"{commit}..HEAD", "--", rel)):
+        if later in own:
+            break   # from here the task's own commit answers for the file (board 754)
+        left.append((later, _digest(root, later, rel)))
+    return left
+
+
+def _saw(root: Path, tree: dict[str, Any], rel: str, commit: str, left: list[tuple[str, str]]) -> bool:
+    """The PASS saw the file as the commit has it, or as another task's later commit left it — and that commit
+    was in its request's history: the same content from before it is not the commit's code."""
+    seen = _seen(root, tree, rel)
+    return seen == _digest(root, commit, rel) or any(
+        seen == digest and _git(root, "merge-base", "--is-ancestor", later, str(tree["head"])).returncode == 0 for later, digest in left)
+
+
 def unaudited(root: Path, stem: str, commits: list[str]) -> list[str]:
     """Each commit of the task that changed working code no PASS of the overseer saw, as a line, oldest first.
-    Read newest first: a file a later covered commit changed needs no PASS of its own (board 754)."""
+    Read newest first: a file a later covered commit changed needs no PASS of its own (board 754); nor does a
+    file a PASS of the task saw as another task's later commit left it (board 1730)."""
     is_code = working_code(root)
     trees = passed_trees(root, stem)
     missing: list[str] = []
     replaced: set[str] = set()   # the files a later covered commit of the task changed: what it left is what a PASS saw
+    own = set(commits)
     for commit in reversed(commits):
         code = [rel for rel in _changed(root, commit) if is_code(rel)]
         if not code:
             continue
-        if any(all(rel in replaced or _seen(root, tree, rel) == _digest(root, commit, rel) for rel in code) for tree in trees):
+        left = {rel: _left_by_others(root, commit, rel, own) for rel in code if rel not in replaced}
+        if any(all(rel in replaced or _saw(root, tree, rel, commit, left[rel]) for rel in code) for tree in trees):
             replaced.update(code)
             continue
         subject = _lines(_git(root, "log", "-1", "--format=%s", commit))
