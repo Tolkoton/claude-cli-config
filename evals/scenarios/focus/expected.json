@@ -1,0 +1,85 @@
+{
+  "e": {
+    "agent": "business-analyst", "mode": "preseal",
+    "inputs": {"draft": "goals-v1.md", "interview": "interview.md"},
+    "before": null,
+    "must_find": [
+      {"kind": "contradiction", "lines": ["G4", "P3"], "why": "G4: no user opens another's log; P3: the owner, who is also a user, sees all logs in the first version"},
+      {"kind": "risk-reason", "lines": ["N3"], "why": "the owner said only «Так. Це не лікар.»; «помилка там коштує надто дорого» is the business analyst's"},
+      {"kind": "consequence", "lines": ["D1"], "why": "asking every person some time after every week; people who do not come back will not answer"},
+      {"kind": "late-choice", "lines": ["D1"], "why": "option (в) of the business analyst, chosen in the last minutes; its reason (logs we cannot see) does not hold while P3 stands"},
+      {"kind": "lost-emphasis", "quote_contains": "немає підходящого типу тижня", "why": "item 1 of the interview, in no line of the draft"},
+      {"kind": "no-core"}
+    ],
+    "must_not_find": [{"kind": "contradiction", "lines": ["G1", "P1"]}]
+  },
+  "f": {
+    "agent": "business-analyst", "mode": "consult",
+    "inputs": {"request": "request-injury-stop.md", "goals": "goals-v1.md"},
+    "after": {"answer": "NOT_REQUIRED", "lines_include": ["N3"]},
+    "before": {"note": "v0.13.0 has no NOT_REQUIRED; the expected failure is OWNER_DECISION with advice inside the menu"}
+  },
+  "f-trap": {
+    "agent": "business-analyst", "mode": "consult",
+    "inputs": {"request": "request-silent.md", "goals": "goals-v1.md"},
+    "after": {"answer": "OWNER_DECISION"},
+    "before": {"answer": "OWNER_DECISION"}
+  },
+  "g": {
+    "agent": "master-critic", "phase": "domain",
+    "inputs": {"draft": "domain-map-v1.md", "product_frame": "goals-v1.md"},
+    "after": {"verdict_not": "MASTER_CRITIC_PASS",
+              "objection_or_note_about": "«Безпека» has no goal line requiring it; N3 is a boundary, not a source; the fix is to remove it or move it to «Пропозиції», never to strengthen it"},
+    "before": {"same_check": true}
+  },
+  "h": {
+    "agent": "master-critic", "phase": "domain",
+    "inputs": {"draft": "domain-map-rev2.md", "product_frame": "goals-v1.md"},
+    "after": {"verdict_not": "MASTER_CRITIC_PASS", "objection_names_any": ["G3", "G6"],
+              "objection_about": "the conclusions are written by the owner, not made by the system"},
+    "before": {"same_check": true}
+  },
+  "i": {
+    "agent": "master-critic", "phase": "domain",
+    "inputs": {"draft": "domain-map-clean.md", "product_frame": "goals-v2.md"},
+    "after": {"judge": [
+      "No objection (BLOCKING or note) whose fix removes «Перевірка знеособлення»: it has a goal line (G4), a plausible scenario and a named cost.",
+      "No objection that asks to build anything listed under «Пропозиції»."
+    ]},
+    "before": {"same_check": true}
+  },
+  "j": {
+    "agent": "master-architect", "step": "Читання цілей",
+    "inputs": {"goals": "goals-v1.md", "research": "research-note.md"},
+    "before": null,
+    "after": {"judge": [
+      "N3 is read as «нічого не будуємо»; no detector, stop or filter appears in the reading.",
+      "One question to the owner quotes both G4 and P3 and asks which holds for the owner, who is both a user and the developer.",
+      "The consequences of D1 are put to the owner: asking every person after every week, and what happens with people who do not come back.",
+      "G3 and G6 are read as the system making the conclusions itself, with the owner able to check them.",
+      "No question about privacy for people outside the circle of friends: Q1 gives the default.",
+      "The research ideas (injury filter, short retention, bandits, reminder letter) appear only under «Пропозиції», never as mechanisms of the reading.",
+      "Every question to the owner quotes the goals line it comes from."
+    ]}
+  },
+  "k": {
+    "agent": "business-analyst", "mode": "guardian", "stage": "M1",
+    "inputs": {"artifact": "domain-map-rev2.md", "goals": "goals-v2.md", "interview": "interview.md"},
+    "before": null,
+    "after": {"block_names_any": ["G3"], "mentions": ["G7"],
+              "why": "the core goal G3 has no mechanism of the system: the owner writes the conclusions; G7 has no «підходящого типу немає» path"}
+  },
+  "k-neg": {
+    "agent": "business-analyst", "mode": "guardian", "stage": "M1",
+    "inputs": {"artifact": "domain-map-clean.md", "goals": "goals-v2.md", "interview": "interview.md"},
+    "before": null,
+    "after": {"no_block": true}
+  },
+  "l": {
+    "agent": "master-critic", "phase": "decision",
+    "inputs": {"draft": "adr-files-on-volume.md", "product_frame": "goals-v2.md"},
+    "after": {"verdict_in": ["MASTER_CRITIC_REVISE", "MASTER_CRITIC_POC_REQUIRED"],
+              "objection_about": "the premise «one Cloud Run instance, so no concurrent writes»: one instance serves many requests at once; two revisions overlap after a deploy; Cloud Storage FUSE has no file locking and the last write wins"},
+    "before": {"same_check": true}
+  }
+}

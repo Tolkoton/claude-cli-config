@@ -1144,7 +1144,7 @@ check("this repository carries the cap; the shipped project.env sets none (the k
 tools = {t.name: t.read_text(encoding="utf-8") for t in sorted((ROOT / "evals").glob("*.py"))}
 booking = sorted(name for name, text in tools.items() if re.search(r"\bbook_(?:session|extra)\(", text))
 check("every tool that books a session of Claude asks the weekly cap before it starts one",
-      len(booking) == 5 and all(re.search(r"\b(?:week_cap|extra_refusal)\(", tools[name]) for name in booking), booking)
+      len(booking) == 6 and all(re.search(r"\b(?:week_cap|extra_refusal)\(", tools[name]) for name in booking), booking)
 root = new_board()
 cap(root, "")
 book(root, ("002-eval", 1000.0, 0.1))
