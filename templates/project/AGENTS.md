@@ -9,7 +9,7 @@
 
 ## Active agents and pipeline
 
-`/business-analyst` (level 0: the owner's goals → `.engine/goals.md`; architects cite its lines) →
+`/business-analyst` (level 0: the owner's goals → `.engine/goals.md`; architects cite its lines; as `guardian` it checks the design against them) →
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
 `/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit,
 auto-triggered by the Stop hook). Before the code of a planned slice the `test-manager` decides who writes its contract tests — the `slice-tester`, who never sees the code, or the builder — and after it what else is checked or deferred (`testing.py`). `/mvp-architect` designs the cheapest thing that answers one

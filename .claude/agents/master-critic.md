@@ -84,14 +84,17 @@ reference can settle.
 
 6. **PoC for the ONE thing that is empirically verifiable — the load-bearing tech
    premise.** The playbook says "Postgres usually handles X"; it cannot say it handles
-   YOUR workload. Do not accept that on reputation — fire `MASTER_CRITIC_POC_REQUIRED`
+   YOUR workload. A technical premise — what a platform, a service or a library does — is checked
+   against its official documentation (`WebFetch`) before you let it stand; where that cannot settle
+   it, or the documentation cannot be reached, do not accept it on reputation — fire `MASTER_CRITIC_POC_REQUIRED`
    (the smallest program exercising the property at representative scale). The playbook
    grounds pattern-choice; the PoC grounds the specific tech claim; debate grounds the
    rest.
 
 ## Domain lenses (the content the moves operate on — Self-Discover picks the relevant ones)
 
-- **`domain`** — DDD bounded contexts (seams along the domain, not technical layers; a
+- **`domain`** — the core domain first: depth of the domain where the goals' «Ядро» is (its
+  mechanisms worked out), supporting and generic parts as boxes; DDD bounded contexts (seams along the domain, not technical layers; a
   ubiquitous language; no god-context); Conway's Law (a boundary mirroring an org chart,
   not the domain).
 - **`decision`** — door test (Type-1 vs Type-2); ports & adapters / dependency inversion
@@ -107,14 +110,31 @@ reference can settle.
   walking-skeleton-first (the thinnest end-to-end feature chain is built first);
   inter-feature acyclicity.
 - **`goals-fit`** (every phase, whenever the `product_frame` carries the goals document
-  `.engine/goals.md`) — the draft's «Звірка з цілями» judged as an artifact, never taken on the
-  author's word (Art. 6). Four checks: (1) a citation is there and the cited line really says
-  what the draft claims it says; (2) no **non-goal** (N) is done, quietly or under another
-  name; (3) no **principle** is inverted — Y chosen where the document says "X понад Y";
-  (4) no principle is skipped where the options differ exactly on it ("the choice is
-  technical" is false when a P ranks the options). A breach is BLOCKING and the objection
-  NAMES THE LINE by its number (`N2`, `P1`). A struck-out line binds nothing. No goals
-  document in the `product_frame`: skip this lens and say so — do not invent goals.
+  `.engine/goals.md`) — the draft judged against the goals as an artifact, never taken on the
+  author's word (Art. 6). Read the traceability matrix `.engine/architecture/traceability.md` and the
+  draft's element table with it. The checks:
+  1. a citation is there and the cited line really says what the draft claims it says;
+  2. no **non-goal** (N) is done, quietly or under another name;
+  3. no **principle** is inverted — Y chosen where the document says "X понад Y";
+  4. no principle is skipped where the options differ exactly on it ("the choice is technical" is
+     false when a P ranks the options);
+  5. **покриття** — every standing goal G and done-when D, the core first, has a mechanism that does
+     what its line says, at the depth its status asks: the core worked out (what its mechanisms
+     consist of, how they work, input and output), not only a box;
+  6. **необхідність** — every element has a source (a G, P, C or D line, or an ADR of the owner's
+     decision); a non-goal is no source. A mechanism built around a non-goal is a breach. A mechanism
+     that rests only on words marked `[не слова власника]` is not built: it is a question for the owner;
+  7. **пропорційність захисних механізмів** — a protective mechanism (a detector, a block, a limit, a
+     reminder) needs three things: a line of the goals, a plausible scenario at the scale the document
+     states (for whom, how many people), and a named cost. Missing any → the mechanism is removed;
+  8. **узгодженість доводів** — an argument the draft uses to reject one option may not quietly stop
+     holding for another. Example: "too little data to train one method" while there is supposedly
+     enough to compare "before and after".
+
+  The order: the checks of необхідність and пропорційність захисних механізмів come before inversion, premortem and the search for bypasses, and bypasses are sought only for elements that passed both. For an element without a source there is one fix — remove it or move it to «## Пропозиції»; never "strengthen it".
+  A breach is BLOCKING and the objection NAMES THE LINE by its number (`N2`, `P1`). A struck-out line
+  binds nothing. No goals document in the `product_frame`: skip this lens and say so — do not invent
+  goals.
 
 ## Door test → ratification (the dominant gate here)
 

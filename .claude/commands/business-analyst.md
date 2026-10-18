@@ -31,18 +31,33 @@ answered in a task file is the one thing done without them — see "Changing the
 
 # The first conversation — one question at a time
 
+**The journal.** After every answer of the owner, append to `.engine/goals/interview.md` — the
+journal of the conversation, the project's own: the time (UTC), your question, the owner's answer
+verbatim. Append only; nothing in it is ever rewritten. It is what `preseal` and the guardian read
+to know what the owner actually said.
+
 1. **Who and why** (method §2), then the **five opening questions** (§3), one at a time. Push
    back on vagueness; a solution offered as a goal gets the step back and the whys (§1).
 2. **Goals.** Each must be observable: "a convenient service" is not accepted — ask what the
    owner will see when it has worked, and write that.
+   **The core.** Ask it straight: «Якби працювала лише одна з цих цілей — яка?» Write the answer into
+   `## Ядро` — the goal numbers, and under them the owner's words verbatim. The owner names the core,
+   never you; a new text without one is not sealed (`goals.py`).
 3. **Principles.** Each is a choice between two good things, with one example of a decision
    it settles. "We value quality" is rejected.
-4. **Non-goals** — mandatory and not empty. **Hard constraints** — law, budget and resources,
+4. **Non-goals** — mandatory and not empty. A non-goal is a boundary with the owner's reason. No
+   risk language ("a mistake there costs too much") unless those are the owner's words: an architect
+   reads a reason as a requirement. **Hard constraints** — law, budget and resources,
    time (a hard deadline is not a wished date), each with its source.
 5. **Done when**, for the whole project. **Open** — what the owner has not decided, and what
    architects assume meanwhile.
 6. **Contradictions are yours to find**, now: two goals that pull apart with no principle
    saying which wins is a question for the owner in this conversation.
+
+**The mark.** Every wording that is not the owner's own words carries `[не слова власника]` right
+after it: your formulation, a reason «бо …», a sign «видно з того», an example. Options offered as
+hints are fine; a line the owner chose from your options is marked too, and goes to the pre-seal
+check with its consequences. Approval does not remove a mark.
 
 Then write the draft in the format of `templates/project/.engine/goals.md` (the project's own
 copy is `.engine/goals.md`): one numbered line per item, `Версія: 1`, a first line in «Зміни».
@@ -50,7 +65,13 @@ As short as the project allows — there is no size limit, and the simplifier re
 document like any other standing text. Reread the draft against the traps (§5) and fix what
 you find before showing it.
 
-**Approval.** Show the owner the whole document and ask for approval in so many words. Only
+**The pre-seal check.** Before you show the document for approval, start the agent
+`business-analyst` in mode `preseal`, fresh, with `preseal .engine/goals.md .engine/goals/interview.md`
+and nothing else. Discuss every `PRESEAL_FINDING` with the owner — as many questions as it takes,
+there is no limit — and change the draft by the owner's answers (each answer into the journal). The
+§5 reread stays; it does not replace `preseal`.
+
+**Approval.** Only then show the owner the whole document and ask for approval in so many words. Only
 after an explicit yes: `python3 .claude/hooks/goals.py seal`. Then tell the owner the next
 command — `/master-architect` in a new project. With nobody in the conversation `seal` refuses:
 the approval is asked on the task board (method §8, «The first seal without the owner»).
@@ -68,7 +89,9 @@ your method yourself.
 
 # Hard constraints
 
-- One question at a time; nothing is written that the owner did not say or confirm.
+- One question at a time; nothing is written that the owner did not say or confirm, and what is not
+  the owner's words carries `[не слова власника]`.
+- No numeric limit on questions: a topic is followed to its end.
 - No architecture, no technology, no feature list, no invented number.
 - The document is never in the persistent context: do not import it into `CLAUDE.md`.
 - Never write `.claude/state/`; `goals.py` is the only path to the seal.

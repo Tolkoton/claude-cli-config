@@ -101,6 +101,9 @@ test_health_record.py
 test_goals.py
 test_goals_mechanics.py
 test_goals_mechanics_disputed.py
+test_goals_roles.py
+test_goals_roles_disputed.py
+test_business_goals_focus_block.py
 test_analyst_evals.py
 test_onboard.py
 test_manager_evals.py

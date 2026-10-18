@@ -21,7 +21,7 @@ slice graph `/feature-architect` plans a feature into.
 
 ## Active agents and pipeline
 
-`/business-analyst` (level 0: the owner's goals → `.engine/goals.md`, sealed; architects cite its lines) →
+`/business-analyst` (level 0: the owner's goals → `.engine/goals.md`, sealed; architects cite its lines; as `guardian` it checks the design against them) →
 `/master-architect` (project design) → `/feature-architect` (feature → slice DAG) →
 `/plan-slice` (slice contract) → `slice-builder` (TDD build) → `overseer` (audit by a fresh agent, requested
 by the Stop hook). A slice with a sealed contract passes the `test-manager` twice (read-only: who writes the contract tests before the code — the `slice-tester`, blind to the code, or the builder; what is checked or deferred after it); `testing.py` holds the cases it cannot cancel.

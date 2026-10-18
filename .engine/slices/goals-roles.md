@@ -190,7 +190,7 @@ None.
   proposal named; the premise restated as a build order.
 
 ## Complexity budget
-base_commit: <S1's checkpoint commit — written right before this contract is sealed, after S1 is committed>
+base_commit: 0b0ef00cf7e002bdbab293328461da35b9afb92b
 max_new_files: 0
 max_net_new_lines: 0
 max_new_public_symbols: 0

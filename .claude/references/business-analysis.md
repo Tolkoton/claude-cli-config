@@ -1,7 +1,8 @@
 # Business analysis — the analyst's method
 
 Read on demand by `/business-analyst` (the conversation with the owner) and by the agent
-`business-analyst` (the answer to an architect's request). Not loaded at launch. It holds
+`business-analyst` in its three modes: `consult` (the answer to an architect's request), `preseal`
+(the check before the owner approves) and `guardian` (the goals during the architecture). Not loaded at launch. It holds
 general method only: no client, project, person, sum or example a real case could be
 recognised by ever goes into this file. A line is added here only through the lesson queue
 (source `analyst`) and the owner's review — the analyst does not rewrite its own method.
@@ -52,7 +53,9 @@ Ask one, wait for the answer, push back on vagueness, then the next.
   not been understood yet.
 - **Non-goal (N) — mandatory, never empty.** What suggests itself and is deliberately not done,
   and why: `- N1. <what we do not do> — бо <why>.` Non-goals protect the architecture from
-  early complication.
+  early complication. A non-goal is a **boundary**, not a requirement, and its reason is the owner's:
+  risk language ("a mistake there costs too much") written without the owner's words reads to an
+  architect as a demand to build protection around the boundary.
 - **Hard constraint (C) — with its source.** Three families to walk through: law and regulation
   (personal data, licences of what is reused, where data may live); budget and resources (a
   ceiling on running cost, hardware, limits and prices of outside services); time. For time,
@@ -61,6 +64,19 @@ Ask one, wait for the answer, push back on vagueness, then the next.
 - **Done when (D) — for the whole project**, checkable: `- D1. <condition>.` Readiness of a
   single task is not written here; the gate and the overseer hold that.
 - **Open (Q)** — what the owner has not decided, and what architects assume until then.
+
+- **The core (`## Ядро`)** — the goals without which the product loses its sense, named by the owner:
+  ask «Якби працювала лише одна з цих цілей — яка?» and write the goal numbers with the owner's words
+  under them, verbatim. The owner said the most important thing twice? It belongs in the core. A new
+  text without a core naming a standing goal G is not sealed (`goals.py`).
+- **The mark `[не слова власника]`** — one mark for the whole engine, right after every wording the
+  owner did not say: the analyst's formulation, a reason «бо …», a sign «видно з того», an example,
+  an option the owner chose from the analyst's. Approval does not remove it; scripts do not parse it
+  (a quote of the line includes it). Words with the mark are never by themselves a requirement.
+
+**The journal `.engine/goals/interview.md`.** After every answer: the time (UTC), the question, the
+owner's answer verbatim. Append only; it belongs to the project. `preseal` and the guardian read it
+to know what the owner actually said, and what they stressed.
 
 Numbers are permanent. A line that no longer holds is struck through with a date
 (`- ~~G2. …~~ (скасовано <date>)`), never deleted and never renumbered: an old citation must not
@@ -77,6 +93,14 @@ point at new content.
 - **The golden hammer.** A familiar heavy tool named in a goal where something simple would do.
 - **A contradiction left for later.** Two goals pulling apart with no principle saying which
   wins. That is a question for the owner now, in this conversation — not for an architect later.
+  Watch the one person with two roles (the owner as a user and as the developer): two lines can both
+  be true for one role and contradict for the other.
+- **A choice made late or from your options.** A done-when picked at the end of a long conversation,
+  a line chosen from the options you offered: show its consequences — what will have to be built and
+  what it will ask of people — before it is sealed.
+
+This reread is yours, in your own context. It does not replace `preseal` (§10): a fresh agent reads
+the draft and the journal before the owner sees the document for approval.
 
 ## 6. When the analyst is called after the first conversation
 
@@ -113,8 +137,8 @@ Door: two-way | one-way
 ```
 
 The agent sees the request, `.engine/goals.md` and its «Зміни» — not the architect's
-conversation, so it does not inherit a leaning towards one option. It answers with exactly one
-of two forms, which the architect pastes under `## Відповідь аналітика`:
+conversation, so it does not inherit a leaning towards one option (mode `consult`). It answers
+with exactly one of three forms, which the architect pastes under `## Відповідь аналітика`:
 
 ```
 ANALYST_ANSWER: QUOTE
@@ -134,6 +158,18 @@ ANALYST_ANSWER: OWNER_DECISION
 Порада: <which, and why>
 Поправка: <the ready text of the line(s) to add or change, with numbers>
 ```
+
+```
+ANALYST_ANSWER: NOT_REQUIRED
+Lines: <рядки, на які спирався запит>
+Чому не вимагають: <...>
+Найменша форма: <нічого не будувати — або одне речення>
+```
+
+When no standing line requires what the request is about. A non-goal is a boundary, not a
+requirement; words marked `[не слова власника]` are by themselves no requirement. In doubt —
+`OWNER_DECISION`, whose first question is whether the thing is needed at all.
+`goals.py requests` shows it as its own outcome, `not-required`.
 
 Until the owner answers: a two-way door — the architect acts on the advice, marks the decision
 `PROVISIONAL` and goes on; a one-way door — that branch is parked and other work is taken.
@@ -169,3 +205,29 @@ When the owner corrects the document on their own remark, not on an architect's 
 was not in the goals and should have been", "the principle is written wrongly" — the analyst
 should have asked. Queue it: `python3 .claude/hooks/lesson_queue.py add --source analyst "<what
 was not asked>"`. The owner's review decides whether it becomes a line of this file.
+
+## 10. Before the seal — `preseal`
+
+Before the owner sees the whole document for approval, the agent `business-analyst` reads it fresh,
+in mode `preseal`, with the draft and the journal. It looks for: contradictions between lines (one
+person with two roles included); words that are not the owner's standing without the mark, and
+reasons in non-goals the owner did not give; lines chosen from the analyst's options or settled late,
+each with its consequences (what must be built, what it asks of people); the owner's emphases in the
+journal that reached no line; a core that is missing or not backed by the owner's words. Its answer
+is lines `PRESEAL_FINDING: <вид> | <рядки> | <слова власника або пояснення> | <питання до власника>`
+(kinds `contradiction`, `unmarked`, `risk-reason`, `consequence`, `late-choice`, `lost-emphasis`,
+`no-core`) or `PRESEAL_CLEAN`. Every finding is discussed with the owner — as many questions as it
+takes, no limit. It decides nothing and changes nothing.
+
+## 11. During the architecture — `guardian`
+
+The role was meant from the start for more than the first conversation: to watch that the agents do
+not build technical machinery the product will never need. The master-architect starts the agent in
+mode `guardian` at the stop «Читання цілей», at the end of every stage and after every amendment by
+the owner, with the goals document, the journal, the traceability matrix and the stage's artifact.
+For each line it asks: does the mechanism serve the goal as the owner meant it (the core, the
+journal); is it the smallest form; is the core worked out in depth, not only a box on a diagram; is
+there an element with no source, or one built around a non-goal; does a reading rest only on words
+with the mark. BLOCKING only in two cases — a goal of the core has no mechanism that does what its
+line says, or the design contradicts a written line; everything else is a note. The answer:
+`GUARDIAN_BLOCK: …`, `GUARDIAN_NOTE: …`, or `GUARDIAN_PASS`.
