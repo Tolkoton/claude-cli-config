@@ -237,3 +237,19 @@ were approved by the owner and applied in board task 011 (one commit each, trail
   - applied to the plan 2026-10-11T23:02:06Z: K5 (board.py next-number) dropped from the plan: A2, S2 and the decisions no longer name the command; a number is given by the five sites and the inbox only — nothing is asked of the owner
   - evidence: read .engine/architecture/feature/task-numbers-by-class.md:137 K5 is listed under 'Decisions (agent; two-way doors)': its stated reason is convenience - 'one command to ask instead of reading four folders'; read tasks/doing/401-task-numbers-by-class-build.md:27 item 2 'Хто дає номер' names who issues a number: board.py from the `Клас:` line, the fixed classes 7/8/9, the unnumbered inbox file at import, `_own_number` in class 4 - no command that prints a number; read tasks/done/741-open-item-attended-session-task-numbers-600-699/design.md:48 design 741 section 2 lists the same sources; sections 1-6 and the test list contain no such command; grep .engine/architecture/feature/task-numbers-by-class.md:44 'next-number' across the repository appears only in this plan (lines 44, 137, 186, 189) and in the escalation entry that logs the plan's decisions; no owner text, goal or document mentions it; read .engine/architecture/feature/task-numbers-by-class.md:222 the closing step rewrites owner-review.md's hand-numbering line to point at the unnumbered inbox file with a `Клас:` line, so the plan names no reader who is told to run next-number; read .engine/overseer/escalations.md:737 K5 is recorded as an AUTONOMOUS agent decision, i.e. not an owner requirement; judgement  The fence, checked: A2 (lines 43-45) uses `next-number` with no `--class` as one of two places where the owner's test 'a task without a `Клас:` line is in class 1' is shown, because K4 gives the inbox no file without the line; the other place, the hotfix follow-up (class 1, K12), remains. A session that writes a numbered file straight into todo/ by hand would lose its one command and read the folders, with `renumber` and `check` still catching a clash. The reason is convenience plus a second demonstration point, not an owner criterion - hence a lead for the owner, not a removal.
   - test safety none, reversal risk medium, protected false, traces to: none found - task 401 item 2 and design 741 section 2 enumerate the number sources and do not include a command; A2's parenthetical cites it only as a place to show the class-1 default
+
+## 2026-10-18T17:59:18Z — requirements, feature business-goals-focus
+
+### confirm (0)
+
+### flag_only (0)
+
+## 2026-10-18T17:59:48Z — architecture, feature business-goals-focus
+
+### confirm (0)
+
+### flag_only (1)
+- APPLIED BY THE ARCHITECT `F-38e61790` **.engine/slices/goals-mechanics.md:92-115** — verbose_output: Only the count of elements outside «Пропозиції» needs to stay. The per-map tuple's second number (elements inside «Пропозиції») and the per-map stdout lines can go, which leaves trace_errors returning a single number and cmd_trace printing only `elements outside «Пропозиції»: <total>`.
+  - applied to the plan 2026-10-18T18:00:00Z: trace_errors returns one number; cmd_trace prints only the total outside «Пропозиції» (slice contract goals-mechanics, Seam) — nothing is asked of the owner
+  - evidence: read tasks/doing/201-business-goals-focus.md:90-91 the owner asks for one number; read .engine/architecture/feature/business-goals-focus.md:31-35 A4 asks only that it prints how many elements stand outside «Пропозиції»; judgement  I4 and Seam 3 still hold with only the outside total
+  - test safety none, reversal risk medium, protected false, traces to: none found for the count inside «Пропозиції» or the per-map lines; the outside total traces to task 201 §1 and A4

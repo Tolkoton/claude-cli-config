@@ -768,3 +768,12 @@ one; do not reopen the old one in conversation.
 - Evidence: `.engine/slices/numbers-class-table.md` «Critic notes».
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-18T18:30:00Z — AUTONOMOUS — board-201-s2-cold-reader-twice
+- Decision: the cold reader of the slice contract `goals-roles` blocked twice. Neither was an open judgment: the first found that the round-1 fixes had not reached the file (a replacement script that did not check its matches — re-applied, each asserted); the second that the complexity budget measured from 86863dd would ascribe S1's code to this slice — the base becomes S1's checkpoint commit, written at sealing. Both fixed as asked; the contract is sealed without a third cold read, and the overseer audits the slice against it.
+- Door: two-way
+- Cost to reverse: the contract is a text; a re-plan under a new slug if the owner wants a third read.
+- Why not escalated: the plan-slice breaker asks the owner to rule on an open objection; none is open — each was mechanical and is closed in the text.
+- Evidence: `.engine/slices/goals-roles.md` «Critic notes».
+- Falsified by: —
+- Status: CLOSED

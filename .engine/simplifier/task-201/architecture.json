@@ -1,0 +1,18 @@
+[
+  {
+    "target": "/home/lao/engine/.engine/slices/goals-mechanics.md:92-115",
+    "category": "verbose_output",
+    "claim": "Only the count of elements outside «Пропозиції» needs to stay. The per-map tuple's second number (elements inside «Пропозиції») and the per-map stdout lines can go, which leaves trace_errors returning a single number and cmd_trace printing only `elements outside «Пропозиції»: <total>`.",
+    "evidence": [
+      {"source": "read", "ref": "/home/lao/engine/tasks/doing/201-business-goals-focus.md:90-91", "detail": "the owner asks for one number"},
+      {"source": "read", "ref": "/home/lao/engine/.engine/architecture/feature/business-goals-focus.md:31-35", "detail": "A4 asks only that it prints how many elements stand outside «Пропозиції»"},
+      {"source": "judgement", "ref": "", "detail": "I4 and Seam 3 still hold with only the outside total"}
+    ],
+    "protected": false,
+    "chesterton_checked": true,
+    "test_safety": "none",
+    "proposed_action": "flag_only",
+    "traceability": "none found for the count inside «Пропозиції» or the per-map lines; the outside total traces to task 201 §1 and A4",
+    "reversal_risk": "medium"
+  }
+]
