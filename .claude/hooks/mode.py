@@ -463,7 +463,9 @@ def pipeline_missing(root: Path, commits: list[str]) -> list[str]:
     """конвеєр: the feature artifact and a matching seal on every slice contract the task wrote."""
     changed = sorted({rel for commit in commits for rel in _changed(root, commit)})
     features = [rel for rel in changed if rel.startswith(FEATURES) and rel.endswith(".md") and (root / rel).is_file()]
-    slices = [rel for rel in changed if rel.startswith(SLICES) and rel.endswith(".md") and (root / rel).is_file()]
+    # A contract is `.engine/slices/<slug>.md` itself: not the overrun records under overruns/, not <slug>.behaviors.md (board 201).
+    slices = [rel for rel in changed if rel.startswith(SLICES) and "/" not in rel[len(SLICES):] and rel.endswith(".md")
+              and not rel.endswith(".behaviors.md") and (root / rel).is_file()]
     missing = [] if features else [f"артефакту функції ({FEATURES}<назва>.md) серед змін задачі немає"]
     if not slices:
         missing.append(f"жодного slice contract-у ({SLICES}<slug>.md) серед змін задачі немає")

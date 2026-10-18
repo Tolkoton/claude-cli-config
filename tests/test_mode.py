@@ -604,6 +604,9 @@ check("negative — конвеєр without the feature artifact and with no slic
 start(cc, "069-pipeline-unsealed", "Режим: конвеєр")
 code(cc, ".engine/architecture/feature/pay.md", "# Feature pay\n")
 code(cc, ".engine/slices/pay-tax.md", "# contract\n")
+# Not contracts (board 201): the overrun record simplifier.py accept writes, and the builder's behaviour list.
+code(cc, ".engine/slices/overruns/pay-tax.md", "# Complexity overruns of slice pay-tax\n")
+code(cc, ".engine/slices/pay-tax.behaviors.md", "# behaviours\n")
 code(cc, "src/g.py", "G = 1\n")
 audited(cc, "069-pipeline-unsealed", "r069")
 commit_all(cc, "unit 1")
