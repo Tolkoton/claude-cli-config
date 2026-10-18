@@ -253,3 +253,18 @@ were approved by the owner and applied in board task 011 (one commit each, trail
   - applied to the plan 2026-10-18T18:00:00Z: trace_errors returns one number; cmd_trace prints only the total outside «Пропозиції» (slice contract goals-mechanics, Seam) — nothing is asked of the owner
   - evidence: read tasks/doing/201-business-goals-focus.md:90-91 the owner asks for one number; read .engine/architecture/feature/business-goals-focus.md:31-35 A4 asks only that it prints how many elements stand outside «Пропозиції»; judgement  I4 and Seam 3 still hold with only the outside total
   - test safety none, reversal risk medium, protected false, traces to: none found for the count inside «Пропозиції» or the per-map lines; the outside total traces to task 201 §1 and A4
+
+## 2026-10-18T18:26:40Z — budget, slice goals-mechanics
+
+### confirm (0)
+
+### flag_only (3)
+- `F-2c279042` **.claude/hooks/goals.py:626-629** — defensive_for_impossible: In cmd_trace's `except ValueError` branch the elements of both maps are recounted by hand; the branch exists only for a sealed document whose items raise, which every seal path refuses first. Printing REFUSED and returning exit 3 would shrink the overrun.
+  - evidence: read .claude/hooks/goals.py:626-629 the except branch recomputes total with a nested sum over MAPS and _tables; read tests/test_goals_mechanics_disputed.py:1-8 the only test of this branch, on question Q1; judgement  a seal file written by an older version or by hand could still point at such a document
+  - test safety characterization_exists, reversal risk medium, protected false, traces to: I4, in the reading of Q1
+- `F-b86621cb` **.claude/hooks/goals.py:261-267** — duplication: citations() and _matrix_errors() apply the same rule for reading the matrix (the same _tables lookup, the first table's rows, the same fullmatch of a line number).
+  - evidence: read .claude/hooks/goals.py:265-267 citations; read .claude/hooks/goals.py:202-207 _matrix_errors
+  - test safety characterization_exists, reversal risk low, protected false, traces to: slice contract «The matrix»
+- `F-127cb82b` **.claude/hooks/goals.py:153-160** — duplication: _section() takes a heading's body the same way cited() does; cited() could use the same step.
+  - evidence: read .claude/hooks/goals.py:158-160 _section; read .claude/hooks/goals.py:137-139 cited()
+  - test safety characterization_exists, reversal risk low, protected false, traces to: slice contract «The core»

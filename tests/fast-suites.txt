@@ -99,6 +99,8 @@ test_simplifier.py
 test_baseline_environments.py
 test_health_record.py
 test_goals.py
+test_goals_mechanics.py
+test_goals_mechanics_disputed.py
 test_analyst_evals.py
 test_onboard.py
 test_manager_evals.py

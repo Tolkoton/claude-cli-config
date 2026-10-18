@@ -104,7 +104,7 @@ print("the fixture and the sandboxes")
 lines = goals.items(document)
 check("the document has the lines the scenes rest on, one of them struck", {"N2", "P1", "C1"} <= set(lines) and lines["G3"].struck and not lines["N2"].struck)
 check("the drafts cite standing lines only (the breach is in what they do, not in a bad number)",
-      all(not goals.citation_errors(evals.fixture(name), lines) for name in ("a-draft.md", "b-draft.md")))
+      all(not goals.citation_errors(name, evals.fixture(name), lines) for name in ("a-draft.md", "b-draft.md")))
 check("nine runs: four scenes before and after, and the trap", len(evals.plan(list(evals.SCENES))) == 9 and evals.plan(["a"]) == [("a", "before"), ("a", "after")])
 with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--dry-run", str(Path(tmp) / "dry")], capture_output=True, text=True, check=False)

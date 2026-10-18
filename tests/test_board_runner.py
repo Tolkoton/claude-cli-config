@@ -1212,7 +1212,7 @@ direct = subprocess.run([sys.executable, str(ROOT / ".claude/unattended/owner_ac
 check("owner_action.py itself refuses what is not on its list (exit 2)", direct.returncode == 2 and "not an allowed action" in direct.stderr and not w.has("PWNED"), direct.stderr)
 
 # --- board 787: the first seal on a goals document, with nobody in the conversation ---------------
-GOALS_TEXT = "# Цілі\nВерсія: 1\n\n## Цілі\n- G1. Покупець оформлює замовлення сам.\n"
+GOALS_TEXT = "# Цілі\nВерсія: 1\n\n## Ядро\n- G1 — «покупець усе робить сам»\n\n## Цілі\n- G1. Покупець оформлює замовлення сам.\n"
 
 
 def goals_world() -> tuple[World, str]:

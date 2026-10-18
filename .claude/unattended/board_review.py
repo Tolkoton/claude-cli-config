@@ -619,7 +619,8 @@ def waiting_section(src: Source, state: Path) -> list[str]:
 # ------------------------------------------------------------------ the goals document (board 051)
 
 REQUEST_ENDS = {"quote-valid": "закрито цитатою документа, вас не турбували", "quote-invalid": "цитата НЕ збігається з документом — запит іде до вас",
-                "owner": "потрібне ваше рішення", "unanswered": "business analyst ще не відповів"}
+                "owner": "потрібне ваше рішення", "unanswered": "business analyst ще не відповів",
+                "not-required": "документ цього не вимагає (NOT_REQUIRED) — не будується, вас не турбували"}
 
 
 def goals_section(src: Source) -> list[str]:

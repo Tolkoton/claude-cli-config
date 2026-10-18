@@ -11,6 +11,7 @@
     python3 .claude/hooks/goals.py proposal                  # is .engine/goals/proposed.md a lawful amendment
     python3 .claude/hooks/goals.py amend <sha256>            # the board runner's, on the owner's «так»
     python3 .claude/hooks/goals.py first-seal <sha256>       # the board runner's, on the owner's «так»
+    python3 .claude/hooks/goals.py trace                     # the traceability matrix and the maps' element tables
 
 WHY. `.engine/goals.md` is what the owner wants from the project: goals (G), principles (P),
 non-goals (N), hard constraints (C), done-when (D), open questions (Q) — one numbered line each,
@@ -63,6 +64,8 @@ GOALS_REL = ".engine/goals.md"
 PROPOSED_REL = ".engine/goals/proposed.md"
 REVIEW_REL = ".engine/goals/to-review.md"
 REQUESTS_PREFIX = ".engine/goals/requests/"
+TRACE_REL = ".engine/architecture/traceability.md"
+MAPS = (".engine/architecture/domain-map.md", ".engine/architecture/architecture-map.md")
 STATE_REL = Path(".claude") / "state" / "goals" / "goals.sha256"
 EXIT_OK, EXIT_USAGE, EXIT_REFUSED, EXIT_NONE = 0, 2, 3, 4
 
@@ -72,7 +75,11 @@ ID = re.compile(rf"(?<![\w-])[{KINDS}]\d+(?![\w-])")
 VERSION = re.compile(r"^(?:Версія|Version):\s*(\d+)", re.MULTILINE)
 SECTION = re.compile(r"^#{2,4}\s*(?:Звірка з цілями|Goals check)\s*$", re.MULTILINE)
 HEADING = re.compile(r"^#{1,4}\s", re.MULTILINE)
-ANSWER = re.compile(r"^ANALYST_ANSWER:\s*(QUOTE|OWNER_DECISION)\s*$", re.MULTILINE)
+ANSWER = re.compile(r"^ANALYST_ANSWER:\s*(QUOTE|OWNER_DECISION|NOT_REQUIRED)\s*$", re.MULTILINE)
+CORE = re.compile(r"^## (?:Ядро|Core)[ \t]*$", re.MULTILINE)
+COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+ADR_PATH = re.compile(r"docs/adr/[^\s|)\]]+\.md")
+SOURCE_KINDS = "GPCD"
 FIELD = r"^{name}:[ \t]*(.*)$"
 REVIEW_HEADER = ("# Рішення, які треба переглянути\n\nКожен рядок дописав `goals.py` після поправки до документа цілей: рішення "
                  "посилалося на рядок, який змінився. Архітектор перечитує рішення і ставить `[x]`.\n\n")
@@ -127,20 +134,138 @@ def cited(text: str) -> tuple[bool, list[str]]:
     ids: list[str] = []
     sections = list(SECTION.finditer(text))
     for match in sections:
-        rest = text[match.end():]
-        following = HEADING.search(rest)
-        ids += ID.findall(rest[: following.start()] if following else rest)
+        ids += ID.findall(_body(text, match))
     return bool(sections), list(dict.fromkeys(ids))
 
 
-def citation_errors(text: str, lines: dict[str, Item]) -> list[str]:
-    has_section, ids = cited(text)
+def citation_errors(path: str, text: str, lines: dict[str, Item]) -> list[str]:
+    has_section, ids = citations(path, text)
     if not has_section:
-        return ["no «Звірка з цілями» section"]
+        return ["the matrix has no row" if path == TRACE_REL else "no «Звірка з цілями» section"]
     if not ids:
         return ["«Звірка з цілями» cites no line of the goals document"]
     errors = [f"{i} is not a line of the goals document" for i in ids if i not in lines]
     return errors + [f"{i} is struck out of the goals document" for i in ids if i in lines and lines[i].struck]
+
+
+def _body(text: str, match: re.Match[str]) -> str:
+    """The body under a heading line, to the next heading or the end."""
+    rest = text[match.end():]
+    following = HEADING.search(rest)
+    return rest[: following.start()] if following else rest
+
+
+def core_error(text: str) -> str:
+    """"" when `text` has a «## Ядро» naming a standing goal G, else why not (board 201)."""
+    match = CORE.search(text)
+    if not match:
+        return "no «## Ядро» section: the owner names the goals without which the product loses its sense"
+    lines = items(text)
+    named = [i for i in ID.findall(COMMENT.sub("", _body(text, match))) if i[0] == "G"]
+    for ident in named:
+        if ident not in lines:
+            return f"«Ядро» cites {ident}, which is not a line of the goals document"
+        if lines[ident].struck:
+            return f"«Ядро» cites {ident}, which is struck out"
+    return "" if named else "«Ядро» names no standing goal G"
+
+
+def _tables(text: str, first: tuple[str, ...]) -> list[tuple[list[str], list[tuple[str, list[str]]]]]:
+    """Each table whose header's first cell is one of `first`: (its header cells, [(the section, its cells)]).
+    A table is a block of consecutive `|` lines; its second line is the rule; the section is the last `## `."""
+    found: list[tuple[list[str], list[tuple[str, list[str]]]]] = []
+    section, block = "", []
+    for line in [*text.splitlines(), ""]:
+        if line.startswith("|"):
+            block.append([cell.strip() for cell in line.strip().strip("|").split("|")])
+            continue
+        if block and block[0][0] in first:
+            found.append((block[0], [(section, row) for row in block[2:]]))
+        block = []
+        if line.startswith("## "):
+            section = line[3:].strip()
+    return found
+
+
+def _line_errors(where: str, ident: str, lines: dict[str, Item]) -> list[str]:
+    if ident not in lines:
+        return [f"{where}: {ident} is not a line of the goals document"]
+    return [f"{where}: {ident} is struck out of the goals document"] if lines[ident].struck else []
+
+
+def _matrix_rows(text: str) -> list[tuple[str, bool]] | None:
+    """The first cells of the matrix's rows, each with «names a line»; None without a matrix."""
+    tables = _tables(text, ("Рядок", "Line"))
+    return [(row[0], bool(re.fullmatch(rf"[{KINDS}]\d+", row[0]))) for _, row in tables[0][1]] if tables else None
+
+
+def _matrix_errors(text: str, lines: dict[str, Item]) -> list[str]:
+    rows = _matrix_rows(text)
+    if rows is None:
+        return [f"{TRACE_REL}: no matrix (a table whose first column is «Рядок»)"]
+    errors: list[str] = []
+    seen: list[str] = []
+    for cell, names in rows:
+        if not names:
+            errors.append(f"{TRACE_REL}: a row names no line: «{cell}»")
+            continue
+        errors += [f"{TRACE_REL}: {cell} has two rows"] if cell in seen else _line_errors(TRACE_REL, cell, lines)
+        seen.append(cell)
+    return errors + [f"{TRACE_REL}: {i} has no row" for i, item in lines.items() if not item.struck and i not in seen]
+
+
+def _no_source(where: str, standing: list[str]) -> str:
+    """The sentence for an element with no valid source: naming the non-goal when the cell named one."""
+    tail = "remove it or move it to «## Пропозиції»"
+    goal_less = [i for i in standing if i[0] == "N"]
+    if goal_less:
+        return f"{where}: its only source is the non-goal {goal_less[0]} — a non-goal is a boundary, not a source: {tail}"
+    return f"{where} has no source (a G, P, C or D line, or an owner's decision in docs/adr/): {tail}"
+
+
+def _source_errors(where: str, cell: str, lines: dict[str, Item], exists: Callable[[str], bool]) -> list[str]:
+    ids, paths = ID.findall(cell), ADR_PATH.findall(cell)
+    errors = [e for i in ids for e in _line_errors(where, i, lines)] + [f"{where}: {p} is not a file" for p in paths if not exists(p)]
+    standing = [i for i in ids if i in lines and not lines[i].struck]
+    valid = any(i[0] in SOURCE_KINDS for i in standing) or any(exists(p) for p in paths)
+    return errors if valid else [*errors, _no_source(where, standing)]
+
+
+def _map_errors(rel: str, text: str, lines: dict[str, Item], exists: Callable[[str], bool]) -> tuple[list[str], int]:
+    tables = _tables(text, ("Елемент", "Element"))
+    if not tables:
+        return [f"{rel}: no element table (a table whose first column is «Елемент»)"], 0
+    errors, counted = [], 0
+    for header, rows in tables:
+        column = next((n for n, cell in enumerate(header) if cell in ("Джерело", "Source")), None)
+        if column is None:
+            errors.append(f"{rel}: the element table has no «Джерело» column")
+            continue
+        for section, row in rows:
+            if section in ("Пропозиції", "Proposals"):
+                continue
+            counted += 1
+            cell = row[column] if column < len(row) else ""
+            errors += _source_errors(f"{rel}: «{row[0]}»", cell, lines, exists)
+    return errors, counted
+
+
+def trace_errors(show: Show, lines: dict[str, Item], exists: Callable[[str], bool]) -> tuple[list[str], int]:
+    """(why the matrix and the maps' element tables do not stand, the elements outside «Пропозиції»)."""
+    errors, total = _matrix_errors(show(TRACE_REL), lines), 0
+    for rel in MAPS:
+        if exists(rel):
+            found, counted = _map_errors(rel, show(rel), lines, exists)
+            errors, total = errors + found, total + counted
+    return errors, total
+
+
+def citations(path: str, text: str) -> tuple[bool, list[str]]:
+    """`cited(text)`, except for the traceability matrix, whose citations are its rows (board 201)."""
+    if path != TRACE_REL:
+        return cited(text)
+    rows = _matrix_rows(text) or []
+    return bool(rows), list(dict.fromkeys(cell for cell, names in rows if names))
 
 
 def is_decision(path: str) -> bool:
@@ -148,7 +273,7 @@ def is_decision(path: str) -> bool:
     name = path.rsplit("/", 1)[-1].lower()
     if path.startswith("docs/adr/"):
         return name.endswith(".md") and name[:1].isdigit()
-    return path == ".engine/architecture/architecture-map.md" or (path.startswith(".engine/architecture/feature/") and name.endswith(".md"))
+    return path in (*MAPS, TRACE_REL) or (path.startswith(".engine/architecture/feature/") and name.endswith(".md"))
 
 
 def unreconciled(show: Show, files: Iterable[str]) -> list[tuple[str, str]]:
@@ -159,7 +284,7 @@ def unreconciled(show: Show, files: Iterable[str]) -> list[tuple[str, str]]:
         return []
     out = []
     for path in sorted(p for p in files if is_decision(p)):
-        errors = citation_errors(show(path), lines)
+        errors = citation_errors(path, show(path), lines)
         if errors:
             out.append((path, "; ".join(errors)))
     return out
@@ -168,7 +293,7 @@ def unreconciled(show: Show, files: Iterable[str]) -> list[tuple[str, str]]:
 def affected(show: Show, files: Iterable[str], ids: Iterable[str]) -> list[tuple[str, str]]:
     """(decision, line) for every decision whose «Звірка з цілями» cites one of `ids`."""
     wanted = set(ids)
-    return [(path, i) for path in sorted(p for p in files if is_decision(p)) for i in cited(show(path))[1] if i in wanted]
+    return [(path, i) for path in sorted(p for p in files if is_decision(p)) for i in citations(path, show(path))[1] if i in wanted]
 
 
 def changes(text: str) -> list[str]:
@@ -215,6 +340,8 @@ def request_outcome(path: str, text: str, document: str) -> Request:
     if answers[-1] == "OWNER_DECISION":
         return Request(path, reason, "owner", "")
     answer = text[list(ANSWER.finditer(text))[-1].end():]
+    if answers[-1] == "NOT_REQUIRED":
+        return Request(path, reason, "not-required", field(answer, "Lines", "Рядки"))
     error = quote_error(answer, document)
     if error:
         return Request(path, reason, "quote-invalid", error)
@@ -248,7 +375,8 @@ def amendment(old: str, new: str) -> tuple[list[str], list[str]]:
             errors.append(f"{ident} was struck out; a number is never used again — give the new line a new number")
         elif after[ident] != item:
             changed.append(ident)
-    return errors, changed
+    core = core_error(new)
+    return errors + ([core] if core else []), changed
 
 
 # ------------------------------------------------------------------ disk, state, commands
@@ -335,8 +463,26 @@ def cmd_seal(root: Path, owner_flag: bool, in_session: bool) -> int:
               "nobody is here to give it (unattended session). Ask on the task board: a question in tasks/blocked/ with the line "
               "`board.py action-line seal-goals` prints; the owner's «так» has the board runner seal it", file=sys.stderr)
         return EXIT_USAGE
+    core = core_error((root / GOALS_REL).read_text(encoding="utf-8"))
+    if core:
+        print(f"REFUSED: {core}", file=sys.stderr)
+        return EXIT_REFUSED
     print(f"sealed {GOALS_REL}  sha256 {write_seal(root)[:12]}…  -> {STATE_REL.as_posix()}")
     return EXIT_OK
+
+
+def cmd_status(root: Path) -> int:
+    """Today's line; and, for a document with numbered lines and no core, what that means."""
+    now = state(root)
+    print(STATE_TEXT[now])
+    text = (root / GOALS_REL).read_text(encoding="utf-8") if now != "absent" else ""
+    try:
+        core = core_error(text) if items(text) else ""
+    except ValueError:
+        core = ""
+    if core:
+        print(f"no core: {core} — " + ("the next amendment must add it" if now == "sealed" else "it is not sealed without one"))
+    return STATE_EXIT[now]
 
 
 def cmd_check(root: Path, paths: list[str]) -> int:
@@ -359,9 +505,9 @@ def cmd_check(root: Path, paths: list[str]) -> int:
             print(f"REFUSED: {rel}: no such file", file=sys.stderr)
             bad += 1
             continue
-        errors = citation_errors(show(rel), lines)
+        errors = citation_errors(rel, show(rel), lines)
         bad += bool(errors)
-        print(f"{'REFUSED' if errors else 'ok'}: {rel}" + (": " + "; ".join(errors) if errors else f" cites {', '.join(cited(show(rel))[1])}"),
+        print(f"{'REFUSED' if errors else 'ok'}: {rel}" + (": " + "; ".join(errors) if errors else f" cites {', '.join(citations(rel, show(rel))[1])}"),
               file=sys.stderr if errors else sys.stdout)
     return EXIT_REFUSED if bad else EXIT_OK
 
@@ -379,6 +525,9 @@ def cmd_quote(root: Path, rel: str) -> int:
     if result.outcome == "quote-valid":
         print(f"the quote stands — {result.detail}")
         return EXIT_OK
+    if result.outcome == "not-required":
+        print("REFUSED: the analyst answers NOT_REQUIRED: there is no quote to check", file=sys.stderr)
+        return EXIT_REFUSED
     reasons = {"unanswered": "the request has no `ANALYST_ANSWER:` line", "owner": "the analyst asks for the owner's decision: there is no quote to check",
                "quote-invalid": result.detail}
     print(f"REFUSED: {reasons[result.outcome]}. The answer does not close the request; it goes to the owner.", file=sys.stderr)
@@ -458,14 +607,37 @@ def first_seal(root: Path, approved: str, in_session: bool) -> int:
     if now == "sealed":
         print(f"first-seal: {STATE_TEXT[now]}")
         return EXIT_OK
+    core = core_error(document.read_text(encoding="utf-8"))
+    if core:
+        print(f"first-seal: {core}", file=sys.stderr)
+        return 1
     print(f"first-seal: sealed {GOALS_REL}  sha256 {write_seal(root)[:12]}…  -> {STATE_REL.as_posix()}")
     return EXIT_OK
+
+
+def cmd_trace(root: Path) -> int:
+    """The matrix and the maps' element tables against the approved document; the count always printed."""
+    now = state(root)
+    if now != "sealed":
+        print(STATE_TEXT[now], file=sys.stderr)
+        return STATE_EXIT[now]
+    show, _ = disk(root)
+    try:
+        errors, total = trace_errors(show, items(show(GOALS_REL)), lambda rel: (root / rel).is_file())
+    except ValueError as exc:
+        errors = [str(exc)]
+        total = sum(sum(section not in ("Пропозиції", "Proposals") for section, _ in rows)
+                    for rel in MAPS for _, rows in _tables(show(rel), ("Елемент", "Element")))
+    for error in errors:
+        print(f"REFUSED: {error}", file=sys.stderr)
+    print(f"elements outside «Пропозиції»: {total}")
+    return EXIT_REFUSED if errors else EXIT_OK
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("status", "unreconciled", "requests", "proposal"):
+    for name in ("status", "unreconciled", "requests", "proposal", "trace"):
         sub.add_parser(name)
     sub.add_parser("seal").add_argument("--owner-approved", action="store_true",
                                         help="the owner's flag, for the owner's own terminal; inside a Claude Code session it does not count")
@@ -478,21 +650,13 @@ def main(argv: list[str] | None = None) -> int:
     root = project_root()
     in_session = bool(os.environ.get("CLAUDECODE"))
     show, files = disk(root)
-    if args.command == "status":
-        print(STATE_TEXT[state(root)])
-        return STATE_EXIT[state(root)]
-    if args.command == "seal":
-        return cmd_seal(root, args.owner_approved, in_session)
-    if args.command == "check":
-        return cmd_check(root, args.files)
-    if args.command == "quote":
-        return cmd_quote(root, args.request)
-    if args.command == "proposal":
-        return cmd_proposal(root)
-    if args.command == "amend":
-        return amend(root, args.sha256, in_session)
-    if args.command == "first-seal":
-        return first_seal(root, args.sha256, in_session)
+    commands: dict[str, Callable[[], int]] = {
+        "status": lambda: cmd_status(root), "seal": lambda: cmd_seal(root, args.owner_approved, in_session),
+        "check": lambda: cmd_check(root, args.files), "quote": lambda: cmd_quote(root, args.request),
+        "proposal": lambda: cmd_proposal(root), "amend": lambda: amend(root, args.sha256, in_session),
+        "first-seal": lambda: first_seal(root, args.sha256, in_session), "trace": lambda: cmd_trace(root)}
+    if args.command in commands:
+        return commands[args.command]()
     if not show(GOALS_REL):
         print(STATE_TEXT["absent"], file=sys.stderr)
         return EXIT_NONE

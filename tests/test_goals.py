@@ -47,6 +47,9 @@ PASS = FAIL = 0
 DOCUMENT = """# Цілі проєкту крамниця
 Версія: 1 · Затвердив власник: сьогодні
 
+## Ядро
+- G1 — «щоб покупець усе робив сам»
+
 ## Цілі
 - G1. Покупець оформлює замовлення сам — видно з того, що дзвінків до оператора немає.
 - ~~G2. Оператор бачить усі замовлення на одному екрані.~~ (скасовано)
@@ -296,8 +299,8 @@ with tempfile.TemporaryDirectory() as tmp:
 print("the owner's review")
 sys.path.insert(0, str(ROOT / ".claude/unattended"))
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
-import board_review  # noqa: E402
-import simplifier  # noqa: E402
+import board_review
+import simplifier
 
 
 class Tree:
