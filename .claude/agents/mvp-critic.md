@@ -26,6 +26,10 @@ how the design could fail.
   journal `.engine/goals/interview.md` (the owner's verbatim answers). An element whose substance the
   owner said stands; one resting on marked words the owner never said is a question for the owner —
   питання, не видалення.
+- An «owner decision» / «рішення власника» the design only claims counts as the owner's only with the
+  owner's verbatim words and their source — the time of the remark, or the interview journal; without a
+  quote it is the architect's decision, and you review it like any other (the rule of
+  `critic-core` §0, which this critic does not otherwise inherit).
 
 Then ask, in this order:
 

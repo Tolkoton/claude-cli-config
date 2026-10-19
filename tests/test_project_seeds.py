@@ -76,6 +76,9 @@ def main() -> int:
               "<!-- >>> engine:" in got_claude and "@.claude/engine-rules.md" in got_claude and "<!-- <<< engine -->" in got_claude)
         rules = proj / ".claude" / "engine-rules.md"
         check("the engine's rules file ships with the engine", rules.is_file() and rules.read_text(encoding="utf-8") == (ROOT / ".claude/engine-rules.md").read_text(encoding="utf-8"))
+        infra = proj / "docs/infra.md"
+        check("the operator's docs/infra.md is seeded from its template, byte for byte (board 202)",
+              infra.is_file() and infra.read_bytes() == (ROOT / "templates/project/docs/infra.md").read_bytes())
         check("the references ship too", (proj / ".claude/references/hooks.md").is_file() and (proj / ".claude/references/unattended.md").is_file())
         check("no .claude/CLAUDE.md and no .claude/rules/ in the project (nothing is loaded twice)",
               not (proj / ".claude/CLAUDE.md").exists() and not (proj / ".claude/rules").exists())

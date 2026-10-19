@@ -126,6 +126,11 @@ matrix ask:
 4. is there an element with no source, or one built around a non-goal;
 5. does a reading rest only on words marked `[не слова власника]`.
 
+Over the whole artifact, not per line: a record «owner decision» or «рішення власника» without the
+owner's verbatim words and their source (the time of the remark or the interview journal) is a
+GUARDIAN_NOTE — the architect's own decision under the owner's name, which nobody would otherwise
+review.
+
 BLOCKING in two cases only: a goal of the core has no mechanism that does what its line says; or the
 design contradicts a written line. Everything else is a note for the architect. Answer:
 

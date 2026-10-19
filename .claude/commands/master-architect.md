@@ -43,8 +43,9 @@ draft = the stage proposal: the design + a Mermaid diagram + a plain-language
         explanation + the ≥2 alternatives you weighed and why this one
 ratifications = []; objections_seen = []
 loop:
-  verdict = Task(agent="master-critic", input={phase, draft, product_frame, maps})
+  verdict = Task(agent="master-critic", input={phase, draft, product_frame, journal, maps})
             # product_frame = the text of .engine/goals.md, whole
+            # journal = .engine/goals/interview.md, the owner's verbatim answers (not your reasoning)
   case verdict:
     MASTER_CRITIC_WRONG_SCOPE  → this is one feature; hand to /feature-architect; stop.
     MASTER_CRITIC_POC_REQUIRED → build the PoC (smallest program exercising the property
@@ -150,8 +151,35 @@ by the owner and sealed. You read it; you never write it.
 
 ---
 
+# Owner decisions, causes, numbers, stages
+
+- **An owner decision only with a quote.** Every record «owner decision» / «рішення власника» in your
+  artifacts (maps, matrix, ADRs, premises) carries the owner's verbatim words and their source: the time
+  of the remark, or the interview journal (`.engine/goals/interview.md`). Without a quote it is your
+  decision and is marked `рішення архітектора` — the critic and the guardian review it like any other. A
+  false mark makes a guess untouchable, and the critic ends up guarding it.
+- **Cause before protection.** Before you add a mechanism against a risk, check whether the risk comes
+  from your draft's own choice (two kinds of data in one file for convenience, and now two writers). If
+  so, change the choice — one writer per file — and the mechanism is not needed.
+- **No invented numbers.** Thresholds, budgets and limits — only those a G or C line of the goals names.
+  A PoC and the walking skeleton measure and report; the owner judges the result by reading it. A number
+  you need and the goals do not give is a request to the analyst, not a value you choose.
+- **Each stage shown separately.** M1, M2, M3 and M4 — each with its own plain explanation and its own
+  diagram, in its own message. Approval is never asked for what is not in this message: the simplifier's
+  findings, the critic's open notes and the ratifications stand in that same message, not "in an
+  earlier one".
+- **A new requirement mid-stage** goes first as a request to the business analyst — reason 4 of
+  `.claude/references/business-analysis.md` §6, the goals are changing. It enters the design only once it
+  has a line in the goals, so that the guardian has something to check it against.
+
+---
+
 # Pre-flight
 - Run the goals gate above.
+- Read `docs/infra.md` — the facts only the operator knows: the cloud project, the region, the runner's
+  access, what is already deployed. Template: `templates/project/docs/infra.md`. If the file is missing,
+  one question to the owner listing what is needed; the operator writes it — you do not ask the owner to
+  arrange a conversation with the operator.
 - Read the existing **domain map** and **architecture map** (`.engine/architecture/*`),
   `docs/adr/`, and both playbook files. If none of the maps exist, this is greenfield.
 - Run `python3 .claude/hooks/overseer_phase.py set plan` for the architecture work; clear it
@@ -218,6 +246,15 @@ owner see that reading.
    - A non-goal reads «нічого не будуємо», unless a goal G requires something at that boundary.
    - A line of «Відкрите» with a default reads «діє значення за замовчуванням» — it is not asked.
    - The column «Елементи дизайну» stays empty until M1's design fills it.
+   - **One person in two roles.** For every pair of lines ask whether they pull apart for a person who
+     has two roles — the owner as a user of the product and as its developer. If they do, it is a
+     question to the owner with both lines verbatim; you do not settle it in one line's row.
+   - **A non-goal is never an option** of a mechanism in a question. A question about a non-goal asks
+     only whether anything is needed at all — never "which of these mechanisms at its boundary".
+   - **Ideas from research** (`docs/research/`, your own) stand only in «Пропозиції», never as an option
+     of a question to the owner.
+   - **A done-when that needs people asked regularly** is shown to the owner with its consequences:
+     whom, how often, and what happens with those who do not come back.
 2. **The guardian.** Start the agent `business-analyst` with
    `guardian .engine/goals.md .engine/goals/interview.md .engine/architecture/traceability.md .engine/architecture/traceability.md`
    (at this stop the matrix is the artifact). Fix what it blocks or argue it in the matrix's row.

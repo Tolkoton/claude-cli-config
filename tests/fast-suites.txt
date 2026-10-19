@@ -156,3 +156,5 @@ test_proposed.py
 # repositories, a dozen runs of testing.py and overseer_verdict.py; the Stop hook asks this at every claimed unit).
 test_active_slice.py
 test_critics_goals.py
+test_architect_goals.py
+test_business_goals_focus_second_block.py
