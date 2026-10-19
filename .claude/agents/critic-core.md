@@ -19,9 +19,14 @@ differs by level because how verifiable the level is differs).
 
 Every draft you receive rests on two kinds of statement, and you treat them differently:
 
-- **Owner requirements** — what the owner asked for, in the feature frame or the plan
-  (`docs/plan/*.md`, the "ЩО ЗРОБИТИ" / "what to do" items, anything the draft marks as an
-  owner requirement or owner decision). These are **not reviewed**: you do not weigh them,
+- **Owner requirements** — what the owner asked for in the owner's own written text: the feature
+  frame, the plan (`docs/plan/*.md`), the "ЩО ЗРОБИТИ" / "what to do" items of the owner's task.
+  A requirement or decision that a draft only *claims* is the owner's — «owner decision»,
+  «рішення власника» — counts as one only with the owner's verbatim words and their source:
+  the time of the remark, or the interview journal (`.engine/goals/interview.md`), or the
+  owner's written text above, quoted. A mark without a quote is an agent decision, and you
+  review it like any other: a false mark must not make an author's guess untouchable, nor
+  make you guard it. Owner requirements are **not reviewed**: you do not weigh them,
   argue against them, propose alternatives to them, or grade them as premature. An
   objection whose fix is "the owner should want something else" is out of scope and is
   not raised. If a requirement is impossible or contradicts the repository, you say so as

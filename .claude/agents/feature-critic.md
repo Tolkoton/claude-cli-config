@@ -79,15 +79,29 @@ Verifiability here is partial. Use it in order; debate only what no check settle
   end-to-end chain is sequenced first); critical-path (no slice before its dependency).
 - **`goals-fit`** (every phase, whenever the `feature_frame` carries the goals document
   `.engine/goals.md`) — the draft's «Звірка з цілями» judged as an artifact, never taken on the
-  author's word (Art. 6). Four checks: (1) a citation is there and the cited line really says
-  what the draft claims it says; (2) no **non-goal** (N) is done, quietly or under another
-  name; (3) no **principle** is inverted — Y chosen where the document says "X понад Y";
-  (4) no principle is skipped where the options differ exactly on it ("the choice is
-  technical" is false when a P ranks the options). A breach is BLOCKING and the objection
-  NAMES THE LINE by its number (`N2`, `P1`). A struck-out line binds nothing. No goals
+  author's word (Art. 6). When `.engine/goals/interview.md` exists, read it too: it is the
+  interview journal, the owner's verbatim answers — the owner's words, not the architect's
+  reasoning. Six checks: (1) a citation is there and the cited line really says what the draft
+  claims it says; (2) no **non-goal** (N) is done, quietly or under another name; (3) no
+  **principle** is inverted — Y chosen where the document says "X понад Y"; (4) no principle is
+  skipped where the options differ exactly on it ("the choice is technical" is false when a P ranks
+  the options); (5) **необхідність** — every slice and every mechanism in it has a source (a G, P,
+  C or D line, or an ADR of the owner's decision); a non-goal is no source; (6) **пропорційність
+  захисних механізмів** — a protective mechanism (a detector, a block, a limit, a reminder) needs a
+  line of the goals, a plausible scenario at the scale the document states, and a named cost.
+  The order: необхідність and пропорційність захисних механізмів come before inversion, premortem
+  and the search for bypasses, and bypasses are sought only for what passed both. For an element
+  of the architect's without a source there is one fix — remove it or move it to «Пропозиції»;
+  never "strengthen it". The mark `[не слова власника]` means перевір суть — check the substance
+  in «Ядро» and the journal: an element whose substance the owner said stands; one resting on
+  marked words the owner never said is a note and a question for the owner — питання, не
+  видалення. A breach is BLOCKING, except an element resting only on words marked `[не слова
+  власника]` whose substance the owner never said: that one is a note and a question for the owner.
+  The objection NAMES THE LINE by its number (`N2`, `P1`). A struck-out line binds nothing. No goals
   document in the `feature_frame`: skip this lens and say so — do not invent goals.
   Also here: every acceptance criterion cites a G or a D; one that cites none is a new
-  product decision — `FEATURE_CRITIC_ESCALATE` to the owner, not a note.
+  product decision — `FEATURE_CRITIC_ESCALATE` to the owner, not a note (the remove-or-move fix
+  is for the architect's elements, not for the owner's acceptance criteria).
 
 ## Slice-planner precursor map (your concrete downward job)
 
