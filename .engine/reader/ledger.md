@@ -61,3 +61,8 @@
 - Record: tasks/done/403-maintain-2026-10-19/report.md
 - Reason: All four questions hold. Every file:line reference and number I could check matches the documents. Both «Що зробити» items have an answer: the maintenance report is written, and the report says why there is no blocked/ question (nothing to update). There is no open owner question. Engine terms stay in English (gates, runner, simplifier, task board, fixtures).
 - Request: 20261019T084036Z-bc9e8d (attempt 1)
+
+## 2026-10-19T17:00:14Z — 203-cause-first-scope — READER_PASS
+- Record: tasks/done/203-cause-first-scope/report.md
+- Reason: The report passes all four checks. Every file:line reference I could open says what the report claims. Every item of «Що зробити» and «Готово, коли» is either done in the changed files or explicitly sent to task 502. There are no open questions for the owner. Engine terms (critic, commit, Stop gate, hook, Golden set, business analyst) are left in English.
+- Request: 20261019T165924Z-ff4c22 (attempt 1)
