@@ -66,3 +66,13 @@
 - Record: tasks/done/203-cause-first-scope/report.md
 - Reason: The report passes all four checks. Every file:line reference I could open says what the report claims. Every item of «Що зробити» and «Готово, коли» is either done in the changed files or explicitly sent to task 502. There are no open questions for the owner. Engine terms (critic, commit, Stop gate, hook, Golden set, business analyst) are left in English.
 - Request: 20261019T165924Z-ff4c22 (attempt 1)
+
+## 2026-10-19T17:22:05Z — 502-business-goals-focus-evals-second — READER_BLOCK
+- Record: tasks/done/502-business-goals-focus-evals-second/report.md
+- Reason: Question 4 fails: the report translates an engine term. At report.md:71, «Сесія виконавця» uses «виконавець» where it should say runner. Question 1 also fails: report.md:22 gives scene j's 501 result as «6/7, 4/7», but 501's recorded judge answers for j's second attempt pass only 3 of 7 points. The other references check out against the results files, the commits and the git log, every «Що зробити» item has its answer, and there is no open question for the owner.
+- Request: 20261019T172039Z-b35d6e (attempt 1)
+
+## 2026-10-19T17:23:30Z — 502-business-goals-focus-evals-second — READER_PASS
+- Record: tasks/done/502-business-goals-focus-evals-second/report.md
+- Reason: All four questions hold. The numbers, the quotes and the commit references in the report match focus-evals-task-502.json, focus-evals-task-501.json and the 501 report. Every item of «Що зробити» and «Готово, коли» is answered: no proposal was needed because no «після» scene failed both attempts. There is no open question for the owner, and the engine terms are in English (runner, commit, fixtures, overseer, reader, PoC, premise).
+- Request: 20261019T172210Z-4cbf39 (attempt 2)
