@@ -81,5 +81,50 @@
     "after": {"verdict_in": ["MASTER_CRITIC_REVISE", "MASTER_CRITIC_POC_REQUIRED"],
               "objection_about": "the premise «one Cloud Run instance, so no concurrent writes»: one instance serves many requests at once; two revisions overlap after a deploy; Cloud Storage FUSE has no file locking and the last write wins"},
     "before": {"same_check": true}
+  },
+  "m": {
+    "agent": "master-critic",
+    "phase": "decision",
+    "inputs": {
+      "draft": "adr-audio-owner-decision.md",
+      "product_frame": "goals-v2.md",
+      "interview": "interview.md"
+    },
+    "after": {
+      "verdict_not": "MASTER_CRITIC_PASS",
+      "objection_about": "«рішення власника» about audio has no words of the owner and no source (the interview has none): it is an agent decision; the service, nightly check and one-year journal are disproportionate"
+    },
+    "before": {
+      "same_check": true
+    }
+  },
+  "n": {
+    "agent": "master-critic",
+    "phase": "decision",
+    "inputs": {
+      "draft": "adr-two-writers.md",
+      "product_frame": "goals-v2.md"
+    },
+    "after": {
+      "verdict_not": "MASTER_CRITIC_PASS",
+      "objection_about": "the two writers come from the draft's own choice to put conversation and map into one file; the fix is one writer per file, not conditional writes and a proof-of-concept"
+    },
+    "before": {
+      "same_check": true
+    }
+  },
+  "o": {
+    "agent": "master-critic",
+    "phase": "decision",
+    "inputs": {
+      "draft": "poc-thresholds.md",
+      "product_frame": "goals-v2.md"
+    },
+    "after": {
+      "objection_or_note_about": "the thresholds (latency, price, pass rates) and the knowledge size budget name numbers no goals line names; the proof-of-concept measures and reports, the owner judges"
+    },
+    "before": {
+      "same_check": true
+    }
   }
 }

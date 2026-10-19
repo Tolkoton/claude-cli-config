@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Ten scenes that measure the FOCUS ON THE BUSINESS GOALS — the changes of board 201 (board 501).
+"""Thirteen scenes that measure the FOCUS ON THE BUSINESS GOALS — the changes of boards 201 and 202 (boards 501, 502).
 
-    python3 evals/run_focus_evals.py [--out FILE] [--scenes e f g …] [--max-usd 20] [--resume FILE]   # real sessions
+    python3 evals/run_focus_evals.py [--out FILE] [--scenes e f g …] [--before m n o] [--twice h i …] [--max-usd 20] [--resume FILE]
     python3 evals/run_focus_evals.py --dry-run DIR                                                    # free: the sandboxes and the prompts
 
 The project is an invented one, «Бігова група» (evals/scenarios/focus/README.md): it carries the
@@ -21,14 +21,24 @@ traps the engine v0.13.0 fell into in its first real project. BEFORE is the defi
     k-neg  business-analyst, guardian M1 the clean map: no GUARDIAN_BLOCK
     l      master-critic, decision       the premise «one instance, so no concurrent writes»: REVISE or POC_REQUIRED, and
                                          the judge agrees the objection is about that premise
+    m      master-critic, decision       an «owner's decision» with no words of the owner in the interview: not PASS, and the
+                                         judge agrees it is called an agent decision guarded out of proportion
+    n      master-critic, decision       two writers in one file by the draft's own choice: not PASS, and the judge agrees
+                                         the fix is one writer per file, not conditional writes
+    o      master-critic, decision       a proof-of-concept with thresholds no goals line names: the judge finds an
+                                         objection or a note that it must measure and report, the owner judges
+
+The master-critic gets the interview journal in every scene, as /master-architect passes it (board 202) — where the
+variant's /master-architect passes one: v0.13.0 did not, so its BEFORE gets none.
 
 Where the output is structured (ANALYST_ANSWER, PRESEAL_FINDING, GUARDIAN_*, the critic's verdict) the
 script checks it. Where a scene's goodness is what the text says, a fresh JUDGE session gets the
 written rubric and answers «так» or «ні» with a quote for each point; the judge runs only when the
 script's part already holds (a scene the script fails is not good whatever the text says).
 
-Every AFTER run that is not good runs once more (attempt 2), to tell noise from a real miss; the
-report keeps both. A scene that fails is work on a definition, never a verdict on the role (board
+Every AFTER run that is not good runs once more (attempt 2), to tell noise from a real miss, and the
+scenes of --twice run twice whatever the first said; the report keeps both. --before narrows the
+BEFORE runs to the scenes named (default: every scene that has one). A scene that fails is work on a definition, never a verdict on the role (board
 051); nothing is tuned to the result.
 
 EXTRA SESSIONS (board 078, 110). Each session — the judge's too — is booked to the task in hand; the
@@ -60,7 +70,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "focus"
 BEFORE_REF = "v0.13.0"
-SCENES = ("e", "f", "f-trap", "g", "h", "i", "j", "k", "k-neg", "l")
+SCENES = ("e", "f", "f-trap", "g", "h", "i", "j", "k", "k-neg", "l", "m", "n", "o")
 SHIPPED = (".claude/agents", ".claude/references", ".claude/commands", ".claude/constitution.md")
 PRESEAL_RE = re.compile(r"^\W*PRESEAL_FINDING:\s*(.+)$", re.MULTILINE)
 GUARDIAN_RE = re.compile(r"^\W*GUARDIAN_(BLOCK|NOTE|PASS)\b:?\s*(.*)$", re.MULTILINE)
@@ -93,8 +103,22 @@ def variants(scene: str, expected: JsonObj) -> tuple[str, ...]:
     return ("after",) if expected[scene].get("before") is None else ("before", "after")
 
 
-def plan(scenes: list[str], expected: JsonObj) -> list[tuple[str, str]]:
-    return [(scene, variant) for scene in scenes for variant in variants(scene, expected)]
+def plan(scenes: list[str], expected: JsonObj, before: list[str] | None = None) -> list[tuple[str, str]]:
+    return [(scene, variant) for scene in scenes for variant in variants(scene, expected)
+            if variant == "after" or before is None or scene in before]
+
+
+def inputs_of(scene: str, expected: JsonObj) -> JsonObj:
+    """The scene's inputs; the master-critic's always carry the interview journal (board 502)."""
+    exp = expected[scene]
+    return dict(exp["inputs"]) | ({"interview": "interview.md"} if exp["agent"] == "master-critic" else {})
+
+
+def passes_journal(variant: str, ref: str) -> bool:
+    """Whether this variant's /master-architect hands the critic the journal — read from the definition, not assumed."""
+    rel = ".claude/commands/master-architect.md"
+    definition = (ROOT / rel).read_text(encoding="utf-8") if variant == "after" else analyst.at_ref(ref, rel)
+    return "journal = .engine/goals/interview.md" in definition
 
 
 # ------------------------------------------------------------------ sandboxes and prompts
@@ -117,7 +141,7 @@ def build_sandbox(target: Path, scene: str, variant: str, ref: str, expected: Js
             (target / rel).parent.mkdir(parents=True, exist_ok=True)
             (target / rel).write_text(analyst.at_ref(ref, rel), encoding="utf-8")
     exp = expected[scene]
-    inputs = dict(exp["inputs"])
+    inputs = inputs_of(scene, expected)
     if "draft" in inputs and exp.get("mode") == "preseal":
         inputs["goals"] = inputs.pop("draft")  # /business-analyst writes the draft where the document will stand
     if "product_frame" in inputs:
@@ -137,9 +161,10 @@ def prompt(scene: str, variant: str, expected: JsonObj, ref: str) -> tuple[str, 
     """(the prompt, the agent to run it as or None for a plain session)."""
     exp = expected[scene]
     if exp["agent"] == "master-critic":
-        inputs = exp["inputs"]
+        inputs = inputs_of(scene, expected)
+        journal = f"journal:\n{fixture(inputs['interview'])}\n\n" if passes_journal(variant, ref) else ""
         return (f"MASTER_CRITIC_REVIEW_REQUESTED\nphase: {exp['phase']}\n\nproduct_frame:\n{fixture(inputs['product_frame'])}\n\n"
-                f"draft:\n{fixture(inputs['draft'])}"), "master-critic"
+                f"{journal}draft:\n{fixture(inputs['draft'])}"), "master-critic"
     if exp["agent"] == "master-architect":
         rel = ".claude/commands/master-architect.md"
         definition = (ROOT / rel).read_text(encoding="utf-8") if variant == "after" else analyst.at_ref(ref, rel)
@@ -271,7 +296,7 @@ def parse_judge(answer: str, points: int) -> JsonObj:
 
 def judge_prompt(scene: str, answer: str, expected: JsonObj) -> str:
     exp = expected[scene]
-    inputs = "\n\n".join(f"--- {key}: {name} ---\n{fixture(name)}" for key, name in exp["inputs"].items())
+    inputs = "\n\n".join(f"--- {key}: {name} ---\n{fixture(name)}" for key, name in inputs_of(scene, expected).items())
     points = "\n".join(f"{n}. {text}" for n, text in enumerate(rubric(scene, expected), 1))
     who = exp["agent"] + (f", phase {exp['phase']}" if "phase" in exp else "") + (f", the step «{exp['step']}»" if "step" in exp else "")
     return JUDGE.format(inputs=inputs, who=who, answer=answer, rubric=points)
@@ -332,6 +357,8 @@ def main() -> int:
     parser.add_argument("--resume", type=Path, help="a results file of this runner: what it holds without an error is not run again")
     parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
     parser.add_argument("--no-repeat", action="store_true", help="do not run a failed AFTER scene a second time")
+    parser.add_argument("--twice", nargs="+", choices=SCENES, default=[], help="these scenes' AFTER runs twice whatever the first said")
+    parser.add_argument("--before", nargs="+", choices=SCENES, default=None, help="run BEFORE only for these scenes (default: every one that has it)")
     parser.add_argument("--before-ref", default=BEFORE_REF, help="the ref whose definitions are the BEFORE")
     parser.add_argument("--dry-run", type=Path, help="build every sandbox here, write every prompt beside them and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
@@ -342,7 +369,7 @@ def main() -> int:
     args = parser.parse_args()
     expected = json.loads(fixture("expected.json"))
     goals = analyst.goals_module()
-    todo = plan(args.scenes, expected)
+    todo = plan(args.scenes, expected, args.before)
 
     if args.dry_run:
         for scene, variant in todo:
@@ -383,11 +410,12 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="engine-focus-eval-") as tmp:
         for scene, variant in todo:
             go(scene, variant, 1, Path(tmp))
-        if not args.no_repeat:
-            for scene, variant in todo:
-                first = next((r for r in runs if r["scene"] == scene and r["variant"] == variant and r.get("attempt", 1) == 1), None)
-                if variant == "after" and first is not None and "error" not in first and not first["good"]:
-                    go(scene, variant, 2, Path(tmp))
+        for scene, variant in todo:
+            first = next((r for r in runs if r["scene"] == scene and r["variant"] == variant and r.get("attempt", 1) == 1), None)
+            if variant != "after" or first is None or "error" in first:
+                continue
+            if scene in args.twice or (not args.no_repeat and not first["good"]):
+                go(scene, variant, 2, Path(tmp))
     firsts = [r for r in runs if r.get("attempt", 1) == 1]
     report.update(recorded_utc=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), status=shared.status(firsts, len(todo)), summary=summary(runs))
     print("\n" + json.dumps(report["summary"], indent=2, ensure_ascii=False))

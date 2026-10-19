@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The instrument of the ten focus scenes, checked without a paid session (board 501).
+"""The instrument of the thirteen focus scenes, checked without a paid session (boards 501, 502).
 
   - the scoring refuses first: a preseal that misses one of the six findings, or finds the G1–P1
     contradiction, is not good; a consult answer of the wrong form, or NOT_REQUIRED that does not
@@ -7,7 +7,10 @@
     guardian that blocks without G3, or is silent on G7, is not good; a guardian on the clean map
     that blocks, or says nothing, is not good;
   - the judge is asked only where the script holds, and «ні» or a missing point is not good;
-  - the plan: before and after where v0.13.0 had the step, after only for e, j, k, k-neg;
+  - the plan: before and after where v0.13.0 had the step, after only for e, j, k, k-neg; --before
+    narrows the BEFORE runs; --twice runs a scene's AFTER twice even when the first is good;
+  - the master-critic gets the interview journal in every scene where the variant's
+    /master-architect passes it (AFTER), and not in v0.13.0's BEFORE; the judge sees it too;
   - the sandboxes: the fixture's file names never reach them; BEFORE carries the v0.13.0 analyst;
   - a refused session is an error row and the exit status is not 0 (board 725); a failed AFTER
     scene runs a second time.
@@ -92,7 +95,7 @@ check("f-trap: NOT_REQUIRED is not good", not evals.score("f-trap", "after", not
 check("f-trap: a quote is not good", not evals.score("f-trap", "after", "ANALYST_ANSWER: QUOTE\nLine: P2\nQuote: Глибина понад стислість.", expected, goals)["script_good"])
 check("no answer at all is not good", not evals.score("f-trap", "after", "Не знаю.", expected, goals)["script_good"])
 
-print("scoring: the critic (g, h, l)")
+print("scoring: the critic (g, h, l, m, n, o)")
 check("g: a PASS is not good", not evals.score("g", "after", "«Безпека» — без джерела.\nMASTER_CRITIC_PASS", expected, goals)["script_good"])
 check("g: no verdict is not good", not evals.score("g", "after", "«Безпека» — без джерела.", expected, goals)["script_good"])
 check("g: REVISE passes the script's part (the judge reads the content)", evals.score("g", "before", "MASTER_CRITIC_REVISE: Безпека", expected, goals)["script_good"])
@@ -103,6 +106,13 @@ check("l: RATIFY is not good, POC_REQUIRED and REVISE hold",
       not evals.score("l", "after", "MASTER_CRITIC_RATIFY", expected, goals)["script_good"]
       and evals.score("l", "after", "MASTER_CRITIC_POC_REQUIRED", expected, goals)["script_good"]
       and evals.score("l", "before", "MASTER_CRITIC_REVISE", expected, goals)["script_good"])
+
+check("m, n: a PASS is not good, REVISE passes the script's part",
+      all(not evals.score(s, "after", "MASTER_CRITIC_PASS", expected, goals)["script_good"]
+          and evals.score(s, "after", "MASTER_CRITIC_REVISE: x", expected, goals)["script_good"] for s in ("m", "n")))
+check("o: any verdict passes the script's part (the judge reads the objection or the note)",
+      evals.score("o", "after", "MASTER_CRITIC_PASS", expected, goals)["script_good"]
+      and not evals.score("o", "after", "нічого", expected, goals)["script_good"])
 
 print("scoring: the guardian (k, k-neg)")
 block = "GUARDIAN_BLOCK: G3 | власник пише висновки | «механізм самонавчання»\nGUARDIAN_NOTE: G7 | шляху «немає типу» немає | додати"
@@ -116,8 +126,8 @@ check("k-neg: any BLOCK is not good", not evals.score("k-neg", "after", "GUARDIA
 check("k-neg: no GUARDIAN_ line at all is not good", not evals.score("k-neg", "after", "Усе гаразд.", expected, goals)["script_good"])
 
 print("the judge")
-check("the judge has the scene's own points for i (2) and j (7), one each for g, h, l, none elsewhere",
-      [len(evals.rubric(s, expected)) for s in evals.SCENES] == [0, 0, 0, 1, 1, 2, 7, 0, 0, 1])
+check("the judge has the scene's own points for i (2) and j (7), one each for g, h, l, m, n, o, none elsewhere",
+      [len(evals.rubric(s, expected)) for s in evals.SCENES] == [0, 0, 0, 1, 1, 2, 7, 0, 0, 1, 1, 1, 1])
 check("all «так»: good", evals.parse_judge("1: так — «a»\n2: так — «b»", 2)["judge_good"])
 check("one «ні»: not good", not evals.parse_judge("1: так — «a»\n2: ні — «нічого» мовчить", 2)["judge_good"])
 check("a point not answered: not good", not evals.parse_judge("1: так — «a»", 2)["judge_good"])
@@ -137,14 +147,26 @@ text = evals.judge_prompt("j", "ANSWER-UNDER-JUDGEMENT", expected)
 check("the judge's prompt carries the inputs, the answer and every point",
       "ANSWER-UNDER-JUDGEMENT" in text and "Фільтр травм" in text and "7. Every question" in text and "N3. Не даємо" in text)
 
+check("the judge of a master-critic scene sees the journal it had", "--- interview: interview.md ---" in evals.judge_prompt("g", "x", expected))
+
 print("the plan and the sandboxes")
 todo = evals.plan(list(evals.SCENES), expected)
-check("sixteen runs: before and after for f, f-trap, g, h, i, l; after only for e, j, k, k-neg",
-      len(todo) == 16 and {s for s, v in todo if v == "before"} == {"f", "f-trap", "g", "h", "i", "l"})
+check("twenty-two runs: before and after for f, f-trap, g, h, i, l, m, n, o; after only for e, j, k, k-neg",
+      len(todo) == 22 and {s for s, v in todo if v == "before"} == {"f", "f-trap", "g", "h", "i", "l", "m", "n", "o"})
+narrowed = evals.plan(list(evals.SCENES), expected, ["m", "n", "o"])
+check("--before m n o: thirteen AFTER, BEFORE for m, n, o only",
+      len(narrowed) == 16 and {s for s, v in narrowed if v == "before"} == {"m", "n", "o"} and sum(v == "after" for _, v in narrowed) == 13)
 with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--dry-run", str(Path(tmp) / "dry")], capture_output=True, text=True, check=False)
     dry = Path(tmp) / "dry"
-    check("the dry run writes sixteen prompts", r.returncode == 0 and len(list(dry.glob("prompt-*.txt"))) == 16, r.stdout + r.stderr)
+    check("the dry run writes twenty-two prompts", r.returncode == 0 and len(list(dry.glob("prompt-*.txt"))) == 22, r.stdout + r.stderr)
+    critic_after = [(dry / f"prompt-{s}-after.txt").read_text(encoding="utf-8") for s in ("g", "h", "i", "l", "m", "n", "o")]
+    check("every master-critic AFTER prompt carries the journal, before the draft",
+          all("\njournal:\n" + evals.fixture("interview.md") in t and t.index("journal:") < t.index("draft:") for t in critic_after))
+    check("v0.13.0's /master-architect passed no journal: no BEFORE prompt carries one",
+          not any("\njournal:\n" in (dry / f"prompt-{s}-before.txt").read_text(encoding="utf-8") for s in ("g", "h", "i", "l", "m", "n", "o")))
+    check("m: the sandbox has the interview where the critic may read it", (dry / "m-after/.engine/goals/interview.md").is_file()
+          and (dry / "n-after/.engine/goals/interview.md").is_file())
     names = [p.name for p in dry.rglob("*") if "/.git/" not in str(p)]
     check("no fixture file name reaches a sandbox («clean», «rev2», «v1»)", not any(n for n in names if any(w in n for w in ("clean", "rev2", "-v1", "-v2"))))
     check("k-neg's sandbox has the clean map as the domain map, goals-v2 and the interview",
@@ -197,6 +219,16 @@ with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--scenes", "k", "--tasks-dir", str(tasks), "--claude", str(shim(PASSED)), "--resume", str(out)],
                        capture_output=True, text=True, env=env, check=False)
     check("--resume runs nothing already recorded", not (Path(tmp) / "calls").exists() and r.returncode == 0, r.stdout + r.stderr)
+    out.unlink()
+    r = subprocess.run([sys.executable, str(RUNNER), "--scenes", "k-neg", "--twice", "k-neg", "--tasks-dir", str(tasks), "--claude", str(shim(PASSED)), "--out", str(out)],
+                       capture_output=True, text=True, env=env, check=False)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    check("--twice: a good first AFTER still gets a second attempt",
+          [(x["attempt"], x["good"]) for x in data["runs"]] == [(1, True), (2, True)] and r.returncode == 0, r.stdout + r.stderr)
+    out.unlink()
+    r = subprocess.run([sys.executable, str(RUNNER), "--scenes", "k-neg", "--tasks-dir", str(tasks), "--claude", str(shim(PASSED)), "--out", str(out)],
+                       capture_output=True, text=True, env=env, check=False)
+    check("without --twice a good first AFTER is not repeated", len(json.loads(out.read_text(encoding="utf-8"))["runs"]) == 1, r.stdout + r.stderr)
 
 print(f"\nPASS {PASS}   FAIL {FAIL}")
 sys.exit(0 if FAIL == 0 else 1)
