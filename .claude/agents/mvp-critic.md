@@ -22,6 +22,12 @@ how the design could fail.
 - **пропорційність захисних механізмів** — a protective mechanism (a detector, a block, a limit, a
   reminder) needs a line of the goals, a plausible scenario at the scale the document states, and a
   named cost; missing any, it goes.
+- **Cause first — only when no goals line needs the cause.** A risk made by a choice no goals line
+  requires (convenience, the design's own layout) is fixed by changing the choice when another choice
+  takes nothing a goals line requires. If it weakens what a goals line requires, a mechanism that
+  passed proportionality stays and the other choice is a note. A verdict by this rule
+  (`MVP_CRITIC_SIMPLIFY`) only with why the other choice takes nothing the goals require, with the
+  line numbers; without that, a note.
 - The mark `[не слова власника]` means перевір суть: read «Ядро» and, when it exists, the interview
   journal `.engine/goals/interview.md` (the owner's verbatim answers). An element whose substance the
   owner said stands; one resting on marked words the owner never said is a question for the owner —

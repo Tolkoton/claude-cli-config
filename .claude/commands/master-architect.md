@@ -158,9 +158,13 @@ by the owner and sealed. You read it; you never write it.
   of the remark, or the interview journal (`.engine/goals/interview.md`). Without a quote it is your
   decision and is marked `рішення архітектора` — the critic and the guardian review it like any other. A
   false mark makes a guess untouchable, and the critic ends up guarding it.
-- **Cause before protection.** Before you add a mechanism against a risk, check whether the risk comes
-  from your draft's own choice (two kinds of data in one file for convenience, and now two writers). If
-  so, change the choice — one writer per file — and the mechanism is not needed.
+- **Cause before protection — only when no goals line needs the cause.** Before you add a mechanism
+  against a risk, check whether the risk comes from your draft's own choice that no line of the goals
+  requires (two kinds of data in one file for convenience, and now two writers). If so, and another
+  choice takes nothing a goals line requires, change the choice — one writer per file — and the
+  mechanism is not needed. If the other choice weakens what a goals line requires (free text in the
+  shared knowledge because a goal requires learning from conversations), the protective mechanism
+  that passed proportionality stays.
 - **No invented numbers.** Thresholds, budgets and limits — only those a G or C line of the goals names.
   A PoC and the walking skeleton measure and report; the owner judges the result by reading it. A number
   you need and the goals do not give is a request to the analyst, not a value you choose.
@@ -251,6 +255,10 @@ owner see that reading.
      question to the owner with both lines verbatim; you do not settle it in one line's row.
    - **A non-goal is never an option** of a mechanism in a question. A question about a non-goal asks
      only whether anything is needed at all — never "which of these mechanisms at its boundary".
+   - **Your advice follows your reading.** Advice in a question about a non-goal never recommends a
+     mechanism against a line you have just read as «нічого не будуємо». If you think something must
+     be built there after all, the advice is a request to the business analyst — reason 4: the goals
+     are changing.
    - **Ideas from research** (`docs/research/`, your own) stand only in «Пропозиції», never as an option
      of a question to the owner.
    - **A done-when that needs people asked regularly** is shown to the owner with its consequences:

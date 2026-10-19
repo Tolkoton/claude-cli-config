@@ -1138,8 +1138,9 @@ placed = list((root / "tasks/todo").glob("*-cleanup-2026-10-12.md"))
 check("under the cap it is placed, and it carries the mark", len(placed) == 1 and board.read(placed[0]).extra, r.stdout + r.stderr)
 check("the owner's template shows the line", "Додаткові сесії: ні" in (ROOT / "tasks/TEMPLATE.md").read_text(encoding="utf-8")
       and "Додаткові сесії: ні" in (ROOT / "templates/project/tasks/TEMPLATE.md").read_text(encoding="utf-8"))
-check("this repository carries the cap; the shipped project.env sets none (the key is empty)",
-      board._setting(ROOT, "EXTRA_SESSIONS_WEEK_USD") == "60" and board._setting(ROOT / "templates/project", "EXTRA_SESSIONS_WEEK_USD") == ""
+# This repository's own value is the owner's to set (an empty key since bdca3ce): only the shipped default is pinned.
+check("the shipped project.env sets no cap (the key is empty)",
+      board._setting(ROOT / "templates/project", "EXTRA_SESSIONS_WEEK_USD") == ""
       and 'EXTRA_SESSIONS_WEEK_USD=""' in (ROOT / "templates/project/.claude/project.env").read_text(encoding="utf-8"))
 tools = {t.name: t.read_text(encoding="utf-8") for t in sorted((ROOT / "evals").glob("*.py"))}
 booking = sorted(name for name, text in tools.items() if re.search(r"\bbook_(?:session|extra)\(", text))

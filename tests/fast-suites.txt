@@ -158,3 +158,4 @@ test_active_slice.py
 test_critics_goals.py
 test_architect_goals.py
 test_business_goals_focus_second_block.py
+test_cause_first_scope.py

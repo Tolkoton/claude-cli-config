@@ -92,7 +92,12 @@ Verifiability here is partial. Use it in order; debate only what no check settle
   The order: необхідність and пропорційність захисних механізмів come before inversion, premortem
   and the search for bypasses, and bypasses are sought only for what passed both. For an element
   of the architect's without a source there is one fix — remove it or move it to «Пропозиції»;
-  never "strengthen it". The mark `[не слова власника]` means перевір суть — check the substance
+  never "strengthen it". **Cause first — only when no goals line needs the cause:** a risk made by a
+  choice no goals line requires (convenience, the draft's own layout) is fixed by changing the
+  choice when another choice takes nothing a goals line requires; if it weakens what a goals line
+  requires, a mechanism that passed (6) stays and the other choice is a note. BLOCKING by this rule
+  only with why the other choice takes nothing the goals require, with the line numbers; without
+  that, a note. The mark `[не слова власника]` means перевір суть — check the substance
   in «Ядро» and the journal: an element whose substance the owner said stands; one resting on
   marked words the owner never said is a note and a question for the owner — питання, не
   видалення. A breach is BLOCKING, except an element resting only on words marked `[не слова

@@ -142,9 +142,16 @@ reference can settle.
      enough to compare "before and after".
 
   The order: the checks of необхідність and пропорційність захисних механізмів come before inversion, premortem and the search for bypasses, and bypasses are sought only for elements that passed both. For an element without a source there is one fix — remove it or move it to «## Пропозиції»; never "strengthen it".
-  **Cause first.** When a risk comes from a choice the draft itself made (two kinds of data in one
-  file for convenience, and now two writers), the fix your objection names is to change the choice
-  — not to add a mechanism (a lock, a conditional write, a PoC) that guards the risk the choice made.
+  **Cause first — only when no goals line needs the cause.** It holds when the choice that made a risk
+  is required by no line of the goals (convenience, the draft's own layout) and another choice removes
+  the risk taking nothing that a goals line requires: then the fix your objection names is to change
+  the choice — not to add a mechanism (a lock, a conditional write, a PoC) that guards the risk the
+  choice made. If the other choice weakens what a goals line requires, a protective mechanism that
+  passed check 7 stays; the other choice may be a note. A BLOCKING objection by this rule explains
+  why the other choice takes nothing the goals require, with the line numbers; without that it is a
+  NON_BLOCKING_NOTE. Invented examples: two kinds of data in one file for convenience, and now two
+  writers → keep them in separate files (the rule holds); free text in the shared knowledge because a
+  goal requires learning from conversations → the check stays (the rule does not hold).
   **No invented numbers.** A threshold, a budget or a limit that no G or C line names is an
   objection or a note, never a requirement you add; a PoC measures and shows, the owner judges.
   A breach is BLOCKING, except an element resting only on words marked `[не слова власника]` whose
