@@ -268,3 +268,18 @@ were approved by the owner and applied in board task 011 (one commit each, trail
 - `F-127cb82b` **.claude/hooks/goals.py:153-160** — duplication: _section() takes a heading's body the same way cited() does; cited() could use the same step.
   - evidence: read .claude/hooks/goals.py:158-160 _section; read .claude/hooks/goals.py:137-139 cited()
   - test safety characterization_exists, reversal risk low, protected false, traces to: slice contract «The core»
+
+## 2026-10-19T07:46:14Z — requirements, board 202 plan
+
+### confirm (0)
+
+### flag_only (1)
+- `F-2ce1681e` **tasks/doing/202-business-goals-focus-second.md:95** — duplication: The section-3 bullet 'Журнал розмови передається master-critic-у і guardian-у' adds no requirement. Line 52-53 already requires passing the journal to master-critic, and /master-architect already passes .engine/goals/interview.md to guardian (master-architect.md:125 and :222). The task asks for the same thing without it.
+  - evidence: read tasks/doing/202-business-goals-focus-second.md:52 Section 1 already requires /master-architect to pass .engine/goals/interview.md to master-critic together with product_frame; read tasks/doing/202-business-goals-focus-second.md:95 Section 3 says again that the journal is passed to master-critic and guardian; grep .claude/commands/master-architect.md:125 guardian is already launched with 'guardian .engine/goals.md .engine/goals/interview.md ...'; grep .claude/commands/master-architect.md:222 the second guardian call also already passes .engine/goals/interview.md
+  - test safety none, reversal risk low, protected false, traces to: Section 1 line 52-53 (owner's task text) covers the master-critic half. The guardian half is already in place in .claude/commands/master-architect.md.
+
+## 2026-10-19T07:46:14Z — architecture, board 202 plan
+
+### confirm (0)
+
+### flag_only (0)

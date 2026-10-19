@@ -777,3 +777,12 @@ one; do not reopen the old one in conversation.
 - Evidence: `.engine/slices/goals-roles.md` «Critic notes».
 - Falsified by: —
 - Status: CLOSED
+
+## 2026-10-19T12:00:00Z — AUTONOMOUS — board-202-s1-cold-reader-twice
+- Decision: the cold reader of the slice contract `critics-goals-discipline` blocked twice, each time on a test gap with a stated fix: first, the BLOCKING line's exception named «check 6» whole and would have unblocked non-goal breaches — scoped to the mark, the non-goal sentence pinned; second, the quote rule worded «only» could strip the owner's written task items of their status — the owner's written text keeps it and `ЩО ЗРОБИТИ` is pinned. Both fixed as asked; the contract is sealed without a third cold read, and the overseer audits the slice against it.
+- Door: two-way
+- Cost to reverse: the contract is a text; a re-plan under a new slug if the owner wants a third read.
+- Why not escalated: the plan-slice breaker asks the owner to rule on an open objection; none is open — each fix is the critic's own and is closed in the text.
+- Evidence: `.engine/slices/critics-goals-discipline.md` «Critic notes».
+- Falsified by: —
+- Status: CLOSED
