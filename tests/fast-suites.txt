@@ -159,3 +159,5 @@ test_critics_goals.py
 test_architect_goals.py
 test_business_goals_focus_second_block.py
 test_cause_first_scope.py
+# Board 204: test_ask_owner_now 0.3 s is in (the definitions of «питання власникові — зараз?», preseal's re-check, consult's doubt over «how», the template path in a fresh install).
+test_ask_owner_now.py
