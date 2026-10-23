@@ -126,5 +126,36 @@
     "before": {
       "same_check": true
     }
+  },
+  "p": {
+    "agent": "business-analyst", "mode": "preseal",
+    "recheck": {"changed": ["G3", "P4", "N4", "D1"]},
+    "inputs": {"draft": "goals-v3.md", "interview": "interview-v3.md"},
+    "before": {"ref": "v0.14.1", "same_check": true},
+    "must_find": [
+      {"kind": "contradiction", "lines": ["D1", "N4"], "why": "D1, changed in the round, sends a reminder letter to whoever did not come back; N4, the owner's answer 16, says no letters and no reminders"},
+      {"kind": "unmarked", "lines": ["G3"], "why": "«відкочує зміну, якщо за двома поверненнями поспіль стало гірше» — the owner never said it (answer 15), and it stands without the mark"}
+    ],
+    "must_not_find": [
+      {"kind": "consequence", "lines": ["G3"]}, {"kind": "late-choice", "lines": ["G3"]},
+      {"kind": "consequence", "lines": ["N4"]}, {"kind": "late-choice", "lines": ["N4"]},
+      {"kind": "consequence", "lines": ["P4"]}, {"kind": "late-choice", "lines": ["P4"]}
+    ],
+    "after": {"judge": [
+      "No PRESEAL_FINDING puts to the owner a question about a consequence of his own answers 14–17 — who decides what «worse» means, how often anyone looks, whether learning only from people who come back is acceptable, what is mandatory for a person: those answers are re-checked, not re-opened.",
+      "No PRESEAL_FINDING is about a line the owner's answers 14–17 did not change (G1, G2, G4–G7, P1–P3, N1–N3, C1, C2, Q1, Q2), unless it names a contradiction with a changed line."
+    ]}
+  },
+  "q": {
+    "agent": "business-analyst", "mode": "preseal",
+    "inputs": {"draft": "goals-v2.md", "interview": "interview.md"},
+    "before": {"ref": "v0.14.1", "same_check": true},
+    "must_find": [],
+    "must_not_find": [],
+    "after": {"judge": [
+      "No PRESEAL_FINDING asks the owner how something will work or what only trying it will show — who marks the end of a conversation, what counts as a week that did not work, how a case becomes a candidate for a new type, how often anyone looks at anything; where such a consequence is written at all, it is information for the owner, not a question.",
+      "Every PRESEAL_FINDING that does ask the owner something asks what he wants, what wins over what, a boundary, a hard constraint, or which of two contradicting lines holds.",
+      "A finding puts D1 to the owner: at item 12 he chose option (в), «чи шкодує», while D1 of this draft («чи стало ясніше», «як пройшов») carries no words of his — which D1 he means is his to say."
+    ]}
   }
 }

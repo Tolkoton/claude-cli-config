@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The instrument of the thirteen focus scenes, checked without a paid session (boards 501, 502).
+"""The instrument of the fifteen focus scenes, checked without a paid session (boards 501–503).
 
   - the scoring refuses first: a preseal that misses one of the six findings, or finds the G1–P1
     contradiction, is not good; a consult answer of the wrong form, or NOT_REQUIRED that does not
@@ -7,6 +7,9 @@
     guardian that blocks without G3, or is silent on G7, is not good; a guardian on the clean map
     that blocks, or says nothing, is not good;
   - the judge is asked only where the script holds, and «ні» or a missing point is not good;
+  - every preseal scene is scored as one (e, p, q): p must find D1–N4 and G3 unmarked and must not
+    find a consequence or a late choice about G3, N4, P4; p's prompt is the re-check with its
+    changed lines; p and q go to the judge after the script; their BEFORE is v0.14.1's analyst;
   - the plan: before and after where v0.13.0 had the step, after only for e, j, k, k-neg; --before
     narrows the BEFORE runs; --twice runs a scene's AFTER twice even when the first is good;
   - the master-critic gets the interview journal in every scene where the variant's
@@ -80,6 +83,28 @@ check("a G1 «unmarked» finding is no G1–P1 contradiction", evals.score_prese
     GOOD_PRESEAL + "PRESEAL_FINDING: unmarked | G1, P1 | не слова власника | позначити?\n", e)["script_good"])
 check("PRESEAL_CLEAN is not good", not evals.score_preseal("PRESEAL_CLEAN", e)["script_good"])
 
+print("scoring: preseal re-check (p) and preseal without «how» (q)")
+GOOD_RECHECK = """PRESEAL_FINDING: contradiction | D1, N4 | «ніяких листів і нагадувань» | який рядок чинний?
+PRESEAL_FINDING: unmarked | G3 | «за двома поверненнями поспіль» — не слова власника | —
+"""
+check("p: D1–N4 and G3 unmarked: the script's part holds", evals.score("p", "after", GOOD_RECHECK, expected, goals)["script_good"])
+check("p: BEFORE (v0.14.1) is scored by the same check", evals.score("p", "before", GOOD_RECHECK, expected, goals)["script_good"]
+      and not evals.score("p", "before", "PRESEAL_CLEAN", expected, goals)["script_good"])
+for drop in ("contradiction", "unmarked"):
+    without = "\n".join(line for line in GOOD_RECHECK.splitlines() if f"PRESEAL_FINDING: {drop} " not in line)
+    check(f"p: without the {drop} finding: not good", not evals.score("p", "after", without, expected, goals)["script_good"])
+check("p: a D1 contradiction with N3 instead of N4 is missed",
+      not evals.score("p", "after", GOOD_RECHECK.replace("D1, N4", "D1, N3"), expected, goals)["script_good"])
+for kind in ("consequence", "late-choice"):
+    for line in ("G3", "N4", "P4"):
+        extra = GOOD_RECHECK + f"PRESEAL_FINDING: {kind} | {line} | наслідок відповіді | хто вирішує?\n"
+        check(f"p: a {kind} about {line} is not good", not evals.score("p", "after", extra, expected, goals)["script_good"])
+check("p: a consequence about D1 is the judge's to read, not the script's",
+      evals.score("p", "after", GOOD_RECHECK + "PRESEAL_FINDING: consequence | D1 | x | —\n", expected, goals)["script_good"])
+check("q: any structured answer passes the script's part (the judge reads the questions)",
+      evals.score("q", "after", "PRESEAL_FINDING: late-choice | D1 | (в) | який D1?", expected, goals)["script_good"]
+      and evals.score("q", "after", "PRESEAL_CLEAN", expected, goals)["script_good"])
+
 print("scoring: consult (f, f-trap)")
 request, silent = evals.fixture("request-injury-stop.md"), evals.fixture("request-silent.md")
 not_required = "ANALYST_ANSWER: NOT_REQUIRED\nLines: N3\nЧому не вимагають: межа\nНайменша форма: нічого не будувати"
@@ -126,8 +151,8 @@ check("k-neg: any BLOCK is not good", not evals.score("k-neg", "after", "GUARDIA
 check("k-neg: no GUARDIAN_ line at all is not good", not evals.score("k-neg", "after", "Усе гаразд.", expected, goals)["script_good"])
 
 print("the judge")
-check("the judge has the scene's own points for i (2) and j (7), one each for g, h, l, m, n, o, none elsewhere",
-      [len(evals.rubric(s, expected)) for s in evals.SCENES] == [0, 0, 0, 1, 1, 2, 7, 0, 0, 1, 1, 1, 1])
+check("the judge has the scene's own points for i (2), j (7), p (2), q (3), one each for g, h, l, m, n, o, none elsewhere",
+      [len(evals.rubric(s, expected)) for s in evals.SCENES] == [0, 0, 0, 1, 1, 2, 7, 0, 0, 1, 1, 1, 1, 2, 3])
 check("all «так»: good", evals.parse_judge("1: так — «a»\n2: так — «b»", 2)["judge_good"])
 check("one «ні»: not good", not evals.parse_judge("1: так — «a»\n2: ні — «нічого» мовчить", 2)["judge_good"])
 check("a point not answered: not good", not evals.parse_judge("1: так — «a»", 2)["judge_good"])
@@ -147,19 +172,35 @@ text = evals.judge_prompt("j", "ANSWER-UNDER-JUDGEMENT", expected)
 check("the judge's prompt carries the inputs, the answer and every point",
       "ANSWER-UNDER-JUDGEMENT" in text and "Фільтр травм" in text and "7. Every question" in text and "N3. Не даємо" in text)
 
+check("the judge of p sees the re-checked draft and its journal, and knows the mode",
+      "--- draft: goals-v3.md ---" in (pj := evals.judge_prompt("p", "x", expected)) and "--- interview: interview-v3.md ---" in pj
+      and "business-analyst, mode preseal" in pj)
 check("the judge of a master-critic scene sees the journal it had", "--- interview: interview.md ---" in evals.judge_prompt("g", "x", expected))
 
 print("the plan and the sandboxes")
 todo = evals.plan(list(evals.SCENES), expected)
-check("twenty-two runs: before and after for f, f-trap, g, h, i, l, m, n, o; after only for e, j, k, k-neg",
-      len(todo) == 22 and {s for s, v in todo if v == "before"} == {"f", "f-trap", "g", "h", "i", "l", "m", "n", "o"})
-narrowed = evals.plan(list(evals.SCENES), expected, ["m", "n", "o"])
-check("--before m n o: thirteen AFTER, BEFORE for m, n, o only",
-      len(narrowed) == 16 and {s for s, v in narrowed if v == "before"} == {"m", "n", "o"} and sum(v == "after" for _, v in narrowed) == 13)
+check("twenty-six runs: before and after for f, f-trap, g, h, i, l, m, n, o, p, q; after only for e, j, k, k-neg",
+      len(todo) == 26 and {s for s, v in todo if v == "before"} == {"f", "f-trap", "g", "h", "i", "l", "m", "n", "o", "p", "q"})
+narrowed = evals.plan(list(evals.SCENES), expected, ["p", "q"])
+check("--before p q: fifteen AFTER, BEFORE for p, q only",
+      len(narrowed) == 17 and {s for s, v in narrowed if v == "before"} == {"p", "q"} and sum(v == "after" for _, v in narrowed) == 15)
+check("p and q take their BEFORE from v0.14.1, the others from --before-ref",
+      evals.ref_of("p", expected, "v0.13.0") == evals.ref_of("q", expected, "v0.13.0") == "v0.14.1" and evals.ref_of("g", expected, "v0.13.0") == "v0.13.0")
 with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--dry-run", str(Path(tmp) / "dry")], capture_output=True, text=True, check=False)
     dry = Path(tmp) / "dry"
-    check("the dry run writes twenty-two prompts", r.returncode == 0 and len(list(dry.glob("prompt-*.txt"))) == 22, r.stdout + r.stderr)
+    check("the dry run writes twenty-six prompts", r.returncode == 0 and len(list(dry.glob("prompt-*.txt"))) == 26, r.stdout + r.stderr)
+    check("p: the re-check with the changed lines, BEFORE and AFTER alike",
+          all((dry / f"prompt-p-{v}.txt").read_text(encoding="utf-8") == "[agent: business-analyst]\npreseal .engine/goals.md .engine/goals/interview.md --changed G3 P4 N4 D1\n"
+              for v in ("before", "after")))
+    check("q: the plain preseal", (dry / "prompt-q-after.txt").read_text(encoding="utf-8") == "[agent: business-analyst]\npreseal .engine/goals.md .engine/goals/interview.md\n")
+    check("p: goals-v3 stands where the document will, interview-v3 as the journal",
+          (dry / "p-after/.engine/goals.md").read_text(encoding="utf-8") == evals.fixture("goals-v3.md")
+          and (dry / "p-before/.engine/goals/interview.md").read_text(encoding="utf-8") == evals.fixture("interview-v3.md"))
+    check("p, q BEFORE carry the v0.14.1 analyst (no re-check), AFTER the working tree's",
+          all("--changed" not in (dry / f"{s}-before/.claude/agents/business-analyst.md").read_text(encoding="utf-8")
+              and "NOT_REQUIRED" in (dry / f"{s}-before/.claude/agents/business-analyst.md").read_text(encoding="utf-8")
+              and "--changed" in (dry / f"{s}-after/.claude/agents/business-analyst.md").read_text(encoding="utf-8") for s in ("p", "q")))
     critic_after = [(dry / f"prompt-{s}-after.txt").read_text(encoding="utf-8") for s in ("g", "h", "i", "l", "m", "n", "o")]
     check("every master-critic AFTER prompt carries the journal, before the draft",
           all("\njournal:\n" + evals.fixture("interview.md") in t and t.index("journal:") < t.index("draft:") for t in critic_after))

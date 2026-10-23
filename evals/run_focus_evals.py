@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Thirteen scenes that measure the FOCUS ON THE BUSINESS GOALS — the changes of boards 201 and 202 (boards 501, 502).
+"""Fifteen scenes that measure the FOCUS ON THE BUSINESS GOALS — the changes of boards 201, 202, 203 and 204 (boards 501–503).
 
     python3 evals/run_focus_evals.py [--out FILE] [--scenes e f g …] [--before m n o] [--twice h i …] [--max-usd 20] [--resume FILE]
     python3 evals/run_focus_evals.py --dry-run DIR                                                    # free: the sandboxes and the prompts
 
 The project is an invented one, «Бігова група» (evals/scenarios/focus/README.md): it carries the
 traps the engine v0.13.0 fell into in its first real project. BEFORE is the definitions of
-`--before-ref` (v0.13.0), AFTER those of the working tree; a scene with no counterpart in v0.13.0
-(e, j, k, k-neg) runs AFTER only.
+`--before-ref` (v0.13.0) — or of the scene's own `before.ref` (p, q: v0.14.1, before board 204) —, AFTER
+those of the working tree; a scene with no counterpart in v0.13.0 (e, j, k, k-neg) runs AFTER only.
 
     e      business-analyst, preseal     goals-v1 + the interview: the six findings of expected.json, and no G1–P1 contradiction
     f      business-analyst, consult     a request built around the non-goal N3: NOT_REQUIRED naming N3
@@ -27,6 +27,11 @@ traps the engine v0.13.0 fell into in its first real project. BEFORE is the defi
                                          the fix is one writer per file, not conditional writes
     o      master-critic, decision       a proof-of-concept with thresholds no goals line names: the judge finds an
                                          objection or a note that it must measure and report, the owner judges
+    p      business-analyst, preseal     the re-check (`--changed` of recheck.changed) of goals-v3 + interview-v3: the
+           re-check                      D1–N4 contradiction and G3 unmarked found, no consequence or late choice
+                                         about G3, N4, P4; the judge agrees nothing re-opens answers 14–17
+    q      business-analyst, preseal     goals-v2 + the interview: the judge finds no question about how something
+                                         will work, and D1 put to the owner
 
 The master-critic gets the interview journal in every scene, as /master-architect passes it (board 202) — where the
 variant's /master-architect passes one: v0.13.0 did not, so its BEFORE gets none.
@@ -70,7 +75,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "focus"
 BEFORE_REF = "v0.13.0"
-SCENES = ("e", "f", "f-trap", "g", "h", "i", "j", "k", "k-neg", "l", "m", "n", "o")
+SCENES = ("e", "f", "f-trap", "g", "h", "i", "j", "k", "k-neg", "l", "m", "n", "o", "p", "q")
 SHIPPED = (".claude/agents", ".claude/references", ".claude/commands", ".claude/constitution.md")
 PRESEAL_RE = re.compile(r"^\W*PRESEAL_FINDING:\s*(.+)$", re.MULTILINE)
 GUARDIAN_RE = re.compile(r"^\W*GUARDIAN_(BLOCK|NOTE|PASS)\b:?\s*(.*)$", re.MULTILINE)
@@ -106,6 +111,11 @@ def variants(scene: str, expected: JsonObj) -> tuple[str, ...]:
 def plan(scenes: list[str], expected: JsonObj, before: list[str] | None = None) -> list[tuple[str, str]]:
     return [(scene, variant) for scene in scenes for variant in variants(scene, expected)
             if variant == "after" or before is None or scene in before]
+
+
+def ref_of(scene: str, expected: JsonObj, default: str) -> str:
+    """The BEFORE definitions of this scene: its own `before.ref` (board 503), else the run's `--before-ref`."""
+    return (expected[scene].get("before") or {}).get("ref", default)
 
 
 def inputs_of(scene: str, expected: JsonObj) -> JsonObj:
@@ -170,8 +180,9 @@ def prompt(scene: str, variant: str, expected: JsonObj, ref: str) -> tuple[str, 
         definition = (ROOT / rel).read_text(encoding="utf-8") if variant == "after" else analyst.at_ref(ref, rel)
         return READING.format(definition=definition), None
     mode = exp["mode"]
-    if mode == "preseal":
-        return "preseal .engine/goals.md .engine/goals/interview.md", "business-analyst"
+    if mode == "preseal":   # the re-check is the form board 204 gave preseal; BEFORE gets the same words
+        changed = exp.get("recheck", {}).get("changed")
+        return "preseal .engine/goals.md .engine/goals/interview.md" + (f" --changed {' '.join(changed)}" if changed else ""), "business-analyst"
     if mode == "guardian":
         return GUARDIAN, "business-analyst"
     return PLACES["request"], "business-analyst"  # consult: the bare path, the architects' form in both versions
@@ -275,7 +286,7 @@ def score(scene: str, variant: str, answer: str, expected: JsonObj, goals: Any) 
     exp = expected[scene]
     before = exp.get("before") or {}
     want = exp.get("after", {}) if variant == "after" or before.get("same_check") else before
-    if scene == "e":
+    if exp["agent"] == "business-analyst" and exp["mode"] == "preseal":
         return score_preseal(answer, exp)
     if exp["agent"] == "business-analyst" and exp["mode"] == "consult":
         if "answer" not in want:   # f before: v0.13.0 had no NOT_REQUIRED; the same check, and the note says what to expect
@@ -298,7 +309,7 @@ def judge_prompt(scene: str, answer: str, expected: JsonObj) -> str:
     exp = expected[scene]
     inputs = "\n\n".join(f"--- {key}: {name} ---\n{fixture(name)}" for key, name in inputs_of(scene, expected).items())
     points = "\n".join(f"{n}. {text}" for n, text in enumerate(rubric(scene, expected), 1))
-    who = exp["agent"] + (f", phase {exp['phase']}" if "phase" in exp else "") + (f", the step «{exp['step']}»" if "step" in exp else "")
+    who = exp["agent"] + (f", mode {exp['mode']}" if "mode" in exp else "") + (f", phase {exp['phase']}" if "phase" in exp else "") + (f", the step «{exp['step']}»" if "step" in exp else "")
     return JUDGE.format(inputs=inputs, who=who, answer=answer, rubric=points)
 
 
@@ -330,8 +341,9 @@ def judge(answer: str, scene: str, expected: JsonObj, args: argparse.Namespace, 
 
 
 def one_run(scene: str, variant: str, attempt: int, expected: JsonObj, goals: Any, args: argparse.Namespace, tmp: Path) -> JsonObj:
-    sandbox = build_sandbox(tmp / f"{scene}-{variant}-{attempt}", scene, variant, args.before_ref, expected)
-    text, agent = prompt(scene, variant, expected, args.before_ref)
+    ref = ref_of(scene, expected, args.before_ref)
+    sandbox = build_sandbox(tmp / f"{scene}-{variant}-{attempt}", scene, variant, ref, expected)
+    text, agent = prompt(scene, variant, expected, ref)
     row: JsonObj = {"scene": scene, "variant": variant, "attempt": attempt, "agent": agent} | analyst.run_once(sandbox, text, agent, args)
     shared.book_session(args.tasks_dir, "run_focus_evals", row.get("cost_usd", 0.0))
     if "error" in row:
@@ -359,7 +371,7 @@ def main() -> int:
     parser.add_argument("--no-repeat", action="store_true", help="do not run a failed AFTER scene a second time")
     parser.add_argument("--twice", nargs="+", choices=SCENES, default=[], help="these scenes' AFTER runs twice whatever the first said")
     parser.add_argument("--before", nargs="+", choices=SCENES, default=None, help="run BEFORE only for these scenes (default: every one that has it)")
-    parser.add_argument("--before-ref", default=BEFORE_REF, help="the ref whose definitions are the BEFORE")
+    parser.add_argument("--before-ref", default=BEFORE_REF, help="the ref whose definitions are the BEFORE of a scene without its own before.ref")
     parser.add_argument("--dry-run", type=Path, help="build every sandbox here, write every prompt beside them and stop; free")
     parser.add_argument("--claude", default="claude", help="the Claude Code executable")
     parser.add_argument("--model", default="", help="override the session's model")
@@ -373,8 +385,9 @@ def main() -> int:
 
     if args.dry_run:
         for scene, variant in todo:
-            build_sandbox(args.dry_run / f"{scene}-{variant}", scene, variant, args.before_ref, expected)
-            text, agent = prompt(scene, variant, expected, args.before_ref)
+            ref = ref_of(scene, expected, args.before_ref)
+            build_sandbox(args.dry_run / f"{scene}-{variant}", scene, variant, ref, expected)
+            text, agent = prompt(scene, variant, expected, ref)
             (args.dry_run / f"prompt-{scene}-{variant}.txt").write_text(f"[agent: {agent or 'none'}]\n{text}\n", encoding="utf-8")
         print(f"{len(todo)} prompts and sandboxes in {args.dry_run}; nothing was run")
         return 0
