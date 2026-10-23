@@ -29,10 +29,11 @@
 #                       (--resume); a usage-limit notice waits 15 minutes and is not an attempt
 #   the task is closed  when the agent moved it to done/ or blocked/. Then: the working tree is
 #                       checked (see below), push, next task
-#   a task is stuck     three attempts in a row without a new commit; a task older than twelve
-#                       hours; the task's budget spent; three overseer BLOCKs in a row on one of
-#                       its units: the runner PARKS the task and takes the next one (see below)
-#                       — one task never stops the board
+#   a task is stuck     three attempts in a row without a new commit; the task's budget spent;
+#                       three overseer BLOCKs in a row on one of its units: the runner PARKS the
+#                       task and takes the next one (see below) — one task never stops the board.
+#                       Time alone parks nothing: a task that keeps committing runs as long as it
+#                       needs (board 404)
 #   extra sessions      a task that says «Додаткові сесії: так» (evals, measurements, a release
 #                       audit, a full simplifier pass) is taken only when no ordinary task can
 #                       start, and not at all while the extra sessions of the last seven days are
@@ -166,8 +167,8 @@
 #
 # Every number is an environment variable, so the tests run in seconds:
 #   BOARD_BRANCH (unattended/work)  BOARD_REMOTE (origin)  BOARD_INBOX (~/engine-ops/tasks-inbox)
-#   BOARD_CLAUDE (claude)  BOARD_LIMIT_WAIT_SEC (900)  BOARD_TASK_MAX_SEC (43200)
-#   BOARD_STALL_ATTEMPTS (3)  BOARD_PAUSE_SEC (30, between attempts)
+#   BOARD_CLAUDE (claude)  BOARD_LIMIT_WAIT_SEC (900)  BOARD_STALL_ATTEMPTS (3)
+#   BOARD_PAUSE_SEC (30, between attempts)
 #   BOARD_MAX_USD (empty = no cap): the most one task may cost; passed on as --max-budget-usd
 
 set -uo pipefail
@@ -193,7 +194,6 @@ REMOTE="${BOARD_REMOTE:-origin}"
 INBOX="${BOARD_INBOX:-$HOME/engine-ops/tasks-inbox}"
 CLAUDE_BIN="${BOARD_CLAUDE:-claude}"
 LIMIT_WAIT="${BOARD_LIMIT_WAIT_SEC:-900}"
-TASK_MAX="${BOARD_TASK_MAX_SEC:-43200}"
 STALL_ATTEMPTS="${BOARD_STALL_ATTEMPTS:-3}"
 PAUSE="${BOARD_PAUSE_SEC:-30}"
 MAX_USD="${BOARD_MAX_USD:-}"
@@ -889,9 +889,6 @@ run_task() {
     fi
     if [ -f "$(reader_marker "$stem")" ]; then   # board 099, 100: three readers in a row refused the sketch's record or the task's report
       park_task "$stem" reader-blocks "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("record", ""))' "$(reader_marker "$stem")" 2>/dev/null)"; return 0
-    fi
-    if [ "$(memo get "$stem" age_sec)" -ge "$TASK_MAX" ]; then
-      park_task "$stem" deadline "$((TASK_MAX / 3600))"; return 0
     fi
     if [ "$(memo get "$stem" idle)" -ge "$STALL_ATTEMPTS" ]; then
       park_task "$stem" no-commit "$STALL_ATTEMPTS"; return 0

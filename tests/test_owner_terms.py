@@ -96,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix="owner-terms-") as tmp:
     item = board.open_item(b, "blocked", "Overseer відклав юніт: 2", "Що сталося.", question="Що робити далі?")
     text = item.read_text(encoding="utf-8") if item else ""
     check("an open item: nothing retired in what the board adds around the words given", item is not None and not retired(text), retired(text))
-    for reason, word in (("no-commit", "runner"), ("deadline", "runner"), ("budget", "BOARD_MAX_USD"), ("three-blocks", "overseer"), ("returned", "runner")):
+    for reason, word in (("no-commit", "runner"), ("budget", "BOARD_MAX_USD"), ("three-blocks", "overseer"), ("returned", "runner")):
         (tasks / "doing" / f"01{len(reason)}-stuck.md").write_text("# x\n\nЗалежить від: —\nАудит потрібен: ні\n\n## Що зробити\n- …\n\n## Питання до власника\n", encoding="utf-8")
         parked = board.park(b, f"01{len(reason)}-stuck", reason, "3", "")
         text = parked.read_text(encoding="utf-8") if parked else ""

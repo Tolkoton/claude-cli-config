@@ -608,30 +608,34 @@ check("four limit notices are not attempts: the task still finishes", r.returnco
 check("the wait is logged", "usage limit; waiting 1 s" in r.stdout and (w.state / "events.log").read_text().count(" limit") >= 4, r.stdout)
 check("the attempts are marked", [a["limit"] for a in w.costs()["001-first"]["attempts"]] == [True, True, True, True, False])
 runner_text = RUNNER.read_text(encoding="utf-8")
-check("the default wait is 15 minutes, the limit 12 hours, the stall 3 attempts",
-      "BOARD_LIMIT_WAIT_SEC:-900}" in runner_text and "BOARD_TASK_MAX_SEC:-43200}" in runner_text and "BOARD_STALL_ATTEMPTS:-3}" in runner_text)
+check("the default wait is 15 minutes, the stall 3 attempts; no limit on a task's age (board 404)",
+      "BOARD_LIMIT_WAIT_SEC:-900}" in runner_text and "BOARD_STALL_ATTEMPTS:-3}" in runner_text
+      and "BOARD_TASK_MAX_SEC" not in runner_text and "TASK_MAX" not in runner_text and "age_sec" not in runner_text and "deadline" not in runner_text)
 
-# --- twelve hours ----------------------------------------------------------------------------------------
-print("a task older than the limit")
-w = World("done")
+# --- time alone parks nothing (board 404) -----------------------------------------------------------------
+print("a task older than twelve hours")
+def started_long_ago(w: World, hours: int) -> None:
+    w.state.mkdir(parents=True)
+    (w.state / "costs.json").write_text(json.dumps({"tasks": {"001-first": {
+        "started_utc": (datetime.now(UTC) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "session_id": "s9", "attempts_without_commit": 0, "cost_usd": 0.0, "attempts": []}}}))
+w = World("work work work work done")
 w.put("doing", "001-first.md")
-w.state.mkdir(parents=True)
-old = (datetime.now(UTC) - timedelta(hours=13)).strftime("%Y-%m-%dT%H:%M:%SZ")
-(w.state / "costs.json").write_text(json.dumps({"tasks": {"001-first": {"started_utc": old, "session_id": "s9", "attempts_without_commit": 0,
-                                                                        "cost_usd": 0.0, "attempts": []}}}))
+started_long_ago(w, 40)
+r = w.run()
+check("started 40 hours ago and committing: not parked — it resumes its conversation, works on and is done", r.returncode == 0
+      and w.has("tasks/done/001-first/report.md") and not w.has("tasks/blocked/001-first.md") and len(w.calls()) == 5
+      and w.argv(0)[w.argv(0).index("--resume") + 1] == "s9" and "task-parked" not in (w.state / "events.log").read_text(encoding="utf-8"), w.status() + r.stdout + r.stderr)
+w = World("idle idle idle done")
+w.put("doing", "001-first.md")
+started_long_ago(w, 40)
 w.put("todo", "002-second.md")
 r = w.run()
-check("started 13 hours ago: parked without one more call (reason deadline); the next task is done by the one call", r.returncode == 0
-      and w.has("tasks/blocked/001-first.md") and "довше за 12 год" in (w.repo / "tasks/blocked/001-first.md").read_text(encoding="utf-8")
-      and len(w.calls()) == 1 and w.has("tasks/done/002-second/report.md"), w.status() + r.stdout + r.stderr)
-w = World("idle")
-w.put("doing", "001-first.md")
-w.state.mkdir(parents=True)
-(w.state / "costs.json").write_text(json.dumps({"tasks": {"001-first": {"started_utc": (datetime.now(UTC) - timedelta(hours=11)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                    "session_id": "s9", "attempts_without_commit": 0, "cost_usd": 0.0, "attempts": []}}}))
-(w.home / "plan").write_text("done")
-r = w.run()
-check("started 11 hours ago: it runs, resuming the stored conversation", r.returncode == 0 and w.argv(0)[w.argv(0).index("--resume") + 1] == "s9", w.status())
+parked_text = (w.repo / "tasks/blocked/001-first.md").read_text(encoding="utf-8") if w.has("tasks/blocked/001-first.md") else ""
+check("NEGATIVE — started 40 hours ago and committing nothing: parked for no-commit after three attempts, as before; the next task is done",
+      r.returncode == 0 and len(w.calls()) == 4 and " task-parked 001-first no-commit" in (w.state / "events.log").read_text(encoding="utf-8")
+      and "3 спроб(и) поспіль не дали жодного commit-а" in parked_text and "довше за" not in parked_text
+      and w.has("tasks/done/002-second/report.md"), w.status() + r.stdout + r.stderr)
 
 # --- the budget -------------------------------------------------------------------------------------------
 print("the budget of one task")
@@ -1861,7 +1865,7 @@ w = audited_world("idle done")
 w.put("todo", "001-quiet.md")
 r = w.run()
 check("the negative case: a session without three BLOCKs is simply continued — nothing is parked", r.returncode == 0 and len(w.calls()) == 2
-      and w.has("tasks/done/001-quiet/report.md") and "task-parked" not in events(w) and not journal_text(w.repo, "anomalies"), events(w))
+      and w.has("tasks/done/001-quiet/report.md") and "task-parked" not in (w.state / "events.log").read_text(encoding="utf-8") and not journal_text(w.repo, "anomalies"), events(w))
 w = audited_world("done")
 w.put("doing", "001-left.md")
 w.put("todo", "002-next.md")
@@ -1931,7 +1935,7 @@ w = minimum_world("code-done audit")
 w.put("todo", "001-solo.md")
 r = w.run()
 check("the turn back is used: the agent has the committed code audited — the task stays in done/",
-      w.has("tasks/done/001-solo/report.md") and len(w.calls()) == 2 and " minimum-made 001-solo" in events(w) and "task-parked" not in events(w),
+      w.has("tasks/done/001-solo/report.md") and len(w.calls()) == 2 and " minimum-made 001-solo" in events(w) and "task-parked" not in (w.state / "events.log").read_text(encoding="utf-8"),
       r.stdout + events(w))
 
 w = minimum_world("pipeline-done idle")
@@ -1966,7 +1970,7 @@ w = minimum_world("done-broken")
 w.put("todo", "001-broken.md")
 r = w.run()
 check("negative — the check itself breaks (exit 3): an anomaly, the task stays in done/, no turn back, no park",
-      w.has("tasks/done/001-broken/task.md") and len(w.calls()) == 1 and "task-parked" not in events(w)
+      w.has("tasks/done/001-broken/task.md") and len(w.calls()) == 1 and "task-parked" not in (w.state / "events.log").read_text(encoding="utf-8")
       and "мінімум режиму задачі не перевірено: `mode.py check-close` відповів кодом 3" in journal_text(w.repo, "anomalies"),
       events(w) + r.stdout)
 
@@ -1975,7 +1979,7 @@ w.put("todo", "001-solo.md")
 r = w.run()
 check("negative — the check breaks after the turn back (the second check-close exits 3): an anomaly, the task stays in done/, no park (board 756)",
       w.has("tasks/done/001-solo/task.md") and not w.has("tasks/blocked/001-solo.md") and len(w.calls()) == 2
-      and " minimum-missing 001-solo" in events(w) and "task-parked" not in events(w) and "minimum-made" not in events(w)
+      and " minimum-missing 001-solo" in events(w) and "task-parked" not in (w.state / "events.log").read_text(encoding="utf-8") and "minimum-made" not in events(w)
       and "мінімум режиму задачі не перевірено після ходу назад: `mode.py check-close` відповів кодом 3" in journal_text(w.repo, "anomalies")
       and "задачу закрито без мінімуму її режиму" not in journal_text(w.repo, "anomalies"),
       events(w) + r.stdout)
@@ -2003,7 +2007,7 @@ w = World("done-unread read")
 w.put("todo", "001-design.md")
 r = w.run()
 check("the reader's PASS on the turn back makes the minimum: the task stays in done/, nothing is parked",
-      w.has("tasks/done/001-design/task.md") and " minimum-made 001-design" in events(w) and "task-parked" not in events(w) and len(w.calls()) == 2
+      w.has("tasks/done/001-design/task.md") and " minimum-made 001-design" in events(w) and "task-parked" not in (w.state / "events.log").read_text(encoding="utf-8") and len(w.calls()) == 2
       and porcelain(w) == "", events(w) + porcelain(w))
 w = World("report-refused done")
 w.put("todo", "001-design.md")

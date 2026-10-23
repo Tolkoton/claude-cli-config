@@ -379,13 +379,23 @@ check("a task in todo/ can be parked too; a second stop adds a line to the one s
       and text.count("## Чому зупинилась") == 1 and text.count("\n- 20") == 2 and "агент повернув задачу" in text
       and board.read(parked).answers == ("продовжити", "") and "\n2. Агент не закінчив" in text, text)
 check("…and a second journal entry under the first", journal_text(root, "anomalies").count("\n## ") == 2)
-for reason, words in (("deadline", "довше за 12 год"), ("budget", "`BOARD_MAX_USD`): задача витратила 12 USD")):
+for reason, words in (("budget", "`BOARD_MAX_USD`): задача витратила 12 USD"),):
     put(root, "doing", "009-other.md", "# Без розділу питань\n\nЗалежить від: —\n")
     r = cli(root, "park", "009-other", reason, "--detail", "12")
     text = (root / "tasks/blocked/009-other.md").read_text(encoding="utf-8")
     check(f"{reason}: the reason is worded, and a task without a questions section gets one", r.returncode == 0 and words in text
           and board.read(root / "tasks/blocked/009-other.md").answers == ("",) and "git stash" not in text, text)
     (root / "tasks/blocked/009-other.md").unlink()
+# board 404: no reason is about time; an old `deadline` record still reads and the task still comes back
+check("deadline is no longer a reason the runner can give", "deadline" not in board.PARK_REASONS
+      and cli(root, "park", "009-other", "deadline").returncode == 2)
+put(root, "blocked", "011-old.md", task(questions="1. Задача тривала довше дозволеного. Що робити далі?\nВідповідь: продовжуй\n").replace(
+    "## Питання до власника", "## Чому зупинилась\n- 2026-10-01T00:00:00Z — задача відкрита довше за 12 год; runner переніс задачу в "
+    "`blocked/` і взяв наступну.\n\n## Питання до власника"))
+check("an old deadline record: the task reads, its answer counts, and it returns to todo/",
+      board.read(root / "tasks/blocked/011-old.md").answers[-1] == "продовжуй"
+      and "011-old.md" in cli(root, "unblock").stdout.split() and (root / "tasks/todo/011-old.md").is_file())
+(root / "tasks/todo/011-old.md").unlink()
 # three BLOCKs in a row (board 031): the verdicts the Stop hook left go into the task
 put(root, "doing", "010-refused.md", task())
 marker = root / "marker.json"

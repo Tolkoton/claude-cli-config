@@ -1387,14 +1387,12 @@ def in_hand(tasks: Path) -> str:
 ANOMALIES_HEAD = journal.JOURNALS["anomalies"].head
 RUNNER = "runner"  # who writes the journal unless told otherwise
 WHY = "## Чому зупинилась"
-# reason → (what happened, the question). {n} is the runner's number: attempts, hours, dollars.
+# reason → (what happened, the question). {n} is the runner's number: attempts, dollars.
+# No reason is about time (board 404): an old `deadline` record in a task or the journal is plain text and stays readable.
 PARK_REASONS = {
     "no-commit": ("{n} спроб(и) поспіль не дали жодного commit-а",
                   ("Задача застрягла: агент кілька спроб поспіль нічого не закомітив. Що робити далі? Будь-яка відповідь поверне задачу "
                   "в чергу з новим лічильником спроб; вказівку агентові напишіть тут же.")),
-    "deadline": ("задача відкрита довше за {n} год",
-                 ("Задача тривала довше дозволеного. Що робити далі? Будь-яка відповідь поверне задачу в чергу з новим відліком часу; "
-                 "вказівку агентові (наприклад, як її розбити) напишіть тут же.")),
     "budget": ("спрацював запобіжник runner-а від зациклення (`BOARD_MAX_USD`): задача витратила {n} USD",
                ("Задача дійшла до запобіжника від зациклення (`BOARD_MAX_USD`). Це не межа ціни: роботу не обрізано, її зупинено з "
                "питанням. Продовжити? Будь-яка відповідь поверне задачу в чергу й дасть їй ще стільки ж; якщо продовжувати не треба — "
