@@ -41,5 +41,10 @@
 - Сцена «після», що не пройшла в обох спробах, стає пропозицією в `proposed/`: що змінити у визначенні.
 - Тести runner-а зелені (`tests/test_focus_evals.py`).
 
+## Чому зупинилась
+- 2026-10-23T22:33:59Z — задачу закрито без мінімуму її режиму, і після одного ходу назад його так і не було (commit 5503a718c0 («board 503: focus scenes p and q — fixtures from the operator, every preseal scene scored as one, p runs the re-check with --changed, per-scene before.ref (v0.14.1);  runner tests 82/0») змінив робочий код (evals/run_focus_evals.py, evals/scenarios/focus/README.md, evals/scenarios/focus/expected.json, evals/scenarios/focus/goals-v3.md, evals/scenarios/focus/interview-v3.md, …), а PASS overseer-а, що бачив саме цей код, у журналі вердиктів немає; commit d6719a660d («board 503: focus scenes after 204 — p and q pass every attempt (before on v0.14.1: neither), f, k, k-neg pass;  e and f-trap fail both attempts → proposals 1762, 1763») змінив робочий код (evals/baseline/linux-ubuntu-22.04/focus-evals-task-503.json), а PASS overseer-а, що бачив саме цей код, у журналі вердиктів немає); runner переніс задачу в `blocked/` і взяв наступну.
+
 ## Питання до власника
 <!-- Кожне питання — окремим пунктом, одразу під ним рядок «Відповідь:». -->
+1. Задачу закрито без мінімуму її режиму (board 098: `mode.py check-close`), і хід назад агентові цього не виправив. Що робити далі? Будь-яка відповідь поверне задачу в чергу; вказівку агентові напишіть тут же.
+   Відповідь:
