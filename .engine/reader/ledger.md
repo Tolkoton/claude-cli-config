@@ -76,3 +76,13 @@
 - Record: tasks/done/502-business-goals-focus-evals-second/report.md
 - Reason: All four questions hold. The numbers, the quotes and the commit references in the report match focus-evals-task-502.json, focus-evals-task-501.json and the 501 report. Every item of «Що зробити» and «Готово, коли» is answered: no proposal was needed because no «після» scene failed both attempts. There is no open question for the owner, and the engine terms are in English (runner, commit, fixtures, overseer, reader, PoC, premise).
 - Request: 20261019T172210Z-4cbf39 (attempt 2)
+
+## 2026-10-23T21:06:16Z — 503-focus-evals-third — READER_BLOCK
+- Record: tasks/done/503-focus-evals-third/report.md
+- Reason: Question 4 fails. The report the owner reads translates the engine term sandbox as «пісочниця». unattended.md lists sandbox among the terms that stay in English, and tests/test_owner_terms.py forbids «пісочниц». Questions 1-3 hold: the references I could open (the result file, 502's table, the fixtures, the runner, the tests, proposals 1762 and 1763) say what the report says, every «Що зробити» item has its answer, and there is no open question for the owner.
+- Request: 20261023T210457Z-936fac (attempt 1)
+
+## 2026-10-23T21:07:42Z — 503-focus-evals-third — READER_PASS
+- Record: tasks/done/503-focus-evals-third/report.md
+- Reason: Every reference I could check in the report matches the files: the results JSON (13 runs, 0 errors, $2.527, engine_commit 5503a71, the pass/fail table, the quoted answers and judge verdicts), the runner code, expected.json, the README, the tests, both commits and the two proposals. Every item of «Що зробити» and «Готово, коли» is answered, the report has no open questions for the owner, and engine terms stay in English (runner, commit, agent, overseer, reader, fixtures, sandbox); «суддя» is the owner's own word in task 501.
+- Request: 20261023T210626Z-e49da1 (attempt 2)
