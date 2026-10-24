@@ -1251,6 +1251,47 @@ check("the owner answered «так»: the document is sealed, by the runner, bef
 check("…the document itself is untouched, the offer replaced by the outcome, the tree clean", (w.repo / ".engine/goals.md").read_text(encoding="utf-8") == GOALS_TEXT
       and "Дію виконано" in done and "запечатано" in done and "Дія runner-а:" not in done and sh(w.repo, "git", "status", "--porcelain").stdout == "", done)
 
+arch = sorted(p.name for p in (w.repo / "tasks/todo").glob("*-master-architect.md"))
+arch_text = (w.repo / "tasks/todo" / arch[0]).read_text(encoding="utf-8") if arch else ""
+log = sh(w.repo, "git", "log", "--format=%s", "-8").stdout
+check("board 205: a new project — the runner put the architecture task into todo/, with the owner present, in a commit of its own",
+      len(arch) == 1 and "\nПотрібна присутність власника: так\n" in arch_text and "`/master-architect`" in arch_text
+      and f"architect-task tasks/todo/{arch[0]}" in events(w) and "the architecture task, with the owner present" in log, events(w) + log)
+check("…no agent was started for it: the runner waits for the owner", not any(arch[0].removesuffix(".md") in str(c) for c in w.calls())
+      and "state=waiting-owner" in w.status(), w.status())
+
+print("board 205: the architecture has begun — sealing the goals puts no task on the board")
+w, offer = goals_world()
+(w.repo / ".engine/architecture").mkdir()
+(w.repo / ".engine/architecture/traceability.md").write_text("# Матриця\n", encoding="utf-8")
+sh(w.repo, "git", "add", ".engine/architecture")
+sh(w.repo, "git", "commit", "-q", "-m", "the matrix")
+sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+owner_answers(w, "787-goals.md", "так")
+w.run()
+check("sealed, no architecture task", goals_state(w) == 0 and "action-applied seal-goals" in events(w) and "architect-task" not in events(w)
+      and not list((w.repo / "tasks/todo").glob("*-master-architect.md")), events(w))
+
+print("board 205: an amendment on the owner's «так» starts no architecture")
+w, offer = goals_world()
+owner_answers(w, "787-goals.md", "так")
+w.run()
+for p in (w.repo / "tasks/todo").glob("*-master-architect.md"):
+    sh(w.repo, "git", "rm", "-q", str(p))
+sh(w.repo, "git", "commit", "-q", "-m", "the owner took the architecture task elsewhere")
+proposed = w.repo / ".engine/goals/proposed.md"
+proposed.parent.mkdir(parents=True, exist_ok=True)
+proposed.write_text(GOALS_TEXT.replace("Версія: 1", "Версія: 2") + "- G2. Покупець бачить статус замовлення.\n\n## Зміни\n- v2 — додано G2.\n", encoding="utf-8")
+sh(w.repo, "git", "add", ".engine/goals/proposed.md")
+sh(w.repo, "git", "commit", "-q", "-m", "a proposed amendment")
+amend = sh(w.repo, sys.executable, str(ROOT / ".claude/unattended/board.py"), "--root", str(w.repo), "action-line", "amend-goals").stdout.strip()
+w.put("blocked", "788-amend.md", task(questions=f"1. Внести поправку?\n   {amend}\n   Відповідь:\n"))
+sh(w.repo, "git", "push", "-q", "origin", "unattended/work")
+owner_answers(w, "788-amend.md", "так")
+w.run()
+check("amended and sealed; no architecture task placed", goals_state(w) == 0 and "action-applied amend-goals 788-amend.md" in events(w)
+      and events(w).count("architect-task") == 1 and not list((w.repo / "tasks/todo").glob("*-master-architect.md")), events(w))
+
 print("board 787: «так» the owner did not send seals nothing")
 w, offer = goals_world()
 w.run()

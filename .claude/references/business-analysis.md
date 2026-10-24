@@ -237,6 +237,12 @@ The question goes to `tasks/blocked/` — the whole document shown in it — wit
 `.engine/goals.md` itself); the owner's «так» has the board runner seal exactly that text. Until
 then the document is not in force, and a change after the question needs a new question.
 
+**The hand-off to the architect** (board 205). The first seal of a new project — no traceability
+matrix, no map yet — starts the architecture without a command from the owner: in the conversation
+`goals.py seal` prints `NEXT: /master-architect` and `/business-analyst` starts it in the same
+session; on the board the runner puts `NNN-master-architect.md` with `Потрібна присутність власника:
+так` into `todo/` after `seal-goals`. Only the start is automatic; an amendment starts nothing.
+
 ## 9. The owner's corrections are lessons
 
 When the owner corrects the document on their own remark, not on an architect's request — "this

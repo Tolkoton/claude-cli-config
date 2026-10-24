@@ -81,9 +81,17 @@ those changes and does not look for the consequences of the owner's answers. The
 does not replace `preseal`.
 
 **Approval.** Only then show the owner the whole document and ask for approval in so many words. Only
-after an explicit yes: `python3 .claude/hooks/goals.py seal`. Then tell the owner the next
-command — `/master-architect` in a new project. With nobody in the conversation `seal` refuses:
-the approval is asked on the task board (method §8, «The first seal without the owner»).
+after an explicit yes: `python3 .claude/hooks/goals.py seal`, then `overseer_phase.py clear`.
+
+**The hand-off (board 205).** When `seal` printed `NEXT: /master-architect` (a first seal, and no
+matrix or map yet: a new project), the architecture starts now, without a command from the owner:
+tell the owner so in one line and start `/master-architect` yourself in this session (the Skill
+tool, `master-architect`). Only the start is automatic: the architect stops for the owner at
+«Читання цілей», at the end of every stage and at every one-way door, as always. Without that line
+(the architecture has begun) nothing starts. With nobody in the conversation `seal` refuses: the
+approval is asked on the task board (method §8, «The first seal without the owner»), and after the
+owner's «так» the runner puts the `/master-architect` task, with the owner present, into `todo/`.
+An amendment (§8) starts nothing: `.engine/goals/to-review.md` lists what the architects reread.
 
 # Changing the document
 

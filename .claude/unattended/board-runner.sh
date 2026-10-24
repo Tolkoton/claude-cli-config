@@ -138,8 +138,9 @@
 # approved under the question of a /maintain task — owner_action.py updates them one at a time,
 # each checked by the full gate and committed on its own or rolled back), `amend-goals` /
 # `seal-goals` (boards 051, 787: goals.py puts an approved amendment in place of the goals document
-# and seals it, or puts the first seal on the document the owner approved) and the gate's
-# `close-escalation` above.
+# and seals it, or puts the first seal on the document the owner approved — in a new project
+# `board.py architect-task` then puts the /master-architect task, with the owner present, into
+# todo/: board 205) and the gate's `close-escalation` above.
 # The same rule for where the answer came from applies. The offer is then replaced by the
 # outcome and the task returns to todo/ for the agent to check and report; a rule question the
 # runner acted on goes straight to done/ with a short report, no agent is started for it.
@@ -452,7 +453,7 @@ local_gate_answers() {
 # Act on the owner's «так» (exactly that one word, board 036) under an offered action. Run here, by the runner — never by an agent;
 # owner_action.py holds the list of what may be run and refuses inside a Claude Code session.
 owner_actions() {
-  local name action arg sum line rc outcome path
+  local name action arg sum line rc outcome path placed
   local -a rules
   while IFS=$'\t' read -r name action arg sum; do
     [ -n "$name" ] || continue
@@ -498,6 +499,14 @@ owner_actions() {
     esac
     board_commit "board: ${name%.md} — $action on the owner's answer: $outcome" \
       || finish error - commit "cannot commit the outcome of the action"
+    if [ "$action" = seal-goals ] && [ "$outcome" = applied ]; then   # board 205: sealed goals hand off to the architect
+      placed=$(board architect-task) || finish error - action "board.py architect-task failed"
+      if [ -n "$placed" ]; then
+        event "architect-task $placed"
+        board_commit "board: the goals sealed — the architecture task, with the owner present: $placed" \
+          || finish error - commit "cannot commit the architecture task"
+      fi
+    fi
   done <<< "$(board owner-actions)"
 }
 

@@ -68,7 +68,11 @@ changed line; the agent, when the task returns to it, commits the document. The 
 document written with nobody in the conversation goes the same way (board 787): the offer
 `Дія runner-а: seal-goals <sha256 of .engine/goals.md>` under a question that shows the whole document; on
 `так` the runner has `goals.py` seal exactly that document — one that changed since the question is stale,
-one already approved and changed is an amendment, not a first seal. A lesson
+one already approved and changed is an amendment, not a first seal. In a new project (no traceability matrix,
+no map) the runner then puts the architecture task into `todo/` itself, in a commit of its own (board 205,
+`board.py architect-task`: `NNN-master-architect.md`, a task to run `/master-architect` with `Потрібна присутність
+власника: так` — the architect stops for the owner at «Читання цілей», before any design); never after an
+amendment, never while one lies in any column. A lesson
 becomes a rule the same way and no other: the question `8NN-rule-proposal-*.md` carries the offer
 `Дія runner-а: promote-rule <sha256>`; on the owner's `так` the runner has `lesson_queue.py` add
 that exact text to `.engine/rules.md`, on `ні` it closes the proposal, commits, and moves the
