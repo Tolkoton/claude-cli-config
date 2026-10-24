@@ -88,6 +88,12 @@ workflows are compared with the snapshot taken when the turn began. A file that 
 back by the gate itself, the discarded change kept as a patch, the anomaly journal written, and
 the turn blocked once so that the agent reads it. See protected_guard.py.
 
+A SHARED TREE (stop; board 305). While a live board runner holds .claude/state/board/lock and this
+session is not one it started, the runner's unfinished work is in the same diff. The layer then
+judges only the files this session's own tool calls wrote (shared_tree.py): the others are left out
+of the checks, a finding a check still reports on one of them is a `log`, and an escalation names
+only this session's files and no board task but the owner's attended one. When the transcript does
+not show every write, the whole tree is judged as before.
 Standard library only; Python 3.11+. The linters are external commands.
 """
 
@@ -692,6 +698,13 @@ def protected_guard_module() -> Any:
     return protected_guard
 
 
+def shared_tree_module() -> Any:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import shared_tree
+
+    return shared_tree
+
+
 def installed_module() -> Any:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import installed
@@ -723,11 +736,12 @@ def add_guarded(report: Report, found: list[dict[str, Any]]) -> None:
         report.reasons.append(f"GUARDED FILE {finding.file} [{finding.rule}] {finding.message}. {finding.hint}")
 
 
-def deleted_code(root: Path, layer: str, diff_ref: str | None, env: dict[str, str]) -> list[str]:
+def deleted_code(root: Path, layer: str, diff_ref: str | None, env: dict[str, str],
+                 own: set[str] | None = None) -> list[str]:
     """Working-code files the change removed: `changed_files` lists only what still exists."""
     args = ["--cached"] if layer == "pre_commit" else [diff_ref or "HEAD"]
     gone = lines_of(git(root, "diff", "--name-only", "--diff-filter=D", *args))
-    return [rel for rel in gone if delete_guard_module().is_working_code(env, rel)]
+    return [rel for rel in gone if delete_guard_module().is_working_code(env, rel) and (own is None or rel in own)]
 
 
 def guard_baseline(root: Path, rel: str, old: str | None, new: str | None, report: Report) -> None:
@@ -1024,6 +1038,19 @@ def work_in_hand(root: Path) -> str:
         return ""
 
 
+def attended_work(root: Path) -> str:
+    """In a shared tree the task in doing/ that needs no owner is the runner's, never this session's:
+    only the owner's attended one can be the work in hand."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "unattended"))
+        import board
+
+        held = board.Board(root / "tasks").in_hand(True) if (root / "tasks").is_dir() else []
+        return held[0].stem if len(held) == 1 else ""
+    except (ImportError, OSError, ValueError, TypeError, AttributeError):
+        return ""
+
+
 def open_escalation(root: Path, stamp: str, report: Report, task: str | None = None,
                     waiting: dict[str, Any] | None = None) -> None:
     """Machine state beside the parked entry: overseer_stop.py refuses an OVERSEER_PASS while an
@@ -1040,7 +1067,7 @@ def open_escalation(root: Path, stamp: str, report: Report, task: str | None = N
              "head": head, "reasons": [r.splitlines()[0][:200] for r in report.reasons[:5]]}
     if task:
         entry["task"] = task
-    work = work_in_hand(root)
+    work = attended_work(root) if "shared_tree" in report.extra else work_in_hand(root)
     if work:
         entry["work"] = work
     if waiting:
@@ -1400,7 +1427,7 @@ def quarantine(root: Path, env: dict[str, str], layer: str, files: list[str], di
 
 
 def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
-                 diff_ref: str | None, report: Report) -> None:
+                 diff_ref: str | None, report: Report, own: set[str] | None = None) -> None:
     full = layer in ("pre_commit", "ci")
     files = without_install(root, layer, files, diff_ref, report)   # before anything judges
     report.files = files
@@ -1413,7 +1440,7 @@ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
     # the guard exists to see; so a config-only turn still reaches the guard.
     # Nor is a file that is gone: a turn that only deletes code still reaches the delete guard.
     if (layer == "stop" and not code and not any(is_config_file(f) for f in files)
-            and not deleted_code(root, layer, diff_ref, env)):
+            and not deleted_code(root, layer, diff_ref, env, own)):
         return
     started = time.perf_counter()
     if layer in ("stop", "pre_commit"):
@@ -1436,7 +1463,23 @@ def layer_checks(root: Path, env: dict[str, str], layer: str, files: list[str],
         simplify_signals(root, env, layer, files, report)
 
 
-def run_layer(layer: str, root: Path, files: list[str] | None, diff_ref: str | None) -> tuple[Report, str | None]:
+def not_ours(report: Report, own: set[str], foreign: list[str]) -> None:
+    """A shared tree: what a check found in a file this session did not write is the runner's."""
+    report.extra["shared_tree"] = {"own": sorted(own & set(report.files)), "foreign": foreign}
+    if foreign:
+        report.add(Finding(None, None, "shared-tree", "log",
+                           f"a board runner works in this tree: {len(foreign)} changed file(s) this session did not "
+                           "write are its work and are not judged here"))
+    for finding in report.findings:
+        if finding.severity == "block" and finding.file and finding.file not in own:
+            finding.severity = "log"
+            finding.message = f"not this session's file (the board runner's work): {finding.message}"
+    if not report.blocked:
+        report.reasons.clear()
+
+
+def run_layer(layer: str, root: Path, files: list[str] | None, diff_ref: str | None,
+              own: set[str] | None = None) -> tuple[Report, str | None]:
     env = load_env(root)
     report = Report(layer=layer, root=root, started_utc=utc_now())
     if layer == "post_write":
@@ -1445,7 +1488,11 @@ def run_layer(layer: str, root: Path, files: list[str] | None, diff_ref: str | N
             context = layer_post_write(root, env, rel, report) or context
         return report, context
     selected = files if files else changed_files(root, layer, diff_ref)
-    layer_checks(root, env, layer, selected, diff_ref, report)
+    if own is None:
+        layer_checks(root, env, layer, selected, diff_ref, report)
+        return report, None
+    layer_checks(root, env, layer, [f for f in selected if f in own], diff_ref, report, own)
+    not_ours(report, own, [f for f in selected if f not in own])
     return report, None
 
 
@@ -1542,6 +1589,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--layer is required")
     files: list[str] | None = args.files
     session = "cli"
+    own: set[str] | None = None
     guarded: list[dict[str, Any]] = []
     try:
         if args.layer == "stop":
@@ -1549,6 +1597,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.hook:
             envelope = read_envelope()
             session = str(envelope.get("session_id") or "cli")
+            if args.layer == "stop" and files is None:
+                try:
+                    own = shared_tree_module().judged_files(root, envelope)
+                except ImportError:   # gate-allow: shared_tree.py missing beside the gate — the whole tree is judged, as before
+                    own = None
             if args.layer == "stop":
                 # Before every way out below (board 724): a turn that changed only the constitution
                 # changed no code, and a few hashes cost nothing on a stop another hook forced.
@@ -1577,7 +1630,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.layer == "stop" and not args.hook:
             guarded = protected_guard_module().at_stop(root, None)   # by hand: compared with HEAD, nothing put back
-        report, _ = run_layer(args.layer, root, files, args.diff_ref)
+        report, _ = run_layer(args.layer, root, files, args.diff_ref, own)
         if args.layer == "stop":
             add_guarded(report, guarded)
             code = emit_stop(report, root, args.hook, session)

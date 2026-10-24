@@ -89,6 +89,16 @@ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && have git \
   fi
 fi
 
+# Board 305: a board runner works in this very tree, and this session is not one it started. Its
+# unfinished work is in the same diff; the Stop gate then judges only what this session's own tools
+# wrote (shared_tree.py), and code work belongs in a separate clone (tasks/README.md). Said once, here.
+RUNNER_PID="$(cat "$ROOT/.claude/state/board/lock" 2>/dev/null)"
+if [ "${CLAUDE_UNATTENDED_SESSION:-}" != "1" ] && [ -n "$RUNNER_PID" ] && kill -0 "$RUNNER_PID" 2>/dev/null; then
+  RUNNER_TASK="$(sed -n 's/.*task=\([^ ]*\).*/\1/p' "$ROOT/.claude/state/board/status" 2>/dev/null)"
+  echo "## engine — a board runner works in this tree"
+  echo "- the runner (pid $RUNNER_PID, task ${RUNNER_TASK:--}) builds in this working tree, and its unfinished code is in the same diff. The Stop gate judges only the files this session's own tool calls write; a file written by a script this session starts is not seen. For code work, make a separate clone (\`git clone $ROOT $ROOT-<name>\`) and work there; .claude/state/overseer/mode reads \`unattended\` while the runner works, but this session is attended."
+fi
+
 # Package B: a bounded digest of the project's lessons (memory headings, the queue's size, the
 # proposals waiting) and, when due, the proposal to run the clean-up protocol. Silent when there
 # is nothing to say. Carried here because this is the SessionStart hook already wired; it needs

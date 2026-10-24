@@ -23,6 +23,20 @@ how Claude Code hands a hook its context, verified against code.claude.com on 20
   second repository's hooks never run in this session, whatever its settings say.
 - **`.claude/project.env` is read from the session repository**, so `CLOUD_COMMIT_POLICY`,
   `SOURCE_DIRS` and the rest describe that one project.
+- **One working tree, two sessions: the owner's beside the runner's (board 305).** The Stop gate
+  judges what git shows as changed, and the runner's unfinished work is in that diff too. While a
+  live runner holds `.claude/state/board/lock` and a session is not one it started
+  (`CLAUDE_UNATTENDED_SESSION` is not 1), that session's Stop gate judges only the files its own tool
+  calls wrote, read from its transcript and its subagents' (`shared_tree.py`): an Edit or Write, and
+  a path a Bash command writes as its text shows it. A finding a check still makes on another file
+  (a configured `LINT_CMD` over the whole tree) is a `log`, and an escalation names only the session's
+  files and never the runner's task. Where the transcript does not show every write — no
+  transcript, a path in a variable, a formatter, a `git checkout`, a launched subagent with no
+  transcript of its own — the whole tree is judged as before. **Not seen at all:** a write made by a
+  script the session starts (`python3 gen.py`); in a shared tree it goes unjudged. A test that fails
+  names no file, so it still blocks a session that wrote code. Code work beside a running runner
+  belongs in a separate clone; the SessionStart hook says so in such a session. The reverse — the
+  runner's session judged on the owner's broken file — is not separated: the runner judges the whole tree.
 
 ## Hooks guard tool calls, not scripts
 

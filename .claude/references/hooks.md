@@ -60,7 +60,9 @@ the agent issues. A command run from **inside a shell script** is seen by none o
 (verified 2026-08-27: `git commit --dry-run` is refused at top level and executes untouched
 from a two-line script). The guard inside `commit_checkpoint.sh` is the only guard on that
 path. The guarantees also assume one session working in one repository: the branch is read
-from the session's repository, not from wherever `cd` points (`docs/engine-limits.md`).
+from the session's repository, not from wherever `cd` points (`docs/engine-limits.md`). One working tree may hold two
+sessions — the owner's beside the board runner's: the owner's Stop gate then judges only the files
+its own tool calls wrote (`shared_tree.py`, board 305; what it cannot see: `docs/engine-limits.md`).
 
 The protected paths are held for a shell command by its **text** alone: a path kept in a variable,
 built from parts, reached after `cd` into its directory or written by a script the command starts
