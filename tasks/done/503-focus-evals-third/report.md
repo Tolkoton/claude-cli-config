@@ -82,6 +82,8 @@ python3 -c "import json; d=json.load(open('evals/baseline/linux-ubuntu-22.04/foc
 
 - `python3 tests/test_focus_evals.py` → `PASS 82   FAIL 0`.
 - Повний набір `bash tests/run_all.sh` (один раз, наприкінці) → `PASS: 120 suites green`, exit 0.
+- Overseer PASS на робочий код задачі в кінцевому стані (`5503a71`, `d6719a6`) — request `20261024T072455Z-ef3427`,
+  2026-10-24 (мінімум режиму «соло», за відповіддю власника; нових вимірів не запускав).
 
 ## Витрати
 
