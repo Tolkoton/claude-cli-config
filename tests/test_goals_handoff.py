@@ -19,11 +19,12 @@ Run:   python3 tests/test_goals_handoff.py       Exit: 0 all green, 1 otherwise.
 from __future__ import annotations
 
 import hashlib
-import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from hook_env import hook_env
 
 ROOT = Path(__file__).resolve().parent.parent
 GOALS = ROOT / ".claude/hooks/goals.py"
@@ -57,8 +58,7 @@ def check(name: str, ok: bool, detail: object = "") -> None:
 
 
 def run(script: Path, root: Path, *args: str, session: bool = False, unattended: bool = False) -> subprocess.CompletedProcess[str]:
-    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "CLAUDE_UNATTENDED_SESSION")}
-    env["CLAUDE_PROJECT_DIR"] = str(root)
+    env = {k: v for k, v in hook_env(root).items() if k not in ("CLAUDECODE", "CLAUDE_UNATTENDED_SESSION")}
     if session:
         env["CLAUDECODE"] = "1"
     if unattended:
