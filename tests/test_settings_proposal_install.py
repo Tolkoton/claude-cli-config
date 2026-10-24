@@ -257,12 +257,15 @@ check("the proposal is the project's, named by a rule of its own", engine_module
       and any(r.pattern == PROPOSAL and r.seed is None for r in rules))
 check("the check and the action are the engine's", engine_module.owner_of(rules, CHECK) == "engine" and engine_module.owner_of(rules, ACTION) == "engine")
 # A proposal may be waiting for the owner's «так» — since board 099 the reader's guard before the Agent tool and
-# its verdict writer on SubagentStop (board 603's lists are applied). Then the shipped check says the proposal is
-# sound and names exactly those two places; any other difference fails.
+# its verdict writer on SubagentStop (board 603's lists are applied); since board 302 the ask list (the project's
+# package manager left it). Then the shipped check says the proposal is sound and names exactly those places; any
+# other difference fails.
 applied = subprocess.run([sys.executable, str(ROOT / CHECK), "--applied"], capture_output=True, text=True, check=False)
 waiting = subprocess.run([sys.executable, str(ROOT / CHECK)], capture_output=True, text=True, check=False)
-check("here the live file is the proposal — or the proposal waits with board 099's two hook lists only — and the shipped check says so",
-      applied.returncode == 0 or (waiting.returncode == 0 and "differs from .claude/settings.json in: hooks.PreToolUse, hooks.SubagentStop\n" in waiting.stdout),
+WAITING = ("hooks.PreToolUse, hooks.SubagentStop", "permissions.ask")   # board 099; board 302
+check("here the live file is the proposal — or the proposal waits with board 099's two hook lists or board 302's ask list only — "
+      "and the shipped check says so",
+      applied.returncode == 0 or (waiting.returncode == 0 and any(f"differs from .claude/settings.json in: {w}\n" in waiting.stdout for w in WAITING)),
       applied.stdout + applied.stderr + waiting.stdout)
 
 print(f"\n{PASS} passed, {FAIL} failed")

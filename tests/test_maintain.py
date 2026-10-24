@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """/maintain — regular care (board 076): the report, the owner's «так» on the list, the weekly task.
 
-WHY. Changing packages is the owner's act: the agent reports and asks, the board runner updates —
+WHY. Updating packages is the owner's act: the agent reports and asks, the board runner updates —
 only what the owner saw, only patches and minor versions, one at a time, each checked by the full
 gate and committed or rolled back. A major version never rides along. And the care comes back by
 itself once a week, once.

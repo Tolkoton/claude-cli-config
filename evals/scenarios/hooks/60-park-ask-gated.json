@@ -57,7 +57,7 @@
     },
     {
       "id": "pa-unattended-dependency-change-is-parked",
-      "why": "A dependency change is on the ask list too.",
+      "why": "An install outside the project's environment is on the ask list too (board 302: the project's own manager is not).",
       "setup": [
         {
           "write": {
@@ -70,7 +70,7 @@
         "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
         "tool_input": {
-          "command": "uv add requests"
+          "command": "pip install requests"
         }
       },
       "expect": "block"

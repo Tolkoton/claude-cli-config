@@ -207,18 +207,19 @@ such a set.
 ### The shared `ask` list
 
 `.claude/settings.json`'s `ask` list ships with a neutral cross-language default:
-git/gh/docker operations, plus the "add/remove a dependency" command for six
-package managers (`uv`, `poetry`, `pip`, `pipx`, `npm`, `yarn`, `pnpm`, `cargo`,
-`go`, `gem`, `bundle`). You don't have to edit this — unused entries are inert,
-they only prompt if you actually run that command. Trim it if you want a
-shorter approval list:
+git/gh/docker operations, plus the installs that land outside the project's environment
+(`pip`, `pipx`, `gem install`, and the global forms `npm install -g`, `pnpm add -g`,
+`yarn global`). Adding or removing a package through the project's own manager (`uv`,
+`poetry`, `npm`, `yarn`, `pnpm`, `cargo`, `go`, `bundle`) is not on it: the agent picks the
+project's packages itself (board 302), with the lock file in the same commit and the package
+named in the task's report. You don't have to edit this list — unused entries are inert, they
+only prompt if you actually run that command. Trim it if you want a shorter approval list:
 
 | Your stack | Safe to remove from `ask` |
 |---|---|
-| Python only | `cargo add/remove`, `go get/mod tidy`, `gem install`, `bundle add/remove` |
-| JS/TS only | all `uv/poetry/pip/pipx`, `cargo`, `go`, `gem`, `bundle` entries |
-| Go only | all `uv/poetry/pip/pipx`, `npm/yarn/pnpm`, `cargo`, `gem/bundle` entries |
-| Rust only | all `uv/poetry/pip/pipx`, `npm/yarn/pnpm`, `go`, `gem/bundle` entries |
+| Python only | `gem install`, the global `npm`/`pnpm`/`yarn` entries |
+| JS/TS only | `pip`, `pipx`, `gem install` |
+| Go or Rust only | `pip`, `pipx`, `gem install`, the global `npm`/`pnpm`/`yarn` entries |
 
 Trimming makes `settings.json` a file the project changed: from then on `engine.py update`
 reports it instead of updating it (see *Keeping the engine up to date*).

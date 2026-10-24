@@ -42,6 +42,7 @@ BLOCK = ROOT / ".claude/hooks/block-dangerous.sh"
 PROPOSAL = ROOT / "docs/tasks/settings.json"
 PUSH = "git " + "push"            # split, so that a shell handling THIS file does not judge its cases
 F = "--for" + "ce"
+NPM_PUBLISH = "npm " + "publish"  # split for the same reason
 B = "claude/s-1"
 PLACE = ("CLAUDE_CODE_REMOTE", "CLAUDE_UNATTENDED_SESSION")   # what says where a session runs
 PASS = FAIL = 0
@@ -214,7 +215,14 @@ CASES: list[tuple[str, dict[str, str], str, str, str, str]] = [
     ("runner: inside bash -c, refused", LOCAL, UNATT, f'bash -c "{PUSH} origin unattended/2026-10-09"', "deny", "deny"),
     ("runner: inside eval, refused", LOCAL, UNATT, f'eval "{PUSH}"', "deny", "deny"),
     ("runner in a cloud session: refused, the cloud rule does not apply", CLOUD, ON_UNATT, f"{PUSH} -u origin {B}", "deny", "deny"),
-    ("runner: another ask-gated command is still parked", LOCAL, UNATT, "uv add requests", "deny", "deny"),
+    ("runner: another ask-gated command is still parked", LOCAL, UNATT, "pip install requests", "deny", "deny"),
+    # --- board 302: the project's packages are the agent's call; an install outside it still parks ---
+    ("runner: the project's manager adds a package (board 302)", LOCAL, UNATT, "uv add requests", "none", "allow"),
+    ("runner: the project's manager removes a package (board 302)", LOCAL, UNATT, "npm uninstall left-pad", "none", "allow"),
+    ("runner: cargo add goes (board 302)", LOCAL, UNATT, "cargo add serde", "none", "allow"),
+    ("runner: a global npm install is parked (board 302)", LOCAL, UNATT, "npm install -g typescript", "deny", "deny"),
+    ("runner: a global pnpm add is parked (board 302)", LOCAL, UNATT, "pnpm add --global tsx", "deny", "deny"),
+    ("runner: publishing a package is still refused (board 302)", LOCAL, UNATT, NPM_PUBLISH, "none", "deny"),
     ("runner: an ordinary command goes", LOCAL, UNATT, "uv run pytest -q", "none", "allow"),
 ]
 

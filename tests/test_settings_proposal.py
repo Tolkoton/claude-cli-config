@@ -18,6 +18,9 @@ an agent), so this is the test of that one file. It holds before and after the a
   a push by environment now — and the allow list gains WebFetch and WebSearch, which a cloud
   session needs and cannot take from the personal layer it never reads; nothing else of the
   permissions differs from the live file;
+- board 302 (owner, 2026-10-23): the project's own package manager adding or removing a package
+  leaves the ask list (PACKAGE_ASK_RULES) — the agent picks the packages; a global install of npm,
+  pnpm or yarn joins it (GLOBAL_INSTALL_ASK_RULES): that one lands outside the project;
 - once the live .claude/settings.json equals the proposal, that is reported as applied.
 """
 
@@ -42,6 +45,13 @@ PERSONAL_KEYS = ("defaultMode", "additionalDirectories")
 WEB_TOOLS = ("WebFetch", "WebSearch")
 # Board 603: a push left the ask list — park-ask-gated.py decides it by environment.
 PUSH_ASK_RULES = ("Bash(git push:*)", "Bash(git push)")
+# Board 302 (owner, 2026-10-23): the project's packages are the agent's call; an install outside the
+# project's manifest and lock file still asks.
+PACKAGE_ASK_RULES = tuple(f"Bash({c}:*)" for c in (
+    "uv add", "uv remove", "poetry add", "poetry remove", "npm install", "npm uninstall", "yarn add", "yarn remove",
+    "pnpm add", "pnpm remove", "cargo add", "cargo remove", "go get", "go mod tidy", "bundle add", "bundle remove"))
+GLOBAL_INSTALL_ASK_RULES = tuple(f"Bash({c}:*)" for c in (
+    "npm install -g", "npm install --global", "npm i -g", "pnpm add -g", "pnpm add --global", "yarn global"))
 PERSONAL_ENV = (
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
@@ -93,7 +103,9 @@ INTENDED: dict[str, str] = {
         "prompts in every environment and no hook lifts it, so a cloud session stopped on every push of its own "
         "branch; park-ask-gated.py decides the push now: the cloud session's own claude/ branch to origin goes, "
         "any other cloud push is refused, a local session asks, the runner is refused "
-        "(tests/test_push_by_environment.py)"
+        "(tests/test_push_by_environment.py); board 302 (owner, 2026-10-23): the project's own package manager "
+        "adding or removing a package leaves it too — the agent picks the packages, the lock file rides in the same "
+        "commit — and a global npm/pnpm/yarn install joins it: that one lands outside the project"
     ),
     "permissions.defaultMode": (
         "F4 (owner): the personal layer says `auto`, not `acceptEdits`; `auto` is legal at the user level only, "
@@ -155,14 +167,18 @@ def main() -> int:
             all(a in perm["allow"] for a in WEB_TOOLS), str(perm["allow"]))
     t.check("proposal (board 603): no push rule in ask — the hook decides it",
             not any(r in perm["ask"] for r in PUSH_ASK_RULES) and not any("git push" in r for r in perm["ask"]))
+    t.check("proposal (board 302): no package-manager add/remove in ask, the global installs and pip still there",
+            not any(r in perm["ask"] for r in PACKAGE_ASK_RULES)
+            and all(r in perm["ask"] for r in GLOBAL_INSTALL_ASK_RULES + ("Bash(pip install:*)",)), str(perm["ask"]))
     ask_gone = [r for r in live["permissions"]["ask"] if r not in perm["ask"]]
     ask_new = [r for r in perm["ask"] if r not in live["permissions"]["ask"]]
     allow_gone = [r for r in live["permissions"]["allow"] if r not in perm["allow"]]
     allow_new = [r for r in perm["allow"] if r not in live["permissions"]["allow"]]
     t.check(
-        "proposal (board 603): against the live file the ask list drops at most the two push rules and adds none; "
+        "proposal (boards 603, 302): against the live file the ask list drops at most the two push rules and the "
+        "project's package-manager rules and adds at most the global installs; "
         "the allow list adds at most WebFetch and WebSearch and drops none",
-        set(ask_gone) <= set(PUSH_ASK_RULES) and not ask_new and set(allow_new) <= set(WEB_TOOLS) and not allow_gone,
+        set(ask_gone) <= set(PUSH_ASK_RULES + PACKAGE_ASK_RULES) and set(ask_new) <= set(GLOBAL_INSTALL_ASK_RULES) and set(allow_new) <= set(WEB_TOOLS) and not allow_gone,
         json.dumps({"ask gone": ask_gone, "ask new": ask_new, "allow new": allow_new, "allow gone": allow_gone}),
     )
     t.check("proposal: no model variables under env", not any(k in proposal.get("env", {}) for k in PERSONAL_ENV))
