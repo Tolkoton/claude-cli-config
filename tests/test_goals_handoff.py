@@ -143,6 +143,13 @@ with tempfile.TemporaryDirectory() as tmp:
     check("…the owner's attended session does", "master-architect" in r.stdout, out(r))
     r = run(BOARD, root, "--root", str(root), "architect-task")
     check("asked again: one already in todo/, nothing placed", not r.stdout.strip() and todo(root) == names, out(r))
+    for column in ("doing", "blocked"):
+        for name in names:
+            (root / "tasks/todo" / name).rename(root / "tasks" / column / name)
+        r = run(BOARD, root, "--root", str(root), "architect-task")
+        check(f"…one in {column}/ (the owner's session has it): nothing placed", not r.stdout.strip() and todo(root) == [], out(r))
+        for name in names:
+            (root / "tasks" / column / name).rename(root / "tasks/todo" / name)
     for name in names:
         (root / "tasks/done" / name.removesuffix(".md")).mkdir()
         (root / "tasks/todo" / name).rename(root / "tasks/done" / name.removesuffix(".md") / "task.md")
