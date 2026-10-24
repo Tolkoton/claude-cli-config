@@ -86,3 +86,13 @@
 - Record: tasks/done/503-focus-evals-third/report.md
 - Reason: Every reference I could check in the report matches the files: the results JSON (13 runs, 0 errors, $2.527, engine_commit 5503a71, the pass/fail table, the quoted answers and judge verdicts), the runner code, expected.json, the README, the tests, both commits and the two proposals. Every item of «Що зробити» and «Готово, коли» is answered, the report has no open questions for the owner, and engine terms stay in English (runner, commit, agent, overseer, reader, fixtures, sandbox); «суддя» is the owner's own word in task 501.
 - Request: 20261023T210626Z-e49da1 (attempt 2)
+
+## 2026-10-24T08:01:21Z — 117-release-audit-next — READER_BLOCK
+- Record: tasks/done/117-release-audit-next/report.md
+- Reason: Question 1 fails. The report and the task file point the owner to paths that do not exist, and they disagree with where the report actually is. The report says the question «Випустити v0.14.2?» is in `tasks/blocked/117-release-audit-next.md`, but there is no such file: the task is still in `tasks/doing/` and nothing for 117 is in `tasks/blocked/`. The task's question gives the report as `tasks/blocked/report-117-release-audit-next.md`, which also does not exist, while the report under review is `tasks/done/117-release-audit-next/report.md`, and report line 203 says it lies beside the task in `
+- Request: 20261024T075929Z-9376e0 (attempt 1)
+
+## 2026-10-24T08:02:45Z — 117-release-audit-next — READER_PASS
+- Record: tasks/done/117-release-audit-next/report.md
+- Reason: All four questions hold. The references I could open match the report: the audit and golden-set records, the audit-noise threshold, the reports of 204, 404, 503 and 116, the proposals 1762 and 1763, and the commits named in those files. The report answers every «Що зробити» item. The task file's one open question names options А and Б and gives the author's advice. Engine terms stay in English. The path mismatch from attempt 1 is fixed: the report and the task file now both give the current path and the path after the commit.
+- Request: 20261024T080133Z-a63bfb (attempt 2)
