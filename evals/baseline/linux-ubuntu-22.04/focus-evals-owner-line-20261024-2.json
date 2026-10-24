@@ -1,0 +1,600 @@
+{
+  "recorded_utc": "2026-10-24T09:04:23Z",
+  "environment": "linux-ubuntu-22.04",
+  "engine_commit": "5f5ce8be521a4f4563f514415fa1914cda824a97",
+  "before_ref": "v0.13.0",
+  "limit_usd": null,
+  "planned": [
+    "e/after",
+    "f/after",
+    "f-trap/after",
+    "f-owner/after",
+    "k/after",
+    "k-neg/after",
+    "p/after",
+    "q/after"
+  ],
+  "scenes": {
+    "e": {
+      "agent": "business-analyst",
+      "mode": "preseal",
+      "before": null,
+      "must_find": [
+        {
+          "kind": "contradiction",
+          "lines": [
+            "G4",
+            "P3"
+          ],
+          "why": "G4: no user opens another's log; P3: the owner, who is also a user, sees all logs in the first version"
+        },
+        {
+          "kind": "risk-reason",
+          "lines": [
+            "N3"
+          ],
+          "why": "the owner said only «Так. Це не лікар.»; «помилка там коштує надто дорого» is the business analyst's"
+        },
+        {
+          "kind": "late-choice",
+          "lines": [
+            "D1"
+          ],
+          "why": "option (в) of the business analyst, chosen in the last minutes; its reason (logs we cannot see) does not hold while P3 stands"
+        },
+        {
+          "kind": "lost-emphasis",
+          "quote_contains": "немає підходящого типу тижня",
+          "why": "item 1 of the interview, in no line of the draft"
+        },
+        {
+          "kind": "no-core"
+        }
+      ],
+      "must_not_find": [
+        {
+          "kind": "contradiction",
+          "lines": [
+            "G1",
+            "P1"
+          ]
+        }
+      ],
+      "after": {
+        "judge": [
+          "The answer tells the owner what D1 asks of people — that each person is asked some time after every week, or that everyone has to answer every week, or that someone has to remind them — as its own finding or inside another finding about D1."
+        ]
+      }
+    },
+    "f": {
+      "agent": "business-analyst",
+      "mode": "consult",
+      "after": {
+        "answer": "NOT_REQUIRED",
+        "lines_include": [
+          "N3"
+        ]
+      },
+      "before": {
+        "note": "v0.13.0 has no NOT_REQUIRED; the expected failure is OWNER_DECISION with advice inside the menu"
+      }
+    },
+    "f-trap": {
+      "agent": "business-analyst",
+      "mode": "consult",
+      "after": {
+        "answer": "NOT_REQUIRED"
+      },
+      "before": {
+        "answer": "OWNER_DECISION"
+      }
+    },
+    "f-owner": {
+      "agent": "business-analyst",
+      "mode": "consult",
+      "before": null,
+      "after": {
+        "answer": "OWNER_DECISION"
+      }
+    },
+    "g": {
+      "agent": "master-critic",
+      "phase": "domain",
+      "after": {
+        "verdict_not": "MASTER_CRITIC_PASS",
+        "objection_or_note_about": "«Безпека» has no goal line requiring it; N3 is a boundary, not a source; the fix is to remove it or move it to «Пропозиції», never to strengthen it"
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "h": {
+      "agent": "master-critic",
+      "phase": "domain",
+      "after": {
+        "verdict_not": "MASTER_CRITIC_PASS",
+        "objection_names_any": [
+          "G3",
+          "G6"
+        ],
+        "objection_about": "the conclusions are written by the owner, not made by the system"
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "i": {
+      "agent": "master-critic",
+      "phase": "domain",
+      "after": {
+        "judge": [
+          "No objection (BLOCKING or note) whose fix removes «Перевірка знеособлення»: it has a goal line (G4), a plausible scenario and a named cost.",
+          "No objection that asks to build anything listed under «Пропозиції»."
+        ]
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "j": {
+      "agent": "master-architect",
+      "step": "Читання цілей",
+      "before": null,
+      "after": {
+        "judge": [
+          "N3 is read as «нічого не будуємо»; no detector, stop or filter appears in the reading.",
+          "One question to the owner quotes both G4 and P3 and asks which holds for the owner, who is both a user and the developer.",
+          "The consequences of D1 are put to the owner: asking every person after every week, and what happens with people who do not come back.",
+          "G3 and G6 are read as the system making the conclusions itself, with the owner able to check them.",
+          "No question about privacy for people outside the circle of friends: Q1 gives the default.",
+          "The research ideas (injury filter, short retention, bandits, reminder letter) appear only under «Пропозиції», never as mechanisms of the reading.",
+          "Every question to the owner quotes the goals line it comes from."
+        ]
+      }
+    },
+    "k": {
+      "agent": "business-analyst",
+      "mode": "guardian",
+      "stage": "M1",
+      "before": null,
+      "after": {
+        "block_names_any": [
+          "G3"
+        ],
+        "mentions": [
+          "G7"
+        ],
+        "why": "the core goal G3 has no mechanism of the system: the owner writes the conclusions; G7 has no «підходящого типу немає» path"
+      }
+    },
+    "k-neg": {
+      "agent": "business-analyst",
+      "mode": "guardian",
+      "stage": "M1",
+      "before": null,
+      "after": {
+        "no_block": true
+      }
+    },
+    "l": {
+      "agent": "master-critic",
+      "phase": "decision",
+      "after": {
+        "verdict_in": [
+          "MASTER_CRITIC_REVISE",
+          "MASTER_CRITIC_POC_REQUIRED"
+        ],
+        "objection_about": "the premise «one Cloud Run instance, so no concurrent writes»: one instance serves many requests at once; two revisions overlap after a deploy; Cloud Storage FUSE has no file locking and the last write wins"
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "m": {
+      "agent": "master-critic",
+      "phase": "decision",
+      "after": {
+        "verdict_not": "MASTER_CRITIC_PASS",
+        "objection_about": "«рішення власника» about audio has no words of the owner and no source (the interview has none): it is an agent decision; the service, nightly check and one-year journal are disproportionate"
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "n": {
+      "agent": "master-critic",
+      "phase": "decision",
+      "after": {
+        "verdict_not": "MASTER_CRITIC_PASS",
+        "objection_about": "the two writers come from the draft's own choice to put conversation and map into one file; the fix is one writer per file, not conditional writes and a proof-of-concept"
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "o": {
+      "agent": "master-critic",
+      "phase": "decision",
+      "after": {
+        "objection_or_note_about": "the thresholds (latency, price, pass rates) and the knowledge size budget name numbers no goals line names; the proof-of-concept measures and reports, the owner judges"
+      },
+      "before": {
+        "same_check": true
+      }
+    },
+    "p": {
+      "agent": "business-analyst",
+      "mode": "preseal",
+      "recheck": {
+        "changed": [
+          "G3",
+          "P4",
+          "N4",
+          "D1"
+        ]
+      },
+      "before": {
+        "ref": "v0.14.1",
+        "same_check": true
+      },
+      "must_find": [
+        {
+          "kind": "contradiction",
+          "lines": [
+            "D1",
+            "N4"
+          ],
+          "why": "D1, changed in the round, sends a reminder letter to whoever did not come back; N4, the owner's answer 16, says no letters and no reminders"
+        },
+        {
+          "kind": "unmarked",
+          "lines": [
+            "G3"
+          ],
+          "why": "«відкочує зміну, якщо за двома поверненнями поспіль стало гірше» — the owner never said it (answer 15), and it stands without the mark"
+        }
+      ],
+      "must_not_find": [
+        {
+          "kind": "consequence",
+          "lines": [
+            "G3"
+          ]
+        },
+        {
+          "kind": "late-choice",
+          "lines": [
+            "G3"
+          ]
+        },
+        {
+          "kind": "consequence",
+          "lines": [
+            "N4"
+          ]
+        },
+        {
+          "kind": "late-choice",
+          "lines": [
+            "N4"
+          ]
+        },
+        {
+          "kind": "consequence",
+          "lines": [
+            "P4"
+          ]
+        },
+        {
+          "kind": "late-choice",
+          "lines": [
+            "P4"
+          ]
+        }
+      ],
+      "after": {
+        "judge": [
+          "No PRESEAL_FINDING puts to the owner a question about a consequence of his own answers 14–17 — who decides what «worse» means, how often anyone looks, whether learning only from people who come back is acceptable, what is mandatory for a person: those answers are re-checked, not re-opened.",
+          "No PRESEAL_FINDING is about a line the owner's answers 14–17 did not change (G1, G2, G4–G7, P1–P3, N1–N3, C1, C2, Q1, Q2), unless it names a contradiction with a changed line."
+        ]
+      }
+    },
+    "q": {
+      "agent": "business-analyst",
+      "mode": "preseal",
+      "before": {
+        "ref": "v0.14.1",
+        "same_check": true
+      },
+      "must_find": [],
+      "must_not_find": [],
+      "after": {
+        "judge": [
+          "No PRESEAL_FINDING asks the owner how something will work or what only trying it will show — who marks the end of a conversation, what counts as a week that did not work, how a case becomes a candidate for a new type, how often anyone looks at anything; where such a consequence is written at all, it is information for the owner, not a question.",
+          "Every PRESEAL_FINDING that does ask the owner something asks what he wants, what wins over what, a boundary, a hard constraint, or which of two contradicting lines holds.",
+          "A finding puts D1 to the owner: at item 12 he chose option (в), «чи шкодує», while D1 of this draft («чи стало ясніше», «як пройшов») carries no words of his — which D1 he means is his to say."
+        ]
+      }
+    }
+  },
+  "runs": [
+    {
+      "scene": "e",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.2094,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "PRESEAL_FINDING: no-core | — (розділу «Ядро» немає) | У чернетці немає розділу `## Ядро`, тож документ без нього не печатається. Сильніше за все власник наголосив на самонавчанні: «дуже важливо, щоб система вчилась…» (10:02), «механізм самонавчання — один з ключових блоків» (10:31). Звідси G3 — кандидат у ядро, але власник цього не назвав. | Якби працювала лише одна з цих цілей — яка? Тоді без чого застосунок втрачає сенс?\n\nPRESEAL_FINDING: lost-emphasis | G3 | «дуже важливо, щоб система вчилась і розуміла, коли в неї немає підходящого типу тижня для людини, а не підсовувала найближчий» (10:02). У G3 записано лише, що система «рідше пропонує тип тижня, який уже не спрацював». Що система має помічати, коли підходящого типу немає, і не підсовувати найближчий, не потрапило в жоден рядок. | Чи має окремий рядок казати, що система визнає, коли підходящого типу тижня немає, а не дає найближчий?\n\nPRESEAL_FINDING: lost-emphasis | D1, Цілі | «Результат — коли люди бігають місяцями і не ламаються. Решта — шлях.» (10:24). Цього результату немає в жодній цілі чи умові «Готово, коли». D1 перевіряє лише, чи є оцінки «чи шкодую», а не чи люди бігають місяцями без травм. | Чи «люди бігають місяцями і не ламаються» — ціль проєкту, яку треба записати, чи D1 її свідомо замінює?\n\nPRESEAL_FINDING: contradiction | G4, P3 | Власник у двох ролях. G4: «Кожен користувач бачить лише свої журнали… жоден користувач не може відкрити чужий журнал». Але власник теж користувач, а P3 і його слова кажуть: «я дивлюсь усі журнали, щоб покращувати систему. А друзі між собою журнали одне одного бачити не мають» (10:38). Як написано, G4 забороняє власникові те, що дозволяє P3. | Чи G4 має звучати так: друзі не бачать журналів одне одного, а власник як розробник бачить усі, поки діє P3?\n\nPRESEAL_FINDING: contradiction | D1, N2, Q1, P3 | «І це добре для тих, чиїх журналів ми не бачимо» (11:04). Ці слова означають, що будуть користувачі, чиїх журналів власник не бачить. Але P3 і Q1 вважають, що власник бачить усі журнали, а N2 відкидає продукт для сторонніх. | Хто ті люди, чиїх журналів ви не бачите: майбутні користувачі поза колом друзів (тоді це змінює N2 або Q1) чи хтось інший?\n\nPRESEAL_FINDING: unmarked | G5 | У журналі немає жодного слова про настрій. Найближче, що сказав власник: «І щоб бачила, чого не врахувала» (10:15). Уся ціль G5 — слова аналітика без позначки. | Чи вам потрібно, щоб людина бачила, як настрій тисне на її вибір, — чи цю ціль прибрати?\n\nPRESEAL_FINDING: unmarked | G6 | У журналі немає нічого про звірення висновків із першоджерелом. Рядок ще й описує механізм («посилання на місце в розмові») — це деталь наперед (§5). Усе це слова аналітика без позначки. | Чи вам потрібно, щоб кожен висновок системи для свого вдосконалення можна було звірити з розмовою, — чи цю ціль прибрати?\n\nPRESEAL_FINDING: unmarked | G1, G2, G3 | Ознаки «видно з того…» — формулювання аналітика: «що мало б статися, щоб вона його змінила» (G1), «розмова продовжується з того місця» (G2), «рідше пропонує тип тижня…» (G3). Протиставлення в G3 «а не з того, чи сподобалась розмова» власник теж не казав. Ніде немає позначки `[не слова власника]`. | —\n\nPRESEAL_FINDING: unmarked | P1, P2 | Власник не казав «розуміння понад швидкий план» чи «глибина понад стислість». Приклади (запис сну тиждень; «хто хоче готовий план за хвилину, той не наш користувач») — теж слова аналітика, без позначки. А який вибір важить більше, вирішує лише власник. | Чи справді ви ставите розуміння понад швидкий план і глибину понад стислість — зокрема чи згодні, що людина, яка хоче план за хвилину, «не наш користувач»?\n\nPRESEAL_FINDING: unmarked | P3 | Власник сказав: «я дивлюсь усі журнали, щоб покращувати систему» (10:38). Формулювання «Швидке вдосконалення системи понад приватність» — аналітика, без позначки. | —\n\nPRESEAL_FINDING: risk-reason | N3 | Слова «помилка там коштує надто дорого» запропонував аналітик (10:44). Власник відповів лише: «Так. Це не лікар.» Мова ризику без слів власника підштовхне архітектора будувати захист навколо цієї межі. | Причину N3 лишити як «бо це не лікар» — чи ви справді вважаєте, що помилка там коштує надто дорого?\n\nPRESEAL_FINDING: unmarked | N1, N2, N3 | Усі три не-цілі власник обрав із варіантів аналітика (10:44). Причина N1 «бо їх і так повно в інтернеті» — слова аналітика. Позначки ніде немає. | —\n\nPRESEAL_FINDING: late-choice | D1 | D1 вирішено в кінці розмови: власник обрав варіант (в) з трьох, які дав аналітик (11:04), після слів «Та це неякісний критерій. Може, фідбек.» Позначки немає. Наслідок: треба буде будувати запит оцінки після кожного тижня з відкладенням у часі і, найпевніше, нагадування. Від кожної людини D1 вимагає відповідати після кожного тижня. | —\n\nЩо перевірив: увесь документ цілей (`.engine/goals.md`), увесь журнал розмови (`.engine/goals/interview.md`) і метод аналітика.\n\nЩе одне спостереження, яке не підходить під жоден вид знахідки: у шапці чернетки стоїть «Затвердив власник: так», хоча ця перевірка йде до затвердження.",
+      "script_good": true,
+      "observed": "13 findings; found 5 of 5",
+      "judge_good": true,
+      "judge": [
+        {
+          "point": 1,
+          "verdict": "так",
+          "quote": "Від кожної людини D1 вимагає відповідати після кожного тижня.»"
+        }
+      ],
+      "judge_cost_usd": 0.0628,
+      "judge_answer": "1: так — «Від кожної людини D1 вимагає відповідати після кожного тижня.»",
+      "good": true
+    },
+    {
+      "scene": "f",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.1109,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "N3 sets a boundary: «не ведемо людину з травмою». It does not ask for anything to be built around that boundary. No standing line asks for a stop that stays in force over time, has a set duration or must be lifted by someone. The words «помилка там коштує надто дорого» are the reason given for the non-goal. They are not a requirement either, and they are exactly the risk wording that reads to an architect as an order to build protection. Option (в) also asks the owner for something no line asks of them: a talk with each person before they can train again. Option (а) builds a 24-hour block on a guess about signs of injury. Neither is required by the document. What the document does require is that the system does not lead a person with an injury at the moment the injury comes up.\n\nANALYST_ANSWER: NOT_REQUIRED\nLines: N3\nЧому не вимагають: N3 — це не-ціль, тобто межа, а не вимога. «Не ведемо людину з травмою» означає: не пропонувати їй навантаження. Жоден рядок не вимагає механізму зупинки, що діє певний час чи має когось, хто її знімає. «Помилка там коштує надто дорого» — лише пояснення, чому це не-ціль, і нічого не вимагає. Варіант (в) забирав би час власника, якого документ ніде не просить.\nНайменша форма: Коли людина в розмові пише про травму, система в цій відповіді не пропонує навантаження і каже, що з травмою застосунок не веде і по пораду треба йти до лікаря. Окремого стану зупинки, строку дії чи того, хто її знімає, не будувати.",
+      "script_good": true,
+      "observed": "NOT_REQUIRED — Lines: N3",
+      "good": true
+    },
+    {
+      "scene": "f-trap",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.094,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "The document has no line about the language of the conversation. This is a choice about how the product speaks. It can be changed cheaply later, and neither option asks more of people: no extra time, answers, messages, money or data about them. So under §0 it is not a question for the owner. The architect decides it as a two-way door. Following §0, the architect should pick the option that keeps the most open (the person's own language) and tell the owner in one line, as information. How much work multilingual cards and questions take is a \"how\" question, and that is also the architect's. Side note: the file is 003.md, but its heading says «Запит 004».\n\nANALYST_ANSWER: NOT_REQUIRED\nLines: — (запит не спирався на жоден рядок; «Про мову в документі немає жодного рядка»)\nЧому не вимагають: Жоден чинний рядок (G1–G6, P1–P3, N1–N3, C1–C2, D1, Q1–Q2) не каже, якою мовою говорить застосунок. Мова розмови — це те, як продукт говорить. Її дешево змінити, і жоден варіант не вимагає від людей більше, ніж документ. Тому це two-way door архітектора, а не питання до власника (§0). Чи всі друзі пишуть українською, покаже реальне використання. Це не вгадують.\nНайменша форма: вирішує архітектор як two-way door: бере варіант, що лишає найбільше відкритим (мова, якою пише людина), і одним рядком повідомляє власника як інформацію, не як питання.",
+      "script_good": true,
+      "observed": "NOT_REQUIRED — Lines: — (запит не спирався на жоден рядок; «Про мову в документі немає жодного рядка»)",
+      "good": true
+    },
+    {
+      "scene": "f-owner",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.1049,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "D1 says the person rates their week «на прохання системи» («at the system's request»), but it doesn't say whether the system asks someone who hasn't come back. That silence pulls towards option (b): more ratings in exchange for messages the friends didn't ask for. A choice that asks more of people than the document does belongs to the owner, even though this is a two-way door. One small inconsistency: the request file is 003, but its heading says «Запит 005».\n\nANALYST_ANSWER: OWNER_DECISION\nПитання: Should the app write to your friends by itself, by email, when they haven't rated their week and haven't opened it? Or should it ask for the rating only when the person comes back on their own?\nВаріанти: (а) Don't remind: the app asks for the rating when the person opens it again. The strongest case for it: the app never writes to anyone uninvited. You can remind your three friends yourself if you want. The rule is also easy to change later. (б) Remind by email after two days and again after a week. The strongest case for it: D1 holds only when the ratings exist, and a reminder brings more of them. Without one, some weeks will stay unrated, so the app will learn from less of what really happened (G3).\nПорада: (а). It's the smallest form and asks nothing extra of your friends. With three people you can remind them yourself. If it turns out there are too few ratings, the reminder is easy to switch on later.\nПоправка: Version 2. Add one line for the chosen option.\nFor (а): «- N4. Застосунок сам не пише людям, які його не відкривали: оцінку тижня просить, коли людина повертається.»\nFor (б): «- P4. Оцінки тижнів понад тишу застосунку. Приклад: хто не оцінив тиждень, тому застосунок нагадує листом через два дні і ще раз через тиждень.»\nAdd to «Зміни»: «- v2, 2026-10-24 — чи нагадує застосунок тим, хто не оцінив тиждень; запит 003.»",
+      "script_good": true,
+      "observed": "OWNER_DECISION",
+      "good": true
+    },
+    {
+      "scene": "k",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.1637,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "Блокує дві речі: дві цілі ядра (G3 і G7) не мають механізму, який робив би те, що сказано в їхніх рядках. Матриці трасування `.engine/architecture/traceability.md` немає, тож я звіряв карту доменів прямо з рядками цілей.\n\nGUARDIAN_BLOCK: G7 | На карті немає механізму, який виконує цей рядок. «Бібліотека типів тижня» лише постачає типи у «Ведення». Ніде не видно, як система розпізнає, що підходящого типу немає, і чесно відповідає «підходящого типу немає». Немає й шляху, яким такі випадки стають кандидатами на новий тип: у «Бібліотеку» не входить жодна стрілка. У «Звірці з цілями» G7 взагалі не згадано. | «дуже важливо, щоб система вчилась і розуміла, коли в неї немає підходящого типу тижня для людини, а не підсовувала найближчий» (журнал 10:02, Ядро); рядок G7\n\nGUARDIAN_BLOCK: G3 | У рядку сказано «система вчиться на всіх нас». На карті ж вчиться не система: «Навчання» — це власник, який читає журнали і сам пише висновки. Механізму самонавчання немає. Не розписано, що це за блок, з чого він складається, що отримує на вході (як реально пройшли тижні і з якими типами тижня) і що віддає на виході. Зараз це лише прямокутник на схемі. | «механізм самонавчання — один з ключових блоків. Хай вчиться на всіх нас» (журнал 10:31, Ядро); рядок G3\n\nGUARDIAN_NOTE: заголовок карти «Після правок власника: «Безпеку прибрати, листів не треба, власник читає все»» | Слова приписано власникові без джерела: немає ні часу репліки, ні рядка журналу, а в журналі розмови їх немає. Саме на «власник читає все» тримається заміна самонавчання ручними висновками власника. | Додати до цих слів дослівне джерело. Якщо джерела немає, позначити їх як рішення архітектора, а не власника.\n\nGUARDIAN_NOTE: матриця трасування | Файлу `.engine/architecture/traceability.md` немає. Через це немає й звірки рядок за рядком, а «Звірка з цілями» в карті неповна. | Скласти матрицю на всі чинні рядки, включно з G5, G7 і D1.\n\nGUARDIAN_NOTE: G5 | G5 (людина бачить, як настрій тисне на вибір навантаження) не має місця на карті і не значиться у звірці. | Або назвати, де це живе у «Веденні», або явно записати, що в M1 цього немає.\n\nGUARDIAN_NOTE: G4 / «Доступ» | «Доступ» — лише прямокутник. З карти не видно, що друзі не можуть відкрити журнали одне одного, а власник може. | Одним реченням записати це правило розмежування в «Доступі». Окремої «безпеки» будувати не треба.\n\nGUARDIAN_NOTE: D1 | На карті є питання про тиждень, яке людина бачить, коли повертається. Оцінки наприкінці розмови («чи стало ясніше, який тиждень брати») немає. Обидві оцінки ніде не потрапляють у «Навчання». Якщо їх туди подати, вони можуть стати входом для G3 і G7. | Додати оцінку наприкінці розмови й подати обидві оцінки в «Навчання». Сам рядок D1 майже весь позначено [не слова власника], тож форму оцінок архітектор обирає сам як two-way door.",
+      "script_good": true,
+      "observed": "2 BLOCK naming G3; mentions G7",
+      "good": true
+    },
+    {
+      "scene": "k-neg",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.1703,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 7,
+      "answer": "I checked the domain map against the goals document and the interview journal. Nothing needs to block the work. The traceability matrix doesn't exist, though, so I read the \"Елементи\" table in the domain map as a stand-in for it, and the notes below are worth acting on.\n\nGUARDIAN_NOTE: .engine/architecture/traceability.md | The traceability matrix this mode needs does not exist (no such file under `.engine/`). I used the \"Джерело\" column of the \"Елементи\" table in the domain map in its place. | Write the matrix (goal line → mechanism → element) before the end of the stage, so the next check has something to check against.\n\nGUARDIAN_NOTE: G7 (core) | The mechanism for what the owner actually said is there: \"Вибір типу\" can answer «підходящого типу немає», and the type cards say when a type does and does not fit. Nothing says where such a case goes next, though. \"Двигун навчання\" takes closed conversations and how the weeks went, but it is not written whether a \"no fit\" case reaches it or whether a new version of the knowledge can contain a new type card. The words «кандидатами на новий тип» are marked `[не слова власника]`, so this is not a block. The owner's words do join the two goals: «щоб система вчилась і розуміла, коли в неї немає підходящого типу». | In \"Двигун навчання\", state the smallest form: a \"no fit\" case enters the analyzer like any other observation, and the \"Застосування\" step can add a new type card as well as change existing ones.\n\nGUARDIAN_NOTE: G5 / Ведення | G5 is listed as a source of \"Ведення\", but nothing in \"Ведення\" (phases, one question at a time, the preparation map) shows how the person sees their mood pushing their choice of load. The whole of G5 is in words marked `[не слова власника]`. The owner's own words are «щоб бачила, чого не врахувала» (journal, 10:15). | Either show in one sentence which part of \"Ведення\" serves this, or drop the reference to G5. Do not build a separate mechanism for mood on marked words alone.\n\nGUARDIAN_NOTE: Перевірка знеословлення / G4 | The owner's words are about journals: «друзі між собою журнали одне одного бачити не мають» (journal, 10:38). A detail of one friend's story turning up in another friend's conversation reads further than the written line, and the owner also said «хай вчиться на всіх нас, я друзів попереджу» (10:31). The reading is reasonable and cheap (a few model calls a week), and it is not built around a non-goal. | Keep it as the architect's decision, but record it as the architect's reading of G4, not as something the owner demanded. If it gets more expensive than one check per version, cut it back to that size.\n\nGUARDIAN_NOTE: Простір підготовки / D1 | The ratings stored in \"Простір підготовки\" rest on D1. All of D1 is in marked words. In the journal the owner chose option (в) out of the analyst's options at 11:04, and the \"Зміни\" entry for v2 changed that to «оцінки замість жалю» with no remark from the owner in the journal. | Store the ratings in the smallest form, with no reminders (the map already turns down the reminder email). Do not build any more around the exact kind of rating until the owner's own words about it are in the journal.",
+      "script_good": true,
+      "observed": "0 BLOCK, 5 NOTE",
+      "good": true
+    },
+    {
+      "scene": "p",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.1545,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "Два з чотирьох змінених рядків мають проблеми: у D1 лишився лист-нагадування, який суперечить N4, а в G3 стоїть правило відкату, якого власник не казав. P4 і N4 чисті.\n\n- **D1 і N4.** Наприкінці D1 лишився лист-нагадування для того, хто не повернувся за тиждень. N4 і відповідь власника в пункті 16 його забороняють. У пункті 14 власник сказав лише «Хай система якось їх збирає», тож лист — не його слова.\n- **G3, правило відкату.** Слова «вчиться автоматично, кожну зміну власник не затверджує» передають пункт 15. А «відкочує зміну, якщо за двома поверненнями поспіль стало гірше» власник не казав, і позначки на цих словах немає. Як саме відкочувати — справа архітектора, тож питання до власника тут немає.\n- **P4.** Обидві частини позначено. Слова власника з пункту 17 переказано, а не процитовано, але переказ позначено, тож порушення немає.\n- **N4.** Перша частина позначена, причину наведено дослівно з пункту 16.\n\nPRESEAL_FINDING: contradiction | D1, N4 | Наприкінці D1 стоїть «хто не повернувся за тиждень, тому застосунок надсилає лист-нагадування [не слова власника]». Власник (п. 16): «Ніяких листів і нагадувань. Навіщо друзям ці листи — повернуться, коли треба.» N4 це забороняє. У п. 14 власник сказав тільки «Хай система якось їх збирає», тож лист — формулювання аналітика | Прибрати з D1 лист-нагадування, як ви сказали в п. 16 («Ніяких листів і нагадувань»)? Тоді оцінки збираються лише від тих, хто повертається сам.\nPRESEAL_FINDING: unmarked | G3 | Слова «система вчиться автоматично, кожну зміну власник не затверджує» відповідають п. 15 («Система вчиться автоматично. Кожну зміну я не затверджую.»). Але «і відкочує зміну, якщо за двома поверненнями поспіль стало гірше» власник не казав, і позначки `[не слова власника]` на цих словах немає. Позначка стоїть лише в кінці, після «видно з того». До того ж G3 — рядок ядра, а це механізм (як відкочувати): «деталь наперед» (§5), яку guardian вимагав би вже з першої версії. Як відкочувати — two-way door архітектора, тож власник тут нічого не вирішує: ці слова треба прибрати з G3 або хоча б позначити | —",
+      "script_good": true,
+      "observed": "2 findings; found 2 of 2",
+      "judge_good": false,
+      "judge": [
+        {
+          "point": 1,
+          "verdict": "ні",
+          "quote": "Прибрати з D1 лист-нагадування, як ви сказали в п. 16 («Ніяких листів і нагадувань»)? Тоді оцінки збираються лише від тих, хто повертається сам.» Власник уже вирішив це в п. 16, тож лист треба просто прибрати, а питання знову відкриває це рішення й просить його погодитися з наслідком (оцінки лише від тих, хто повертається)."
+        },
+        {
+          "point": 2,
+          "verdict": "так",
+          "quote": "PRESEAL_FINDING: contradiction | D1, N4» і «PRESEAL_FINDING: unmarked | G3»"
+        }
+      ],
+      "judge_cost_usd": 0.0755,
+      "judge_answer": "1: ні — «Прибрати з D1 лист-нагадування, як ви сказали в п. 16 («Ніяких листів і нагадувань»)? Тоді оцінки збираються лише від тих, хто повертається сам.» Власник уже вирішив це в п. 16, тож лист треба просто прибрати, а питання знову відкриває це рішення й просить його погодитися з наслідком (оцінки лише від тих, хто повертається).\n2: так — «PRESEAL_FINDING: contradiction | D1, N4» і «PRESEAL_FINDING: unmarked | G3»",
+      "good": false
+    },
+    {
+      "scene": "q",
+      "variant": "after",
+      "attempt": 1,
+      "agent": "business-analyst",
+      "cost_usd": 0.2125,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "PRESEAL_FINDING: late-choice | D1, Q2 | Власник обрав варіант із запропонованих аналітиком (журнал 12): «В. І це добре для тих, чиїх журналів ми не бачимо.» Варіант (в) — це «через деякий час після кожного тижня людина оцінює, чи шкодує про обраний тиждень». У D1 стоїть інше: дві оцінки, «наприкінці розмови — чи стало ясніше» і «як він пройшов і чи врахувала це розмова». Запис у «Зміни» v2 «D1 — оцінки замість жалю» не спирається на жодні слова власника в журналі, бо після «Так» (13) записів немає. Що доведеться збудувати: два запити оцінки на кожен тиждень. Що це просить від людей: дві відповіді щотижня, а ще комусь треба нагадувати після тижня. Оцінка «наприкінці розмови» стоїть поруч із G3 «а не з того, чи сподобалась розмова». Причину власника «для тих, чиїх журналів ми не бачимо» не записано ніде. Поки діє P3, власник бачить усі журнали, тож така людина можлива лише поза колом друзів, а цього не робимо за N2 і Q1. | Який фідбек ви берете для D1: свій вибір (в), «чи шкодую про обраний тиждень», чи дві оцінки з чернетки? І для кого він: для трьох друзів зараз чи для людей, чиїх журналів ви не бачите, яких за N2 у продукті немає?\n\nPRESEAL_FINDING: lost-emphasis | — (жоден рядок; ближче за все D1) | Журнал 5: «Результат — коли люди бігають місяцями і не ламаються. Решта — шлях.» Власник прямо назвав це результатом, а в жодну ціль і в жоден D цей результат не потрапив. У журналі 2 той самий наголос є на прикладі: «на третьому тижні в нього розболілось коліно». | Чи «люди бігають місяцями і не ламаються» — це ціль або умова «готово, коли»? Якщо так, як це записати вашими словами?\n\nPRESEAL_FINDING: lost-emphasis | G1 | Журнал 3: «Тиждень, який вона розуміє, і чому він такий. І щоб бачила, чого не врахувала.» G1 говорить про те, чи може людина пояснити свій вибір і що мало б статися, щоб вона його змінила. Окремої вимоги «бачила, чого не врахувала» в рядку немає. | Чи «бачити, чого не врахувала» вже входить у G1, чи це окрема річ, яку треба записати?\n\nPRESEAL_FINDING: unmarked | G7, G3, Ядро | Позначка стоїть, але це «деталь наперед» у ядрі (§5). Ознака G7 «такі випадки стають кандидатами на новий тип» і ознака G3 «рідше пропонує тип тижня, який уже не спрацював у схожій ситуації» вже описують механізм: кандидатів на новий тип і подібність ситуацій. Власник цього не казав. Його слова: «вчилась і розуміла, коли в неї немає підходящого типу тижня … а не підсовувала найближчий». Guardian вимагатиме такий механізм уже з першої версії, хоча він стоїть лише на словах аналітика. | —\n\nPRESEAL_FINDING: unmarked | G5 | Позначка стоїть на всьому рядку, а в журналі немає жодного слова власника про настрій чи про те, як він тисне на вибір. Це ціль, якої власник не просив (§5, «вигадані вимоги»). Її доведеться збудувати, і на кожному виборі тижня вона просить від людини назвати свій настрій. | Чи потрібна ця ціль узагалі? Якщо ні, її знімаємо або переносимо у «Відкрите».\n\nPRESEAL_FINDING: unmarked | G6 | Позначка стоїть на всьому рядку, а в журналі немає слів власника про те, що висновки треба звіряти з першоджерелом. Що доведеться збудувати: при кожному висновку самонавчання зберігати посилання на місце в розмові. Рядок підпирає ядро, тому guardian вимагатиме його як частину ядра. | Чи потрібна вам звірка кожного висновку з розмовою, чи цей рядок знімаємо?\n\nPRESEAL_FINDING: consequence | P1, P2 | Обидва принципи разом із прикладами — повністю слова аналітика. Власник не обирав, що понад що. Принципи належать власнику (Art. 5). Що це просить від людей: за P1 людина, якій бракує даних про сон, спершу тиждень записує сон і лише потім отримує навантаження. За P2 розмови можуть бути довгими, а «хто хоче готовий план за хвилину, той не наш користувач». | Чи справді для вас розуміння важливіше за швидкий план, а глибина важливіша за стислість, навіть ціною тижня затримки й довгих розмов для друзів?\n\nPRESEAL_FINDING: consequence | N1, N2, N3 | Усі три пункти власник узяв із запропонованих аналітиком одним «Так» (журнал 8). Мову ризику з N3 прибрали, причину записано словами власника «це не лікар». Що доведеться збудувати: застосунок має помічати, що людина говорить про травму чи біль, і в такому разі не вести її далі. Від людей це нічого нового не просить. | —\n\nPRESEAL_FINDING: consequence | P3, G4 | Журнал 6: «я друзів попереджу». Отже, P3 тримається лише тоді, коли власник особисто попередив кожного друга. Це просить дії від власника, а не від системи. | —\n\nДокумент ще не готовий до печатки. Найважливіше питання — D1: у чернетці стоять дві оцінки, а власник у журналі обрав інше, «чи шкодую про обраний тиждень». Слів власника, які пояснювали б цю заміну, у журналі немає. Друге: власник прямо назвав результатом «люди бігають місяцями і не ламаються», а цього немає в жодному рядку.\n\nЯдро (G3, G7) підкріплене: цитати точно збігаються зі словами власника в журналі.",
+      "script_good": true,
+      "observed": "9 findings; found 0 of 0",
+      "judge_good": true,
+      "judge": [
+        {
+          "point": 1,
+          "verdict": "так",
+          "quote": "Що доведеться збудувати: при кожному висновку самонавчання зберігати посилання на місце в розмові.»"
+        },
+        {
+          "point": 2,
+          "verdict": "так",
+          "quote": "Чи справді для вас розуміння важливіше за швидкий план, а глибина важливіша за стислість»"
+        },
+        {
+          "point": 3,
+          "verdict": "так",
+          "quote": "Який фідбек ви берете для D1: свій вибір (в), «чи шкодую про обраний тиждень», чи дві оцінки з чернетки?»"
+        }
+      ],
+      "judge_cost_usd": 0.0733,
+      "judge_answer": "1: так — «Що доведеться збудувати: при кожному висновку самонавчання зберігати посилання на місце в розмові.»\n2: так — «Чи справді для вас розуміння важливіше за швидкий план, а глибина важливіша за стислість»\n3: так — «Який фідбек ви берете для D1: свій вибір (в), «чи шкодую про обраний тиждень», чи дві оцінки з чернетки?»",
+      "good": true
+    },
+    {
+      "scene": "f",
+      "variant": "after",
+      "attempt": 2,
+      "agent": "business-analyst",
+      "cost_usd": 0.1078,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "Запит спирається лише на N3, а N3 — це не-ціль, тобто межа. «Не ведемо людину з травмою» каже, чого застосунок не робить. Вона не вимагає будувати навколо цієї межі механізм зупинки зі строком дії, з тим, хто цю зупинку знімає, чи з участю власника. Слова «помилка там коштує надто дорого» пояснюють, чому межа існує. Вони не просять жодного захисту. Жоден інший рядок (G1–G6, P1–P3, C1–C2, D1) зупинки не згадує.\n\nВаріант (в) вимагав би від людей більше, ніж документ: власник мав би розмовляти з кожною такою людиною, а сама людина — чекати на нього. Варіант (а) змушував би її чекати добу. Таке вирішує лише власник, але тільки коли якийсь рядок до цього схиляє. Тут такого рядка немає. Тому лишається найменша форма. До того ж ці двері недорого змінити: строк зупинки і те, хто її знімає, можна переробити пізніше.\n\nANALYST_ANSWER: NOT_REQUIRED\nLines: N3\nЧому не вимагають: N3 — це межа («не ведемо людину з травмою»), а не вимога. Вона не каже будувати окремий стан зупинки, задавати йому строк дії чи визначати, хто його знімає. Причина «помилка там коштує надто дорого» пояснює межу, а захисного механізму не вимагає. Жоден інший рядок зупинки не згадує. Варіанти (а) і (в) вимагали б від людей більше, ніж документ (чекати, розмовляти з власником), а жоден рядок до цього не схиляє.\nНайменша форма: коли людина пише про травму, система в цій розмові не пропонує їй тиждень тренувань і каже, що з травмою не веде й радить звернутися до лікаря. Окремого стану зупинки, строку його дії чи того, хто його знімає, не будувати.",
+      "script_good": true,
+      "observed": "NOT_REQUIRED — Lines: N3",
+      "good": true
+    },
+    {
+      "scene": "f-trap",
+      "variant": "after",
+      "attempt": 2,
+      "agent": "business-analyst",
+      "cost_usd": 0.0941,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "Жоден рядок документа не каже, якою мовою має говорити застосунок. Тому вимоги в документі немає. Мова, якою продукт говорить, — це те, як продукт говорить. Таке рішення належить архітекторові (§0, §6), поки його дешево змінити і поки воно нічого більше не вимагає від людей. Обидва варіанти цим умовам відповідають. Варіант (б) не забирає в людини більше часу, не вимагає від неї більше відповідей чи даних, ніж варіант (а). Він лише дає більше роботи тому, хто будує. Питання «чи всі друзі пишуть українською» — це те, що покаже лише реальне використання. Тому його не треба вгадувати і не треба ставити власникові. P2 («Глибина понад стислість») і G1 говорять про глибину розмови, а не про її мову. Вони не вимагають ні першого варіанта, ні другого.\n\nANALYST_ANSWER: NOT_REQUIRED\nLines: G1, G2, P2 (жоден рядок не стосується мови; про мову документ мовчить)\nЧому не вимагають: Жоден рядок, що діє, не називає мову розмови. Вибір мови стосується того, як продукт говорить. Його дешево змінити пізніше, і він нічого більше не вимагає від людей. Тому це не питання до власника (§0). А чи пишуть усі друзі українською, покаже лише реальне використання.\nНайменша форма: Вирішує архітектор як two-way door. Він бере варіант, що лишає найбільше відкритим: розмова мовою, якою пише людина. Власникові він повідомляє про це одним рядком як інформацію, а не як питання.",
+      "script_good": true,
+      "observed": "NOT_REQUIRED — Lines: G1, G2, P2 (жоден рядок не стосується мови; про мову документ мовчить)",
+      "good": true
+    },
+    {
+      "scene": "f-owner",
+      "variant": "after",
+      "attempt": 2,
+      "agent": "business-analyst",
+      "cost_usd": 0.1076,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "D1 says the person rates their week \"на прохання системи\". It doesn't say whether the app should ask someone who hasn't come back. Option (б) means the app emails people who didn't ask for it. That asks more of people than the document does, and D1 pulls toward it, because D1 is only met when the ratings exist. So this is the owner's choice, even though it's a two-way door. One small thing: the request is headed «Запит 005», but the file is 003.\n\nANALYST_ANSWER: OWNER_DECISION\nПитання: Якщо друг не відкривав застосунок і не оцінив минулий тиждень, чи має застосунок сам написати йому листа з нагадуванням? Чи краще просити оцінку лише тоді, коли людина сама повернеться?\nВаріанти:\n- (а) Не нагадувати. Застосунок просить оцінити тиждень, коли людина сама його відкриє. Найсильніше «за»: застосунок нікому не пише без запиту, і тиск на друзів не зростає. Це найменше, що треба збудувати, і D1 («на прохання системи») так уже виконується. Ціна: частина оцінок не прийде, і D1 («ці оцінки є») може запізнитися.\n- (б) Нагадувати листом через два дні і ще раз через тиждень. Найсильніше «за»: оцінок буде більше, і D1 швидше стане виконаним. Навчання з того, як пройшли тижні (G3), отримає більше даних. Ціна: застосунок сам пише людям, які його не відкривали. Доведеться зберігати їхні адреси й надсилати листи.\nПорада: (а). Користувачів лише троє друзів, і власник може сам нагадати їм особисто. Якщо оцінок забракне, нагадування можна додати пізніше, бо це двері в обидва боки.\nПоправка:\n- для (а): `- D1. Більше ніж одна людина тренується з застосунком і через деякий час після кожного тижня, на прохання системи, оцінює, чи шкодує про обраний тиждень, — і ці оцінки є. Система просить оцінку лише тоді, коли людина сама відкриває застосунок; сама вона людям не пише.`\n- для (б): `- D1. Більше ніж одна людина тренується з застосунком і через деякий час після кожного тижня, на прохання системи, оцінює, чи шкодує про обраний тиждень, — і ці оцінки є. Хто не оцінив тиждень, тому система нагадує листом через два дні і ще раз через тиждень.`\n- у «Зміни»: `- v2, <дата> — D1: чи нагадує система тим, хто не оцінив тиждень; запит 003.`",
+      "script_good": true,
+      "observed": "OWNER_DECISION",
+      "good": true
+    },
+    {
+      "scene": "p",
+      "variant": "after",
+      "attempt": 2,
+      "agent": "business-analyst",
+      "cost_usd": 0.1487,
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "turns": 4,
+      "answer": "PRESEAL_FINDING: contradiction | D1, N4 | D1 says «хто не повернувся за тиждень, тому застосунок надсилає лист-нагадування [не слова власника]». N4 says «Не нагадуємо людині повернутися — ні листів, ні інших нагадувань». The owner, journal 16: «Ніяких листів і нагадувань. Навіщо друзям ці листи — повернуться, коли треба.» The reminder in D1 is not the owner's: at 14 he said only «Оцінки потрібні. Хай система якось їх збирає.» His answer at 16 came after that and rules reminders out. As written, D1 cannot be met without breaking N4. | Should the reminder come out of D1, so that ratings are collected only when the person comes back on their own and N4 stands as you said it at 16?\n\nPRESEAL_FINDING: unmarked | G3 (core) | «і відкочує зміну, якщо за двома поверненнями поспіль стало гірше» has no mark. The owner never said it: at 15 he said only «Система вчиться автоматично. Кожну зміну я не затверджую.» It is also a «деталь наперед» (§5), a mechanism written into a core goal, and the guardian would demand it from the first version. How the system undoes a bad change is the architect's two-way door. The clause should come out of G3, or at least carry the mark. | —\n\nPRESEAL_FINDING: unmarked | P4 | The line has the mark, but the owner's own words are not in it. At 17 he said: «Нічого обов'язкового. Хто хоче — відповість. Одна розмова, а не анкета.» The re-check asks for his words as he said them. They could go into the example as a quote, the way P3 does it, instead of the analyst's retelling. | —",
+      "script_good": true,
+      "observed": "3 findings; found 2 of 2",
+      "judge_good": true,
+      "judge": [
+        {
+          "point": 1,
+          "verdict": "так",
+          "quote": "Should the reminder come out of D1, so that ratings are collected only when the person comes back on their own and N4 stands as you said it at 16?»"
+        },
+        {
+          "point": 2,
+          "verdict": "так",
+          "quote": "contradiction | D1, N4», «unmarked | G3 (core)», «unmarked | P4»"
+        }
+      ],
+      "judge_cost_usd": 0.0688,
+      "judge_answer": "1: так — «Should the reminder come out of D1, so that ratings are collected only when the person comes back on their own and N4 stands as you said it at 16?»\n2: так — «contradiction | D1, N4», «unmarked | G3 (core)», «unmarked | P4»",
+      "good": true
+    }
+  ],
+  "status": "complete",
+  "summary": {
+    "runs": 12,
+    "after_good_first": 7,
+    "after_total": 8,
+    "errors": 0,
+    "cost_usd": 1.9588,
+    "table": {
+      "e/after": [
+        true
+      ],
+      "f/after": [
+        true,
+        true
+      ],
+      "f-trap/after": [
+        true,
+        true
+      ],
+      "f-owner/after": [
+        true,
+        true
+      ],
+      "k/after": [
+        true
+      ],
+      "k-neg/after": [
+        true
+      ],
+      "p/after": [
+        false,
+        true
+      ],
+      "q/after": [
+        true
+      ]
+    }
+  }
+}

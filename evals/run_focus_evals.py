@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fifteen scenes that measure the FOCUS ON THE BUSINESS GOALS — the changes of boards 201, 202, 203 and 204 (boards 501–503).
+"""Sixteen scenes that measure the FOCUS ON THE BUSINESS GOALS — the changes of boards 201, 202, 203 and 204 (boards 501–503).
 
     python3 evals/run_focus_evals.py [--out FILE] [--scenes e f g …] [--before m n o] [--twice h i …] [--max-usd 20] [--resume FILE]
     python3 evals/run_focus_evals.py --dry-run DIR                                                    # free: the sandboxes and the prompts
@@ -7,11 +7,17 @@
 The project is an invented one, «Бігова група» (evals/scenarios/focus/README.md): it carries the
 traps the engine v0.13.0 fell into in its first real project. BEFORE is the definitions of
 `--before-ref` (v0.13.0) — or of the scene's own `before.ref` (p, q: v0.14.1, before board 204) —, AFTER
-those of the working tree; a scene with no counterpart in v0.13.0 (e, j, k, k-neg) runs AFTER only.
+those of the working tree; a scene with no counterpart in v0.13.0 (e, f-owner, j, k, k-neg) runs AFTER only.
 
-    e      business-analyst, preseal     goals-v1 + the interview: the six findings of expected.json, and no G1–P1 contradiction
+    e      business-analyst, preseal     goals-v1 + the interview: the five findings of expected.json, no G1–P1 contradiction,
+                                         and the judge finds what D1 asks of people told — in its own finding or inside
+                                         another about D1 (the owner, 2026-10-24: where it is told does not matter)
     f      business-analyst, consult     a request built around the non-goal N3: NOT_REQUIRED naming N3
-    f-trap business-analyst, consult     a request the document is silent on: OWNER_DECISION
+    f-trap business-analyst, consult     the language the app talks in, the document silent: NOT_REQUIRED — how the
+                                         product speaks is the architect's while it is cheap to change (the owner,
+                                         2026-10-24; BEFORE, v0.13.0, answered OWNER_DECISION)
+    f-owner business-analyst, consult    a reminder the app would send unasked, the document silent: OWNER_DECISION —
+                                         what the product asks of people is the owner's behind a two-way door too
     g      master-critic, domain         the part «Безпека» has no source (N3 is a boundary): not PASS, and the judge agrees
     h      master-critic, domain         the owner writes the conclusions: not PASS, names G3 or G6, and the judge agrees
     i      master-critic, domain         the clean map: the judge finds no objection removing «Перевірка знеособлення»
@@ -75,7 +81,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 FIXTURE = HERE / "scenarios" / "focus"
 BEFORE_REF = "v0.13.0"
-SCENES = ("e", "f", "f-trap", "g", "h", "i", "j", "k", "k-neg", "l", "m", "n", "o", "p", "q")
+SCENES = ("e", "f", "f-trap", "f-owner", "g", "h", "i", "j", "k", "k-neg", "l", "m", "n", "o", "p", "q")
 SHIPPED = (".claude/agents", ".claude/references", ".claude/commands", ".claude/constitution.md")
 PRESEAL_RE = re.compile(r"^\W*PRESEAL_FINDING:\s*(.+)$", re.MULTILINE)
 GUARDIAN_RE = re.compile(r"^\W*GUARDIAN_(BLOCK|NOTE|PASS)\b:?\s*(.*)$", re.MULTILINE)

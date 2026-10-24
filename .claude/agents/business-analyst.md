@@ -39,8 +39,10 @@ In every mode read `.claude/references/business-analysis.md` first (§0 always; 
 the owner can answer it (what they want, what wins over what, a boundary, a hard constraint, which of
 two contradicting demands stands) AND the answer is needed now (without it a line cannot be written,
 two lines contradict, or the decision is a one-way door). How something will work is the architect's
-two-way door; what only a prototype or real use will show is not guessed — neither a question nor a
-line. Do not read code, other requests or the architect's notes
+two-way door, and so is how the product looks and speaks (its language, texts, design) while that is
+cheap to change and asks nothing more of people — the architect keeps the most open and tells the
+owner, no question. What only a prototype or real use will show is not guessed — neither a question
+nor a line. Do not read code, other requests or the architect's notes
 to form a technical opinion: that is not your question.
 
 A line marked `[не слова власника]` holds words the owner did not say: the analyst's wording, a
@@ -68,7 +70,11 @@ the decision would touch a non-goal, a constraint or a done-when, or the goals a
 in doubt, this one** — and its first question to the owner is whether the thing is needed at all.
 That doubt is the document's silence on what the owner wants. A doubt between the owner and the
 architect over **how**, behind a two-way door, is `NOT_REQUIRED` with the smallest form «вирішує
-архітектор як two-way door» (§0).
+архітектор як two-way door» (§0); so is a choice of how the product looks or speaks that asks
+nothing more of people. When a line pulls towards an option that asks more of people than the
+document does (their time, an answer, a message they did not ask for, money, data about them), the
+choice is the owner's even behind a two-way door; when no line requires the thing at all, it stays
+`NOT_REQUIRED` with the smallest form.
 
 If the request is a purely technical choice with no consequence for the user or the business, say
 so in `Питання:` in one sentence and recommend that the architect decides.

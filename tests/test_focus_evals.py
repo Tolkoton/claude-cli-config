@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""The instrument of the fifteen focus scenes, checked without a paid session (boards 501–503).
+"""The instrument of the sixteen focus scenes, checked without a paid session (boards 501–503).
 
-  - the scoring refuses first: a preseal that misses one of the six findings, or finds the G1–P1
-    contradiction, is not good; a consult answer of the wrong form, or NOT_REQUIRED that does not
-    name N3, is not good; a critic that passes, or (h) objects without G3/G6, is not good; a
+  - the scoring refuses first: a preseal that misses one of the five findings, or finds the G1–P1
+    contradiction, is not good — what D1 asks of people is the judge's to read in e, in its own
+    finding or inside the late choice (the owner, 2026-10-24); a consult answer of the wrong form, or
+    NOT_REQUIRED that does not name N3, is not good; f-trap (the language) wants NOT_REQUIRED, f-owner
+    (a reminder sent unasked) OWNER_DECISION; a critic that passes, or (h) objects without G3/G6, is not good; a
     guardian that blocks without G3, or is silent on G7, is not good; a guardian on the clean map
     that blocks, or says nothing, is not good;
   - the judge is asked only where the script holds, and «ні» or a missing point is not good;
   - every preseal scene is scored as one (e, p, q): p must find D1–N4 and G3 unmarked and must not
     find a consequence or a late choice about G3, N4, P4; p's prompt is the re-check with its
     changed lines; p and q go to the judge after the script; their BEFORE is v0.14.1's analyst;
-  - the plan: before and after where v0.13.0 had the step, after only for e, j, k, k-neg; --before
+  - the plan: before and after where v0.13.0 had the step, after only for e, f-owner, j, k, k-neg; --before
     narrows the BEFORE runs; --twice runs a scene's AFTER twice even when the first is good;
   - the master-critic gets the interview journal in every scene where the variant's
     /master-architect passes it (AFTER), and not in v0.13.0's BEFORE; the judge sees it too;
@@ -68,8 +70,8 @@ PRESEAL_FINDING: no-core | — | ядра немає | що з цього ядр
 
 print("scoring: preseal (e)")
 e = expected["e"]
-check("all six findings, and no G1–P1: good", evals.score_preseal(GOOD_PRESEAL, e)["script_good"])
-for kind in ("contradiction", "risk-reason", "consequence", "late-choice", "lost-emphasis", "no-core"):
+check("all the findings, and no G1–P1: good", evals.score_preseal(GOOD_PRESEAL, e)["script_good"])
+for kind in ("contradiction", "risk-reason", "late-choice", "lost-emphasis", "no-core"):
     without = "\n".join(line for line in GOOD_PRESEAL.splitlines() if f"PRESEAL_FINDING: {kind} " not in line)
     check(f"one finding missing ({kind}): not good, and it is named", not evals.score_preseal(without, e)["script_good"]
           and kind in evals.score_preseal(without, e)["observed"], evals.score_preseal(without, e))
@@ -82,6 +84,10 @@ check("finding the G1–P1 contradiction is not good", not evals.score_preseal(
 check("a G1 «unmarked» finding is no G1–P1 contradiction", evals.score_preseal(
     GOOD_PRESEAL + "PRESEAL_FINDING: unmarked | G1, P1 | не слова власника | позначити?\n", e)["script_good"])
 check("PRESEAL_CLEAN is not good", not evals.score_preseal("PRESEAL_CLEAN", e)["script_good"])
+inside = "\n".join(line for line in GOOD_PRESEAL.splitlines() if "PRESEAL_FINDING: consequence " not in line)
+check("e: the consequence of D1 told inside the late choice passes the script; the judge reads it",
+      evals.score_preseal(inside, e)["script_good"] and len(evals.rubric("e", expected)) == 1
+      and "D1 asks of people" in evals.rubric("e", expected)[0])
 
 print("scoring: preseal re-check (p) and preseal without «how» (q)")
 GOOD_RECHECK = """PRESEAL_FINDING: contradiction | D1, N4 | «ніяких листів і нагадувань» | який рядок чинний?
@@ -105,7 +111,7 @@ check("q: any structured answer passes the script's part (the judge reads the qu
       evals.score("q", "after", "PRESEAL_FINDING: late-choice | D1 | (в) | який D1?", expected, goals)["script_good"]
       and evals.score("q", "after", "PRESEAL_CLEAN", expected, goals)["script_good"])
 
-print("scoring: consult (f, f-trap)")
+print("scoring: consult (f, f-trap, f-owner)")
 request, silent = evals.fixture("request-injury-stop.md"), evals.fixture("request-silent.md")
 not_required = "ANALYST_ANSWER: NOT_REQUIRED\nLines: N3\nЧому не вимагають: межа\nНайменша форма: нічого не будувати"
 check("NOT_REQUIRED naming N3: good", evals.score("f", "after", not_required, expected, goals)["script_good"])
@@ -114,11 +120,18 @@ check("NOT_REQUIRED naming N30: not good", not evals.score("f", "after", not_req
 owner = "ANALYST_ANSWER: OWNER_DECISION\nПитання: скільки діє зупинка?\nПорада: (а)"
 check("f: OWNER_DECISION is not good, before too (v0.13.0 had no NOT_REQUIRED: the same check)",
       not evals.score("f", "after", owner, expected, goals)["script_good"] and not evals.score("f", "before", owner, expected, goals)["script_good"])
-check("f-trap: OWNER_DECISION is good, before and after",
-      evals.score("f-trap", "after", owner, expected, goals)["script_good"] and evals.score("f-trap", "before", owner, expected, goals)["script_good"])
-check("f-trap: NOT_REQUIRED is not good", not evals.score("f-trap", "after", not_required, expected, goals)["script_good"])
+architect = "ANALYST_ANSWER: NOT_REQUIRED\nLines: —\nЧому не вимагають: мова — як продукт говорить\nНайменша форма: вирішує архітектор як two-way door"
+check("f-trap: NOT_REQUIRED is good after (how the product speaks is the architect's, the owner 2026-10-24)",
+      evals.score("f-trap", "after", architect, expected, goals)["script_good"])
+check("f-trap: OWNER_DECISION is not good after; BEFORE (v0.13.0) is still scored by its own answer",
+      not evals.score("f-trap", "after", owner, expected, goals)["script_good"] and evals.score("f-trap", "before", owner, expected, goals)["script_good"])
 check("f-trap: a quote is not good", not evals.score("f-trap", "after", "ANALYST_ANSWER: QUOTE\nLine: P2\nQuote: Глибина понад стислість.", expected, goals)["script_good"])
 check("no answer at all is not good", not evals.score("f-trap", "after", "Не знаю.", expected, goals)["script_good"])
+check("f-owner: OWNER_DECISION is good (a reminder sent unasked is what the product asks of people)",
+      evals.score("f-owner", "after", owner, expected, goals)["script_good"])
+check("f-owner: NOT_REQUIRED is not good", not evals.score("f-owner", "after", architect, expected, goals)["script_good"])
+check("f-owner: its request exists and the document is silent on reminders",
+      "нагадує" in evals.fixture("request-reminder.md") and "нагаду" not in evals.fixture("goals-v1.md"))
 
 print("scoring: the critic (g, h, l, m, n, o)")
 check("g: a PASS is not good", not evals.score("g", "after", "«Безпека» — без джерела.\nMASTER_CRITIC_PASS", expected, goals)["script_good"])
@@ -151,8 +164,8 @@ check("k-neg: any BLOCK is not good", not evals.score("k-neg", "after", "GUARDIA
 check("k-neg: no GUARDIAN_ line at all is not good", not evals.score("k-neg", "after", "Усе гаразд.", expected, goals)["script_good"])
 
 print("the judge")
-check("the judge has the scene's own points for i (2), j (7), p (2), q (3), one each for g, h, l, m, n, o, none elsewhere",
-      [len(evals.rubric(s, expected)) for s in evals.SCENES] == [0, 0, 0, 1, 1, 2, 7, 0, 0, 1, 1, 1, 1, 2, 3])
+check("the judge has the scene's own points for i (2), j (7), p (2), q (3), one each for e, g, h, l, m, n, o, none elsewhere",
+      [len(evals.rubric(s, expected)) for s in evals.SCENES] == [1, 0, 0, 0, 1, 1, 2, 7, 0, 0, 1, 1, 1, 1, 2, 3])
 check("all «так»: good", evals.parse_judge("1: так — «a»\n2: так — «b»", 2)["judge_good"])
 check("one «ні»: not good", not evals.parse_judge("1: так — «a»\n2: ні — «нічого» мовчить", 2)["judge_good"])
 check("a point not answered: not good", not evals.parse_judge("1: так — «a»", 2)["judge_good"])
@@ -179,17 +192,17 @@ check("the judge of a master-critic scene sees the journal it had", "--- intervi
 
 print("the plan and the sandboxes")
 todo = evals.plan(list(evals.SCENES), expected)
-check("twenty-six runs: before and after for f, f-trap, g, h, i, l, m, n, o, p, q; after only for e, j, k, k-neg",
-      len(todo) == 26 and {s for s, v in todo if v == "before"} == {"f", "f-trap", "g", "h", "i", "l", "m", "n", "o", "p", "q"})
+check("twenty-seven runs: before and after for f, f-trap, g, h, i, l, m, n, o, p, q; after only for e, f-owner, j, k, k-neg",
+      len(todo) == 27 and {s for s, v in todo if v == "before"} == {"f", "f-trap", "g", "h", "i", "l", "m", "n", "o", "p", "q"})
 narrowed = evals.plan(list(evals.SCENES), expected, ["p", "q"])
-check("--before p q: fifteen AFTER, BEFORE for p, q only",
-      len(narrowed) == 17 and {s for s, v in narrowed if v == "before"} == {"p", "q"} and sum(v == "after" for _, v in narrowed) == 15)
+check("--before p q: sixteen AFTER, BEFORE for p, q only",
+      len(narrowed) == 18 and {s for s, v in narrowed if v == "before"} == {"p", "q"} and sum(v == "after" for _, v in narrowed) == 16)
 check("p and q take their BEFORE from v0.14.1, the others from --before-ref",
       evals.ref_of("p", expected, "v0.13.0") == evals.ref_of("q", expected, "v0.13.0") == "v0.14.1" and evals.ref_of("g", expected, "v0.13.0") == "v0.13.0")
 with tempfile.TemporaryDirectory() as tmp:
     r = subprocess.run([sys.executable, str(RUNNER), "--dry-run", str(Path(tmp) / "dry")], capture_output=True, text=True, check=False)
     dry = Path(tmp) / "dry"
-    check("the dry run writes twenty-six prompts", r.returncode == 0 and len(list(dry.glob("prompt-*.txt"))) == 26, r.stdout + r.stderr)
+    check("the dry run writes twenty-seven prompts", r.returncode == 0 and len(list(dry.glob("prompt-*.txt"))) == 27, r.stdout + r.stderr)
     check("p: the re-check with the changed lines, BEFORE and AFTER alike",
           all((dry / f"prompt-p-{v}.txt").read_text(encoding="utf-8") == "[agent: business-analyst]\npreseal .engine/goals.md .engine/goals/interview.md --changed G3 P4 N4 D1\n"
               for v in ("before", "after")))

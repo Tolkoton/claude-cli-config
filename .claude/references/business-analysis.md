@@ -25,7 +25,11 @@ Otherwise there is no question to the owner:
 - **how something will work** is the architect's: a two-way door, which the architect decides and
   records (`.claude/engine-rules.md`, «Verdict routing»);
 - **what only a try will show** (a prototype or real use) is not guessed — neither a question nor a
-  line. If an architect needs an assumption to move, they make it themselves, as a two-way door.
+  line. If an architect needs an assumption to move, they make it themselves, as a two-way door;
+- **how the product looks and speaks** — the language it talks in, its texts, its design — is the
+  architect's too, while the choice is cheap to change later and asks nothing more of people. The
+  architect takes the option that keeps the most open (the person's own language over one fixed
+  language) and tells the owner in one line, as information, not a question.
 
 There is no numeric limit on questions: a topic that must be known now is followed to its end. The
 limit is whose question it is and whether the answer is needed now — never how many.
@@ -143,8 +147,9 @@ Only by an architect, only for one of four reasons, and the list is closed:
 Drift is named as a change of goals, never passed as "a small edit".
 
 **Not reasons:** a technical choice with no consequence for the user or the business (the
-architect decides); a technical one-way door (it goes straight to the owner, as before — the
-analyst would be an extra link); a question from a slice (it goes to `/feature-architect`
+architect decides); how the product looks or speaks, cheap to change and asking nothing more of
+people (the architect decides and tells the owner, §0); a technical one-way door (it goes straight
+to the owner, as before — the analyst would be an extra link); a question from a slice (it goes to `/feature-architect`
 first, who decides whether it is one of the four).
 
 ## 7. The request and the two answers
@@ -198,7 +203,11 @@ requirement; words marked `[не слова власника]` are by themselves
 `OWNER_DECISION`, whose first question is whether the thing is needed at all — that doubt is about
 the document's silence on what the owner wants. A doubt between the owner and the architect over
 **how**, behind a two-way door, is not it: that is `NOT_REQUIRED` with the smallest form «вирішує
-архітектор як two-way door» (§0). `goals.py requests` shows it as its own outcome, `not-required`.
+архітектор як two-way door» (§0) — and so is how the product looks or speaks, while it asks nothing
+more of people. When a line pulls towards an option that asks more of people than the document does —
+their time, an answer, a message they did not ask for, money, data about them — the choice is the
+owner's, behind a two-way door too. When no line requires the thing at all, it stays `NOT_REQUIRED`
+with the smallest form. `goals.py requests` shows it as its own outcome, `not-required`.
 
 Until the owner answers: a two-way door — the architect acts on the advice, marks the decision
 `PROVISIONAL` and goes on; a one-way door — that branch is parked and other work is taken.

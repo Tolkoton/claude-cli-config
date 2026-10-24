@@ -6,12 +6,12 @@
     "must_find": [
       {"kind": "contradiction", "lines": ["G4", "P3"], "why": "G4: no user opens another's log; P3: the owner, who is also a user, sees all logs in the first version"},
       {"kind": "risk-reason", "lines": ["N3"], "why": "the owner said only «Так. Це не лікар.»; «помилка там коштує надто дорого» is the business analyst's"},
-      {"kind": "consequence", "lines": ["D1"], "why": "asking every person some time after every week; people who do not come back will not answer"},
       {"kind": "late-choice", "lines": ["D1"], "why": "option (в) of the business analyst, chosen in the last minutes; its reason (logs we cannot see) does not hold while P3 stands"},
       {"kind": "lost-emphasis", "quote_contains": "немає підходящого типу тижня", "why": "item 1 of the interview, in no line of the draft"},
       {"kind": "no-core"}
     ],
-    "must_not_find": [{"kind": "contradiction", "lines": ["G1", "P1"]}]
+    "must_not_find": [{"kind": "contradiction", "lines": ["G1", "P1"]}],
+    "after": {"judge": ["The answer tells the owner what D1 asks of people — that each person is asked some time after every week, or that everyone has to answer every week, or that someone has to remind them — as its own finding or inside another finding about D1."]}
   },
   "f": {
     "agent": "business-analyst", "mode": "consult",
@@ -22,8 +22,14 @@
   "f-trap": {
     "agent": "business-analyst", "mode": "consult",
     "inputs": {"request": "request-silent.md", "goals": "goals-v1.md"},
-    "after": {"answer": "OWNER_DECISION"},
+    "after": {"answer": "NOT_REQUIRED"},
     "before": {"answer": "OWNER_DECISION"}
+  },
+  "f-owner": {
+    "agent": "business-analyst", "mode": "consult",
+    "inputs": {"request": "request-reminder.md", "goals": "goals-v1.md"},
+    "before": null,
+    "after": {"answer": "OWNER_DECISION"}
   },
   "g": {
     "agent": "master-critic", "phase": "domain",
