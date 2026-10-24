@@ -75,6 +75,9 @@ exception reads only: `review` takes the board from the work branch in origin (b
                                      something open becomes a task of the board (see AN OPEN ITEM);
                                      `todo` is the old name of `proposed` and lands there (A PROPOSAL);
                                      prints its path; exit 1: no board, or nothing to ask
+    board.py close-item --key K --why W
+                                     the unanswered item with key K in blocked/ (or a proposal) settled
+                                     itself: done/NNN-name/ with the reason in report.md; exit 1: none waits
     board.py anomaly <task|-> <what happened> <what was done> [--source WHO]
                                      one entry in tasks/ANOMALIES.md; WHO wrote it: runner
                                      (the default), агент, gates, hook <name>
@@ -209,7 +212,8 @@ refused ask-gated command leaves with something only the owner can settle) write
 owner must answer, into proposed/ when it is work an agent could do (A PROPOSAL), into done/ (task.md
 and report.md) when it is recorded as already settled. With `--key` the line `Відкритий пункт: <key>` goes
 under the title, and a second call with the key of a task still in proposed/, todo/, doing/ or blocked/
-returns that task instead of writing another. The logs .engine/overseer/parked.md and escalations.md are
+returns that task instead of writing another. `close_item` (`close-item`, board 304) moves an item that settled
+itself — its question unanswered in blocked/, or a proposal — to done/ with the reason in report.md. The logs .engine/overseer/parked.md and escalations.md are
 history: they are appended to where a project has no board, nothing in them is ever closed, and
 nothing reads them to learn what is open.
 
@@ -1070,6 +1074,29 @@ def open_item(board: Board, column: str, title: str, what: str, question: str = 
     return target
 
 
+def close_item(board: Board, key: str, why: str) -> Path | None:
+    """An open item that settled itself without the owner (board 304: a new sealed contract ended
+    the dispute that parked a slice): the unanswered question with `key` in blocked/, or the
+    proposal in proposed/, goes to done/NNN-name/ with task.md and a report.md that says why.
+    None when no such task waits: an item the owner answered is the owner's, and is left alone."""
+    key, why = (" ".join(part.replace("<!--", "<! --").split()) for part in (key, why))
+    if not key or not why or not board.tasks.is_dir():
+        return None
+    for path in (p for c in ("blocked", PROPOSED) for p in board.files(c)):
+        found = ITEM.search(path.read_text(encoding="utf-8").split("\n## ", 1)[0])
+        if not found or found.group(1) != key or any(read(path).answers):
+            continue
+        folder = board.tasks / "done" / path.stem
+        folder.mkdir(parents=True, exist_ok=True)
+        title = path.read_text(encoding="utf-8").splitlines()[0].lstrip("# ").strip()
+        (folder / "report.md").write_text(f"# {title}: звіт\n\n## Що змінилось для власника\nПитання знято без вашої відповіді: {why}\n\n"
+                                          f"- Закрито: {utc_now()}\n", encoding="utf-8")
+        target = folder / "task.md"
+        path.replace(target)
+        return target
+    return None
+
+
 PROPOSAL_NOTE = (f"- Це пропозиція, а не задача в черзі: runner із `tasks/{PROPOSED}/` нічого не бере. У роботу її ставить "
                  "власник — файлом із цим номером в inbox.\n")
 
@@ -1699,6 +1726,9 @@ def main() -> int:
     item_parser.add_argument("--do", default="", help="proposed: what to do; done: why it is settled (the report)")
     item_parser.add_argument("--key", default="", help="the item's own name: a second call with it returns the task still open")
     item_parser.add_argument("--source", default="агент", help="who writes: агент (default), hook <name>, overseer")
+    close_parser = commands.add_parser("close-item")
+    close_parser.add_argument("--key", required=True)
+    close_parser.add_argument("--why", required=True, help="why it is settled without the owner (the report)")
     commands.add_parser("summary")
     commands.add_parser("check")
     review_parser = commands.add_parser("review")
@@ -1802,6 +1832,13 @@ def main() -> int:
         item = open_item(board, args.to, args.title, args.what, args.question, args.do, args.key, args.source)
         if item is None:
             print("no task written: the project has no tasks/ directory, the title is empty, or --to blocked came without --question", file=sys.stderr)
+            return 1
+        print(board.shown(item))
+        return 0
+    if args.command == "close-item":
+        item = close_item(board, args.key, args.why)
+        if item is None:
+            print(f"no task closed: no unanswered item with the key {args.key!r} waits in tasks/blocked/ or tasks/proposed/", file=sys.stderr)
             return 1
         print(board.shown(item))
         return 0

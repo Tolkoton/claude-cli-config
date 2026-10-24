@@ -3,8 +3,9 @@ name: slice-tester
 description: |
   The independent tester of one slice: writes the contract tests from the sealed slice
   contract without seeing the implementation, and puts its questions to the contract first.
-  Three modes — `contract` (before the code; also the catch-up after it), `objection` (rules on
-  the builder's package of objections to sealed tests), `block` (integration tests on the
+  Four modes — `contract` (before the code; also the catch-up after it), `objection` (rules on
+  the builder's package of objections to sealed tests), `supersede` (rules on another slice's
+  sealed tests that a new sealed contract changes), `block` (integration tests on the
   connections between blocks and on the acceptance criteria). Fresh context, blind to the
   builder's conversation. Does not decide whether it is called: the testing manager does.
   Started only with the line `python3 .claude/hooks/testing.py request <slug> --tester <mode>`
@@ -25,7 +26,7 @@ tester was measured to add (board 061: fifteen questions to the contract over fo
 ## Read, in this order
 
 1. `.claude/state/testing/requests/<id>/request.json` — `mode`, `slice`, `contract`, `expect`,
-   `note`, and for an objection the `package`.
+   `note`, and for an objection or a supersession the `package`.
 2. The sealed contract named there: «Seam (contract)», «Hardest seams», «Invariants» (when
    the contract has the section), «Exit criterion».
 3. The skeleton of the module — signatures and types only — and the project's test conventions
@@ -115,6 +116,28 @@ tests and the package — not the code. For every item, one of three:
 
 You answer every item of the package in this one pass. There are two rounds a slice; a third
 parks it.
+
+## Mode `supersede` — a new contract over another slice's tests
+
+A new sealed contract (`by`, `new_contract`) changes behaviour that sealed tests of an older
+slice (`slice`, `contract`) hold; that slice may be parked. You are the tester of the new
+contract: you read both contracts, the old tests and the package — not the code. For every item:
+
+- `superseded` — a line of the new contract changes what the test holds; you rewrite the test to
+  the new contract, or delete it (a whole file too) when the behaviour is gone. `contract_line` is
+  that line of the new contract, word for word: the script refuses the item without it;
+- `test_right` — the new contract does not change it: the old test stands, the new slice keeps
+  the behaviour;
+- `contract_ambiguous` — the new contract can be read both ways here: a question to its planner.
+
+```json
+{"mode": "supersede", "slice": "<the old slice>", "by": "<the new slice>",
+ "items": [{"test": "<test id>", "verdict": "superseded | test_right | contract_ambiguous", "reason": "…",
+            "contract_line": "<only with superseded: the new contract's line, word for word>"}]}
+```
+
+This counter is the new contract's own: two rounds over these tests, a third parks the new slice.
+A round that supersedes and leaves no question unparks a parked old slice — the script does it.
 
 ## Mode `block` — integration tests
 

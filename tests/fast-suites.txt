@@ -163,3 +163,4 @@ test_cause_first_scope.py
 test_ask_owner_now.py
 # Board 205: test_goals_handoff 1.5 s is in (the first seal of a new project hands off to /master-architect; the runner's architecture task).
 test_goals_handoff.py
+# Board 304: test_testing_supersede 3.3 s stays out (five synthetic projects with a copy of the hooks each, about thirty runs of testing.py and board.py).
