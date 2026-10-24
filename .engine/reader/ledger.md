@@ -96,3 +96,8 @@
 - Record: tasks/done/117-release-audit-next/report.md
 - Reason: All four questions hold. The references I could open match the report: the audit and golden-set records, the audit-noise threshold, the reports of 204, 404, 503 and 116, the proposals 1762 and 1763, and the commits named in those files. The report answers every «Що зробити» item. The task file's one open question names options А and Б and gives the author's advice. Engine terms stay in English. The path mismatch from attempt 1 is fixed: the report and the task file now both give the current path and the path after the commit.
 - Request: 20261024T080133Z-a63bfb (attempt 2)
+
+## 2026-10-24T13:03:00Z — 302-agent-decides-packages — READER_PASS
+- Record: tasks/done/302-agent-decides-packages/report.md
+- Reason: All four questions hold. I opened every file-and-line reference and each says what the report claims. Every item of «Що зробити» and «Готово, коли» is either done (rules, settings, hook, tests, eval, docs, maintain.md) or explained (hotfix/bugfix left alone, spread to projects deferred to the v0.14.2 release, task 118). Both owner questions in the task file are answered, the report opens no new one, and engine terms stay English (runner, commit, hook, classifier, tag, lock file).
+- Request: 20261024T130155Z-146a64 (attempt 1)
